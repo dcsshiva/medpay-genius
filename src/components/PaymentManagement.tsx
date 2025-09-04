@@ -399,7 +399,7 @@ const PaymentManagement = () => {
         .from('profiles')
         .select('id')
         .eq('user_id', user!.id)
-        .single();
+        .maybeSingle();
 
       if (!profile) throw new Error('Profile not found');
 
@@ -455,7 +455,7 @@ const PaymentManagement = () => {
         .from('profiles')
         .select('id')
         .eq('user_id', user!.id)
-        .single();
+        .maybeSingle();
 
       if (!profile) throw new Error('Profile not found');
 
