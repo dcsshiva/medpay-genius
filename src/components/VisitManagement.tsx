@@ -151,17 +151,26 @@ const VisitManagement = () => {
     }
   };
 
+  const generateUniquePatientId = () => {
+    const timestamp = Date.now().toString();
+    const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+    return `P${timestamp.slice(-6)}${randomNum}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
+      // Generate unique patient ID if not provided
+      const patientId = formData.patient_id?.trim() || generateUniquePatientId();
+
       const { error } = await supabase
         .from('visits')
         .insert({
           doctor_id: formData.doctor_id,
           visit_date: formData.visit_date,
           patient_count: formData.patient_count,
-          patient_id: formData.patient_id || null,
+          patient_id: patientId,
           patient_name: formData.patient_name,
           visit_payment: formData.visit_payment || null,
           visit_reason: formData.visit_reason,
@@ -172,7 +181,7 @@ const VisitManagement = () => {
 
       toast({
         title: "Success",
-        description: "Visit recorded successfully"
+        description: `Visit recorded successfully with Patient ID: ${patientId}`
       });
 
       setDialogOpen(false);

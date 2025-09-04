@@ -259,8 +259,8 @@ const PaymentManagement = () => {
 
       if (doctorError) throw doctorError;
 
-      // Get detailed visits in the period
-      const { data: visits, error: visitsError } = await supabase
+      // Get all visits in the period
+      const { data: allVisits, error: visitsError } = await supabase
         .from('visits')
         .select(`
           id,
@@ -278,12 +278,32 @@ const PaymentManagement = () => {
 
       if (visitsError) throw visitsError;
 
-      const totalVisits = visits?.reduce((sum, visit) => sum + visit.patient_count, 0) || 0;
+      // Get all approved payments for this doctor to exclude already processed visits
+      const { data: approvedPayments, error: paymentsError } = await supabase
+        .from('payments')
+        .select('id, period_start, period_end')
+        .eq('doctor_id', formData.doctor_id)
+        .in('status', ['admin_approved'])
+        .order('period_start', { ascending: true });
+
+      if (paymentsError) throw paymentsError;
+
+      // Filter out visits that have already been processed in approved payments
+      const unprocessedVisits = allVisits?.filter(visit => {
+        return !approvedPayments?.some(payment => {
+          const visitDate = new Date(visit.visit_date);
+          const paymentStart = new Date(payment.period_start);
+          const paymentEnd = new Date(payment.period_end);
+          return visitDate >= paymentStart && visitDate <= paymentEnd;
+        });
+      }) || [];
+
+      const totalVisits = unprocessedVisits.reduce((sum, visit) => sum + visit.patient_count, 0);
       const ratePerVisit = doctorData.rate_per_visit;
       const totalAmount = totalVisits * ratePerVisit;
 
       setCalculatedData({
-        visits: visits || [],
+        visits: unprocessedVisits,
         total_visits: totalVisits,
         rate_per_visit: ratePerVisit,
         total_amount: totalAmount,
