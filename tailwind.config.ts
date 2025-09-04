@@ -60,6 +60,16 @@ export default {
 					DEFAULT: 'hsl(var(--warning))',
 					foreground: 'hsl(var(--warning-foreground))'
 				},
+				// WestMed Hospital Brand Colors
+				westmed: {
+					green: 'hsl(var(--westmed-green))',
+					teal: 'hsl(var(--westmed-teal))',
+					navy: 'hsl(var(--westmed-navy))',
+					coral: 'hsl(var(--westmed-coral))',
+					'light-green': 'hsl(var(--westmed-light-green))',
+					'light-teal': 'hsl(var(--westmed-light-teal))'
+				},
+				// Legacy medical colors for compatibility
 				medical: {
 					blue: 'hsl(var(--medical-blue))',
 					green: 'hsl(var(--medical-green))',
