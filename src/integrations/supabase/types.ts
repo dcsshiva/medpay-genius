@@ -55,6 +55,57 @@ export type Database = {
           },
         ]
       }
+      payment_transactions: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          payment_id: string
+          transaction_date: string
+          transaction_reference: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          payment_id: string
+          transaction_date?: string
+          transaction_reference?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          payment_id?: string
+          transaction_date?: string
+          transaction_reference?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_transactions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_transactions_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           admin_approved_at: string | null
@@ -62,14 +113,18 @@ export type Database = {
           created_at: string
           doctor_id: string
           id: string
+          is_fully_paid: boolean | null
           manager_approved_at: string | null
           manager_approved_by: string | null
+          paid_amount: number | null
+          payment_notes: string | null
           period_end: string
           period_start: string
           rate_per_visit: number
           rejected_at: string | null
           rejected_by: string | null
           rejection_reason: string | null
+          remaining_amount: number | null
           status: Database["public"]["Enums"]["payment_status"]
           total_amount: number
           total_visits: number
@@ -81,14 +136,18 @@ export type Database = {
           created_at?: string
           doctor_id: string
           id?: string
+          is_fully_paid?: boolean | null
           manager_approved_at?: string | null
           manager_approved_by?: string | null
+          paid_amount?: number | null
+          payment_notes?: string | null
           period_end: string
           period_start: string
           rate_per_visit: number
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
+          remaining_amount?: number | null
           status?: Database["public"]["Enums"]["payment_status"]
           total_amount: number
           total_visits: number
@@ -100,14 +159,18 @@ export type Database = {
           created_at?: string
           doctor_id?: string
           id?: string
+          is_fully_paid?: boolean | null
           manager_approved_at?: string | null
           manager_approved_by?: string | null
+          paid_amount?: number | null
+          payment_notes?: string | null
           period_end?: string
           period_start?: string
           rate_per_visit?: number
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
+          remaining_amount?: number | null
           status?: Database["public"]["Enums"]["payment_status"]
           total_amount?: number
           total_visits?: number

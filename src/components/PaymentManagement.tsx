@@ -30,6 +30,10 @@ interface Payment {
   total_visits: number;
   rate_per_visit: number;
   total_amount: number;
+  paid_amount: number;
+  remaining_amount: number;
+  is_fully_paid: boolean;
+  payment_notes?: string;
   status: 'pending' | 'manager_approved' | 'admin_approved' | 'rejected';
   manager_approved_by?: string;
   manager_approved_at?: string;
@@ -44,6 +48,16 @@ interface Payment {
       full_name: string;
     };
   };
+}
+
+interface PaymentTransaction {
+  id: string;
+  payment_id: string;
+  amount: number;
+  transaction_date: string;
+  transaction_reference?: string;
+  notes?: string;
+  created_at: string;
 }
 
 interface Visit {
@@ -82,11 +96,19 @@ const PaymentManagement = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [visitDetailsDialog, setVisitDetailsDialog] = useState(false);
+  const [partialPaymentDialog, setPartialPaymentDialog] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [paymentTransactions, setPaymentTransactions] = useState<PaymentTransaction[]>([]);
   const [selectedPaymentVisits, setSelectedPaymentVisits] = useState<Visit[]>([]);
   const [formData, setFormData] = useState({
     doctor_id: '',
     period_start: '',
     period_end: ''
+  });
+  const [partialPaymentData, setPartialPaymentData] = useState({
+    amount: 0,
+    transaction_reference: '',
+    notes: ''
   });
   const [calculatedData, setCalculatedData] = useState<PaymentCalculation>({
     visits: [],
@@ -115,6 +137,10 @@ const PaymentManagement = () => {
           total_visits,
           rate_per_visit,
           total_amount,
+          paid_amount,
+          remaining_amount,
+          is_fully_paid,
+          payment_notes,
           status,
           manager_approved_by,
           manager_approved_at,
@@ -195,6 +221,97 @@ const PaymentManagement = () => {
     }
   };
 
+  const fetchPaymentTransactions = async (paymentId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('payment_transactions')
+        .select('*')
+        .eq('payment_id', paymentId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setPaymentTransactions(data || []);
+    } catch (error) {
+      console.error('Error fetching payment transactions:', error);
+    }
+  };
+
+  const handlePartialPayment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!selectedPayment || userRole !== 'admin') {
+      toast({
+        variant: "destructive",
+        title: "Access Denied",
+        description: "Only admins can process partial payments"
+      });
+      return;
+    }
+
+    if (partialPaymentData.amount <= 0 || partialPaymentData.amount > selectedPayment.remaining_amount) {
+      toast({
+        variant: "destructive",
+        title: "Invalid Amount",
+        description: `Amount must be between ₹1 and ₹${selectedPayment.remaining_amount}`
+      });
+      return;
+    }
+
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user!.id)
+        .single();
+
+      if (!profile) throw new Error('Profile not found');
+
+      // Create payment transaction
+      const { error: transactionError } = await supabase
+        .from('payment_transactions')
+        .insert({
+          payment_id: selectedPayment.id,
+          amount: partialPaymentData.amount,
+          transaction_reference: partialPaymentData.transaction_reference || null,
+          notes: partialPaymentData.notes || null,
+          created_by: profile.id
+        });
+
+      if (transactionError) throw transactionError;
+
+      // Update payment record
+      const newPaidAmount = selectedPayment.paid_amount + partialPaymentData.amount;
+      const newRemainingAmount = selectedPayment.total_amount - newPaidAmount;
+      const isFullyPaid = newRemainingAmount <= 0;
+
+      const { error: paymentError } = await supabase
+        .from('payments')
+        .update({
+          paid_amount: newPaidAmount,
+          remaining_amount: newRemainingAmount,
+          is_fully_paid: isFullyPaid
+        })
+        .eq('id', selectedPayment.id);
+
+      if (paymentError) throw paymentError;
+
+      toast({
+        title: "Success",
+        description: `Partial payment of ${formatCurrency(partialPaymentData.amount)} recorded successfully`
+      });
+
+      setPartialPaymentDialog(false);
+      setPartialPaymentData({ amount: 0, transaction_reference: '', notes: '' });
+      fetchPayments();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to record partial payment"
+      });
+    }
+  };
+  
   const calculatePayment = async () => {
     if (!formData.doctor_id || !formData.period_start || !formData.period_end) return;
 
@@ -647,6 +764,113 @@ const PaymentManagement = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Partial Payment Dialog */}
+      <Dialog open={partialPaymentDialog} onOpenChange={setPartialPaymentDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Record Partial Payment</DialogTitle>
+          </DialogHeader>
+          {selectedPayment && (
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <h4 className="font-medium mb-2">{selectedPayment.doctors?.profiles?.full_name}</h4>
+                <div className="text-sm space-y-1">
+                  <div className="flex justify-between">
+                    <span>Total Amount:</span>
+                    <span className="font-medium">{formatCurrency(selectedPayment.total_amount)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Paid Amount:</span>
+                    <span className="font-medium">{formatCurrency(selectedPayment.paid_amount)}</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-1">
+                    <span>Remaining:</span>
+                    <span className="font-bold text-destructive">{formatCurrency(selectedPayment.remaining_amount)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <form onSubmit={handlePartialPayment} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="payment_amount">Payment Amount (₹)</Label>
+                  <Input
+                    id="payment_amount"
+                    type="number"
+                    min="1"
+                    max={selectedPayment.remaining_amount}
+                    step="0.01"
+                    value={partialPaymentData.amount}
+                    onChange={(e) => setPartialPaymentData({ 
+                      ...partialPaymentData, 
+                      amount: parseFloat(e.target.value) || 0 
+                    })}
+                    placeholder={`Max: ${selectedPayment.remaining_amount}`}
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="transaction_ref">Transaction Reference</Label>
+                  <Input
+                    id="transaction_ref"
+                    value={partialPaymentData.transaction_reference}
+                    onChange={(e) => setPartialPaymentData({ 
+                      ...partialPaymentData, 
+                      transaction_reference: e.target.value 
+                    })}
+                    placeholder="Bank ref, cheque no, etc."
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="payment_notes">Notes</Label>
+                  <Textarea
+                    id="payment_notes"
+                    value={partialPaymentData.notes}
+                    onChange={(e) => setPartialPaymentData({ 
+                      ...partialPaymentData, 
+                      notes: e.target.value 
+                    })}
+                    placeholder="Payment method, additional notes..."
+                    rows={3}
+                  />
+                </div>
+
+                {/* Payment History */}
+                {paymentTransactions.length > 0 && (
+                  <div className="space-y-2">
+                    <Label className="text-sm text-muted-foreground">Previous Transactions</Label>
+                    <div className="max-h-32 overflow-y-auto space-y-1">
+                      {paymentTransactions.map((transaction) => (
+                        <div key={transaction.id} className="text-xs p-2 bg-muted rounded">
+                          <div className="flex justify-between">
+                            <span>{format(new Date(transaction.transaction_date), 'MMM dd, yyyy')}</span>
+                            <span className="font-medium">{formatCurrency(transaction.amount)}</span>
+                          </div>
+                          {transaction.transaction_reference && (
+                            <p className="text-muted-foreground">Ref: {transaction.transaction_reference}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setPartialPaymentDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={partialPaymentData.amount <= 0}>
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Record Payment
+                  </Button>
+                </div>
+              </form>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Payments List */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {payments.map((payment) => (
@@ -695,7 +919,7 @@ const PaymentManagement = () => {
                 </div>
               </div>
 
-              {/* Approval Actions */}
+              {/* Approval Actions - Only for pending payments */}
               {((userRole === 'manager' && payment.status === 'pending') ||
                 (userRole === 'admin' && (payment.status === 'pending' || payment.status === 'manager_approved'))) && (
                 <div className="flex gap-2 mt-4">
@@ -716,6 +940,66 @@ const PaymentManagement = () => {
                     <X className="h-4 w-4 mr-1" />
                     Reject
                   </Button>
+                </div>
+              )}
+
+              {/* Payment Status & Actions - Only for Admin */}
+              {payment.status === 'admin_approved' && userRole === 'admin' && (
+                <div className="mt-4 space-y-3">
+                  <div className="flex justify-between items-center p-3 bg-primary/5 rounded-lg border">
+                    <div className="text-sm">
+                      <p className="font-medium">Payment Status</p>
+                      <p className="text-xs text-muted-foreground">
+                        Paid: {formatCurrency(payment.paid_amount)} | Remaining: {formatCurrency(payment.remaining_amount)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      {payment.is_fully_paid ? (
+                        <Badge variant="default" className="bg-success">
+                          ✓ Fully Paid
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary">
+                          Partial: {Math.round((payment.paid_amount / payment.total_amount) * 100)}%
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  {!payment.is_fully_paid && (
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setSelectedPayment(payment);
+                          fetchPaymentTransactions(payment.id);
+                          setPartialPaymentDialog(true);
+                        }}
+                        className="flex-1"
+                      >
+                        <CreditCard className="h-4 w-4 mr-1" />
+                        Make Partial Payment
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setSelectedPayment(payment);
+                          setPartialPaymentData({
+                            amount: payment.remaining_amount,
+                            transaction_reference: '',
+                            notes: 'Full settlement payment'
+                          });
+                          fetchPaymentTransactions(payment.id);
+                          setPartialPaymentDialog(true);
+                        }}
+                        className="flex-1"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Full Payment
+                      </Button>
+                    </div>
+                  )}
                 </div>
               )}
 
