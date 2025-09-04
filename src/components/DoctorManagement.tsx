@@ -35,7 +35,9 @@ const DoctorManagement = () => {
     doctor_code: '',
     specialization: '',
     rate_per_visit: 500,
-    is_active: true
+    is_active: true,
+    email: '',
+    password: ''
   });
 
   useEffect(() => {
@@ -104,10 +106,42 @@ const DoctorManagement = () => {
           description: "Doctor updated successfully"
         });
       } else {
-        // Create new doctor - first create profile then doctor record
+        // Validation for new doctor
+        if (!formData.email.trim() || !formData.password.trim()) {
+          toast({
+            variant: "destructive",
+            title: "Validation Error",
+            description: "Email and password are required for new doctors"
+          });
+          return;
+        }
+
+        if (formData.password.length < 6) {
+          toast({
+            variant: "destructive",
+            title: "Validation Error",
+            description: "Password must be at least 6 characters long"
+          });
+          return;
+        }
+
+        // Create Supabase auth user first
+        const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+          email: formData.email,
+          password: formData.password,
+          user_metadata: {
+            full_name: formData.full_name,
+            role: 'doctor'
+          }
+        });
+
+        if (authError) throw authError;
+
+        // Create profile record
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .insert({
+            user_id: authData.user.id,
             full_name: formData.full_name,
             role: 'doctor'
           })
@@ -116,6 +150,7 @@ const DoctorManagement = () => {
 
         if (profileError) throw profileError;
 
+        // Create doctor record
         const { error: doctorError } = await supabase
           .from('doctors')
           .insert({
@@ -153,7 +188,9 @@ const DoctorManagement = () => {
       doctor_code: '',
       specialization: '',
       rate_per_visit: 500,
-      is_active: true
+      is_active: true,
+      email: '',
+      password: ''
     });
   };
 
@@ -164,7 +201,9 @@ const DoctorManagement = () => {
       doctor_code: doctor.doctor_code,
       specialization: doctor.specialization,
       rate_per_visit: doctor.rate_per_visit,
-      is_active: doctor.is_active
+      is_active: doctor.is_active,
+      email: '', // Don't pre-fill for security
+      password: '' // Don't pre-fill for security
     });
     setDialogOpen(true);
   };
@@ -277,6 +316,34 @@ const DoctorManagement = () => {
                     required
                   />
                 </div>
+                {!editingDoctor && (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email *</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        placeholder="doctor@hospital.com"
+                        required
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Password *</Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        placeholder="Minimum 6 characters"
+                        required
+                      />
+                    </div>
+                  </>
+                )}
+                
                 <div className="space-y-2">
                   <Label htmlFor="rate_per_visit">Rate per Visit (₹)</Label>
                   <Input
