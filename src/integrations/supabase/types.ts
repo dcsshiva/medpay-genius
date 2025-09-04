@@ -14,16 +14,218 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      doctors: {
+        Row: {
+          created_at: string
+          doctor_code: string
+          id: string
+          is_active: boolean
+          profile_id: string
+          rate_per_visit: number
+          specialization: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          doctor_code: string
+          id?: string
+          is_active?: boolean
+          profile_id: string
+          rate_per_visit?: number
+          specialization: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          doctor_code?: string
+          id?: string
+          is_active?: boolean
+          profile_id?: string
+          rate_per_visit?: number
+          specialization?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctors_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          admin_approved_at: string | null
+          admin_approved_by: string | null
+          created_at: string
+          doctor_id: string
+          id: string
+          manager_approved_at: string | null
+          manager_approved_by: string | null
+          period_end: string
+          period_start: string
+          rate_per_visit: number
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
+          status: Database["public"]["Enums"]["payment_status"]
+          total_amount: number
+          total_visits: number
+          updated_at: string
+        }
+        Insert: {
+          admin_approved_at?: string | null
+          admin_approved_by?: string | null
+          created_at?: string
+          doctor_id: string
+          id?: string
+          manager_approved_at?: string | null
+          manager_approved_by?: string | null
+          period_end: string
+          period_start: string
+          rate_per_visit: number
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          status?: Database["public"]["Enums"]["payment_status"]
+          total_amount: number
+          total_visits: number
+          updated_at?: string
+        }
+        Update: {
+          admin_approved_at?: string | null
+          admin_approved_by?: string | null
+          created_at?: string
+          doctor_id?: string
+          id?: string
+          manager_approved_at?: string | null
+          manager_approved_by?: string | null
+          period_end?: string
+          period_start?: string
+          rate_per_visit?: number
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          status?: Database["public"]["Enums"]["payment_status"]
+          total_amount?: number
+          total_visits?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_admin_approved_by_fkey"
+            columns: ["admin_approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_manager_approved_by_fkey"
+            columns: ["manager_approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_rejected_by_fkey"
+            columns: ["rejected_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          full_name: string
+          id: string
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          full_name: string
+          id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string
+          id?: string
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      visits: {
+        Row: {
+          created_at: string
+          doctor_id: string
+          id: string
+          notes: string | null
+          patient_count: number
+          updated_at: string
+          visit_date: string
+        }
+        Insert: {
+          created_at?: string
+          doctor_id: string
+          id?: string
+          notes?: string | null
+          patient_count?: number
+          updated_at?: string
+          visit_date?: string
+        }
+        Update: {
+          created_at?: string
+          doctor_id?: string
+          id?: string
+          notes?: string | null
+          patient_count?: number
+          updated_at?: string
+          visit_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visits_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_user_role: {
+        Args: { user_uuid: string }
+        Returns: Database["public"]["Enums"]["user_role"]
+      }
     }
     Enums: {
-      [_ in never]: never
+      payment_status:
+        | "pending"
+        | "manager_approved"
+        | "admin_approved"
+        | "rejected"
+      user_role: "doctor" | "manager" | "admin"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +352,14 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      payment_status: [
+        "pending",
+        "manager_approved",
+        "admin_approved",
+        "rejected",
+      ],
+      user_role: ["doctor", "manager", "admin"],
+    },
   },
 } as const
