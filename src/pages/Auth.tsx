@@ -216,7 +216,7 @@ const Auth = () => {
 
         <div className="mt-6 text-center">
           <p className="text-sm text-muted-foreground">
-            Demo Credentials: admin@admin.com / password
+            Demo Credentials: admin@admin.com / admin123
           </p>
         </div>
       </div>
