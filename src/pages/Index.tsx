@@ -6,6 +6,9 @@ import Dashboard from '@/components/Dashboard';
 import DoctorManagement from '@/components/DoctorManagement';
 import VisitManagement from '@/components/VisitManagement';
 import PaymentManagement from '@/components/PaymentManagement';
+import StaffManagement from '@/components/StaffManagement';
+import TaskManagement from '@/components/TaskManagement';
+import ComplaintManagement from '@/components/ComplaintManagement';
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -37,12 +40,18 @@ const Index = () => {
     switch (activeTab) {
       case 'dashboard':
         return <Dashboard />;
+      case 'staff':
+        return <StaffManagement />;
       case 'doctors':
         return <DoctorManagement />;
       case 'visits':
         return <VisitManagement />;
       case 'payments':
         return <PaymentManagement />;
+      case 'tasks':
+        return <TaskManagement />;
+      case 'complaints':
+        return <ComplaintManagement />;
       default:
         return <Dashboard />;
     }

@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      complaints: {
+        Row: {
+          admin_response: string | null
+          category: string
+          complaint_description: string
+          complaint_title: string
+          created_at: string
+          id: string
+          priority: string
+          raised_by: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: Database["public"]["Enums"]["complaint_status"]
+          updated_at: string
+        }
+        Insert: {
+          admin_response?: string | null
+          category?: string
+          complaint_description: string
+          complaint_title: string
+          created_at?: string
+          id?: string
+          priority?: string
+          raised_by: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["complaint_status"]
+          updated_at?: string
+        }
+        Update: {
+          admin_response?: string | null
+          category?: string
+          complaint_description?: string
+          complaint_title?: string
+          created_at?: string
+          id?: string
+          priority?: string
+          raised_by?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["complaint_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "complaints_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "complaints_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       doctors: {
         Row: {
           created_at: string
@@ -234,6 +294,114 @@ export type Database = {
         }
         Relationships: []
       }
+      staff: {
+        Row: {
+          created_at: string
+          department: string | null
+          email: string | null
+          full_name: string
+          id: string
+          is_active: boolean
+          last_login: string | null
+          password_hash: string
+          phone: string | null
+          role: Database["public"]["Enums"]["staff_role"]
+          staff_code: string
+          updated_at: string
+          username: string
+        }
+        Insert: {
+          created_at?: string
+          department?: string | null
+          email?: string | null
+          full_name: string
+          id?: string
+          is_active?: boolean
+          last_login?: string | null
+          password_hash: string
+          phone?: string | null
+          role?: Database["public"]["Enums"]["staff_role"]
+          staff_code: string
+          updated_at?: string
+          username: string
+        }
+        Update: {
+          created_at?: string
+          department?: string | null
+          email?: string | null
+          full_name?: string
+          id?: string
+          is_active?: boolean
+          last_login?: string | null
+          password_hash?: string
+          phone?: string | null
+          role?: Database["public"]["Enums"]["staff_role"]
+          staff_code?: string
+          updated_at?: string
+          username?: string
+        }
+        Relationships: []
+      }
+      tasks: {
+        Row: {
+          assigned_by: string | null
+          assigned_to: string
+          completed_at: string | null
+          created_at: string
+          due_date: string | null
+          id: string
+          notes: string | null
+          priority: string
+          status: Database["public"]["Enums"]["task_status"]
+          task_description: string | null
+          task_title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_by?: string | null
+          assigned_to: string
+          completed_at?: string | null
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          priority?: string
+          status?: Database["public"]["Enums"]["task_status"]
+          task_description?: string | null
+          task_title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_by?: string | null
+          assigned_to?: string
+          completed_at?: string | null
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          priority?: string
+          status?: Database["public"]["Enums"]["task_status"]
+          task_description?: string | null
+          task_title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_assigned_to_fkey"
+            columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       visits: {
         Row: {
           created_at: string
@@ -295,11 +463,28 @@ export type Database = {
       }
     }
     Enums: {
+      complaint_status: "open" | "in_review" | "resolved" | "closed"
       payment_status:
         | "pending"
         | "manager_approved"
         | "admin_approved"
         | "rejected"
+      staff_role:
+        | "admin"
+        | "manager"
+        | "nurse"
+        | "doctor"
+        | "technician"
+        | "receptionist"
+        | "pharmacist"
+        | "cleaner"
+        | "security"
+      task_status:
+        | "pending"
+        | "in_progress"
+        | "completed"
+        | "cancelled"
+        | "overdue"
       user_role: "doctor" | "manager" | "admin"
     }
     CompositeTypes: {
@@ -428,11 +613,30 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      complaint_status: ["open", "in_review", "resolved", "closed"],
       payment_status: [
         "pending",
         "manager_approved",
         "admin_approved",
         "rejected",
+      ],
+      staff_role: [
+        "admin",
+        "manager",
+        "nurse",
+        "doctor",
+        "technician",
+        "receptionist",
+        "pharmacist",
+        "cleaner",
+        "security",
+      ],
+      task_status: [
+        "pending",
+        "in_progress",
+        "completed",
+        "cancelled",
+        "overdue",
       ],
       user_role: ["doctor", "manager", "admin"],
     },

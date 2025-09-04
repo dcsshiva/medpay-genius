@@ -9,7 +9,10 @@ import {
   Calendar, 
   CreditCard, 
   Settings,
-  Home 
+  Home,
+  ClipboardList,
+  MessageCircle,
+  UserCog
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -31,6 +34,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
         ...baseItems,
         { id: 'visits', label: 'My Visits', icon: Calendar },
         { id: 'payments', label: 'My Payments', icon: CreditCard },
+        { id: 'tasks', label: 'My Tasks', icon: ClipboardList },
+        { id: 'complaints', label: 'Complaints', icon: MessageCircle },
       ];
     }
 
@@ -39,15 +44,20 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
         ...baseItems,
         { id: 'doctors', label: 'Doctors', icon: Users },
         { id: 'payments', label: 'Payment Approvals', icon: CreditCard },
+        { id: 'tasks', label: 'Task Management', icon: ClipboardList },
+        { id: 'complaints', label: 'Complaints', icon: MessageCircle },
       ];
     }
 
     if (userRole === 'admin') {
       return [
         ...baseItems,
+        { id: 'staff', label: 'Staff Management', icon: UserCog },
         { id: 'doctors', label: 'Doctor Management', icon: Users },
-        { id: 'visits', label: 'All Visits', icon: Calendar },
+        { id: 'visits', label: 'Visit Management', icon: Calendar },
         { id: 'payments', label: 'Payment Management', icon: CreditCard },
+        { id: 'tasks', label: 'Task Management', icon: ClipboardList },
+        { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
         { id: 'settings', label: 'Settings', icon: Settings },
       ];
     }
@@ -75,7 +85,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
             </div>
             <div>
               <h1 className="text-xl font-bold text-foreground">WestMed Hospital</h1>
-              <p className="text-sm text-muted-foreground">Payment Management System</p>
+              <p className="text-sm text-muted-foreground">Hospital Management System</p>
             </div>
           </div>
           
