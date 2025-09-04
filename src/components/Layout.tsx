@@ -13,7 +13,8 @@ import {
   Home,
   ClipboardList,
   MessageCircle,
-  UserCog
+  UserCog,
+  MessageSquare
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -48,6 +49,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
         { id: 'payments', label: 'Payment Approvals', icon: CreditCard },
         { id: 'tasks', label: 'Task Management', icon: ClipboardList },
         { id: 'complaints', label: 'Complaints', icon: MessageCircle },
+        { id: 'chat', label: 'Team Chat', icon: MessageSquare },
         { id: 'settings', label: 'Settings', icon: Settings },
       ];
     }
@@ -61,6 +63,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
         { id: 'payments', label: 'Payment Management', icon: CreditCard },
         { id: 'tasks', label: 'Task Management', icon: ClipboardList },
         { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
+        { id: 'chat', label: 'Team Chat', icon: MessageSquare },
         { id: 'settings', label: 'Settings', icon: Settings },
       ];
     }

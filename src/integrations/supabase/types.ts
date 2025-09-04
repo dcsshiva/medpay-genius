@@ -115,6 +115,39 @@ export type Database = {
           },
         ]
       }
+      messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          is_edited: boolean
+          sender_id: string
+          sender_name: string
+          sender_role: Database["public"]["Enums"]["user_role"]
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          is_edited?: boolean
+          sender_id: string
+          sender_name: string
+          sender_role: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          is_edited?: boolean
+          sender_id?: string
+          sender_name?: string
+          sender_role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       payment_transactions: {
         Row: {
           amount: number
