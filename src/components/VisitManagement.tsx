@@ -17,6 +17,10 @@ interface Visit {
   id: string;
   visit_date: string;
   patient_count: number;
+  patient_id?: string;
+  patient_name: string;
+  visit_payment?: number;
+  visit_reason: string;
   notes?: string;
   doctor_id: string;
   doctors: {
@@ -46,6 +50,10 @@ const VisitManagement = () => {
     doctor_id: '',
     visit_date: new Date().toISOString().split('T')[0],
     patient_count: 1,
+    patient_id: '',
+    patient_name: '',
+    visit_payment: 0,
+    visit_reason: 'regular_checkup',
     notes: ''
   });
 
@@ -64,6 +72,10 @@ const VisitManagement = () => {
           id,
           visit_date,
           patient_count,
+          patient_id,
+          patient_name,
+          visit_payment,
+          visit_reason,
           notes,
           doctor_id,
           doctors:doctor_id (
@@ -149,6 +161,10 @@ const VisitManagement = () => {
           doctor_id: formData.doctor_id,
           visit_date: formData.visit_date,
           patient_count: formData.patient_count,
+          patient_id: formData.patient_id || null,
+          patient_name: formData.patient_name,
+          visit_payment: formData.visit_payment || null,
+          visit_reason: formData.visit_reason,
           notes: formData.notes || null
         });
 
@@ -176,6 +192,10 @@ const VisitManagement = () => {
       doctor_id: '',
       visit_date: new Date().toISOString().split('T')[0],
       patient_count: 1,
+      patient_id: '',
+      patient_name: '',
+      visit_payment: 0,
+      visit_reason: 'regular_checkup',
       notes: ''
     });
   };
@@ -283,6 +303,63 @@ const VisitManagement = () => {
                   required
                 />
               </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="patient_id">Patient ID (Optional)</Label>
+                  <Input
+                    id="patient_id"
+                    value={formData.patient_id}
+                    onChange={(e) => setFormData({ ...formData, patient_id: e.target.value })}
+                    placeholder="P001, P002, etc."
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="patient_name">Patient Name</Label>
+                  <Input
+                    id="patient_name"
+                    value={formData.patient_name}
+                    onChange={(e) => setFormData({ ...formData, patient_name: e.target.value })}
+                    placeholder="John Doe"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="visit_payment">Visit Payment (₹)</Label>
+                  <Input
+                    id="visit_payment"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.visit_payment}
+                    onChange={(e) => setFormData({ ...formData, visit_payment: parseFloat(e.target.value) || 0 })}
+                    placeholder="500.00"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="visit_reason">Visit Reason</Label>
+                  <Select 
+                    value={formData.visit_reason} 
+                    onValueChange={(value) => setFormData({ ...formData, visit_reason: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select reason" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="regular_checkup">Regular Checkup</SelectItem>
+                      <SelectItem value="surgery">Surgery</SelectItem>
+                      <SelectItem value="follow_up">Follow Up</SelectItem>
+                      <SelectItem value="emergency">Emergency</SelectItem>
+                      <SelectItem value="consultation">Consultation</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
               
               <div className="space-y-2">
                 <Label htmlFor="notes">Notes (Optional)</Label>
@@ -360,19 +437,43 @@ const VisitManagement = () => {
                   <p className="text-sm text-muted-foreground">
                     {visit.doctors?.profiles?.full_name} ({visit.doctors?.doctor_code})
                   </p>
+                  {visit.patient_name && (
+                    <p className="text-sm font-medium">
+                      Patient: {visit.patient_name}
+                      {visit.patient_id && ` (${visit.patient_id})`}
+                    </p>
+                  )}
                 </div>
-                <Badge variant="secondary">
-                  {visit.patient_count} {visit.patient_count === 1 ? 'Patient' : 'Patients'}
-                </Badge>
+                <div className="text-right">
+                  <Badge variant="secondary">
+                    {visit.patient_count} {visit.patient_count === 1 ? 'Patient' : 'Patients'}
+                  </Badge>
+                  {visit.visit_payment && (
+                    <div className="mt-1">
+                      <Badge variant="outline">₹{visit.visit_payment}</Badge>
+                    </div>
+                  )}
+                </div>
               </div>
             </CardHeader>
             <CardContent>
-              {visit.notes && (
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">Notes:</p>
-                  <p className="text-sm">{visit.notes}</p>
-                </div>
-              )}
+              <div className="space-y-3">
+                {visit.visit_reason && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Reason:</span>
+                    <Badge variant="default">
+                      {visit.visit_reason.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </Badge>
+                  </div>
+                )}
+                
+                {visit.notes && (
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground">Notes:</p>
+                    <p className="text-sm">{visit.notes}</p>
+                  </div>
+                )}
+              </div>
             </CardContent>
           </Card>
         ))}

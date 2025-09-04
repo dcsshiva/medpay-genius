@@ -178,8 +178,12 @@ export type Database = {
           id: string
           notes: string | null
           patient_count: number
+          patient_id: string | null
+          patient_name: string
           updated_at: string
           visit_date: string
+          visit_payment: number | null
+          visit_reason: string
         }
         Insert: {
           created_at?: string
@@ -187,8 +191,12 @@ export type Database = {
           id?: string
           notes?: string | null
           patient_count?: number
+          patient_id?: string | null
+          patient_name?: string
           updated_at?: string
           visit_date?: string
+          visit_payment?: number | null
+          visit_reason?: string
         }
         Update: {
           created_at?: string
@@ -196,8 +204,12 @@ export type Database = {
           id?: string
           notes?: string | null
           patient_count?: number
+          patient_id?: string | null
+          patient_name?: string
           updated_at?: string
           visit_date?: string
+          visit_payment?: number | null
+          visit_reason?: string
         }
         Relationships: [
           {
