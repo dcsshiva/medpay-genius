@@ -30,7 +30,9 @@ const DoctorManagement = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
+  const [availableProfiles, setAvailableProfiles] = useState<{id: string, full_name: string}[]>([]);
   const [formData, setFormData] = useState({
+    profile_id: '',
     full_name: '',
     doctor_code: '',
     specialization: '',
@@ -40,7 +42,10 @@ const DoctorManagement = () => {
 
   useEffect(() => {
     fetchDoctors();
-  }, []);
+    if (userRole === 'admin') {
+      fetchAvailableProfiles();
+    }
+  }, [userRole]);
 
   const fetchDoctors = async () => {
     try {
@@ -69,6 +74,35 @@ const DoctorManagement = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchAvailableProfiles = async () => {
+    try {
+      // First, get all existing doctor profile_ids
+      const { data: existingDoctors, error: doctorsError } = await supabase
+        .from('doctors')
+        .select('profile_id');
+      
+      if (doctorsError) throw doctorsError;
+      
+      const existingProfileIds = existingDoctors?.map(d => d.profile_id) || [];
+      
+      // Then get profiles that don't have doctor records
+      let query = supabase
+        .from('profiles')
+        .select('id, full_name');
+      
+      if (existingProfileIds.length > 0) {
+        query = query.not('id', 'in', `(${existingProfileIds.map(id => `'${id}'`).join(',')})`);
+      }
+      
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      setAvailableProfiles(data || []);
+    } catch (error) {
+      console.error('Error fetching available profiles:', error);
     }
   };
 
@@ -104,19 +138,32 @@ const DoctorManagement = () => {
           description: "Doctor updated successfully"
         });
       } else {
-        // Create new doctor - this requires more complex logic with profiles
+        // Create new doctor record for existing profile
+        const { error: doctorError } = await supabase
+          .from('doctors')
+          .insert({
+            profile_id: formData.profile_id,
+            doctor_code: formData.doctor_code,
+            specialization: formData.specialization,
+            rate_per_visit: formData.rate_per_visit,
+            is_active: formData.is_active
+          });
+
+        if (doctorError) throw doctorError;
+
         toast({
-          variant: "destructive",
-          title: "Feature Not Available",
-          description: "Creating new doctors requires admin setup. Please contact system administrator."
+          title: "Success",
+          description: "Doctor created successfully"
         });
-        return;
       }
 
       setDialogOpen(false);
       setEditingDoctor(null);
       resetForm();
       fetchDoctors();
+      if (userRole === 'admin') {
+        fetchAvailableProfiles();
+      }
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -128,6 +175,7 @@ const DoctorManagement = () => {
 
   const resetForm = () => {
     setFormData({
+      profile_id: '',
       full_name: '',
       doctor_code: '',
       specialization: '',
@@ -139,6 +187,7 @@ const DoctorManagement = () => {
   const handleEdit = (doctor: Doctor) => {
     setEditingDoctor(doctor);
     setFormData({
+      profile_id: '',
       full_name: doctor.profiles?.full_name || '',
       doctor_code: doctor.doctor_code,
       specialization: doctor.specialization,
@@ -224,9 +273,38 @@ const DoctorManagement = () => {
                   {editingDoctor ? 'Edit Doctor' : 'Add New Doctor'}
                 </DialogTitle>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="doctor_code">Doctor Code</Label>
+               <form onSubmit={handleSubmit} className="space-y-4">
+                 {!editingDoctor && (
+                   <div className="space-y-2">
+                     <Label htmlFor="profile_id">Select Profile</Label>
+                     <Select 
+                       value={formData.profile_id} 
+                       onValueChange={(value) => {
+                         const profile = availableProfiles.find(p => p.id === value);
+                         setFormData({ 
+                           ...formData, 
+                           profile_id: value,
+                           full_name: profile?.full_name || ''
+                         });
+                       }}
+                       required
+                     >
+                       <SelectTrigger>
+                         <SelectValue placeholder="Select a profile" />
+                       </SelectTrigger>
+                       <SelectContent>
+                         {availableProfiles.map((profile) => (
+                           <SelectItem key={profile.id} value={profile.id}>
+                             {profile.full_name}
+                           </SelectItem>
+                         ))}
+                       </SelectContent>
+                     </Select>
+                   </div>
+                 )}
+                 
+                 <div className="space-y-2">
+                   <Label htmlFor="doctor_code">Doctor Code</Label>
                   <Input
                     id="doctor_code"
                     value={formData.doctor_code}
