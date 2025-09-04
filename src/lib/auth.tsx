@@ -20,10 +20,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
 
+  console.log('AuthProvider render - user:', user, 'loading:', loading, 'userRole:', userRole);
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth state change:', event, 'session:', session);
         setSession(session);
         setUser(session?.user ?? null);
         
@@ -36,11 +39,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUserRole(null);
         }
         setLoading(false);
+        console.log('Auth state after change - loading set to false');
       }
     );
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', session);
       setSession(session);
       setUser(session?.user ?? null);
       
@@ -50,6 +55,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }, 0);
       }
       setLoading(false);
+      console.log('Initial session check - loading set to false');
     });
 
     return () => subscription.unsubscribe();
