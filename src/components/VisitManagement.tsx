@@ -151,28 +151,47 @@ const VisitManagement = () => {
     }
   };
 
-  const generateUniquePatientId = () => {
-    const timestamp = Date.now().toString();
-    const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-    return `P${timestamp.slice(-6)}${randomNum}`;
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    try {
-      // Generate unique patient ID if not provided
-      const patientId = formData.patient_id?.trim() || generateUniquePatientId();
+    // Validation checks
+    if (!formData.patient_name?.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Patient name is required"
+      });
+      return;
+    }
 
+    if (!formData.patient_id?.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error", 
+        description: "Patient ID is required"
+      });
+      return;
+    }
+
+    if (!formData.visit_payment || formData.visit_payment <= 0) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Visit payment must be greater than zero"
+      });
+      return;
+    }
+
+    try {
       const { error } = await supabase
         .from('visits')
         .insert({
           doctor_id: formData.doctor_id,
           visit_date: formData.visit_date,
           patient_count: formData.patient_count,
-          patient_id: patientId,
-          patient_name: formData.patient_name,
-          visit_payment: formData.visit_payment || null,
+          patient_id: formData.patient_id.trim(),
+          patient_name: formData.patient_name.trim(),
+          visit_payment: formData.visit_payment,
           visit_reason: formData.visit_reason,
           notes: formData.notes || null
         });
@@ -181,7 +200,7 @@ const VisitManagement = () => {
 
       toast({
         title: "Success",
-        description: `Visit recorded successfully with Patient ID: ${patientId}`
+        description: `Visit recorded successfully with Patient ID: ${formData.patient_id.trim()}`
       });
 
       setDialogOpen(false);
@@ -315,17 +334,18 @@ const VisitManagement = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="patient_id">Patient ID (Optional)</Label>
+                  <Label htmlFor="patient_id">Patient ID *</Label>
                   <Input
                     id="patient_id"
                     value={formData.patient_id}
                     onChange={(e) => setFormData({ ...formData, patient_id: e.target.value })}
                     placeholder="P001, P002, etc."
+                    required
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="patient_name">Patient Name</Label>
+                  <Label htmlFor="patient_name">Patient Name *</Label>
                   <Input
                     id="patient_name"
                     value={formData.patient_name}
@@ -338,15 +358,16 @@ const VisitManagement = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="visit_payment">Visit Payment (₹)</Label>
+                  <Label htmlFor="visit_payment">Visit Payment (₹) *</Label>
                   <Input
                     id="visit_payment"
                     type="number"
-                    min="0"
+                    min="0.01"
                     step="0.01"
                     value={formData.visit_payment}
                     onChange={(e) => setFormData({ ...formData, visit_payment: parseFloat(e.target.value) || 0 })}
                     placeholder="500.00"
+                    required
                   />
                 </div>
                 
