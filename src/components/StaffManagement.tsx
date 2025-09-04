@@ -136,26 +136,19 @@ const StaffManagement = () => {
       const staffCode = formData.staff_code || generateStaffCode();
 
       // Create auth user via edge function
-      const { data: session } = await supabase.auth.getSession();
-      const response = await fetch('/functions/v1/create-user', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${session.session?.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const { data: result, error: createUserError } = await supabase.functions.invoke('create-user', {
+        body: {
           email: formData.email || `${formData.username}@hospital.local`,
           password: formData.password,
           userData: {
             full_name: formData.full_name,
             role: formData.role
           }
-        }),
+        }
       });
 
-      const result = await response.json();
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to create user');
+      if (createUserError || !result?.success) {
+        throw new Error(result?.error || createUserError?.message || 'Failed to create user');
       }
 
       // Create profile record
