@@ -113,6 +113,7 @@ const VisitManagement = () => {
 
   const fetchDoctors = async () => {
     try {
+      console.log('Fetching doctors...');
       const { data, error } = await supabase
         .from('doctors')
         .select(`
@@ -126,9 +127,15 @@ const VisitManagement = () => {
         .order('doctor_code');
 
       if (error) throw error;
+      console.log('Fetched doctors:', data);
       setDoctors(data || []);
     } catch (error) {
       console.error('Error fetching doctors:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch doctors. Please try again."
+      });
     }
   };
 
@@ -238,11 +245,17 @@ const VisitManagement = () => {
                       <SelectValue placeholder="Select a doctor" />
                     </SelectTrigger>
                     <SelectContent>
-                      {doctors.map((doctor) => (
-                        <SelectItem key={doctor.id} value={doctor.id}>
-                          {doctor.profiles?.full_name} ({doctor.doctor_code})
+                      {doctors.length === 0 ? (
+                        <SelectItem value="no-doctors" disabled>
+                          No doctors available - Create a doctor first
                         </SelectItem>
-                      ))}
+                      ) : (
+                        doctors.map((doctor) => (
+                          <SelectItem key={doctor.id} value={doctor.id}>
+                            {doctor.profiles?.full_name} ({doctor.doctor_code})
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
