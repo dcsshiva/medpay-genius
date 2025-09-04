@@ -46,6 +46,25 @@ interface Payment {
   };
 }
 
+interface Visit {
+  id: string;
+  visit_date: string;
+  patient_count: number;
+  patient_name: string;
+  patient_id?: string;
+  visit_payment?: number;
+  visit_reason: string;
+}
+
+interface PaymentCalculation {
+  visits: Visit[];
+  total_visits: number;
+  rate_per_visit: number;
+  total_amount: number;
+  period_start: string;
+  period_end: string;
+}
+
 interface Doctor {
   id: string;
   doctor_code: string;
@@ -62,15 +81,20 @@ const PaymentManagement = () => {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [visitDetailsDialog, setVisitDetailsDialog] = useState(false);
+  const [selectedPaymentVisits, setSelectedPaymentVisits] = useState<Visit[]>([]);
   const [formData, setFormData] = useState({
     doctor_id: '',
     period_start: '',
     period_end: ''
   });
-  const [calculatedData, setCalculatedData] = useState({
+  const [calculatedData, setCalculatedData] = useState<PaymentCalculation>({
+    visits: [],
     total_visits: 0,
     rate_per_visit: 0,
-    total_amount: 0
+    total_amount: 0,
+    period_start: '',
+    period_end: ''
   });
 
   useEffect(() => {
@@ -184,13 +208,22 @@ const PaymentManagement = () => {
 
       if (doctorError) throw doctorError;
 
-      // Count visits in the period
+      // Get detailed visits in the period
       const { data: visits, error: visitsError } = await supabase
         .from('visits')
-        .select('patient_count')
+        .select(`
+          id,
+          visit_date,
+          patient_count,
+          patient_name,
+          patient_id,
+          visit_payment,
+          visit_reason
+        `)
         .eq('doctor_id', formData.doctor_id)
         .gte('visit_date', formData.period_start)
-        .lte('visit_date', formData.period_end);
+        .lte('visit_date', formData.period_end)
+        .order('visit_date', { ascending: true });
 
       if (visitsError) throw visitsError;
 
@@ -199,9 +232,12 @@ const PaymentManagement = () => {
       const totalAmount = totalVisits * ratePerVisit;
 
       setCalculatedData({
+        visits: visits || [],
         total_visits: totalVisits,
         rate_per_visit: ratePerVisit,
-        total_amount: totalAmount
+        total_amount: totalAmount,
+        period_start: formData.period_start,
+        period_end: formData.period_end
       });
     } catch (error) {
       console.error('Error calculating payment:', error);
@@ -327,9 +363,12 @@ const PaymentManagement = () => {
       period_end: ''
     });
     setCalculatedData({
+      visits: [],
       total_visits: 0,
       rate_per_visit: 0,
-      total_amount: 0
+      total_amount: 0,
+      period_start: '',
+      period_end: ''
     });
   };
 
@@ -458,26 +497,53 @@ const PaymentManagement = () => {
                 </div>
 
                 {calculatedData.total_amount > 0 && (
-                  <Card>
+                  <Card className="border-primary/20 bg-primary/5">
                     <CardHeader>
                       <CardTitle className="text-sm flex items-center">
                         <Calculator className="h-4 w-4 mr-2" />
-                        Payment Calculation
+                        Payment Advice Calculation
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Total Visits:</span>
+                    <CardContent className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Period:</span>
+                        <span className="text-sm font-medium">
+                          {format(new Date(calculatedData.period_start), 'MMM dd')} - {format(new Date(calculatedData.period_end), 'MMM dd, yyyy')}
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Visit Sessions:</span>
+                        <span className="text-sm font-medium">{calculatedData.visits.length}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Total Patients:</span>
                         <span className="text-sm font-medium">{calculatedData.total_visits}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Rate per Visit:</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-muted-foreground">Rate per Patient:</span>
                         <span className="text-sm font-medium">{formatCurrency(calculatedData.rate_per_visit)}</span>
                       </div>
-                      <div className="flex justify-between border-t pt-2">
-                        <span className="text-sm font-medium">Total Amount:</span>
-                        <span className="text-sm font-bold text-success">{formatCurrency(calculatedData.total_amount)}</span>
+                      <div className="border-t pt-2">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium">Total Payment Amount:</span>
+                          <span className="text-lg font-bold text-primary">{formatCurrency(calculatedData.total_amount)}</span>
+                        </div>
                       </div>
+                      {calculatedData.visits.length > 0 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedPaymentVisits(calculatedData.visits);
+                            setVisitDetailsDialog(true);
+                          }}
+                          className="w-full mt-3"
+                        >
+                          <TrendingUp className="h-4 w-4 mr-2" />
+                          View Visit Details ({calculatedData.visits.length} visits)
+                        </Button>
+                      )}
                     </CardContent>
                   </Card>
                 )}
@@ -487,7 +553,8 @@ const PaymentManagement = () => {
                     Cancel
                   </Button>
                   <Button type="submit" disabled={calculatedData.total_amount === 0}>
-                    Create Payment
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Create Payment Advice
                   </Button>
                 </div>
               </form>
@@ -496,94 +563,205 @@ const PaymentManagement = () => {
         )}
       </div>
 
+      {/* Visit Details Dialog */}
+      <Dialog open={visitDetailsDialog} onOpenChange={setVisitDetailsDialog}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Visit Details for Payment Calculation</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            {selectedPaymentVisits.length > 0 && (
+              <>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted rounded-lg">
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-primary">{selectedPaymentVisits.length}</p>
+                    <p className="text-sm text-muted-foreground">Visit Sessions</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-primary">
+                      {selectedPaymentVisits.reduce((sum, visit) => sum + visit.patient_count, 0)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Total Patients</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-primary">
+                      {formatCurrency(calculatedData.rate_per_visit)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Rate/Patient</p>
+                  </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-success">
+                      {formatCurrency(calculatedData.total_amount)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Total Payment</p>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <h4 className="font-medium">Individual Visit Records</h4>
+                  <div className="grid gap-3">
+                    {selectedPaymentVisits.map((visit) => (
+                      <Card key={visit.id} className="p-4">
+                        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 items-center">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Date</p>
+                            <p className="font-medium">{format(new Date(visit.visit_date), 'MMM dd, yyyy')}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Patient</p>
+                            <p className="font-medium">{visit.patient_name}</p>
+                            {visit.patient_id && (
+                              <p className="text-xs text-muted-foreground">ID: {visit.patient_id}</p>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Reason</p>
+                            <Badge variant="outline" className="text-xs">
+                              {visit.visit_reason.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </Badge>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Patients</p>
+                            <p className="font-medium">{visit.patient_count}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Visit Fee</p>
+                            <p className="font-medium">
+                              {visit.visit_payment ? formatCurrency(visit.visit_payment) : 'N/A'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Payment</p>
+                            <p className="font-bold text-primary">
+                              {formatCurrency(visit.patient_count * calculatedData.rate_per_visit)}
+                            </p>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Payments List */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {payments.map((payment) => (
-          <Card key={payment.id}>
+          <Card key={payment.id} className="relative">
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div>
-                  <CardTitle className="text-lg">
+                  <CardTitle className="text-lg flex items-center">
+                    <CreditCard className="h-5 w-5 mr-2" />
                     {payment.doctors?.profiles?.full_name}
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    {payment.doctors?.doctor_code} • {format(new Date(payment.period_start), 'PP')} - {format(new Date(payment.period_end), 'PP')}
+                    Payment Advice - Code: {payment.doctors?.doctor_code}
                   </p>
                 </div>
-                <Badge variant={getStatusColor(payment.status) as any} className="flex items-center space-x-1">
+                <Badge 
+                  variant={getStatusColor(payment.status) as any}
+                  className="flex items-center gap-1"
+                >
                   {getStatusIcon(payment.status)}
-                  <span className="capitalize">{payment.status.replace('_', ' ')}</span>
+                  {payment.status.replace('_', ' ').toUpperCase()}
                 </Badge>
               </div>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Total Visits</p>
-                    <p className="text-lg font-semibold">{payment.total_visits}</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm text-muted-foreground">Rate per Visit</p>
-                    <p className="text-lg font-semibold">{formatCurrency(payment.rate_per_visit)}</p>
-                  </div>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Period</p>
+                  <p className="font-medium">
+                    {format(new Date(payment.period_start), 'MMM dd')} - {format(new Date(payment.period_end), 'MMM dd, yyyy')}
+                  </p>
                 </div>
-                
-                <div className="border-t pt-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-muted-foreground">Total Amount:</span>
-                    <span className="text-xl font-bold text-success">{formatCurrency(payment.total_amount)}</span>
-                  </div>
+                <div>
+                  <p className="text-muted-foreground">Total Patients</p>
+                  <p className="font-medium">{payment.total_visits}</p>
                 </div>
-
-                {payment.rejection_reason && (
-                  <div className="bg-destructive/10 p-3 rounded-lg">
-                    <p className="text-sm font-medium text-destructive mb-1">Rejection Reason:</p>
-                    <p className="text-sm text-destructive/80">{payment.rejection_reason}</p>
-                  </div>
-                )}
-
-                {/* Approval Actions */}
-                {(userRole === 'manager' || userRole === 'admin') && payment.status === 'pending' && (
-                  <div className="flex space-x-2 pt-2">
-                    <Button
-                      size="sm"
-                      onClick={() => handleApproval(payment.id, 'approve')}
-                    >
-                      <CheckCircle className="h-4 w-4 mr-1" />
-                      Approve
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => {
-                        const reason = prompt('Please provide a reason for rejection:');
-                        if (reason) {
-                          handleApproval(payment.id, 'reject', reason);
-                        }
-                      }}
-                    >
-                      <X className="h-4 w-4 mr-1" />
-                      Reject
-                    </Button>
-                  </div>
-                )}
               </div>
+              
+              <div className="flex justify-between items-center pt-2 border-t">
+                <div className="text-sm">
+                  <p className="text-muted-foreground">Rate: {formatCurrency(payment.rate_per_visit)}/patient</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Payment Amount</p>
+                  <p className="text-lg font-bold text-primary">{formatCurrency(payment.total_amount)}</p>
+                </div>
+              </div>
+
+              {/* Approval Actions */}
+              {((userRole === 'manager' && payment.status === 'pending') ||
+                (userRole === 'admin' && (payment.status === 'pending' || payment.status === 'manager_approved'))) && (
+                <div className="flex gap-2 mt-4">
+                  <Button
+                    size="sm"
+                    onClick={() => handleApproval(payment.id, 'approve')}
+                    className="flex-1"
+                  >
+                    <CheckCircle className="h-4 w-4 mr-1" />
+                    {userRole === 'manager' ? 'Approve for Admin' : 'Approve for Bank Processing'}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleApproval(payment.id, 'reject', 'Rejected by ' + userRole)}
+                    className="flex-1"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Reject
+                  </Button>
+                </div>
+              )}
+
+              {/* Approval Status */}
+              {payment.status !== 'pending' && (
+                <div className="mt-3 p-3 bg-muted rounded-lg text-sm">
+                  {payment.status === 'manager_approved' && (
+                    <p className="text-muted-foreground">
+                      ✓ Manager approved on {payment.manager_approved_at ? format(new Date(payment.manager_approved_at), 'MMM dd, yyyy HH:mm') : 'N/A'}
+                      <br />⏳ Awaiting admin approval for bank processing
+                    </p>
+                  )}
+                  {payment.status === 'admin_approved' && (
+                    <p className="text-success">
+                      ✓ <strong>Approved for bank processing</strong> on {payment.admin_approved_at ? format(new Date(payment.admin_approved_at), 'MMM dd, yyyy HH:mm') : 'N/A'}
+                      <br />💰 Ready for payment transfer
+                    </p>
+                  )}
+                  {payment.status === 'rejected' && (
+                    <p className="text-destructive">
+                      ✗ Payment advice rejected on {payment.rejected_at ? format(new Date(payment.rejected_at), 'MMM dd, yyyy HH:mm') : 'N/A'}
+                       {payment.rejection_reason && (
+                         <><br />Reason: {payment.rejection_reason}</>
+                       )}
+                    </p>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}
       </div>
 
       {/* Empty State */}
-      {payments.length === 0 && (
+      {payments.length === 0 && !loading && (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <CreditCard className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">No payments found</h3>
+            <h3 className="text-lg font-medium mb-2">No payment requests</h3>
             <p className="text-muted-foreground text-center mb-4">
-              {userRole === 'doctor' ? "No payment requests have been created for you yet." :
-               userRole === 'manager' ? "No payments are pending your approval." :
-               "Start by creating payment requests for doctors."}
+              {userRole === 'doctor' 
+                ? "No payment requests have been created for you yet."
+                : userRole === 'manager'
+                ? "No pending payment advice requires your approval."
+                : "No payment advice has been created yet. Create payment requests based on doctor visits."
+              }
             </p>
           </CardContent>
         </Card>
