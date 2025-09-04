@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
+import MobileHeader from '@/components/MobileHeader';
 import { 
   Stethoscope, 
   LogOut, 
@@ -58,8 +59,15 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="bg-card border-b border-border shadow-sm">
+      {/* Mobile Header */}
+      <MobileHeader 
+        navigationItems={navigationItems}
+        activeTab={activeTab}
+        onTabChange={onTabChange}
+      />
+
+      {/* Desktop Header */}
+      <header className="bg-card border-b border-border shadow-sm hidden md:block">
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center space-x-3">
             <div className="bg-primary p-2 rounded-lg">
@@ -94,8 +102,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
       </header>
 
       <div className="flex">
-        {/* Sidebar */}
-        <nav className="w-64 bg-card border-r border-border min-h-[calc(100vh-80px)]">
+        {/* Desktop Sidebar */}
+        <nav className="w-64 bg-card border-r border-border min-h-[calc(100vh-80px)] hidden md:block">
           <div className="p-4">
             <div className="space-y-2">
               {navigationItems.map((item) => {
@@ -120,7 +128,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
         </nav>
 
         {/* Main Content */}
-        <main className="flex-1 p-6">
+        <main className="flex-1 p-4 md:p-6">
           {children}
         </main>
       </div>

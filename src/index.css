@@ -111,5 +111,32 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Mobile-specific optimizations */
+  @media (max-width: 768px) {
+    .container {
+      @apply px-4;
+    }
+    
+    /* Prevent zoom on input focus */
+    input, select, textarea {
+      font-size: 16px;
+    }
+    
+    /* Improve touch targets */
+    button, .touch-target {
+      min-height: 44px;
+      min-width: 44px;
+    }
+  }
+
+  /* PWA and mobile app specific styles */
+  @supports (display-mode: standalone) {
+    body {
+      @apply select-none;
+    }
   }
 }
