@@ -51,7 +51,7 @@ const VisitManagement = () => {
 
   useEffect(() => {
     fetchVisits();
-    if (userRole === 'admin') {
+    if (userRole === 'admin' || userRole === 'manager') {
       fetchDoctors();
     }
   }, [userRole]);
@@ -136,35 +136,10 @@ const VisitManagement = () => {
     e.preventDefault();
 
     try {
-      let doctorId = formData.doctor_id;
-
-      // If user is a doctor, get their doctor ID
-      if (userRole === 'doctor') {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('user_id', user!.id)
-          .single();
-
-        if (profile) {
-          const { data: doctorData } = await supabase
-            .from('doctors')
-            .select('id')
-            .eq('profile_id', profile.id)
-            .single();
-
-          if (doctorData) {
-            doctorId = doctorData.id;
-          } else {
-            throw new Error('Doctor profile not found');
-          }
-        }
-      }
-
       const { error } = await supabase
         .from('visits')
         .insert({
-          doctor_id: doctorId,
+          doctor_id: formData.doctor_id,
           visit_date: formData.visit_date,
           patient_count: formData.patient_count,
           notes: formData.notes || null
@@ -232,25 +207,26 @@ const VisitManagement = () => {
           </h1>
           <p className="text-muted-foreground">
             {userRole === 'doctor' 
-              ? 'Record and track your patient visits'
-              : 'View all doctor visits and patient counts'
+              ? 'View your patient visits'
+              : 'Record and manage doctor visits'
             }
           </p>
         </div>
         
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="h-4 w-4 mr-2" />
-              Record Visit
-            </Button>
-          </DialogTrigger>
+        {(userRole === 'admin' || userRole === 'manager') && (
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm}>
+                <Plus className="h-4 w-4 mr-2" />
+                Record Visit
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Record New Visit</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              {userRole === 'admin' && (
+              {(userRole === 'admin' || userRole === 'manager') && (
                 <div className="space-y-2">
                   <Label htmlFor="doctor_id">Doctor</Label>
                   <Select 
@@ -316,7 +292,8 @@ const VisitManagement = () => {
               </div>
             </form>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        )}
       </div>
 
       {/* Summary Cards */}
@@ -396,7 +373,7 @@ const VisitManagement = () => {
             <h3 className="text-lg font-medium mb-2">No visits recorded</h3>
             <p className="text-muted-foreground text-center mb-4">
               {userRole === 'doctor' 
-                ? "Start by recording your first patient visit."
+                ? "No visits have been recorded for you yet."
                 : "No visits have been recorded in the system yet."
               }
             </p>
