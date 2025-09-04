@@ -245,20 +245,20 @@ const DoctorManagement = () => {
                   {editingDoctor ? 'Edit Doctor' : 'Add New Doctor'}
                 </DialogTitle>
               </DialogHeader>
-               <form onSubmit={handleSubmit} className="space-y-4">
-                 <div className="space-y-2">
-                   <Label htmlFor="full_name">Doctor Name</Label>
-                   <Input
-                     id="full_name"
-                     value={formData.full_name}
-                     onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                     placeholder="Dr. John Doe"
-                     required
-                   />
-                 </div>
-                 
-                 <div className="space-y-2">
-                   <Label htmlFor="doctor_code">Doctor Code</Label>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="full_name">Doctor Name</Label>
+                  <Input
+                    id="full_name"
+                    value={formData.full_name}
+                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                    placeholder="Dr. John Doe"
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="doctor_code">Doctor Code</Label>
                   <Input
                     id="doctor_code"
                     value={formData.doctor_code}
