@@ -134,14 +134,51 @@ const StaffManagement = () => {
 
     try {
       const staffCode = formData.staff_code || generateStaffCode();
-      const hashedPassword = await hashPassword(formData.password);
 
+      // Create auth user via edge function
+      const { data: session } = await supabase.auth.getSession();
+      const response = await fetch('/functions/v1/create-user', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.session?.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email || `${formData.username}@hospital.local`,
+          password: formData.password,
+          userData: {
+            full_name: formData.full_name,
+            role: formData.role
+          }
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to create user');
+      }
+
+      // Create profile record
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          user_id: result.user.id,
+          full_name: formData.full_name,
+          role: formData.role as any
+        })
+        .select()
+        .single();
+
+      if (profileError) throw profileError;
+
+      // Create staff record
       const { error } = await supabase
         .from('staff')
         .insert({
+          id: profileData.id, // Link staff record to profile
           staff_code: staffCode,
           username: formData.username.trim(),
-          password_hash: hashedPassword,
+          password_hash: 'managed_by_supabase_auth', // Placeholder since auth is handled by Supabase
           full_name: formData.full_name.trim(),
           email: formData.email.trim() || null,
           phone: formData.phone.trim() || null,
