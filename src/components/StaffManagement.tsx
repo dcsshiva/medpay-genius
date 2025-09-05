@@ -428,7 +428,7 @@ const StaffManagement = () => {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <UserCheck className="h-8 w-8 text-green-600" />
+              <UserCheck className="h-8 w-8 text-success" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-muted-foreground">Active Staff</p>
                 <p className="text-2xl font-bold">{staff.filter(s => s.is_active).length}</p>
@@ -440,7 +440,7 @@ const StaffManagement = () => {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <UserX className="h-8 w-8 text-red-600" />
+              <UserX className="h-8 w-8 text-destructive" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-muted-foreground">Inactive Staff</p>
                 <p className="text-2xl font-bold">{staff.filter(s => !s.is_active).length}</p>

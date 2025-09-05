@@ -113,11 +113,11 @@ const TeamChat = () => {
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'admin':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200';
+        return 'bg-destructive/10 text-destructive';
       case 'manager':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200';
+        return 'bg-westmed-teal/10 text-westmed-teal';
       default:
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200';
+        return 'bg-success/10 text-success';
     }
   };
 

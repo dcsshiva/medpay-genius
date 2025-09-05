@@ -421,7 +421,7 @@ const TaskManagement = () => {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <Clock className="h-8 w-8 text-blue-600" />
+              <Clock className="h-8 w-8 text-westmed-teal" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-muted-foreground">Pending</p>
                 <p className="text-2xl font-bold">{tasks.filter(t => t.status === 'pending').length}</p>
@@ -433,7 +433,7 @@ const TaskManagement = () => {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <AlertCircle className="h-8 w-8 text-orange-600" />
+              <AlertCircle className="h-8 w-8 text-warning" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-muted-foreground">In Progress</p>
                 <p className="text-2xl font-bold">{tasks.filter(t => t.status === 'in_progress').length}</p>
@@ -445,7 +445,7 @@ const TaskManagement = () => {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <CheckCircle className="h-8 w-8 text-green-600" />
+              <CheckCircle className="h-8 w-8 text-success" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-muted-foreground">Completed</p>
                 <p className="text-2xl font-bold">{tasks.filter(t => t.status === 'completed').length}</p>
@@ -457,7 +457,7 @@ const TaskManagement = () => {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <AlertCircle className="h-8 w-8 text-red-600" />
+              <AlertCircle className="h-8 w-8 text-destructive" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-muted-foreground">Overdue</p>
                 <p className="text-2xl font-bold">{tasks.filter(t => t.status === 'overdue').length}</p>

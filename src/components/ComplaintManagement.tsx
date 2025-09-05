@@ -446,7 +446,7 @@ const ComplaintManagement = () => {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <AlertTriangle className="h-8 w-8 text-orange-600" />
+              <AlertTriangle className="h-8 w-8 text-warning" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-muted-foreground">Open</p>
                 <p className="text-2xl font-bold">{complaints.filter(c => c.status === 'open').length}</p>
@@ -458,7 +458,7 @@ const ComplaintManagement = () => {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <Clock className="h-8 w-8 text-blue-600" />
+              <Clock className="h-8 w-8 text-westmed-teal" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-muted-foreground">In Review</p>
                 <p className="text-2xl font-bold">{complaints.filter(c => c.status === 'in_review').length}</p>
@@ -470,7 +470,7 @@ const ComplaintManagement = () => {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <CheckCircle className="h-8 w-8 text-green-600" />
+              <CheckCircle className="h-8 w-8 text-success" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-muted-foreground">Resolved</p>
                 <p className="text-2xl font-bold">{complaints.filter(c => c.status === 'resolved').length}</p>
@@ -482,7 +482,7 @@ const ComplaintManagement = () => {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <MessageCircle className="h-8 w-8 text-gray-600" />
+              <MessageCircle className="h-8 w-8 text-muted-foreground" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-muted-foreground">Closed</p>
                 <p className="text-2xl font-bold">{complaints.filter(c => c.status === 'closed').length}</p>
