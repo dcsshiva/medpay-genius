@@ -20,6 +20,7 @@ interface Visit {
   patient_id?: string;
   patient_name: string;
   visit_payment?: number;
+  payment_type: string;
   visit_reason: string;
   notes?: string;
   doctor_id: string;
@@ -53,6 +54,7 @@ const VisitManagement = () => {
     patient_id: '',
     patient_name: '',
     visit_payment: 0,
+    payment_type: 'cash',
     visit_reason: 'regular_checkup',
     notes: ''
   });
@@ -75,6 +77,7 @@ const VisitManagement = () => {
           patient_id,
           patient_name,
           visit_payment,
+          payment_type,
           visit_reason,
           notes,
           doctor_id,
@@ -192,6 +195,7 @@ const VisitManagement = () => {
           patient_id: formData.patient_id.trim(),
           patient_name: formData.patient_name.trim(),
           visit_payment: formData.visit_payment,
+          payment_type: formData.payment_type,
           visit_reason: formData.visit_reason,
           notes: formData.notes || null
         });
@@ -223,6 +227,7 @@ const VisitManagement = () => {
       patient_id: '',
       patient_name: '',
       visit_payment: 0,
+      payment_type: 'cash',
       visit_reason: 'regular_checkup',
       notes: ''
     });
@@ -372,23 +377,39 @@ const VisitManagement = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="visit_reason">Visit Reason</Label>
+                  <Label htmlFor="payment_type">Payment Type</Label>
                   <Select 
-                    value={formData.visit_reason} 
-                    onValueChange={(value) => setFormData({ ...formData, visit_reason: value })}
+                    value={formData.payment_type} 
+                    onValueChange={(value) => setFormData({ ...formData, payment_type: value })}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select reason" />
+                      <SelectValue placeholder="Select payment type" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="regular_checkup">Regular Checkup</SelectItem>
-                      <SelectItem value="surgery">Surgery</SelectItem>
-                      <SelectItem value="follow_up">Follow Up</SelectItem>
-                      <SelectItem value="emergency">Emergency</SelectItem>
-                      <SelectItem value="consultation">Consultation</SelectItem>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="insurance">Insurance</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="visit_reason">Visit Reason</Label>
+                <Select 
+                  value={formData.visit_reason} 
+                  onValueChange={(value) => setFormData({ ...formData, visit_reason: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select reason" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="regular_checkup">Regular Checkup</SelectItem>
+                    <SelectItem value="surgery">Surgery</SelectItem>
+                    <SelectItem value="follow_up">Follow Up</SelectItem>
+                    <SelectItem value="emergency">Emergency</SelectItem>
+                    <SelectItem value="consultation">Consultation</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               
               <div className="space-y-2">
@@ -479,8 +500,11 @@ const VisitManagement = () => {
                     {visit.patient_count} {visit.patient_count === 1 ? 'Patient' : 'Patients'}
                   </Badge>
                   {visit.visit_payment && (
-                    <div className="mt-1">
+                    <div className="mt-1 flex flex-col gap-1">
                       <Badge variant="outline">₹{visit.visit_payment}</Badge>
+                      <Badge variant={visit.payment_type === 'cash' ? 'default' : 'secondary'} className="text-xs">
+                        {visit.payment_type === 'cash' ? 'Cash' : 'Insurance'}
+                      </Badge>
                     </div>
                   )}
                 </div>

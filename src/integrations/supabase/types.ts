@@ -444,6 +444,7 @@ export type Database = {
           patient_count: number
           patient_id: string | null
           patient_name: string
+          payment_type: string
           updated_at: string
           visit_date: string
           visit_payment: number | null
@@ -457,6 +458,7 @@ export type Database = {
           patient_count?: number
           patient_id?: string | null
           patient_name?: string
+          payment_type?: string
           updated_at?: string
           visit_date?: string
           visit_payment?: number | null
@@ -470,6 +472,7 @@ export type Database = {
           patient_count?: number
           patient_id?: string | null
           patient_name?: string
+          payment_type?: string
           updated_at?: string
           visit_date?: string
           visit_payment?: number | null
