@@ -164,11 +164,11 @@ const StaffManagement = () => {
 
       if (profileError) throw profileError;
 
-      // Create staff record
+      // Create staff record with proper profile relationship
       const { error } = await supabase
         .from('staff')
         .insert({
-          id: profileData.id, // Link staff record to profile
+          profile_id: profileData.id, // Secure link to profile
           staff_code: staffCode,
           username: formData.username.trim(),
           password_hash: 'managed_by_supabase_auth', // Placeholder since auth is handled by Supabase

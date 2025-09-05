@@ -338,6 +338,7 @@ export type Database = {
           last_login: string | null
           password_hash: string
           phone: string | null
+          profile_id: string | null
           role: Database["public"]["Enums"]["staff_role"]
           staff_code: string
           updated_at: string
@@ -353,6 +354,7 @@ export type Database = {
           last_login?: string | null
           password_hash: string
           phone?: string | null
+          profile_id?: string | null
           role?: Database["public"]["Enums"]["staff_role"]
           staff_code: string
           updated_at?: string
@@ -368,12 +370,21 @@ export type Database = {
           last_login?: string | null
           password_hash?: string
           phone?: string | null
+          profile_id?: string | null
           role?: Database["public"]["Enums"]["staff_role"]
           staff_code?: string
           updated_at?: string
           username?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "staff_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tasks: {
         Row: {
