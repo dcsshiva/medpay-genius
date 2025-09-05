@@ -9,14 +9,12 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { formatCurrency } from '@/lib/currency';
 import { Plus, Edit, Users, Stethoscope } from 'lucide-react';
 
 interface Doctor {
   id: string;
   doctor_code: string;
   specialization: string;
-  rate_per_visit: number;
   is_active: boolean;
   profiles: {
     full_name: string;
@@ -34,7 +32,6 @@ const DoctorManagement = () => {
     full_name: '',
     doctor_code: '',
     specialization: '',
-    rate_per_visit: 500,
     is_active: true,
     email: '',
     password: ''
@@ -52,7 +49,6 @@ const DoctorManagement = () => {
           id,
           doctor_code,
           specialization,
-          rate_per_visit,
           is_active,
           profiles:profile_id (
             full_name
@@ -94,7 +90,6 @@ const DoctorManagement = () => {
           .update({
             doctor_code: formData.doctor_code,
             specialization: formData.specialization,
-            rate_per_visit: formData.rate_per_visit,
             is_active: formData.is_active
           })
           .eq('id', editingDoctor.id);
@@ -161,7 +156,6 @@ const DoctorManagement = () => {
             profile_id: profileData.id,
             doctor_code: formData.doctor_code,
             specialization: formData.specialization,
-            rate_per_visit: formData.rate_per_visit,
             is_active: formData.is_active
           });
 
@@ -191,7 +185,6 @@ const DoctorManagement = () => {
       full_name: '',
       doctor_code: '',
       specialization: '',
-      rate_per_visit: 500,
       is_active: true,
       email: '',
       password: ''
@@ -204,7 +197,6 @@ const DoctorManagement = () => {
       full_name: doctor.profiles?.full_name || '',
       doctor_code: doctor.doctor_code,
       specialization: doctor.specialization,
-      rate_per_visit: doctor.rate_per_visit,
       is_active: doctor.is_active,
       email: '', // Don't pre-fill for security
       password: '' // Don't pre-fill for security
@@ -271,7 +263,7 @@ const DoctorManagement = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Doctor Management</h1>
-          <p className="text-muted-foreground">Manage doctor profiles and rates</p>
+          <p className="text-muted-foreground">Manage doctor profiles</p>
         </div>
         
         {userRole === 'admin' && (
@@ -352,18 +344,6 @@ const DoctorManagement = () => {
                 )}
                 
                 <div className="space-y-2">
-                  <Label htmlFor="rate_per_visit">Rate per Visit (₹)</Label>
-                  <Input
-                    id="rate_per_visit"
-                    type="number"
-                    value={formData.rate_per_visit}
-                    onChange={(e) => setFormData({ ...formData, rate_per_visit: parseFloat(e.target.value) })}
-                    min="0"
-                    step="0.01"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
                   <Label htmlFor="is_active">Status</Label>
                   <Select 
                     value={formData.is_active.toString()} 
@@ -416,12 +396,6 @@ const DoctorManagement = () => {
                 <div className="flex justify-between">
                   <span className="text-sm text-muted-foreground">Specialization:</span>
                   <span className="text-sm font-medium">{doctor.specialization}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Rate per Visit:</span>
-                  <span className="text-sm font-medium text-success">
-                    {formatCurrency(doctor.rate_per_visit)}
-                  </span>
                 </div>
               </div>
               
