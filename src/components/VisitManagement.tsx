@@ -281,7 +281,7 @@ const VisitManagement = () => {
                 Record Visit
               </Button>
             </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Record New Visit</DialogTitle>
             </DialogHeader>
