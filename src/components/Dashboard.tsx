@@ -10,7 +10,8 @@ import {
   TrendingUp,
   Clock,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  ListTodo
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -21,6 +22,8 @@ interface DashboardStats {
   myVisits?: number;
   myEarnings?: number;
   pendingPayments?: number;
+  pendingTasks?: number;
+  completedTasks?: number;
 }
 
 const Dashboard = () => {
@@ -37,11 +40,13 @@ const Dashboard = () => {
   const fetchDashboardStats = async () => {
     try {
       if (userRole === 'admin') {
-        const [doctorsRes, visitsRes, paymentsRes, pendingRes] = await Promise.all([
+        const [doctorsRes, visitsRes, paymentsRes, pendingRes, pendingTasksRes, completedTasksRes] = await Promise.all([
           supabase.from('doctors').select('id', { count: 'exact' }),
           supabase.from('visits').select('id', { count: 'exact' }),
           supabase.from('payments').select('total_amount'),
-          supabase.from('payments').select('id', { count: 'exact' }).eq('status', 'pending')
+          supabase.from('payments').select('id', { count: 'exact' }).eq('status', 'pending'),
+          supabase.from('tasks').select('id', { count: 'exact' }).in('status', ['pending', 'in_progress']),
+          supabase.from('tasks').select('id', { count: 'exact' }).eq('status', 'completed')
         ]);
 
         const totalPaymentAmount = paymentsRes.data?.reduce((sum, payment) => sum + Number(payment.total_amount), 0) || 0;
@@ -51,16 +56,22 @@ const Dashboard = () => {
           totalVisits: visitsRes.count || 0,
           totalPayments: totalPaymentAmount,
           pendingApprovals: pendingRes.count || 0,
+          pendingTasks: pendingTasksRes.count || 0,
+          completedTasks: completedTasksRes.count || 0,
         });
       } else if (userRole === 'manager') {
-        const [doctorsRes, pendingRes] = await Promise.all([
+        const [doctorsRes, pendingRes, pendingTasksRes, completedTasksRes] = await Promise.all([
           supabase.from('doctors').select('id', { count: 'exact' }),
-          supabase.from('payments').select('id', { count: 'exact' }).eq('status', 'pending')
+          supabase.from('payments').select('id', { count: 'exact' }).eq('status', 'pending'),
+          supabase.from('tasks').select('id', { count: 'exact' }).in('status', ['pending', 'in_progress']),
+          supabase.from('tasks').select('id', { count: 'exact' }).eq('status', 'completed')
         ]);
 
         setStats({
           totalDoctors: doctorsRes.count || 0,
           pendingApprovals: pendingRes.count || 0,
+          pendingTasks: pendingTasksRes.count || 0,
+          completedTasks: completedTasksRes.count || 0,
         });
       } else if (userRole === 'doctor') {
         // Get doctor ID first
@@ -102,7 +113,7 @@ const Dashboard = () => {
   };
 
   const renderAdminDashboard = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Doctors</CardTitle>
@@ -146,11 +157,33 @@ const Dashboard = () => {
           <p className="text-xs text-muted-foreground">Awaiting approval</p>
         </CardContent>
       </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Pending Tasks</CardTitle>
+          <ListTodo className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-warning">{stats.pendingTasks || 0}</div>
+          <p className="text-xs text-muted-foreground">Tasks in progress</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Completed Tasks</CardTitle>
+          <CheckCircle className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-success">{stats.completedTasks || 0}</div>
+          <p className="text-xs text-muted-foreground">Tasks completed</p>
+        </CardContent>
+      </Card>
     </div>
   );
 
   const renderManagerDashboard = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Doctors</CardTitle>
@@ -170,6 +203,28 @@ const Dashboard = () => {
         <CardContent>
           <div className="text-2xl font-bold text-warning">{stats.pendingApprovals || 0}</div>
           <p className="text-xs text-muted-foreground">Awaiting your approval</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Pending Tasks</CardTitle>
+          <ListTodo className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-warning">{stats.pendingTasks || 0}</div>
+          <p className="text-xs text-muted-foreground">Tasks in progress</p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Completed Tasks</CardTitle>
+          <CheckCircle className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-success">{stats.completedTasks || 0}</div>
+          <p className="text-xs text-muted-foreground">Tasks completed</p>
         </CardContent>
       </Card>
     </div>
