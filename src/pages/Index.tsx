@@ -41,7 +41,7 @@ const Index = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard />;
+        return <Dashboard onTabChange={setActiveTab} />;
       case 'staff':
         return <StaffManagement />;
       case 'doctors':

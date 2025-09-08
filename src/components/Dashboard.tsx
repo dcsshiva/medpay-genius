@@ -26,7 +26,11 @@ interface DashboardStats {
   completedTasks?: number;
 }
 
-const Dashboard = () => {
+interface DashboardProps {
+  onTabChange?: (tab: string) => void;
+}
+
+const Dashboard = ({ onTabChange }: DashboardProps) => {
   const { userRole, user } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({});
   const [loading, setLoading] = useState(true);
@@ -114,7 +118,10 @@ const Dashboard = () => {
 
   const renderAdminDashboard = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      <Card>
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
+        onClick={() => onTabChange?.('doctors')}
+      >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Doctors</CardTitle>
           <Users className="h-4 w-4 text-muted-foreground" />
@@ -125,7 +132,10 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
+        onClick={() => onTabChange?.('visits')}
+      >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Visits</CardTitle>
           <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -136,7 +146,10 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
+        onClick={() => onTabChange?.('payments')}
+      >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Payments</CardTitle>
           <CreditCard className="h-4 w-4 text-muted-foreground" />
@@ -147,7 +160,10 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
+        onClick={() => onTabChange?.('payments')}
+      >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
           <AlertCircle className="h-4 w-4 text-muted-foreground" />
@@ -158,7 +174,10 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
+        onClick={() => onTabChange?.('tasks')}
+      >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Pending Tasks</CardTitle>
           <ListTodo className="h-4 w-4 text-muted-foreground" />
@@ -169,7 +188,10 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
+        onClick={() => onTabChange?.('tasks')}
+      >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Completed Tasks</CardTitle>
           <CheckCircle className="h-4 w-4 text-muted-foreground" />
@@ -184,7 +206,10 @@ const Dashboard = () => {
 
   const renderManagerDashboard = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <Card>
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
+        onClick={() => onTabChange?.('doctors')}
+      >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Doctors</CardTitle>
           <Users className="h-4 w-4 text-muted-foreground" />
@@ -195,7 +220,10 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
+        onClick={() => onTabChange?.('payments')}
+      >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
           <Clock className="h-4 w-4 text-muted-foreground" />
@@ -206,7 +234,10 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
+        onClick={() => onTabChange?.('tasks')}
+      >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Pending Tasks</CardTitle>
           <ListTodo className="h-4 w-4 text-muted-foreground" />
@@ -217,7 +248,10 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
+        onClick={() => onTabChange?.('tasks')}
+      >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Completed Tasks</CardTitle>
           <CheckCircle className="h-4 w-4 text-muted-foreground" />
@@ -232,7 +266,10 @@ const Dashboard = () => {
 
   const renderDoctorDashboard = () => (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <Card>
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
+        onClick={() => onTabChange?.('visits')}
+      >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">My Visits</CardTitle>
           <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -243,7 +280,10 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
+        onClick={() => onTabChange?.('payments')}
+      >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Total Earnings</CardTitle>
           <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -254,7 +294,10 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
+        onClick={() => onTabChange?.('payments')}
+      >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Pending Payments</CardTitle>
           <Clock className="h-4 w-4 text-muted-foreground" />
