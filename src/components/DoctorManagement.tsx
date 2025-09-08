@@ -87,7 +87,7 @@ const DoctorManagement = () => {
     try {
       if (editingDoctor) {
         // Update existing doctor and profile
-        const { error: doctorError } = await supabase
+        const { error: updateDoctorError } = await supabase
           .from('doctors')
           .update({
             doctor_code: formData.doctor_code,
@@ -96,7 +96,7 @@ const DoctorManagement = () => {
           })
           .eq('id', editingDoctor.id);
 
-        if (doctorError) throw doctorError;
+        if (updateDoctorError) throw updateDoctorError;
 
         // Update profile name if changed
         if (editingDoctor.profiles?.id) {
@@ -110,20 +110,53 @@ const DoctorManagement = () => {
           if (profileError) throw profileError;
         }
 
+        // Update auth user email/password if provided
+        if (formData.email.trim() || formData.password.trim()) {
+          // Get the auth user ID from the profile
+          const { data: authProfile } = await supabase
+            .from('profiles')
+            .select('user_id')
+            .eq('id', editingDoctor.profiles?.id)
+            .single();
+
+          if (authProfile?.user_id) {
+            const { error: credUpdateError } = await supabase.functions.invoke('update-user-credentials', {
+              body: {
+                userId: authProfile.user_id,
+                email: formData.email.trim(),
+                password: formData.password.trim()
+              }
+            });
+
+            if (credUpdateError) {
+              console.error('Failed to update credentials:', credUpdateError);
+              // Don't throw error - continue with other updates
+            }
+          }
+        }
+
         toast({
           title: "Success",
           description: "Doctor updated successfully"
         });
-      } else {
-        // Validation for new doctor
-        if (!formData.email.trim() || !formData.password.trim()) {
-          toast({
-            variant: "destructive",
-            title: "Validation Error",
-            description: "Email and password are required for new doctors"
-          });
-          return;
-        }
+      // Create new doctor (existing logic)
+      if (!formData.email.trim()) {
+        toast({
+          variant: "destructive",
+          title: "Validation Error",
+          description: "Email is required for new doctors"
+        });
+        return;
+      }
+
+      if (!formData.password.trim()) {
+        toast({
+          variant: "destructive",
+          title: "Validation Error",
+          description: "Password is required for new doctors"
+        });
+        return;
+      }
 
         if (formData.password.length < 6) {
           toast({
@@ -164,7 +197,7 @@ const DoctorManagement = () => {
         if (profileError) throw profileError;
 
         // Create doctor record
-        const { error: doctorError } = await supabase
+        const { error: createDoctorError } = await supabase
           .from('doctors')
           .insert({
             profile_id: profileData.id,
@@ -173,7 +206,7 @@ const DoctorManagement = () => {
             is_active: formData.is_active
           });
 
-        if (doctorError) throw doctorError;
+        if (createDoctorError) throw createDoctorError;
 
         toast({
           title: "Success",
@@ -329,33 +362,40 @@ const DoctorManagement = () => {
                     required
                   />
                 </div>
-                {!editingDoctor && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email *</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        placeholder="doctor@hospital.com"
-                        required
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="password">Password *</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        placeholder="Minimum 6 characters"
-                        required
-                      />
-                    </div>
-                  </>
-                )}
+                
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email {!editingDoctor && '*'}</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    placeholder="doctor@hospital.com"
+                    required={!editingDoctor}
+                  />
+                  {editingDoctor && (
+                    <p className="text-xs text-muted-foreground">
+                      Update email address if needed
+                    </p>
+                  )}
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="password">Password {!editingDoctor && '*'}</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    placeholder={editingDoctor ? "Leave blank to keep current password" : "Minimum 6 characters"}
+                    required={!editingDoctor}
+                  />
+                  {editingDoctor && (
+                    <p className="text-xs text-muted-foreground">
+                      Leave blank to keep current password
+                    </p>
+                  )}
+                </div>
                 
                 <div className="space-y-2">
                   <Label htmlFor="is_active">Status</Label>

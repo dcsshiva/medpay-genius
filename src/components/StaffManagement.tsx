@@ -147,7 +147,7 @@ const StaffManagement = () => {
         if (editingStaff.profile_id) {
           const { data: profileData } = await supabase
             .from('profiles')
-            .select('*')
+            .select('user_id')
             .eq('id', editingStaff.profile_id)
             .single();
 
@@ -161,6 +161,21 @@ const StaffManagement = () => {
               .eq('id', editingStaff.profile_id);
 
             if (profileError) throw profileError;
+
+            // Update auth user password if provided
+            if (formData.password.trim()) {
+              const { error: credUpdateError } = await supabase.functions.invoke('update-user-credentials', {
+                body: {
+                  userId: profileData.user_id,
+                  password: formData.password.trim()
+                }
+              });
+
+              if (credUpdateError) {
+                console.error('Failed to update password:', credUpdateError);
+                // Don't throw error - continue with other updates
+              }
+            }
           }
         }
 
