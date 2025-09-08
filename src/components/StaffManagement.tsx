@@ -127,6 +127,63 @@ const StaffManagement = () => {
 
     try {
       if (editingStaff) {
+        // Validate staff_code uniqueness (exclude current staff)
+        if (formData.staff_code && formData.staff_code !== editingStaff.staff_code) {
+          const { data: existingStaffCode } = await supabase
+            .from('staff')
+            .select('id')
+            .eq('staff_code', formData.staff_code)
+            .neq('id', editingStaff.id)
+            .single();
+          
+          if (existingStaffCode) {
+            toast({
+              variant: "destructive",
+              title: "Validation Error",
+              description: `Staff code "${formData.staff_code}" is already in use`
+            });
+            return;
+          }
+        }
+
+        // Validate username uniqueness (exclude current staff)
+        if (formData.username !== editingStaff.username) {
+          const { data: existingUsername } = await supabase
+            .from('staff')
+            .select('id')
+            .eq('username', formData.username)
+            .neq('id', editingStaff.id)
+            .single();
+          
+          if (existingUsername) {
+            toast({
+              variant: "destructive",
+              title: "Validation Error",
+              description: `Username "${formData.username}" is already in use`
+            });
+            return;
+          }
+        }
+
+        // Validate email uniqueness (exclude current staff) if email provided
+        if (formData.email.trim() && formData.email !== editingStaff.email) {
+          const { data: existingEmail } = await supabase
+            .from('staff')
+            .select('id')
+            .eq('email', formData.email)
+            .neq('id', editingStaff.id)
+            .single();
+          
+          if (existingEmail) {
+            toast({
+              variant: "destructive",
+              title: "Validation Error",
+              description: `Email "${formData.email}" is already in use`
+            });
+            return;
+          }
+        }
+
         // Update existing staff
         const { error: staffError } = await supabase
           .from('staff')
@@ -141,7 +198,18 @@ const StaffManagement = () => {
           })
           .eq('id', editingStaff.id);
 
-        if (staffError) throw staffError;
+        if (staffError) {
+          console.error('Staff update error:', staffError);
+          if (staffError.message.includes('duplicate key value')) {
+            toast({
+              variant: "destructive",
+              title: "Duplicate Entry",
+              description: "Username, email, or staff code already exists. Please use different values."
+            });
+            return;
+          }
+          throw staffError;
+        }
 
         // Update profile name if staff has profile_id
         if (editingStaff.profile_id) {
@@ -211,6 +279,37 @@ const StaffManagement = () => {
       }
 
       const staffCode = formData.staff_code || generateStaffCode();
+
+      // Validate uniqueness for new staff
+      const [usernameCheck, emailCheck, staffCodeCheck] = await Promise.all([
+        supabase.from('staff').select('id').eq('username', formData.username).single(),
+        formData.email ? supabase.from('staff').select('id').eq('email', formData.email).single() : { data: null },
+        supabase.from('staff').select('id').eq('staff_code', staffCode).single()
+      ]);
+
+      if (usernameCheck.data) {
+        toast({
+          variant: "destructive",
+          title: "Validation Error",
+          description: `Username "${formData.username}" is already in use`
+        });
+        return;
+      }
+
+      if (emailCheck.data) {
+        toast({
+          variant: "destructive",
+          title: "Validation Error",
+          description: `Email "${formData.email}" is already in use`
+        });
+        return;
+      }
+
+      if (staffCodeCheck.data) {
+        // Generate a new code if collision
+        const newStaffCode = generateStaffCode();
+        console.log(`Staff code collision, using ${newStaffCode} instead of ${staffCode}`);
+      }
 
       // Create auth user via edge function
       const { data: result, error: createUserError } = await supabase.functions.invoke('create-user', {

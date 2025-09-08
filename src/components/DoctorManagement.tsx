@@ -86,6 +86,25 @@ const DoctorManagement = () => {
 
     try {
       if (editingDoctor) {
+        // Validate doctor_code uniqueness (exclude current doctor)
+        if (formData.doctor_code !== editingDoctor.doctor_code) {
+          const { data: existingDoctor } = await supabase
+            .from('doctors')
+            .select('id')
+            .eq('doctor_code', formData.doctor_code)
+            .neq('id', editingDoctor.id)
+            .single();
+          
+          if (existingDoctor) {
+            toast({
+              variant: "destructive",
+              title: "Validation Error",
+              description: `Doctor code "${formData.doctor_code}" is already in use`
+            });
+            return;
+          }
+        }
+
         // Update existing doctor and profile
         const { error: updateDoctorError } = await supabase
           .from('doctors')
@@ -96,7 +115,18 @@ const DoctorManagement = () => {
           })
           .eq('id', editingDoctor.id);
 
-        if (updateDoctorError) throw updateDoctorError;
+        if (updateDoctorError) {
+          console.error('Doctor update error:', updateDoctorError);
+          if (updateDoctorError.message.includes('duplicate key value')) {
+            toast({
+              variant: "destructive",
+              title: "Duplicate Entry",
+              description: "Doctor code already exists. Please use a different code."
+            });
+            return;
+          }
+          throw updateDoctorError;
+        }
 
         // Update profile name if changed
         if (editingDoctor.profiles?.id) {
@@ -158,11 +188,18 @@ const DoctorManagement = () => {
         return;
       }
 
-        if (formData.password.length < 6) {
+        // Validate doctor_code uniqueness for new doctors
+        const { data: existingDoctor } = await supabase
+          .from('doctors')
+          .select('id')
+          .eq('doctor_code', formData.doctor_code)
+          .single();
+        
+        if (existingDoctor) {
           toast({
             variant: "destructive",
             title: "Validation Error",
-            description: "Password must be at least 6 characters long"
+            description: `Doctor code "${formData.doctor_code}" is already in use`
           });
           return;
         }
