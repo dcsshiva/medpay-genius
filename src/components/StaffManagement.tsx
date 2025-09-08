@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Users, UserCheck, UserX } from 'lucide-react';
+import { Plus, Edit, Users, UserCheck, UserX } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Staff {
@@ -24,6 +24,7 @@ interface Staff {
   is_active: boolean;
   last_login?: string;
   created_at: string;
+  profile_id?: string;
 }
 
 const StaffManagement = () => {
@@ -32,6 +33,7 @@ const StaffManagement = () => {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
   const [formData, setFormData] = useState({
     staff_code: '',
     username: '',
@@ -114,25 +116,85 @@ const StaffManagement = () => {
     }
 
     // Validation
-    if (!formData.username.trim() || !formData.password.trim() || !formData.full_name.trim()) {
+    if (!formData.username.trim() || !formData.full_name.trim()) {
       toast({
         variant: "destructive",
         title: "Validation Error",
-        description: "Username, password, and full name are required"
-      });
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "Password must be at least 6 characters long"
+        description: "Username and full name are required"
       });
       return;
     }
 
     try {
+      if (editingStaff) {
+        // Update existing staff
+        const { error: staffError } = await supabase
+          .from('staff')
+          .update({
+            staff_code: formData.staff_code || generateStaffCode(),
+            username: formData.username.trim(),
+            full_name: formData.full_name.trim(),
+            email: formData.email.trim() || null,
+            phone: formData.phone.trim() || null,
+            role: formData.role as any,
+            department: formData.department.trim() || null
+          })
+          .eq('id', editingStaff.id);
+
+        if (staffError) throw staffError;
+
+        // Update profile name if staff has profile_id
+        if (editingStaff.profile_id) {
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', editingStaff.profile_id)
+            .single();
+
+          if (profileData) {
+            const { error: profileError } = await supabase
+              .from('profiles')
+              .update({
+                full_name: formData.full_name.trim(),
+                role: formData.role as any
+              })
+              .eq('id', editingStaff.profile_id);
+
+            if (profileError) throw profileError;
+          }
+        }
+
+        toast({
+          title: "Success",
+          description: "Staff member updated successfully"
+        });
+
+        setDialogOpen(false);
+        setEditingStaff(null);
+        resetForm();
+        fetchStaff();
+        return;
+      }
+
+      // Create new staff (existing logic)
+      if (!formData.password.trim()) {
+        toast({
+          variant: "destructive",
+          title: "Validation Error",
+          description: "Password is required for new staff members"
+        });
+        return;
+      }
+
+      if (formData.password.length < 6) {
+        toast({
+          variant: "destructive",
+          title: "Validation Error",
+          description: "Password must be at least 6 characters long"
+        });
+        return;
+      }
+
       const staffCode = formData.staff_code || generateStaffCode();
 
       // Create auth user via edge function
@@ -193,7 +255,7 @@ const StaffManagement = () => {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to create staff member"
+        description: error.message || "Failed to save staff member"
       });
     }
   };
@@ -233,6 +295,22 @@ const StaffManagement = () => {
       role: 'nurse',
       department: ''
     });
+    setEditingStaff(null);
+  };
+
+  const handleEdit = (staffMember: Staff) => {
+    setEditingStaff(staffMember);
+    setFormData({
+      staff_code: staffMember.staff_code,
+      username: staffMember.username,
+      password: '', // Don't pre-fill for security
+      full_name: staffMember.full_name,
+      email: staffMember.email || '',
+      phone: staffMember.phone || '',
+      role: staffMember.role,
+      department: staffMember.department || ''
+    });
+    setDialogOpen(true);
   };
 
   const getRoleBadgeVariant = (role: string) => {
@@ -321,15 +399,20 @@ const StaffManagement = () => {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="password">Password *</Label>
+                  <Label htmlFor="password">Password {!editingStaff && '*'}</Label>
                   <Input
                     id="password"
                     type="password"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    placeholder="Minimum 6 characters"
-                    required
+                    placeholder={editingStaff ? "Leave blank to keep current password" : "Minimum 6 characters"}
+                    required={!editingStaff}
                   />
+                  {editingStaff && (
+                    <p className="text-xs text-muted-foreground">
+                      Leave blank to keep current password
+                    </p>
+                  )}
                 </div>
                 
                 <div className="space-y-2">
@@ -499,7 +582,15 @@ const StaffManagement = () => {
                 )}
               </div>
               
-              <div className="mt-4 flex justify-end">
+              <div className="mt-4 flex justify-between">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleEdit(member)}
+                >
+                  <Edit className="h-4 w-4 mr-1" />
+                  Edit
+                </Button>
                 <Button
                   size="sm"
                   variant={member.is_active ? "outline" : "default"}

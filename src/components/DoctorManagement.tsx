@@ -17,8 +17,9 @@ interface Doctor {
   specialization: string;
   is_active: boolean;
   profiles: {
+    id: string;
     full_name: string;
-  };
+  } | null;
 }
 
 const DoctorManagement = () => {
@@ -43,18 +44,19 @@ const DoctorManagement = () => {
 
   const fetchDoctors = async () => {
     try {
-      const { data, error } = await supabase
-        .from('doctors')
-        .select(`
-          id,
-          doctor_code,
-          specialization,
-          is_active,
-          profiles:profile_id (
-            full_name
-          )
-        `)
-        .order('created_at', { ascending: false });
+        const { data, error } = await supabase
+          .from('doctors')
+          .select(`
+            id,
+            doctor_code,
+            specialization,
+            is_active,
+            profiles:profile_id (
+              id,
+              full_name
+            )
+          `)
+          .order('created_at', { ascending: false });
 
       if (error) throw error;
       setDoctors(data || []);
@@ -84,8 +86,8 @@ const DoctorManagement = () => {
 
     try {
       if (editingDoctor) {
-        // Update existing doctor
-        const { error } = await supabase
+        // Update existing doctor and profile
+        const { error: doctorError } = await supabase
           .from('doctors')
           .update({
             doctor_code: formData.doctor_code,
@@ -94,7 +96,19 @@ const DoctorManagement = () => {
           })
           .eq('id', editingDoctor.id);
 
-        if (error) throw error;
+        if (doctorError) throw doctorError;
+
+        // Update profile name if changed
+        if (editingDoctor.profiles?.id) {
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .update({
+              full_name: formData.full_name
+            })
+            .eq('id', editingDoctor.profiles.id);
+
+          if (profileError) throw profileError;
+        }
 
         toast({
           title: "Success",
