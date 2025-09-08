@@ -10,6 +10,7 @@ import StaffManagement from '@/components/StaffManagement';
 import TaskManagement from '@/components/TaskManagement';
 import TeamChat from '@/components/TeamChat';
 import ComplaintManagement from '@/components/ComplaintManagement';
+import Settings from '@/components/Settings';
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -55,6 +56,8 @@ const Index = () => {
         return <ComplaintManagement />;
       case 'chat':
         return <TeamChat />;
+      case 'settings':
+        return <Settings />;
       default:
         return <Dashboard />;
     }

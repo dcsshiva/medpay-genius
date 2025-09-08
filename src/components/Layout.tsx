@@ -38,7 +38,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
         { id: 'payments', label: 'My Payments', icon: CreditCard },
         { id: 'tasks', label: 'My Tasks', icon: ClipboardList },
         { id: 'complaints', label: 'Complaints', icon: MessageCircle },
-        { id: 'settings', label: 'Settings', icon: Settings },
       ];
     }
 
@@ -50,7 +49,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
         { id: 'tasks', label: 'Task Management', icon: ClipboardList },
         { id: 'complaints', label: 'Complaints', icon: MessageCircle },
         { id: 'chat', label: 'Team Chat', icon: MessageSquare },
-        { id: 'settings', label: 'Settings', icon: Settings },
       ];
     }
 
@@ -145,7 +143,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
 
         {/* Main Content */}
         <main className="flex-1 p-4 md:p-6">
-          {activeTab === 'settings' ? <PasswordChange /> : children}
+          {children}
         </main>
       </div>
     </div>
