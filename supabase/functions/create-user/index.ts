@@ -32,15 +32,15 @@ serve(async (req) => {
       throw new Error('Invalid authentication');
     }
 
-    // Check if user is admin
+    // Check if user is admin or manager
     const { data: profile } = await supabaseClient
       .from('profiles')
       .select('role')
       .eq('user_id', user.id)
       .single();
     
-    if (profile?.role !== 'admin') {
-      throw new Error('Only admins can create users');
+    if (!profile || !['admin', 'manager'].includes(profile.role)) {
+      throw new Error('Only admins and managers can create users');
     }
 
     const { email, password, userData } = await req.json();
