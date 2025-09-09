@@ -42,6 +42,15 @@ const DoctorManagement = () => {
     fetchDoctors();
   }, []);
 
+  // Add a key to force re-render when dialog closes
+  const handleDialogClose = () => {
+    setDialogOpen(false);
+    setEditingDoctor(null);
+    resetForm();
+    // Force refresh to get updated data
+    fetchDoctors();
+  };
+
   const fetchDoctors = async () => {
     try {
         const { data, error } = await supabase
@@ -255,6 +264,7 @@ const DoctorManagement = () => {
       setDialogOpen(false);
       setEditingDoctor(null);
       resetForm();
+      // Force refresh to get updated data
       fetchDoctors();
     } catch (error: any) {
       toast({
@@ -352,7 +362,7 @@ const DoctorManagement = () => {
         </div>
         
         {userRole === 'admin' && (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
             <DialogTrigger asChild>
               <Button onClick={resetForm}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -451,7 +461,7 @@ const DoctorManagement = () => {
                   </Select>
                 </div>
                 <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                  <Button type="button" variant="outline" onClick={handleDialogClose}>
                     Cancel
                   </Button>
                   <Button type="submit">
