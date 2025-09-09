@@ -169,24 +169,25 @@ const DoctorManagement = () => {
           title: "Success",
           description: "Doctor updated successfully"
         });
-      // Create new doctor (existing logic)
-      if (!formData.email.trim()) {
-        toast({
-          variant: "destructive",
-          title: "Validation Error",
-          description: "Email is required for new doctors"
-        });
-        return;
-      }
+      } else {
+        // Create new doctor
+        if (!formData.email.trim()) {
+          toast({
+            variant: "destructive",
+            title: "Validation Error",
+            description: "Email is required for new doctors"
+          });
+          return;
+        }
 
-      if (!formData.password.trim()) {
-        toast({
-          variant: "destructive",
-          title: "Validation Error",
-          description: "Password is required for new doctors"
-        });
-        return;
-      }
+        if (!formData.password.trim()) {
+          toast({
+            variant: "destructive",
+            title: "Validation Error",
+            description: "Password is required for new doctors"
+          });
+          return;
+        }
 
         // Validate doctor_code uniqueness for new doctors
         const { data: existingDoctor } = await supabase
