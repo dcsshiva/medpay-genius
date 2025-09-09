@@ -230,15 +230,11 @@ const DoctorManagement = () => {
           throw new Error(result?.error || createUserError?.message || 'Failed to create user');
         }
 
-        // Create profile record
+        // The edge function already creates the profile, so get it instead of creating
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
-          .insert({
-            user_id: result.user.id,
-            full_name: formData.full_name,
-            role: 'doctor'
-          })
-          .select()
+          .select('id')
+          .eq('user_id', result.user.id)
           .single();
 
         if (profileError) throw profileError;
