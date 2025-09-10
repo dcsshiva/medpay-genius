@@ -361,9 +361,15 @@ const DoctorManagement = () => {
         </div>
         
         {userRole === 'admin' && (
-          <Dialog open={dialogOpen} onOpenChange={handleDialogClose}>
+          <Dialog open={dialogOpen} onOpenChange={(open) => {
+            if (open) {
+              resetForm();
+              setEditingDoctor(null);
+            }
+            setDialogOpen(open);
+          }}>
             <DialogTrigger asChild>
-              <Button onClick={resetForm}>
+              <Button>
                 <Plus className="h-4 w-4 mr-2" />
                 Add Doctor
               </Button>
