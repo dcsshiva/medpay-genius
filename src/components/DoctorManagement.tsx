@@ -146,7 +146,10 @@ const DoctorManagement = () => {
             })
             .eq('id', editingDoctor.profiles.id);
 
-          if (profileError) throw profileError;
+          if (profileError) {
+            console.error('Profile update error:', profileError);
+            throw profileError;
+          }
         }
 
         // Update auth user email/password if provided
