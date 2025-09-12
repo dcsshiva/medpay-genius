@@ -180,9 +180,9 @@ const PaymentManagement = () => {
         }
       }
 
-      // If user is a manager, show only pending payments
+      // If user is a manager, show pending and manager_approved payments
       if (userRole === 'manager') {
-        query = query.eq('status', 'pending');
+        query = query.in('status', ['pending', 'manager_approved']);
       }
 
       const { data, error } = await query.order('created_at', { ascending: false });
@@ -948,6 +948,57 @@ const PaymentManagement = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Summary Cards for Managers and Admins */}
+      {(userRole === 'manager' || userRole === 'admin') && payments.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <Clock className="h-8 w-8 text-warning mr-3" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {payments.filter(p => p.status === 'pending').length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Pending Requests</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <CreditCard className="h-8 w-8 text-primary mr-3" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {formatCurrency(
+                      payments
+                        .filter(p => p.status === 'pending')
+                        .reduce((sum, p) => sum + p.total_amount, 0)
+                    )}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Total Pending Amount</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <CheckCircle className="h-8 w-8 text-success mr-3" />
+                <div>
+                  <p className="text-2xl font-bold">
+                    {payments.filter(p => p.status === 'admin_approved').length}
+                  </p>
+                  <p className="text-sm text-muted-foreground">Approved Payments</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Payments List */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
