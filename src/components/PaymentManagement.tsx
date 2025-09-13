@@ -121,10 +121,36 @@ const PaymentManagement = () => {
     period_end: ''
   });
 
+  const [visitsTotal, setVisitsTotal] = useState(0);
+  const [paidTotal, setPaidTotal] = useState(0);
+
+  const fetchGlobalTotals = async () => {
+    try {
+      if (!(userRole === 'manager' || userRole === 'admin')) return;
+      const [{ data: visitsData, error: visitsError }, { data: ptData, error: ptError }] = await Promise.all([
+        supabase.from('visits').select('visit_payment'),
+        supabase.from('payment_transactions').select('amount')
+      ]);
+      if (visitsError) throw visitsError;
+      if (ptError) throw ptError;
+      const vTotal = (visitsData || []).reduce((sum: number, v: any) => sum + (Number(v.visit_payment) || 0), 0);
+      const pTotal = (ptData || []).reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
+      setVisitsTotal(vTotal);
+      setPaidTotal(pTotal);
+    } catch (err) {
+      console.error('Error fetching totals:', err);
+    }
+  };
+
+  const pendingTotal = Math.max(0, visitsTotal - paidTotal);
+
   useEffect(() => {
     fetchPayments();
     if (userRole === 'admin') {
       fetchDoctors();
+    }
+    if (userRole === 'manager' || userRole === 'admin') {
+      fetchGlobalTotals();
     }
   }, [userRole]);
 
@@ -441,6 +467,7 @@ const PaymentManagement = () => {
       setPaymentDialog(false);
       setPaymentFormData({ amount: 0, transaction_reference: '', notes: '' });
       fetchPayments();
+      fetchGlobalTotals();
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -973,11 +1000,7 @@ const PaymentManagement = () => {
                 <CreditCard className="h-8 w-8 text-primary mr-3" />
                 <div>
                   <p className="text-2xl font-bold">
-                    {formatCurrency(
-                      payments
-                        .filter(p => p.status === 'pending')
-                        .reduce((sum, p) => sum + p.remaining_amount, 0)
-                    )}
+                    {formatCurrency(pendingTotal)}
                   </p>
                   <p className="text-sm text-muted-foreground">Total Pending Amount</p>
                 </div>
