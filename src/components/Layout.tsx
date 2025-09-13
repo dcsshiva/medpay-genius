@@ -2,7 +2,12 @@ import React from 'react';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import MobileHeader from '@/components/MobileHeader';
-import PasswordChange from '@/components/PasswordChange';
+import { AppSidebar } from '@/components/AppSidebar';
+import { 
+  SidebarProvider, 
+  SidebarInset, 
+  SidebarTrigger 
+} from '@/components/ui/sidebar';
 import { 
   Stethoscope, 
   LogOut, 
@@ -72,81 +77,73 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
   const navigationItems = getNavigationItems();
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Mobile Header */}
-      <MobileHeader 
-        navigationItems={navigationItems}
-        activeTab={activeTab}
-        onTabChange={onTabChange}
-      />
+    <SidebarProvider>
+      <div className="min-h-screen bg-background w-full">
+        {/* Mobile Header */}
+        <MobileHeader 
+          navigationItems={navigationItems}
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+        />
 
-      {/* Desktop Header */}
-      <header className="bg-card border-b border-border shadow-sm hidden md:block">
-        <div className="flex items-center justify-between px-6 py-4">
-          <div className="flex items-center space-x-3">
-            <div className="bg-primary p-2 rounded-lg">
-              <Stethoscope className="h-6 w-6 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">WestMed Hospital</h1>
-              <p className="text-sm text-muted-foreground">Hospital Management System</p>
-            </div>
-          </div>
+        {/* Desktop Layout with Sidebar */}
+        <div className="hidden md:flex w-full">
+          <AppSidebar />
           
-          <div className="flex items-center space-x-4">
-            <div className="text-right">
-              <p className="text-sm font-medium text-foreground">
-                {user?.user_metadata?.full_name || user?.email}
-              </p>
-              <p className="text-xs text-muted-foreground capitalize">
-                {userRole}
-              </p>
-            </div>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={signOut}
-              className="flex items-center space-x-2"
-            >
-              <LogOut className="h-4 w-4" />
-              <span>Logout</span>
-            </Button>
-          </div>
-        </div>
-      </header>
-
-      <div className="flex">
-        {/* Desktop Sidebar */}
-        <nav className="w-64 bg-card border-r border-border min-h-[calc(100vh-80px)] hidden md:block">
-          <div className="p-4">
-            <div className="space-y-2">
-              {navigationItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => onTabChange(item.id)}
-                    className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
-                      activeTab === item.id
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                    }`}
+          <SidebarInset>
+            {/* Desktop Header */}
+            <header className="bg-card border-b border-border shadow-sm">
+              <div className="flex items-center justify-between px-6 py-4">
+                <div className="flex items-center space-x-3">
+                  <SidebarTrigger />
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-primary p-2 rounded-lg">
+                      <Stethoscope className="h-6 w-6 text-primary-foreground" />
+                    </div>
+                    <div>
+                      <h1 className="text-xl font-bold text-foreground">WestMed Hospital</h1>
+                      <p className="text-sm text-muted-foreground">Hospital Management System</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-4">
+                  <div className="text-right">
+                    <p className="text-sm font-medium text-foreground">
+                      {user?.user_metadata?.full_name || user?.email}
+                    </p>
+                    <p className="text-xs text-muted-foreground capitalize">
+                      {userRole}
+                    </p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={signOut}
+                    className="flex items-center space-x-2"
                   >
-                    <Icon className="h-5 w-5" />
-                    <span>{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </nav>
+                    <LogOut className="h-4 w-4" />
+                    <span>Logout</span>
+                  </Button>
+                </div>
+              </div>
+            </header>
 
-        {/* Main Content */}
-        <main className="flex-1 p-4 md:p-6">
-          {children}
-        </main>
+            {/* Main Content */}
+            <main className="p-6">
+              {children}
+            </main>
+          </SidebarInset>
+        </div>
+
+        {/* Mobile Content - fallback for old mobile behavior */}
+        <div className="md:hidden">
+          <main className="p-4">
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </SidebarProvider>
   );
 };
 

@@ -1,0 +1,262 @@
+import React, { useState, useEffect } from 'react';
+import { NavLink, useLocation } from 'react-router-dom';
+import { 
+  Stethoscope, 
+  Users, 
+  Calendar, 
+  CreditCard, 
+  Settings,
+  Home,
+  ClipboardList,
+  MessageCircle,
+  UserCog,
+  MessageSquare,
+  Clock,
+  CheckCircle,
+  TrendingUp
+} from 'lucide-react';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarHeader,
+  SidebarFooter,
+  useSidebar,
+} from '@/components/ui/sidebar';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/lib/auth';
+import { supabase } from '@/integrations/supabase/client';
+import { formatCurrency } from '@/lib/currency';
+
+interface NavigationStats {
+  pendingRequests: number;
+  pendingAmount: number;
+  paidAmount: number;
+}
+
+export function AppSidebar() {
+  const { userRole } = useAuth();
+  const { open } = useSidebar();
+  const location = useLocation();
+  const currentPath = location.pathname;
+  const [stats, setStats] = useState<NavigationStats>({
+    pendingRequests: 0,
+    pendingAmount: 0,
+    paidAmount: 0
+  });
+
+  const fetchStats = async () => {
+    if (!(userRole === 'manager' || userRole === 'admin')) return;
+    
+    try {
+      const [visitsRes, transactionsRes, paymentsRes] = await Promise.all([
+        supabase.from('visits').select('visit_payment'),
+        supabase.from('payment_transactions').select('amount'),
+        supabase.from('payments').select('status').eq('status', 'pending')
+      ]);
+
+      const totalVisitAmount = (visitsRes.data || []).reduce((sum: number, v: any) => 
+        sum + (Number(v.visit_payment) || 0), 0);
+      
+      const totalPaidAmount = (transactionsRes.data || []).reduce((sum: number, t: any) => 
+        sum + (Number(t.amount) || 0), 0);
+
+      const pendingAmount = Math.max(0, totalVisitAmount - totalPaidAmount);
+      const pendingRequests = paymentsRes.data?.length || 0;
+
+      setStats({
+        pendingRequests,
+        pendingAmount,
+        paidAmount: totalPaidAmount
+      });
+    } catch (error) {
+      console.error('Error fetching stats:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+    // Refresh stats every 30 seconds
+    const interval = setInterval(fetchStats, 30000);
+    return () => clearInterval(interval);
+  }, [userRole]);
+
+  const getNavigationItems = () => {
+    const baseItems = [
+      { id: 'dashboard', label: 'Dashboard', icon: Home, path: '/' },
+    ];
+
+    if (userRole === 'doctor') {
+      return [
+        ...baseItems,
+        { id: 'visits', label: 'My Visits', icon: Calendar, path: '/visits' },
+        { id: 'payments', label: 'My Payments', icon: CreditCard, path: '/payments' },
+        { id: 'tasks', label: 'My Tasks', icon: ClipboardList, path: '/tasks' },
+        { id: 'complaints', label: 'Complaints', icon: MessageCircle, path: '/complaints' },
+      ];
+    }
+
+    if (userRole === 'manager') {
+      return [
+        ...baseItems,
+        { id: 'doctors', label: 'Doctors', icon: Users, path: '/doctors' },
+        { id: 'payments', label: 'Payment Approvals', icon: CreditCard, path: '/payments' },
+        { id: 'tasks', label: 'Task Management', icon: ClipboardList, path: '/tasks' },
+        { id: 'complaints', label: 'Complaints', icon: MessageCircle, path: '/complaints' },
+        { id: 'chat', label: 'Team Chat', icon: MessageSquare, path: '/chat' },
+      ];
+    }
+
+    if (userRole === 'admin') {
+      return [
+        ...baseItems,
+        { id: 'staff', label: 'Staff Management', icon: UserCog, path: '/staff' },
+        { id: 'doctors', label: 'Doctor Management', icon: Users, path: '/doctors' },
+        { id: 'visits', label: 'Visit Management', icon: Calendar, path: '/visits' },
+        { id: 'payments', label: 'Payment Management', icon: CreditCard, path: '/payments' },
+        { id: 'tasks', label: 'Task Management', icon: ClipboardList, path: '/tasks' },
+        { id: 'complaints', label: 'Complaint Management', icon: MessageCircle, path: '/complaints' },
+        { id: 'chat', label: 'Team Chat', icon: MessageSquare, path: '/chat' },
+        { id: 'settings', label: 'Settings', icon: Settings, path: '/settings' },
+      ];
+    }
+
+    return baseItems;
+  };
+
+  const navigationItems = getNavigationItems();
+  const isCollapsed = !open;
+
+  return (
+    <Sidebar className="border-r">
+      <SidebarHeader className="border-b p-4">
+        <div className="flex items-center space-x-3">
+          <div className="bg-primary p-2 rounded-lg">
+            <Stethoscope className="h-6 w-6 text-primary-foreground" />
+          </div>
+          {!isCollapsed && (
+            <div>
+              <h1 className="text-lg font-bold">WestMed</h1>
+              <p className="text-xs text-muted-foreground">Hospital System</p>
+            </div>
+          )}
+        </div>
+      </SidebarHeader>
+
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {navigationItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = currentPath === item.path || 
+                  (item.id === 'dashboard' && currentPath === '/');
+                
+                return (
+                  <SidebarMenuItem key={item.id}>
+                    <SidebarMenuButton 
+                      asChild 
+                      isActive={isActive}
+                      tooltip={isCollapsed ? item.label : undefined}
+                    >
+                      <NavLink to={item.path || '/'}>
+                        <Icon className="h-4 w-4" />
+                        <span>{item.label}</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Payment Stats Section - Only for managers and admins */}
+        {(userRole === 'manager' || userRole === 'admin') && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Payment Stats</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <div className="space-y-2 px-2">
+                {/* Pending Requests */}
+                <Card className="bg-muted/50">
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Clock className="h-4 w-4 text-warning" />
+                        {!isCollapsed && (
+                          <span className="text-sm font-medium">Pending</span>
+                        )}
+                      </div>
+                      <Badge variant="secondary" className="text-xs">
+                        {stats.pendingRequests}
+                      </Badge>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Pending Amount */}
+                <Card className="bg-muted/50">
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <CreditCard className="h-4 w-4 text-primary" />
+                        {!isCollapsed && (
+                          <span className="text-sm font-medium">Amount</span>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs font-bold text-primary">
+                          {isCollapsed ? '₹' : formatCurrency(stats.pendingAmount).slice(0, 8)}
+                        </div>
+                        {!isCollapsed && (
+                          <div className="text-xs text-muted-foreground">Pending</div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Paid Amount */}
+                <Card className="bg-muted/50">
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        {!isCollapsed && (
+                          <span className="text-sm font-medium">Paid</span>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs font-bold text-green-600">
+                          {isCollapsed ? '₹' : formatCurrency(stats.paidAmount).slice(0, 8)}
+                        </div>
+                        {!isCollapsed && (
+                          <div className="text-xs text-muted-foreground">Total</div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+      </SidebarContent>
+
+      <SidebarFooter className="border-t p-4">
+        {!isCollapsed && (
+          <div className="text-xs text-muted-foreground text-center">
+            Hospital Management System
+          </div>
+        )}
+      </SidebarFooter>
+    </Sidebar>
+  );
+}
