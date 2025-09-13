@@ -300,7 +300,8 @@ const PaymentManagement = () => {
 
       const totalVisits = unprocessedVisits.reduce((sum, visit) => sum + visit.patient_count, 0);
       const ratePerVisit = doctorData.rate_per_visit;
-      const totalAmount = totalVisits * ratePerVisit;
+      // Calculate total amount based on actual visit payments, not rate * count
+      const totalAmount = unprocessedVisits.reduce((sum, visit) => sum + (visit.visit_payment || 0), 0);
 
       setCalculatedData({
         visits: unprocessedVisits,
@@ -975,7 +976,7 @@ const PaymentManagement = () => {
                     {formatCurrency(
                       payments
                         .filter(p => p.status === 'pending')
-                        .reduce((sum, p) => sum + p.total_amount, 0)
+                        .reduce((sum, p) => sum + p.remaining_amount, 0)
                     )}
                   </p>
                   <p className="text-sm text-muted-foreground">Total Pending Amount</p>
@@ -990,9 +991,13 @@ const PaymentManagement = () => {
                 <CheckCircle className="h-8 w-8 text-success mr-3" />
                 <div>
                   <p className="text-2xl font-bold">
-                    {payments.filter(p => p.status === 'admin_approved').length}
+                    {formatCurrency(
+                      payments
+                        .filter(p => p.status === 'admin_approved')
+                        .reduce((sum, p) => sum + p.paid_amount, 0)
+                    )}
                   </p>
-                  <p className="text-sm text-muted-foreground">Approved Payments</p>
+                  <p className="text-sm text-muted-foreground">Total Paid Amount</p>
                 </div>
               </div>
             </CardContent>
