@@ -508,6 +508,10 @@ export type Database = {
         Args: { user_uuid: string }
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      simple_hash: {
+        Args: { password: string }
+        Returns: string
+      }
     }
     Enums: {
       complaint_status: "open" | "in_review" | "resolved" | "closed"
