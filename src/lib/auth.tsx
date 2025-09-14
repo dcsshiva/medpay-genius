@@ -168,7 +168,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Verify password for staff (you would implement proper password hashing)
       // Note: This is simplified - in production, use proper password hashing
-      if (staffData.password_hash !== password) {
+      const hashedPassword = await supabase.rpc('simple_hash', { password });
+      if (staffData.password_hash !== hashedPassword) {
         return { error: { message: 'Invalid password' } };
       }
 
