@@ -13,6 +13,7 @@ import { Stethoscope, LogIn, UserPlus } from 'lucide-react';
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [signInData, setSignInData] = useState({ email: '', password: '' });
+  const [usernameSignInData, setUsernameSignInData] = useState({ username: '', password: '' });
   const [signUpData, setSignUpData] = useState({ 
     email: '', 
     password: '', 
@@ -20,7 +21,7 @@ const Auth = () => {
     role: 'doctor' 
   });
   
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, signInWithUsername, signUp, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -35,6 +36,28 @@ const Auth = () => {
     setIsLoading(true);
 
     const { error } = await signIn(signInData.email, signInData.password);
+    
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Login Failed",
+        description: error.message,
+      });
+    } else {
+      toast({
+        title: "Welcome back!",
+        description: "Successfully signed in.",
+      });
+    }
+    
+    setIsLoading(false);
+  };
+
+  const handleUsernameSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    const { error } = await signInWithUsername(usernameSignInData.username, usernameSignInData.password);
     
     if (error) {
       toast({
@@ -99,20 +122,60 @@ const Auth = () => {
 
         <Card>
           <CardContent className="pt-6">
-            <Tabs defaultValue="signin" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin">Sign In</TabsTrigger>
+            <Tabs defaultValue="username" className="w-full">
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="username">Staff/Doctor</TabsTrigger>
+                <TabsTrigger value="signin">Admin/Manager</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
               </TabsList>
               
+              <TabsContent value="username" className="space-y-4">
+                <div className="text-center">
+                  <h2 className="text-xl font-semibold flex items-center justify-center gap-2 mb-2">
+                    <LogIn className="h-5 w-5" />
+                    Staff/Doctor Login
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Use your username and password provided by admin
+                  </p>
+                </div>
+                
+                <form onSubmit={handleUsernameSignIn} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="username">Username/Doctor Code</Label>
+                    <Input
+                      id="username"
+                      type="text"
+                      placeholder="Enter your username or doctor code"
+                      value={usernameSignInData.username}
+                      onChange={(e) => setUsernameSignInData({ ...usernameSignInData, username: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="username-password">Password</Label>
+                    <Input
+                      id="username-password"
+                      type="password"
+                      value={usernameSignInData.password}
+                      onChange={(e) => setUsernameSignInData({ ...usernameSignInData, password: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? 'Signing In...' : 'Sign In'}
+                  </Button>
+                </form>
+              </TabsContent>
+
               <TabsContent value="signin" className="space-y-4">
                 <div className="text-center">
                   <h2 className="text-xl font-semibold flex items-center justify-center gap-2 mb-2">
                     <LogIn className="h-5 w-5" />
-                    Sign In
+                    Admin/Manager Login
                   </h2>
                   <p className="text-sm text-muted-foreground">
-                    Sign in to access your account
+                    Email login for administrators and managers
                   </p>
                 </div>
                 
