@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
 import { 
   Stethoscope, 
   Users, 
@@ -40,11 +39,14 @@ interface NavigationStats {
   paidAmount: number;
 }
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  activeTab: string;
+  onTabChange: (tab: string) => void;
+}
+
+export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const { userRole } = useAuth();
   const { open } = useSidebar();
-  const location = useLocation();
-  const currentPath = location.pathname;
   const [stats, setStats] = useState<NavigationStats>({
     pendingRequests: 0,
     pendingAmount: 0,
@@ -89,41 +91,41 @@ export function AppSidebar() {
 
   const getNavigationItems = () => {
     const baseItems = [
-      { id: 'dashboard', label: 'Dashboard', icon: Home, path: '/' },
+      { id: 'dashboard', label: 'Dashboard', icon: Home },
     ];
 
     if (userRole === 'doctor') {
       return [
         ...baseItems,
-        { id: 'visits', label: 'My Visits', icon: Calendar, path: '/visits' },
-        { id: 'payments', label: 'My Payments', icon: CreditCard, path: '/payments' },
-        { id: 'tasks', label: 'My Tasks', icon: ClipboardList, path: '/tasks' },
-        { id: 'complaints', label: 'Complaints', icon: MessageCircle, path: '/complaints' },
+        { id: 'visits', label: 'My Visits', icon: Calendar },
+        { id: 'payments', label: 'My Payments', icon: CreditCard },
+        { id: 'tasks', label: 'My Tasks', icon: ClipboardList },
+        { id: 'complaints', label: 'Complaints', icon: MessageCircle },
       ];
     }
 
     if (userRole === 'manager') {
       return [
         ...baseItems,
-        { id: 'doctors', label: 'Doctors', icon: Users, path: '/doctors' },
-        { id: 'payments', label: 'Payment Approvals', icon: CreditCard, path: '/payments' },
-        { id: 'tasks', label: 'Task Management', icon: ClipboardList, path: '/tasks' },
-        { id: 'complaints', label: 'Complaints', icon: MessageCircle, path: '/complaints' },
-        { id: 'chat', label: 'Team Chat', icon: MessageSquare, path: '/chat' },
+        { id: 'doctors', label: 'Doctors', icon: Users },
+        { id: 'payments', label: 'Payment Approvals', icon: CreditCard },
+        { id: 'tasks', label: 'Task Management', icon: ClipboardList },
+        { id: 'complaints', label: 'Complaints', icon: MessageCircle },
+        { id: 'chat', label: 'Team Chat', icon: MessageSquare },
       ];
     }
 
     if (userRole === 'admin') {
       return [
         ...baseItems,
-        { id: 'staff', label: 'Staff Management', icon: UserCog, path: '/staff' },
-        { id: 'doctors', label: 'Doctor Management', icon: Users, path: '/doctors' },
-        { id: 'visits', label: 'Visit Management', icon: Calendar, path: '/visits' },
-        { id: 'payments', label: 'Payment Management', icon: CreditCard, path: '/payments' },
-        { id: 'tasks', label: 'Task Management', icon: ClipboardList, path: '/tasks' },
-        { id: 'complaints', label: 'Complaint Management', icon: MessageCircle, path: '/complaints' },
-        { id: 'chat', label: 'Team Chat', icon: MessageSquare, path: '/chat' },
-        { id: 'settings', label: 'Settings', icon: Settings, path: '/settings' },
+        { id: 'staff', label: 'Staff Management', icon: UserCog },
+        { id: 'doctors', label: 'Doctor Management', icon: Users },
+        { id: 'visits', label: 'Visit Management', icon: Calendar },
+        { id: 'payments', label: 'Payment Management', icon: CreditCard },
+        { id: 'tasks', label: 'Task Management', icon: ClipboardList },
+        { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
+        { id: 'chat', label: 'Team Chat', icon: MessageSquare },
+        { id: 'settings', label: 'Settings', icon: Settings },
       ];
     }
 
@@ -156,20 +158,17 @@ export function AppSidebar() {
             <SidebarMenu>
               {navigationItems.map((item) => {
                 const Icon = item.icon;
-                const isActive = currentPath === item.path || 
-                  (item.id === 'dashboard' && currentPath === '/');
+                const isActive = activeTab === item.id;
                 
                 return (
                   <SidebarMenuItem key={item.id}>
                     <SidebarMenuButton 
-                      asChild 
                       isActive={isActive}
                       tooltip={isCollapsed ? item.label : undefined}
+                      onClick={() => onTabChange(item.id)}
                     >
-                      <NavLink to={item.path || '/'}>
-                        <Icon className="h-4 w-4" />
-                        <span>{item.label}</span>
-                      </NavLink>
+                      <Icon className="h-4 w-4" />
+                      <span>{item.label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );

@@ -88,7 +88,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
 
         {/* Desktop Layout with Sidebar */}
         <div className="hidden md:flex w-full">
-          <AppSidebar />
+          <AppSidebar activeTab={activeTab} onTabChange={onTabChange} />
           
           <SidebarInset>
             {/* Desktop Header */}
