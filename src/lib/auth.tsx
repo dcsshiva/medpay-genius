@@ -8,9 +8,7 @@ interface AuthContextType {
   loading: boolean;
   userRole: string | null;
   userProfile: any | null;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
   signInWithUsername: (username: string, password: string) => Promise<{ error: any }>;
-  signUp: (email: string, password: string, fullName: string, role?: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -86,30 +84,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
-  };
-
-  const signUp = async (email: string, password: string, fullName: string, role: string = 'doctor') => {
-    const redirectUrl = `${window.location.origin}/`;
-    
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl,
-        data: {
-          full_name: fullName,
-          role: role
-        }
-      }
-    });
-    return { error };
-  };
 
   const signInWithUsername = async (username: string, password: string) => {
     try {
@@ -189,16 +163,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    if (session?.access_token?.startsWith('mock_token')) {
-      // Handle mock session logout
-      setUser(null);
-      setSession(null);
-      setUserRole(null);
-      setUserProfile(null);
-    } else {
-      // Handle Supabase logout
-      await supabase.auth.signOut();
-    }
+    // Handle logout for username-based sessions
+    setUser(null);
+    setSession(null);
+    setUserRole(null);
+    setUserProfile(null);
   };
 
   return (
@@ -208,9 +177,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loading,
       userRole,
       userProfile,
-      signIn,
       signInWithUsername,
-      signUp,
       signOut,
     }}>
       {children}
