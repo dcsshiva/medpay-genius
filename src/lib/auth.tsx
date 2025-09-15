@@ -113,85 +113,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithUsername = async (username: string, password: string) => {
     try {
-      // First, try to find staff member with this username
-      const { data: staffData, error: staffError } = await supabase
-        .from('staff')
-        .select('*')
-        .eq('username', username)
-        .eq('is_active', true)
-        .maybeSingle();
+      // Use the new security definer function for authentication
+      const { data, error } = await supabase
+        .rpc('verify_user_login', { 
+          _username: username, 
+          _password: password 
+        });
 
-      if (staffError || !staffData) {
-        // Try to find doctor with this username (doctor_code)
-        const { data: doctorData, error: doctorError } = await supabase
-          .from('doctors')
-          .select('*')
-          .eq('doctor_code', username)
-          .eq('is_active', true)
-          .maybeSingle();
+      if (error) {
+        console.error('RPC error:', error);
+        return { error: { message: 'Authentication failed' } };
+      }
 
-        if (doctorError || !doctorData) {
+      // Type assertion for the returned data
+      const loginResult = data as { 
+        error?: string; 
+        user_type?: string; 
+        id?: string; 
+        full_name?: string; 
+        role?: string; 
+      } | null;
+
+      if (loginResult?.error) {
+        if (loginResult.error === 'not_found') {
           return { error: { message: 'Invalid username or user not found' } };
+        } else if (loginResult.error === 'invalid_password') {
+          return { error: { message: 'Invalid password' } };
         }
-
-        // For doctors, create a temporary auth session
-        const mockUser = {
-          id: `doctor_${doctorData.id}`,
-          email: `${username}@westmed.local`,
-          app_metadata: {},
-          aud: 'authenticated',
-          created_at: new Date().toISOString(),
-          user_metadata: {
-            full_name: `Dr. ${username}`,
-            role: 'doctor',
-            doctor_id: doctorData.id
-          }
-        } as User;
-
-        const mockSession = {
-          user: mockUser,
-          access_token: 'mock_token_doctor',
-          refresh_token: 'mock_refresh_doctor',
-          expires_in: 3600,
-          expires_at: Date.now() + 3600000,
-          token_type: 'bearer'
-        } as Session;
-
-        setUser(mockUser);
-        setSession(mockSession);
-        setUserRole('doctor');
-        setUserProfile({ role: 'doctor', full_name: `Dr. ${username}`, id: doctorData.id });
-        setLoading(false);
-
-        return { error: null };
+        return { error: { message: 'Authentication failed' } };
       }
 
-      // Verify password for staff (using simple password hashing for demo)
-      const { data: hashedPassword, error: hashError } = await supabase
-        .rpc('simple_hash', { password });
-      
-      if (hashError || staffData.password_hash !== hashedPassword) {
-        return { error: { message: 'Invalid password' } };
+      if (!loginResult?.user_type || !loginResult.id) {
+        return { error: { message: 'Invalid response from server' } };
       }
 
-      // Create a temporary auth session for staff
+      // Create a mock session based on the verified user data
       const mockUser = {
-        id: `staff_${staffData.id}`,
+        id: `${loginResult.user_type}_${loginResult.id}`,
         email: `${username}@westmed.local`,
         app_metadata: {},
         aud: 'authenticated',
         created_at: new Date().toISOString(),
         user_metadata: {
-          full_name: staffData.full_name || username,
-          role: staffData.role || 'staff',
-          staff_id: staffData.id
+          full_name: loginResult.full_name || username,
+          role: loginResult.role || 'staff',
+          user_type: loginResult.user_type,
+          original_id: loginResult.id
         }
       } as User;
 
       const mockSession = {
         user: mockUser,
-        access_token: 'mock_token_staff',
-        refresh_token: 'mock_refresh_staff',
+        access_token: `mock_token_${loginResult.user_type}`,
+        refresh_token: `mock_refresh_${loginResult.user_type}`,
         expires_in: 3600,
         expires_at: Date.now() + 3600000,
         token_type: 'bearer'
@@ -199,11 +173,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setUser(mockUser);
       setSession(mockSession);
-      setUserRole(staffData.role || 'staff');
+      setUserRole(loginResult.role || 'staff');
       setUserProfile({ 
-        role: staffData.role || 'staff', 
-        full_name: staffData.full_name || username, 
-        id: staffData.id 
+        role: loginResult.role || 'staff', 
+        full_name: loginResult.full_name || username, 
+        id: loginResult.id 
       });
       setLoading(false);
 

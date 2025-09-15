@@ -512,6 +512,10 @@ export type Database = {
         Args: { password: string }
         Returns: string
       }
+      verify_user_login: {
+        Args: { _password: string; _username: string }
+        Returns: Json
+      }
     }
     Enums: {
       complaint_status: "open" | "in_review" | "resolved" | "closed"
