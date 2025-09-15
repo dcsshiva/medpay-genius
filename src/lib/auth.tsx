@@ -116,7 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // First, try to find staff member with this username
       const { data: staffData, error: staffError } = await supabase
         .from('staff')
-        .select('*, profiles!inner(*)')
+        .select('*')
         .eq('username', username)
         .eq('is_active', true)
         .maybeSingle();
@@ -125,7 +125,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Try to find doctor with this username (doctor_code)
         const { data: doctorData, error: doctorError } = await supabase
           .from('doctors')
-          .select('*, profiles!inner(*)')
+          .select('*')
           .eq('doctor_code', username)
           .eq('is_active', true)
           .maybeSingle();
@@ -136,13 +136,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // For doctors, create a temporary auth session
         const mockUser = {
-          id: doctorData.profiles.user_id,
+          id: `doctor_${doctorData.id}`,
           email: `${username}@westmed.local`,
           app_metadata: {},
           aud: 'authenticated',
           created_at: new Date().toISOString(),
           user_metadata: {
-            full_name: doctorData.profiles.full_name,
+            full_name: `Dr. ${username}`,
             role: 'doctor',
             doctor_id: doctorData.id
           }
@@ -160,7 +160,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(mockUser);
         setSession(mockSession);
         setUserRole('doctor');
-        setUserProfile(doctorData.profiles);
+        setUserProfile({ role: 'doctor', full_name: `Dr. ${username}`, id: doctorData.id });
         setLoading(false);
 
         return { error: null };
@@ -176,14 +176,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Create a temporary auth session for staff
       const mockUser = {
-        id: staffData.profiles.user_id,
+        id: `staff_${staffData.id}`,
         email: `${username}@westmed.local`,
         app_metadata: {},
         aud: 'authenticated',
         created_at: new Date().toISOString(),
         user_metadata: {
-          full_name: staffData.full_name,
-          role: staffData.profiles.role,
+          full_name: staffData.full_name || username,
+          role: staffData.role || 'staff',
           staff_id: staffData.id
         }
       } as User;
@@ -199,8 +199,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setUser(mockUser);
       setSession(mockSession);
-      setUserRole(staffData.profiles.role);
-      setUserProfile(staffData.profiles);
+      setUserRole(staffData.role || 'staff');
+      setUserProfile({ 
+        role: staffData.role || 'staff', 
+        full_name: staffData.full_name || username, 
+        id: staffData.id 
+      });
       setLoading(false);
 
       return { error: null };

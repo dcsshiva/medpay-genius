@@ -278,9 +278,14 @@ const Auth = () => {
         </Card>
 
         <div className="mt-6 text-center">
-          <p className="text-sm text-muted-foreground">
-            Demo Credentials: admin@admin.com / admin123
+          <p className="text-sm text-muted-foreground mb-2">
+            <strong>Demo Credentials:</strong>
           </p>
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p><strong>Admin:</strong> admin@admin.com / admin123</p>
+            <p><strong>Staff:</strong> nurse1 / password123</p>
+            <p><strong>Doctor:</strong> DOC0001 / password123</p>
+          </div>
         </div>
       </div>
     </div>
