@@ -504,9 +504,52 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_user_payments: {
+        Args: { _user_id: string; _user_role: string; _user_type: string }
+        Returns: {
+          admin_approved_at: string
+          admin_approved_by: string
+          doctor_code: string
+          doctor_id: string
+          doctor_name: string
+          id: string
+          is_fully_paid: boolean
+          manager_approved_at: string
+          manager_approved_by: string
+          paid_amount: number
+          payment_notes: string
+          period_end: string
+          period_start: string
+          rate_per_visit: number
+          rejected_at: string
+          rejected_by: string
+          rejection_reason: string
+          remaining_amount: number
+          status: string
+          total_amount: number
+          total_visits: number
+        }[]
+      }
       get_user_role: {
         Args: { user_uuid: string }
         Returns: Database["public"]["Enums"]["user_role"]
+      }
+      get_user_visits: {
+        Args: { _user_id: string; _user_role: string; _user_type: string }
+        Returns: {
+          doctor_code: string
+          doctor_id: string
+          doctor_name: string
+          id: string
+          notes: string
+          patient_count: number
+          patient_id: string
+          patient_name: string
+          payment_type: string
+          visit_date: string
+          visit_payment: number
+          visit_reason: string
+        }[]
       }
       link_profile_to_user: {
         Args: {

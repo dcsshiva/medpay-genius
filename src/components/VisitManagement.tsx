@@ -68,59 +68,41 @@ const VisitManagement = () => {
 
   const fetchVisits = async () => {
     try {
-      let query = supabase
-        .from('visits')
-        .select(`
-          id,
-          visit_date,
-          patient_count,
-          patient_id,
-          patient_name,
-          visit_payment,
-          payment_type,
-          visit_reason,
-          notes,
-          doctor_id,
-          doctors:doctor_id (
-            doctor_code,
-            profiles:profile_id (
-              full_name
-            )
-          )
-        `);
+      // Use secure RPC function for custom auth
+      const { data, error } = await supabase.rpc('get_user_visits', {
+        _user_type: user?.user_metadata?.user_type || 'staff',
+        _user_id: user?.user_metadata?.original_id,
+        _user_role: userRole || 'staff'
+      });
 
-      // If user is a doctor, only show their visits
-      if (userRole === 'doctor') {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('user_id', user!.id)
-          .single();
-
-        if (profile) {
-          const { data: doctorData } = await supabase
-            .from('doctors')
-            .select('id')
-            .eq('profile_id', profile.id)
-            .single();
-
-          if (doctorData) {
-            query = query.eq('doctor_id', doctorData.id);
+      if (error) {
+        console.error('Error fetching visits:', error);
+        setVisits([]);
+      } else {
+        // Transform the RPC response to match the expected format
+        const transformedVisits = data?.map((visit: any) => ({
+          id: visit.id,
+          visit_date: visit.visit_date,
+          patient_count: visit.patient_count,
+          patient_id: visit.patient_id,
+          patient_name: visit.patient_name,
+          visit_payment: visit.visit_payment,
+          payment_type: visit.payment_type,
+          visit_reason: visit.visit_reason,
+          notes: visit.notes,
+          doctor_id: visit.doctor_id,
+          doctors: {
+            doctor_code: visit.doctor_code,
+            profiles: {
+              full_name: visit.doctor_name
+            }
           }
-        }
+        })) || [];
+        setVisits(transformedVisits);
       }
-
-      const { data, error } = await query.order('visit_date', { ascending: false });
-
-      if (error) throw error;
-      setVisits(data || []);
     } catch (error) {
       console.error('Error fetching visits:', error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to fetch visits"
-      });
+      setVisits([]);
     } finally {
       setLoading(false);
     }

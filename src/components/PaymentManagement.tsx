@@ -156,65 +156,46 @@ const PaymentManagement = () => {
 
   const fetchPayments = async () => {
     try {
-      let query = supabase
-        .from('payments')
-        .select(`
-          id,
-          period_start,
-          period_end,
-          total_visits,
-          rate_per_visit,
-          total_amount,
-          paid_amount,
-          remaining_amount,
-          is_fully_paid,
-          payment_notes,
-          status,
-          manager_approved_by,
-          manager_approved_at,
-          admin_approved_by,
-          admin_approved_at,
-          rejected_by,
-          rejected_at,
-          rejection_reason,
-          doctors:doctor_id (
-            doctor_code,
-            profiles:profile_id (
-              full_name
-            )
-          )
-        `);
+      // Use secure RPC function for custom auth
+      const { data, error } = await supabase.rpc('get_user_payments', {
+        _user_type: user?.user_metadata?.user_type || 'staff',
+        _user_id: user?.user_metadata?.original_id,
+        _user_role: userRole || 'staff'
+      });
 
-      // If user is a doctor, only show their payments
-      if (userRole === 'doctor') {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('user_id', user!.id)
-          .single();
-
-        if (profile) {
-          const { data: doctorData } = await supabase
-            .from('doctors')
-            .select('id')
-            .eq('profile_id', profile.id)
-            .single();
-
-          if (doctorData) {
-            query = query.eq('doctor_id', doctorData.id);
+      if (error) {
+        console.error('Error fetching payments:', error);
+        setPayments([]);
+      } else {
+        // Transform the RPC response to match the expected format
+        const transformedPayments = data?.map((payment: any) => ({
+          id: payment.id,
+          period_start: payment.period_start,
+          period_end: payment.period_end,
+          total_visits: payment.total_visits,
+          rate_per_visit: payment.rate_per_visit,
+          total_amount: payment.total_amount,
+          paid_amount: payment.paid_amount,
+          remaining_amount: payment.remaining_amount,
+          is_fully_paid: payment.is_fully_paid,
+          payment_notes: payment.payment_notes,
+          status: payment.status,
+          manager_approved_by: payment.manager_approved_by,
+          manager_approved_at: payment.manager_approved_at,
+          admin_approved_by: payment.admin_approved_by,
+          admin_approved_at: payment.admin_approved_at,
+          rejected_by: payment.rejected_by,
+          rejected_at: payment.rejected_at,
+          rejection_reason: payment.rejection_reason,
+          doctors: {
+            doctor_code: payment.doctor_code,
+            profiles: {
+              full_name: payment.doctor_name
+            }
           }
-        }
+        })) || [];
+        setPayments(transformedPayments);
       }
-
-      // If user is a manager, show pending and manager_approved payments
-      if (userRole === 'manager') {
-        query = query.in('status', ['pending', 'manager_approved']);
-      }
-
-      const { data, error } = await query.order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setPayments(data || []);
     } catch (error) {
       console.error('Error fetching payments:', error);
       toast({
