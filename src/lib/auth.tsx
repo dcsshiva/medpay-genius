@@ -87,7 +87,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithUsername = async (username: string, password: string) => {
     try {
-      // Use the new security definer function for authentication
+      // First verify login credentials using our RPC function
       const { data, error } = await supabase
         .rpc('verify_user_login', { 
           _username: username, 
@@ -121,39 +121,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error: { message: 'Invalid response from server' } };
       }
 
-      // Create a mock session based on the verified user data
-      const mockUser = {
-        id: `${loginResult.user_type}_${loginResult.id}`,
-        email: `${username}@westmed.local`,
-        app_metadata: {},
-        aud: 'authenticated',
-        created_at: new Date().toISOString(),
-        user_metadata: {
-          full_name: loginResult.full_name || username,
-          role: loginResult.role || 'staff',
-          user_type: loginResult.user_type,
-          original_id: loginResult.id
-        }
-      } as User;
+      // Sign in anonymously to create a real auth session
+      const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
+      
+      if (authError || !authData.user) {
+        console.error('Anonymous auth error:', authError);
+        return { error: { message: 'Failed to create session' } };
+      }
 
-      const mockSession = {
-        user: mockUser,
-        access_token: `mock_token_${loginResult.user_type}`,
-        refresh_token: `mock_refresh_${loginResult.user_type}`,
-        expires_in: 3600,
-        expires_at: Date.now() + 3600000,
-        token_type: 'bearer'
-      } as Session;
+      // Link the anonymous user to the profile for RLS access
+      const { error: linkError } = await supabase.rpc('link_profile_to_user', {
+        _user_type: loginResult.user_type,
+        _original_id: loginResult.id,
+        _auth_user_id: authData.user.id
+      });
 
-      setUser(mockUser);
-      setSession(mockSession);
+      if (linkError) {
+        console.error('Profile linking error:', linkError);
+        // Still proceed as the auth session is valid
+      }
+
+      // Set user metadata for our app
       setUserRole(loginResult.role || 'staff');
       setUserProfile({ 
         role: loginResult.role || 'staff', 
         full_name: loginResult.full_name || username, 
-        id: loginResult.id 
+        id: loginResult.id,
+        user_type: loginResult.user_type
       });
-      setLoading(false);
 
       return { error: null };
     } catch (error) {
@@ -163,7 +158,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    // Handle logout for username-based sessions
+    // Sign out from Supabase to clear the session
+    await supabase.auth.signOut();
+    
+    // Clear local state
     setUser(null);
     setSession(null);
     setUserRole(null);

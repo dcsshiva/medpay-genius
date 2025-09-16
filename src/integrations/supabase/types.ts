@@ -508,6 +508,14 @@ export type Database = {
         Args: { user_uuid: string }
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      link_profile_to_user: {
+        Args: {
+          _auth_user_id: string
+          _original_id: string
+          _user_type: string
+        }
+        Returns: undefined
+      }
       simple_hash: {
         Args: { password: string }
         Returns: string
