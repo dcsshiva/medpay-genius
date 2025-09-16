@@ -121,27 +121,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error: { message: 'Invalid response from server' } };
       }
 
-      // Sign in anonymously to create a real auth session
-      const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
-      
-      if (authError || !authData.user) {
-        console.error('Anonymous auth error:', authError);
-        return { error: { message: 'Failed to create session' } };
-      }
+      // Create a mock session for our custom auth system
+      const mockUser = {
+        id: `${loginResult.user_type}_${loginResult.id}`,
+        email: `${username}@westmed.local`,
+        app_metadata: {},
+        aud: 'authenticated',
+        created_at: new Date().toISOString(),
+        user_metadata: {
+          full_name: loginResult.full_name || username,
+          role: loginResult.role || 'staff',
+          user_type: loginResult.user_type,
+          original_id: loginResult.id
+        }
+      } as User;
 
-      // Link the anonymous user to the profile for RLS access
-      const { error: linkError } = await supabase.rpc('link_profile_to_user', {
-        _user_type: loginResult.user_type,
-        _original_id: loginResult.id,
-        _auth_user_id: authData.user.id
-      });
+      const mockSession = {
+        user: mockUser,
+        access_token: `custom_token_${loginResult.user_type}_${loginResult.id}`,
+        refresh_token: `custom_refresh_${loginResult.user_type}_${loginResult.id}`,
+        expires_in: 3600,
+        expires_at: Date.now() + 3600000,
+        token_type: 'bearer'
+      } as Session;
 
-      if (linkError) {
-        console.error('Profile linking error:', linkError);
-        // Still proceed as the auth session is valid
-      }
-
-      // Set user metadata for our app
+      setUser(mockUser);
+      setSession(mockSession);
       setUserRole(loginResult.role || 'staff');
       setUserProfile({ 
         role: loginResult.role || 'staff', 
@@ -158,10 +163,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    // Sign out from Supabase to clear the session
-    await supabase.auth.signOut();
-    
-    // Clear local state
+    // Clear our custom session state
     setUser(null);
     setSession(null);
     setUserRole(null);
