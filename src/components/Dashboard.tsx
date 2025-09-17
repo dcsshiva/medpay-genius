@@ -78,35 +78,44 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
           completedTasks: completedTasksRes.count || 0,
         });
       } else if (userRole === 'doctor') {
-        // Get doctor ID first
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('user_id', user!.id)
-          .single();
+        // Support both custom-auth doctors and Supabase-auth doctors
+        let doctorId: string | null = null;
 
-        if (profile) {
-          const { data: doctorData } = await supabase
-            .from('doctors')
+        // Custom auth: we already have the doctor id in user metadata
+        if (user?.user_metadata?.user_type === 'doctor' && user?.user_metadata?.original_id) {
+          doctorId = user.user_metadata.original_id as string;
+        } else {
+          // Supabase-auth fallback: resolve via profiles -> doctors
+          const { data: profile } = await supabase
+            .from('profiles')
             .select('id')
-            .eq('profile_id', profile.id)
-            .single();
+            .eq('user_id', user!.id)
+            .maybeSingle();
 
-          if (doctorData) {
-            const [visitsRes, paymentsRes, pendingRes] = await Promise.all([
-              supabase.from('visits').select('id', { count: 'exact' }).eq('doctor_id', doctorData.id),
-              supabase.from('payments').select('total_amount').eq('doctor_id', doctorData.id),
-              supabase.from('payments').select('id', { count: 'exact' }).eq('doctor_id', doctorData.id).eq('status', 'pending')
-            ]);
-
-            const totalEarnings = paymentsRes.data?.reduce((sum, payment) => sum + Number(payment.total_amount), 0) || 0;
-
-            setStats({
-              myVisits: visitsRes.count || 0,
-              myEarnings: totalEarnings,
-              pendingPayments: pendingRes.count || 0,
-            });
+          if (profile) {
+            const { data: doctorData } = await supabase
+              .from('doctors')
+              .select('id')
+              .eq('profile_id', profile.id)
+              .maybeSingle();
+            doctorId = doctorData?.id ?? null;
           }
+        }
+
+        if (doctorId) {
+          const [visitsRes, paymentsRes, pendingRes] = await Promise.all([
+            supabase.from('visits').select('id', { count: 'exact' }).eq('doctor_id', doctorId),
+            supabase.from('payments').select('total_amount').eq('doctor_id', doctorId),
+            supabase.from('payments').select('id', { count: 'exact' }).eq('doctor_id', doctorId).eq('status', 'pending')
+          ]);
+
+          const totalEarnings = paymentsRes.data?.reduce((sum, payment) => sum + Number((payment as any).total_amount), 0) || 0;
+
+          setStats({
+            myVisits: visitsRes.count || 0,
+            myEarnings: totalEarnings,
+            pendingPayments: pendingRes.count || 0,
+          });
         }
       }
     } catch (error) {
