@@ -342,19 +342,8 @@ const StaffManagement = () => {
       if (fetchError) throw fetchError;
 
       if (existingProfile) {
-        // Update existing profile if needed
-        const { data: updatedProfile, error: updateError } = await supabase
-          .from('profiles')
-          .update({
-            full_name: formData.full_name,
-            role: profileRole as any
-          })
-          .eq('id', existingProfile.id)
-          .select()
-          .single();
-        
-        if (updateError) throw updateError;
-        profileData = updatedProfile;
+        // Use existing profile created by trigger; admins/managers cannot UPDATE due to RLS
+        profileData = existingProfile;
       } else {
         // Fallback: create profile if it doesn't exist (shouldn't happen due to trigger)
         const { data: newProfile, error: insertError } = await supabase
