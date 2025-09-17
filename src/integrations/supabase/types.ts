@@ -475,6 +475,54 @@ export type Database = {
           },
         ]
       }
+      user_sessions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          full_name: string | null
+          id: string
+          is_active: boolean
+          original_id: string | null
+          refresh_token: string | null
+          role: string | null
+          session_token: string
+          updated_at: string
+          user_id: string
+          user_type: string
+          username: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          full_name?: string | null
+          id?: string
+          is_active?: boolean
+          original_id?: string | null
+          refresh_token?: string | null
+          role?: string | null
+          session_token: string
+          updated_at?: string
+          user_id: string
+          user_type: string
+          username?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          full_name?: string | null
+          id?: string
+          is_active?: boolean
+          original_id?: string | null
+          refresh_token?: string | null
+          role?: string | null
+          session_token?: string
+          updated_at?: string
+          user_id?: string
+          user_type?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
       visits: {
         Row: {
           created_at: string
@@ -533,6 +581,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_expired_sessions: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       get_staff_auth_email: {
         Args: { _username: string }
         Returns: string

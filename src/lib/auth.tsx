@@ -15,6 +15,74 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// Session storage functions - all data stored in Supabase
+const createUserSession = async (sessionData: {
+  user_type: string;
+  original_id: string;
+  username: string;
+  full_name: string;
+  role: string;
+}) => {
+  const sessionToken = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const refreshToken = `refresh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+  const { data, error } = await supabase
+    .from('user_sessions')
+    .insert({
+      user_id: `${sessionData.user_type}_${sessionData.original_id}`,
+      user_type: sessionData.user_type,
+      original_id: sessionData.original_id,
+      session_token: sessionToken,
+      refresh_token: refreshToken,
+      username: sessionData.username,
+      full_name: sessionData.full_name,
+      role: sessionData.role,
+      expires_at: expiresAt.toISOString(),
+      is_active: true
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  
+  // Store session token in a way that persists across page refreshes
+  window.sessionStorage.setItem('supabase_session_token', sessionToken);
+  return data;
+};
+
+const getActiveSession = async () => {
+  const sessionToken = window.sessionStorage.getItem('supabase_session_token');
+  if (!sessionToken) return null;
+
+  const { data, error } = await supabase
+    .from('user_sessions')
+    .select('*')
+    .eq('session_token', sessionToken)
+    .eq('is_active', true)
+    .gt('expires_at', new Date().toISOString())
+    .maybeSingle();
+
+  if (error || !data) {
+    window.sessionStorage.removeItem('supabase_session_token');
+    return null;
+  }
+
+  return data;
+};
+
+const invalidateSession = async (sessionToken?: string) => {
+  const token = sessionToken || window.sessionStorage.getItem('supabase_session_token');
+  if (!token) return;
+
+  await supabase
+    .from('user_sessions')
+    .update({ is_active: false })
+    .eq('session_token', token);
+
+  window.sessionStorage.removeItem('supabase_session_token');
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -22,73 +90,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<any | null>(null);
 
+  // Load session from Supabase on mount
   useEffect(() => {
-    // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        console.log('Auth state change:', event, 'session:', session);
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        // Fetch user role when session changes
-        if (session?.user) {
-          setTimeout(() => {
-            fetchUserRole(session.user.id);
-          }, 0);
-        } else {
-          setUserRole(null);
+    const loadSession = async () => {
+      try {
+        const sessionData = await getActiveSession();
+        if (sessionData) {
+          const mockUser = {
+            id: sessionData.user_id,
+            email: `${sessionData.username}@westmed.local`,
+            app_metadata: {},
+            aud: 'authenticated',
+            created_at: sessionData.created_at,
+            user_metadata: {
+              full_name: sessionData.full_name,
+              role: sessionData.role,
+              user_type: sessionData.user_type,
+              original_id: sessionData.original_id
+            }
+          } as User;
+
+          const mockSession = {
+            user: mockUser,
+            access_token: sessionData.session_token,
+            refresh_token: sessionData.refresh_token || '',
+            expires_in: Math.floor((new Date(sessionData.expires_at).getTime() - Date.now()) / 1000),
+            expires_at: Math.floor(new Date(sessionData.expires_at).getTime() / 1000),
+            token_type: 'bearer'
+          } as Session;
+
+          setUser(mockUser);
+          setSession(mockSession);
+          setUserRole(sessionData.role);
+          setUserProfile({
+            role: sessionData.role,
+            full_name: sessionData.full_name,
+            id: sessionData.original_id,
+            user_type: sessionData.user_type
+          });
         }
+      } catch (error) {
+        console.error('Error loading session:', error);
+      } finally {
         setLoading(false);
-        console.log('Auth state after change - loading set to false');
       }
-    );
+    };
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session check:', session);
-      setSession(session);
-      setUser(session?.user ?? null);
-      
-      if (session?.user) {
-        setTimeout(() => {
-          fetchUserRole(session.user.id);
-        }, 0);
-      }
-      setLoading(false);
-      console.log('Initial session check - loading set to false');
-    });
-
-    return () => subscription.unsubscribe();
+    loadSession();
   }, []);
-
-  const fetchUserRole = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', userId)
-        .maybeSingle();
-      
-      if (error) {
-        console.error('Error fetching user role:', error);
-        setUserRole(null);
-        setUserProfile(null);
-        return;
-      }
-      
-      setUserRole(data?.role || null);
-      setUserProfile(data);
-    } catch (error) {
-      console.error('Error fetching user role:', error);
-      setUserRole(null);
-      setUserProfile(null);
-    }
-  };
-
 
   const signInWithUsername = async (username: string, password: string) => {
     try {
-      // 1) Try legacy/custom auth via RPC (username + password stored in staff table)
+      // Clean up any existing sessions first
+      await invalidateSession();
+
+      // Try legacy/custom auth via RPC
       const { data, error } = await supabase
         .rpc('verify_user_login', { 
           _username: username, 
@@ -104,47 +160,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           role?: string; 
         };
 
-        // Success path for custom auth
         if (!loginResult.error && loginResult?.user_type && loginResult.id) {
+          // Create session in Supabase
+          const sessionData = await createUserSession({
+            user_type: loginResult.user_type,
+            original_id: loginResult.id,
+            username: username,
+            full_name: loginResult.full_name || username,
+            role: loginResult.role || 'staff'
+          });
+
+          // Create user and session objects
           const mockUser = {
-            id: `${loginResult.user_type}_${loginResult.id}`,
+            id: sessionData.user_id,
             email: `${username}@westmed.local`,
             app_metadata: {},
             aud: 'authenticated',
-            created_at: new Date().toISOString(),
+            created_at: sessionData.created_at,
             user_metadata: {
-              full_name: loginResult.full_name || username,
-              role: loginResult.role || 'staff',
-              user_type: loginResult.user_type,
-              original_id: loginResult.id
+              full_name: sessionData.full_name,
+              role: sessionData.role,
+              user_type: sessionData.user_type,
+              original_id: sessionData.original_id
             }
           } as User;
 
           const mockSession = {
             user: mockUser,
-            access_token: `custom_token_${loginResult.user_type}_${loginResult.id}`,
-            refresh_token: `custom_refresh_${loginResult.user_type}_${loginResult.id}`,
-            expires_in: 3600,
-            expires_at: Date.now() + 3600000,
+            access_token: sessionData.session_token,
+            refresh_token: sessionData.refresh_token || '',
+            expires_in: Math.floor((new Date(sessionData.expires_at).getTime() - Date.now()) / 1000),
+            expires_at: Math.floor(new Date(sessionData.expires_at).getTime() / 1000),
             token_type: 'bearer'
           } as Session;
 
           setUser(mockUser);
           setSession(mockSession);
-          setUserRole(loginResult.role || 'staff');
-          setUserProfile({ 
-            role: loginResult.role || 'staff', 
-            full_name: loginResult.full_name || username, 
-            id: loginResult.id,
-            user_type: loginResult.user_type
+          setUserRole(sessionData.role);
+          setUserProfile({
+            role: sessionData.role,
+            full_name: sessionData.full_name,
+            id: sessionData.original_id,
+            user_type: sessionData.user_type
           });
 
           return { error: null };
         }
-        // If RPC explicitly returned an error, continue to fallback (Supabase auth)
       }
 
-      // 2) Fallback: Staff created with Supabase auth → map username to email and sign in
+      // Fallback to Supabase auth for staff with email accounts
       const { data: emailData } = await supabase
         .rpc('get_staff_auth_email', { _username: username });
 
@@ -155,7 +219,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         if (!authError && authData.user) {
-          // Supabase will update session via onAuthStateChange
+          // For Supabase auth users, we still store session in our table for consistency
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', authData.user.id)
+            .maybeSingle();
+
+          if (profile) {
+            await createUserSession({
+              user_type: 'supabase_auth',
+              original_id: authData.user.id,
+              username: emailData,
+              full_name: profile.full_name || emailData,
+              role: profile.role || 'staff'
+            });
+
+            setUser(authData.user);
+            setSession(authData.session);
+            setUserRole(profile.role);
+            setUserProfile(profile);
+          }
+
           return { error: null };
         }
 
@@ -164,7 +249,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // All methods failed
       return { error: { message: 'Invalid username or password' } };
 
     } catch (error) {
@@ -175,6 +259,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithEmail = async (email: string, password: string) => {
     try {
+      await invalidateSession();
+
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -182,6 +268,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         return { error };
+      }
+
+      if (data.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', data.user.id)
+          .maybeSingle();
+
+        if (profile) {
+          await createUserSession({
+            user_type: 'supabase_auth',
+            original_id: data.user.id,
+            username: email,
+            full_name: profile.full_name || email,
+            role: profile.role || 'staff'
+          });
+
+          setUser(data.user);
+          setSession(data.session);
+          setUserRole(profile.role);
+          setUserProfile(profile);
+        }
       }
 
       return { error: null };
@@ -192,16 +301,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    // For Supabase auth users, sign out through Supabase
-    if (user?.email && !user.email.includes('@westmed.local')) {
-      await supabase.auth.signOut();
+    try {
+      await invalidateSession();
+      
+      // Also sign out from Supabase auth if it's a Supabase user
+      if (user?.email && !user.email.includes('@westmed.local')) {
+        await supabase.auth.signOut();
+      }
+    } catch (error) {
+      console.error('Sign out error:', error);
+    } finally {
+      setUser(null);
+      setSession(null);
+      setUserRole(null);
+      setUserProfile(null);
     }
-    
-    // Clear our custom session state
-    setUser(null);
-    setSession(null);
-    setUserRole(null);
-    setUserProfile(null);
   };
 
   return (
