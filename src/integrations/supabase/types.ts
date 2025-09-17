@@ -585,6 +585,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      cleanup_expired_user_sessions: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
       get_staff_auth_email: {
         Args: { _username: string }
         Returns: string
