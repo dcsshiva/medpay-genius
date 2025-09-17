@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Calendar, Users, Stethoscope } from 'lucide-react';
+import { Plus, Calendar, Users, Stethoscope, Search } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Visit {
@@ -47,6 +47,7 @@ const VisitManagement = () => {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
     doctor_id: '',
     visit_date: new Date().toISOString().split('T')[0],
@@ -462,9 +463,29 @@ const VisitManagement = () => {
         </Card>
       </div>
 
+      {/* Search Input */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+        <Input
+          placeholder="Search by doctor name, patient name, or patient ID..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
       {/* Visits List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {visits.map((visit) => (
+        {visits
+          .filter((visit) => {
+            const query = searchQuery.toLowerCase();
+            return (
+              visit.doctors?.profiles?.full_name.toLowerCase().includes(query) ||
+              visit.patient_name.toLowerCase().includes(query) ||
+              (visit.patient_id && visit.patient_id.toLowerCase().includes(query))
+            );
+          })
+          .map((visit) => (
           <Card key={visit.id}>
             <CardHeader>
               <div className="flex justify-between items-start">
