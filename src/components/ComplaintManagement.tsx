@@ -26,10 +26,13 @@ interface Complaint {
   complaint_title: string;
   complaint_description: string;
   category: 'general' | 'equipment' | 'facility' | 'workload' | 'policy' | 'safety' | 'other';
-  status: 'open' | 'in_review' | 'resolved' | 'closed';
+  status: 'open' | 'in_review' | 'taken' | 'in_progress' | 'solved' | 'resolved' | 'closed';
   priority: 'low' | 'medium' | 'high' | 'urgent';
   admin_response?: string;
   resolved_at?: string;
+  taken_care_by?: string;
+  taken_care_at?: string;
+  action_notes?: string;
   created_at: string;
   raised_by_staff: {
     staff_code: string;
@@ -37,6 +40,10 @@ interface Complaint {
     role: string;
   };
   resolved_by_staff?: {
+    staff_code: string;
+    full_name: string;
+  };
+  taken_care_by_staff?: {
     staff_code: string;
     full_name: string;
   };
@@ -87,6 +94,9 @@ const ComplaintManagement = () => {
           priority,
           admin_response,
           resolved_at,
+          taken_care_by,
+          taken_care_at,
+          action_notes,
           created_at,
           raised_by_staff:raised_by (
             staff_code,
@@ -94,6 +104,10 @@ const ComplaintManagement = () => {
             role
           ),
           resolved_by_staff:resolved_by (
+            staff_code,
+            full_name
+          ),
+          taken_care_by_staff:taken_care_by (
             staff_code,
             full_name
           )
@@ -242,7 +256,7 @@ const ComplaintManagement = () => {
     }
   };
 
-  const updateComplaintStatus = async (complaintId: string, newStatus: string) => {
+  const updateComplaintStatus = async (complaintId: string, newStatus: string, actionNotes?: string) => {
     if (!['admin', 'manager'].includes(userRole || '')) {
       toast({
         variant: "destructive",
@@ -253,16 +267,41 @@ const ComplaintManagement = () => {
     }
 
     try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+
+      if (!profile) throw new Error('Profile not found');
+
+      const { data: currentStaff } = await supabase
+        .from('staff')
+        .select('id')
+        .eq('id', profile.id)
+        .single();
+
+      const updateData: any = { status: newStatus as any };
+      
+      // If marking as taken, in_progress, or solved, record who took action
+      if (['taken', 'in_progress', 'solved'].includes(newStatus)) {
+        updateData.taken_care_by = currentStaff?.id;
+        updateData.taken_care_at = new Date().toISOString();
+        if (actionNotes) {
+          updateData.action_notes = actionNotes;
+        }
+      }
+
       const { error } = await supabase
         .from('complaints')
-        .update({ status: newStatus as any })
+        .update(updateData)
         .eq('id', complaintId);
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: `Complaint status updated to ${newStatus}`
+        description: `Complaint status updated to ${newStatus.replace('_', ' ')}`
       });
 
       fetchComplaints();
@@ -296,7 +335,10 @@ const ComplaintManagement = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'solved': return 'default';
       case 'resolved': return 'default';
+      case 'in_progress': return 'secondary';
+      case 'taken': return 'secondary';
       case 'in_review': return 'secondary';
       case 'open': return 'outline';
       case 'closed': return 'secondary';
@@ -306,7 +348,10 @@ const ComplaintManagement = () => {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
+      case 'solved': return <CheckCircle className="h-4 w-4" />;
       case 'resolved': return <CheckCircle className="h-4 w-4" />;
+      case 'in_progress': return <Clock className="h-4 w-4" />;
+      case 'taken': return <User className="h-4 w-4" />;
       case 'in_review': return <Clock className="h-4 w-4" />;
       case 'open': return <AlertTriangle className="h-4 w-4" />;
       case 'closed': return <CheckCircle className="h-4 w-4" />;
@@ -442,7 +487,7 @@ const ComplaintManagement = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
@@ -458,10 +503,22 @@ const ComplaintManagement = () => {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
+              <User className="h-8 w-8 text-blue-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-muted-foreground">Taken</p>
+                <p className="text-2xl font-bold">{complaints.filter(c => c.status === 'taken').length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center">
               <Clock className="h-8 w-8 text-westmed-teal" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">In Review</p>
-                <p className="text-2xl font-bold">{complaints.filter(c => c.status === 'in_review').length}</p>
+                <p className="text-sm font-medium text-muted-foreground">In Progress</p>
+                <p className="text-2xl font-bold">{complaints.filter(c => c.status === 'in_progress').length}</p>
               </div>
             </div>
           </CardContent>
@@ -472,8 +529,8 @@ const ComplaintManagement = () => {
             <div className="flex items-center">
               <CheckCircle className="h-8 w-8 text-success" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Resolved</p>
-                <p className="text-2xl font-bold">{complaints.filter(c => c.status === 'resolved').length}</p>
+                <p className="text-sm font-medium text-muted-foreground">Solved</p>
+                <p className="text-2xl font-bold">{complaints.filter(c => c.status === 'solved').length}</p>
               </div>
             </div>
           </CardContent>
@@ -484,8 +541,8 @@ const ComplaintManagement = () => {
             <div className="flex items-center">
               <MessageCircle className="h-8 w-8 text-muted-foreground" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Closed</p>
-                <p className="text-2xl font-bold">{complaints.filter(c => c.status === 'closed').length}</p>
+                <p className="text-sm font-medium text-muted-foreground">Resolved</p>
+                <p className="text-2xl font-bold">{complaints.filter(c => c.status === 'resolved').length}</p>
               </div>
             </div>
           </CardContent>
@@ -506,7 +563,10 @@ const ComplaintManagement = () => {
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="open">Open</SelectItem>
+            <SelectItem value="taken">Taken</SelectItem>
             <SelectItem value="in_review">In Review</SelectItem>
+            <SelectItem value="in_progress">In Progress</SelectItem>
+            <SelectItem value="solved">Solved</SelectItem>
             <SelectItem value="resolved">Resolved</SelectItem>
             <SelectItem value="closed">Closed</SelectItem>
           </SelectContent>
@@ -581,24 +641,83 @@ const ComplaintManagement = () => {
                 </div>
               )}
 
-              {(userRole === 'admin' || userRole === 'manager') && complaint.status === 'open' && (
-                <div className="flex gap-2">
-                  <Button 
-                    size="sm" 
-                    onClick={() => updateComplaintStatus(complaint.id, 'in_review')}
-                  >
-                    Review
-                  </Button>
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedComplaint(complaint);
-                      setResponseDialog(true);
-                    }}
-                  >
-                    Respond
-                  </Button>
+              {complaint.taken_care_by_staff && (
+                <div className="mt-2 p-3 bg-blue-50 rounded-sm border border-blue-200">
+                  <p className="text-xs text-blue-600 mb-1">Action Taken By:</p>
+                  <p className="text-sm font-medium">{complaint.taken_care_by_staff.full_name}</p>
+                  {complaint.taken_care_at && (
+                    <p className="text-xs text-muted-foreground">
+                      on {format(new Date(complaint.taken_care_at), 'MMM d, yyyy HH:mm')}
+                    </p>
+                  )}
+                  {complaint.action_notes && (
+                    <div className="mt-2">
+                      <p className="text-xs text-muted-foreground mb-1">Action Notes:</p>
+                      <p className="text-sm">{complaint.action_notes}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {(userRole === 'admin' || userRole === 'manager') && (
+                <div className="flex flex-wrap gap-2">
+                  {complaint.status === 'open' && (
+                    <>
+                      <Button 
+                        size="sm" 
+                        onClick={() => updateComplaintStatus(complaint.id, 'taken')}
+                      >
+                        Take Action
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => updateComplaintStatus(complaint.id, 'in_review')}
+                      >
+                        Review
+                      </Button>
+                    </>
+                  )}
+                  
+                  {complaint.status === 'taken' && (
+                    <>
+                      <Button 
+                        size="sm" 
+                        onClick={() => updateComplaintStatus(complaint.id, 'in_progress')}
+                      >
+                        Start Progress
+                      </Button>
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => updateComplaintStatus(complaint.id, 'solved')}
+                      >
+                        Mark Solved
+                      </Button>
+                    </>
+                  )}
+                  
+                  {complaint.status === 'in_progress' && (
+                    <Button 
+                      size="sm" 
+                      onClick={() => updateComplaintStatus(complaint.id, 'solved')}
+                    >
+                      Mark Solved
+                    </Button>
+                  )}
+                  
+                  {(complaint.status === 'open' || complaint.status === 'in_review') && (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedComplaint(complaint);
+                        setResponseDialog(true);
+                      }}
+                    >
+                      Respond & Resolve
+                    </Button>
+                  )}
                 </div>
               )}
             </CardContent>

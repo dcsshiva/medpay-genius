@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       complaints: {
         Row: {
+          action_notes: string | null
           admin_response: string | null
           category: string
           complaint_description: string
@@ -27,9 +28,12 @@ export type Database = {
           resolved_at: string | null
           resolved_by: string | null
           status: Database["public"]["Enums"]["complaint_status"]
+          taken_care_at: string | null
+          taken_care_by: string | null
           updated_at: string
         }
         Insert: {
+          action_notes?: string | null
           admin_response?: string | null
           category?: string
           complaint_description: string
@@ -41,9 +45,12 @@ export type Database = {
           resolved_at?: string | null
           resolved_by?: string | null
           status?: Database["public"]["Enums"]["complaint_status"]
+          taken_care_at?: string | null
+          taken_care_by?: string | null
           updated_at?: string
         }
         Update: {
+          action_notes?: string | null
           admin_response?: string | null
           category?: string
           complaint_description?: string
@@ -55,6 +62,8 @@ export type Database = {
           resolved_at?: string | null
           resolved_by?: string | null
           status?: Database["public"]["Enums"]["complaint_status"]
+          taken_care_at?: string | null
+          taken_care_by?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -68,6 +77,13 @@ export type Database = {
           {
             foreignKeyName: "complaints_resolved_by_fkey"
             columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "complaints_taken_care_by_fkey"
+            columns: ["taken_care_by"]
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
@@ -612,7 +628,14 @@ export type Database = {
       }
     }
     Enums: {
-      complaint_status: "open" | "in_review" | "resolved" | "closed"
+      complaint_status:
+        | "open"
+        | "in_review"
+        | "resolved"
+        | "closed"
+        | "taken"
+        | "in_progress"
+        | "solved"
       payment_status:
         | "pending"
         | "manager_approved"
@@ -762,7 +785,15 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      complaint_status: ["open", "in_review", "resolved", "closed"],
+      complaint_status: [
+        "open",
+        "in_review",
+        "resolved",
+        "closed",
+        "taken",
+        "in_progress",
+        "solved",
+      ],
       payment_status: [
         "pending",
         "manager_approved",
