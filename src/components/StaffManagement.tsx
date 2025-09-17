@@ -369,7 +369,7 @@ const StaffManagement = () => {
           username: formData.username.trim(),
           password_hash: 'managed_by_supabase_auth', // Placeholder since auth is handled by Supabase
           full_name: formData.full_name.trim(),
-          email: formData.email.trim() || null,
+          email: createdUser.email, // Store the actual email used for auth
           phone: formData.phone.trim() || null,
           role: formData.role as any,
           department: formData.department.trim() || null

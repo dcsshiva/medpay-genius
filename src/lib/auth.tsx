@@ -88,75 +88,87 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithUsername = async (username: string, password: string) => {
     try {
-      // First verify login credentials using our RPC function
+      // First try the old verify_user_login method for existing staff
       const { data, error } = await supabase
         .rpc('verify_user_login', { 
           _username: username, 
           _password: password 
         });
 
-      if (error) {
-        console.error('RPC error:', error);
-        return { error: { message: 'Authentication failed' } };
-      }
+      // If old method succeeds, use it
+      if (!error && data && typeof data === 'object' && data !== null && !Array.isArray(data)) {
+        const loginResult = data as { 
+          error?: string;
+          user_type?: string; 
+          id?: string; 
+          full_name?: string; 
+          role?: string; 
+        };
 
-      // Type assertion for the returned data
-      const loginResult = data as { 
-        error?: string; 
-        user_type?: string; 
-        id?: string; 
-        full_name?: string; 
-        role?: string; 
-      } | null;
+        // Check if there's no error and we have valid data
+        if (!loginResult.error && loginResult?.user_type && loginResult.id) {
+          // Create a mock session for our custom auth system
+          const mockUser = {
+            id: `${loginResult.user_type}_${loginResult.id}`,
+            email: `${username}@westmed.local`,
+            app_metadata: {},
+            aud: 'authenticated',
+            created_at: new Date().toISOString(),
+            user_metadata: {
+              full_name: loginResult.full_name || username,
+              role: loginResult.role || 'staff',
+              user_type: loginResult.user_type,
+              original_id: loginResult.id
+            }
+          } as User;
 
-      if (loginResult?.error) {
-        if (loginResult.error === 'not_found') {
-          return { error: { message: 'Invalid username or user not found' } };
-        } else if (loginResult.error === 'invalid_password') {
-          return { error: { message: 'Invalid password' } };
+          const mockSession = {
+            user: mockUser,
+            access_token: `custom_token_${loginResult.user_type}_${loginResult.id}`,
+            refresh_token: `custom_refresh_${loginResult.user_type}_${loginResult.id}`,
+            expires_in: 3600,
+            expires_at: Date.now() + 3600000,
+            token_type: 'bearer'
+          } as Session;
+
+          setUser(mockUser);
+          setSession(mockSession);
+          setUserRole(loginResult.role || 'staff');
+          setUserProfile({ 
+            role: loginResult.role || 'staff', 
+            full_name: loginResult.full_name || username, 
+            id: loginResult.id,
+            user_type: loginResult.user_type
+          });
+
+          return { error: null };
         }
-        return { error: { message: 'Authentication failed' } };
       }
 
-      if (!loginResult?.user_type || !loginResult.id) {
-        return { error: { message: 'Invalid response from server' } };
-      }
+      // If old method fails, try Supabase auth for newly created staff
+      // Look up their email from staff table
+      const { data: staffData } = await supabase
+        .from('staff')
+        .select('email, profile_id, full_name, role')
+        .eq('username', username)
+        .maybeSingle();
 
-      // Create a mock session for our custom auth system
-      const mockUser = {
-        id: `${loginResult.user_type}_${loginResult.id}`,
-        email: `${username}@westmed.local`,
-        app_metadata: {},
-        aud: 'authenticated',
-        created_at: new Date().toISOString(),
-        user_metadata: {
-          full_name: loginResult.full_name || username,
-          role: loginResult.role || 'staff',
-          user_type: loginResult.user_type,
-          original_id: loginResult.id
+      if (staffData?.email && staffData.profile_id) {
+        // This is a newly created staff with Supabase auth
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email: staffData.email,
+          password
+        });
+
+        if (!authError && authData.user) {
+          // Successfully signed in with Supabase auth - it will be handled by onAuthStateChange
+          return { error: null };
         }
-      } as User;
+      }
 
-      const mockSession = {
-        user: mockUser,
-        access_token: `custom_token_${loginResult.user_type}_${loginResult.id}`,
-        refresh_token: `custom_refresh_${loginResult.user_type}_${loginResult.id}`,
-        expires_in: 3600,
-        expires_at: Date.now() + 3600000,
-        token_type: 'bearer'
-      } as Session;
+      // All methods failed
+      return { error: { message: 'Invalid username or password' } };
 
-      setUser(mockUser);
-      setSession(mockSession);
-      setUserRole(loginResult.role || 'staff');
-      setUserProfile({ 
-        role: loginResult.role || 'staff', 
-        full_name: loginResult.full_name || username, 
-        id: loginResult.id,
-        user_type: loginResult.user_type
-      });
-
-      return { error: null };
     } catch (error) {
       console.error('Username sign in error:', error);
       return { error: { message: 'Sign in failed' } };
