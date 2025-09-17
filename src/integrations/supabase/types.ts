@@ -498,6 +498,33 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_staff_task_counts: {
+        Args: { _staff_id: string }
+        Returns: {
+          completed_count: number
+          in_progress_count: number
+          pending_count: number
+        }[]
+      }
+      get_staff_tasks: {
+        Args: { _staff_id: string }
+        Returns: {
+          assigned_by_full_name: string
+          assigned_by_staff_code: string
+          assigned_to_full_name: string
+          assigned_to_role: string
+          assigned_to_staff_code: string
+          completed_at: string
+          created_at: string
+          due_date: string
+          id: string
+          notes: string
+          priority: string
+          status: string
+          task_description: string
+          task_title: string
+        }[]
+      }
       get_user_payments: {
         Args: { _user_id: string; _user_role: string; _user_type: string }
         Returns: {

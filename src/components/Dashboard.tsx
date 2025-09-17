@@ -169,30 +169,28 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
         if (staffId) {
           console.log('Dashboard - About to query tasks for staff ID:', staffId);
           
-          const [pendingTasksRes, completedTasksRes] = await Promise.all([
-            supabase.from('tasks').select('id', { count: 'exact' }).eq('assigned_to', staffId).in('status', ['pending', 'in_progress']),
-            supabase.from('tasks').select('id', { count: 'exact' }).eq('assigned_to', staffId).eq('status', 'completed')
-          ]);
+          // Use RPC function to bypass RLS issues
+          const { data: taskCounts, error: countsError } = await supabase
+            .rpc('get_staff_task_counts', { _staff_id: staffId });
 
-          console.log('Dashboard - Staff pending tasks result:', pendingTasksRes);
-          console.log('Dashboard - Staff completed tasks result:', completedTasksRes);
+          console.log('Dashboard - Staff task counts result:', taskCounts, countsError);
 
-          // Also try to get some actual task data to see what's happening
-          const testTaskQuery = await supabase
-            .from('tasks')
-            .select('id, task_title, status, assigned_to')
-            .eq('assigned_to', staffId);
-          
-          console.log('Dashboard - Test task query result:', testTaskQuery);
+          if (!countsError && taskCounts && taskCounts.length > 0) {
+            const counts = taskCounts[0];
+            const statsData = {
+              pendingTasks: (counts.pending_count || 0) + (counts.in_progress_count || 0),
+              completedTasks: counts.completed_count || 0,
+            };
 
-          const statsData = {
-            pendingTasks: pendingTasksRes.count || 0,
-            completedTasks: completedTasksRes.count || 0,
-          };
-
-          console.log('Dashboard - Setting staff stats:', statsData);
-
-          setStats(statsData);
+            console.log('Dashboard - Setting staff stats:', statsData);
+            setStats(statsData);
+          } else {
+            console.log('Dashboard - No task counts found or error:', countsError);
+            setStats({
+              pendingTasks: 0,
+              completedTasks: 0,
+            });
+          }
         } else {
           console.log('Dashboard - No staff ID found, cannot fetch tasks');
         }
