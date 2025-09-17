@@ -312,10 +312,12 @@ const StaffManagement = () => {
       }
 
       // Generate unique email if none provided
-      const uniqueEmail = formData.email || `${formData.username}.${Date.now()}@hospital.local`;
-      
-      // Create auth user via edge function
-      const { data: result, error: createUserError } = await supabase.functions.invoke('create-user', {
+      const baseGenerated = `${formData.username}.${Date.now()}@hospital.local`;
+      const uniqueEmail = formData.email || baseGenerated;
+
+      // Attempt to create auth user via edge function (with one retry on email collision)
+      let createdUser: any = null;
+      let { data: result, error: createUserError } = await supabase.functions.invoke('create-user', {
         body: {
           email: uniqueEmail,
           password: formData.password,
@@ -327,14 +329,36 @@ const StaffManagement = () => {
       });
 
       if (createUserError || !result?.success) {
-        throw new Error(result?.error || createUserError?.message || 'Failed to create user');
+        const msg = result?.error || createUserError?.message || '';
+        const needsRetry = !formData.email && /already.*(registered|exists)|email_exists/i.test(msg);
+        if (needsRetry) {
+          const retryEmail = `${formData.username}.${Date.now()}_${Math.floor(Math.random()*1000)}@hospital.local`;
+          const retry = await supabase.functions.invoke('create-user', {
+            body: {
+              email: retryEmail,
+              password: formData.password,
+              userData: {
+                full_name: formData.full_name,
+                role: formData.role
+              }
+            }
+          });
+          if (retry.error || !retry.data?.success) {
+            throw new Error(retry.data?.error || retry.error?.message || 'Failed to create user');
+          }
+          createdUser = retry.data.user;
+        } else {
+          throw new Error(result?.error || createUserError?.message || 'Failed to create user');
+        }
+      } else {
+        createdUser = result.user;
       }
 
       // Create profile record
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .insert({
-          user_id: result.user.id,
+          user_id: createdUser.id,
           full_name: formData.full_name,
           role: formData.role as any
         })

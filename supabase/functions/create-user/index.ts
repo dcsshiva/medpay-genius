@@ -68,10 +68,14 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error('Error in create-user function:', error);
+    const anyErr: any = error;
+    const code = anyErr?.code || (anyErr?.message?.toLowerCase().includes('already') ? 'email_exists' : undefined);
+    const status = code === 'email_exists' ? 409 : 400;
     return new Response(JSON.stringify({ 
-      error: error.message 
+      error: anyErr?.message || 'Unexpected error',
+      code
     }), {
-      status: 400,
+      status,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
