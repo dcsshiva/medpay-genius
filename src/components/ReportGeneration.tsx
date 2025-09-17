@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -8,14 +8,7 @@ import { FileText, Download, FileSpreadsheet, CheckCircle2, Circle } from 'lucid
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-
-// Extend jsPDF type to include autoTable
-declare module 'jspdf' {
-  interface jsPDF {
-    autoTable: (options: any) => jsPDF;
-  }
-}
+import autoTable from 'jspdf-autotable';
 
 interface ReportGenerationProps {
   title: string;
@@ -111,10 +104,11 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
       
       setDialogOpen(false);
     } catch (error) {
+      console.error('Excel Export Error:', error);
       toast({
         variant: "destructive",
         title: "Export Failed",
-        description: "Failed to export data to Excel. Please try again."
+        description: `Failed to export data to Excel: ${error instanceof Error ? error.message : 'Unknown error'}`
       });
     }
   };
@@ -146,19 +140,39 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
       const exportData = formatDataForExport(selectedData);
       const tableHeaders = columns.map(col => col.label);
       const tableData = exportData.map(record => 
-        columns.map(col => String(record[col.label] || ''))
+        columns.map(col => {
+          const value = record[col.label];
+          // Convert to string and handle null/undefined
+          if (value === null || value === undefined) return '';
+          return String(value);
+        })
       );
       
-      // Add table
-      doc.autoTable({
+      // Add table using autoTable plugin
+      autoTable(doc, {
         head: [tableHeaders],
         body: tableData,
         startY: 45,
-        styles: { fontSize: 8 },
-        headStyles: { fillColor: [63, 81, 181] },
+        styles: { 
+          fontSize: 8,
+          cellPadding: 2,
+          overflow: 'linebreak'
+        },
+        headStyles: { 
+          fillColor: [63, 81, 181],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold'
+        },
         margin: { left: 14, right: 14 },
         tableWidth: 'auto',
-        columnStyles: {}
+        theme: 'striped',
+        alternateRowStyles: {
+          fillColor: [245, 245, 245]
+        },
+        columnStyles: {
+          // Allow text wrapping for longer content
+          0: { cellWidth: 'auto' }
+        }
       });
       
       const timestamp = format(new Date(), 'yyyy-MM-dd_HH-mm-ss');
@@ -171,10 +185,11 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
       
       setDialogOpen(false);
     } catch (error) {
+      console.error('PDF Export Error:', error);
       toast({
         variant: "destructive",
         title: "Export Failed",
-        description: "Failed to export data to PDF. Please try again."
+        description: `Failed to export data to PDF: ${error instanceof Error ? error.message : 'Unknown error'}`
       });
     }
   };
@@ -197,6 +212,9 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
             <FileText className="h-5 w-5 mr-2" />
             Generate {title} Report
           </DialogTitle>
+          <DialogDescription>
+            Select the records you want to include in your report and choose your export format.
+          </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">
