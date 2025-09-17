@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getStaffId, isStaffRole, getStaffTasks } from '@/lib/staffUtils';
+import ReportGeneration from '@/components/ReportGeneration';
 import { 
   Plus, 
   Clock, 
@@ -356,18 +357,37 @@ const TaskManagement = () => {
         </div>
         
         {(userRole === 'admin' || userRole === 'manager') && (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={resetForm}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create Task
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Create New Task</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="flex gap-2">
+            <ReportGeneration
+              title="Task Management"
+              data={filteredTasks}
+              columns={[
+                { key: 'task_title', label: 'Task Title' },
+                { key: 'assigned_to_staff.full_name', label: 'Assigned To' },
+                { key: 'assigned_to_staff.staff_code', label: 'Staff Code' },
+                { key: 'assigned_to_staff.role', label: 'Role' },
+                { key: 'priority', label: 'Priority', format: (value: string) => value.charAt(0).toUpperCase() + value.slice(1) },
+                { key: 'status', label: 'Status', format: (value: string) => value.replace('_', ' ').charAt(0).toUpperCase() + value.replace('_', ' ').slice(1) },
+                { key: 'due_date', label: 'Due Date', format: (value: string) => value ? format(new Date(value), 'MMM d, yyyy HH:mm') : 'No due date' },
+                { key: 'created_at', label: 'Created', format: (value: string) => format(new Date(value), 'MMM d, yyyy') },
+                { key: 'completed_at', label: 'Completed', format: (value: string) => value ? format(new Date(value), 'MMM d, yyyy') : 'Not completed' },
+                { key: 'task_description', label: 'Description' },
+                { key: 'notes', label: 'Notes' }
+              ]}
+              filename="task_management_report"
+            />
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogTrigger asChild>
+                <Button onClick={resetForm}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Task
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Create New Task</DialogTitle>
+                </DialogHeader>
+                <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="task_title">Task Title *</Label>
                   <Input
@@ -454,9 +474,10 @@ const TaskManagement = () => {
                     Create Task
                   </Button>
                 </div>
-              </form>
-            </DialogContent>
-          </Dialog>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
         )}
       </div>
 

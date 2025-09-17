@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import ReportGeneration from '@/components/ReportGeneration';
 import { 
   Plus, 
   MessageCircle, 
@@ -486,63 +487,75 @@ const ComplaintManagement = () => {
         </Dialog>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card>
+      {/* Stats Cards - Action Status Segregation */}
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+        <Card className="border-orange-200 bg-orange-50">
           <CardContent className="p-6">
             <div className="flex items-center">
-              <AlertTriangle className="h-8 w-8 text-warning" />
+              <AlertTriangle className="h-8 w-8 text-orange-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Open</p>
-                <p className="text-2xl font-bold">{complaints.filter(c => c.status === 'open').length}</p>
+                <p className="text-sm font-medium text-orange-700">Open</p>
+                <p className="text-2xl font-bold text-orange-800">{complaints.filter(c => c.status === 'open').length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="border-blue-200 bg-blue-50">
           <CardContent className="p-6">
             <div className="flex items-center">
               <User className="h-8 w-8 text-blue-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Taken</p>
-                <p className="text-2xl font-bold">{complaints.filter(c => c.status === 'taken').length}</p>
+                <p className="text-sm font-medium text-blue-700">Action Taken</p>
+                <p className="text-2xl font-bold text-blue-800">{complaints.filter(c => c.status === 'taken').length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="border-yellow-200 bg-yellow-50">
           <CardContent className="p-6">
             <div className="flex items-center">
-              <Clock className="h-8 w-8 text-westmed-teal" />
+              <Clock className="h-8 w-8 text-yellow-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">In Progress</p>
-                <p className="text-2xl font-bold">{complaints.filter(c => c.status === 'in_progress').length}</p>
+                <p className="text-sm font-medium text-yellow-700">In Progress</p>
+                <p className="text-2xl font-bold text-yellow-800">{complaints.filter(c => c.status === 'in_progress').length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="border-green-200 bg-green-50">
           <CardContent className="p-6">
             <div className="flex items-center">
-              <CheckCircle className="h-8 w-8 text-success" />
+              <CheckCircle className="h-8 w-8 text-green-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Solved</p>
-                <p className="text-2xl font-bold">{complaints.filter(c => c.status === 'solved').length}</p>
+                <p className="text-sm font-medium text-green-700">Solved</p>
+                <p className="text-2xl font-bold text-green-800">{complaints.filter(c => c.status === 'solved').length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="border-emerald-200 bg-emerald-50">
           <CardContent className="p-6">
             <div className="flex items-center">
-              <MessageCircle className="h-8 w-8 text-muted-foreground" />
+              <CheckCircle className="h-8 w-8 text-emerald-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Resolved</p>
-                <p className="text-2xl font-bold">{complaints.filter(c => c.status === 'resolved').length}</p>
+                <p className="text-sm font-medium text-emerald-700">Resolved</p>
+                <p className="text-2xl font-bold text-emerald-800">{complaints.filter(c => c.status === 'resolved').length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="border-gray-200 bg-gray-50">
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <MessageCircle className="h-8 w-8 text-gray-600" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-700">Under Review</p>
+                <p className="text-2xl font-bold text-gray-800">{complaints.filter(c => c.status === 'in_review').length}</p>
               </div>
             </div>
           </CardContent>
@@ -556,19 +569,41 @@ const ComplaintManagement = () => {
           <span className="text-sm font-medium">Filters:</span>
         </div>
         
+        <ReportGeneration
+          title="Complaint Management"
+          data={filteredComplaints}
+          columns={[
+            { key: 'complaint_title', label: 'Complaint Title' },
+            { key: 'raised_by_staff.full_name', label: 'Raised By' },
+            { key: 'raised_by_staff.staff_code', label: 'Staff Code' },
+            { key: 'raised_by_staff.role', label: 'Role' },
+            { key: 'category', label: 'Category', format: (value: string) => value.charAt(0).toUpperCase() + value.slice(1) },
+            { key: 'priority', label: 'Priority', format: (value: string) => value.charAt(0).toUpperCase() + value.slice(1) },
+            { key: 'status', label: 'Status', format: (value: string) => value.replace('_', ' ').charAt(0).toUpperCase() + value.replace('_', ' ').slice(1) },
+            { key: 'created_at', label: 'Created', format: (value: string) => format(new Date(value), 'MMM d, yyyy') },
+            { key: 'taken_care_at', label: 'Action Date', format: (value: string) => value ? format(new Date(value), 'MMM d, yyyy HH:mm') : 'No action taken' },
+            { key: 'taken_care_by_staff.full_name', label: 'Action By' },
+            { key: 'resolved_at', label: 'Resolved', format: (value: string) => value ? format(new Date(value), 'MMM d, yyyy') : 'Not resolved' },
+            { key: 'complaint_description', label: 'Description' },
+            { key: 'admin_response', label: 'Admin Response' },
+            { key: 'action_notes', label: 'Action Notes' }
+          ]}
+          filename="complaint_management_report"
+        />
+        
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-40">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="open">Open</SelectItem>
-            <SelectItem value="taken">Taken</SelectItem>
-            <SelectItem value="in_review">In Review</SelectItem>
-            <SelectItem value="in_progress">In Progress</SelectItem>
-            <SelectItem value="solved">Solved</SelectItem>
-            <SelectItem value="resolved">Resolved</SelectItem>
-            <SelectItem value="closed">Closed</SelectItem>
+            <SelectItem value="open">🟠 Open</SelectItem>
+            <SelectItem value="taken">🔵 Action Taken</SelectItem>
+            <SelectItem value="in_review">⚫ Under Review</SelectItem>
+            <SelectItem value="in_progress">🟡 In Progress</SelectItem>
+            <SelectItem value="solved">🟢 Solved</SelectItem>
+            <SelectItem value="resolved">🟢 Resolved</SelectItem>
+            <SelectItem value="closed">⚪ Closed</SelectItem>
           </SelectContent>
         </Select>
         
