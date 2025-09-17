@@ -88,13 +88,36 @@ const TaskManagement = () => {
         // Get staff ID for current user
         let staffId: string | null = null;
         
+        // Custom auth: we already have the staff id in user metadata
         if (user?.user_metadata?.user_type === 'staff' && user?.user_metadata?.original_id) {
           staffId = user.user_metadata.original_id as string;
+          console.log('TaskManagement - Using custom auth staff ID:', staffId);
+        } else {
+          // Supabase-auth fallback: resolve via profiles -> staff
+          console.log('TaskManagement - Falling back to Supabase auth lookup for staff');
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('user_id', user!.id)
+            .maybeSingle();
+
+          if (profile) {
+            const { data: staffData } = await supabase
+              .from('staff')
+              .select('id')
+              .eq('profile_id', profile.id)
+              .maybeSingle();
+            staffId = staffData?.id ?? null;
+            console.log('TaskManagement - Found staff ID via profile lookup:', staffId);
+          }
         }
 
         if (staffId) {
+          console.log('TaskManagement - About to query tasks for staff ID:', staffId);
           const { data: staffTasks, error } = await supabase
             .rpc('get_staff_tasks', { _staff_id: staffId });
+
+          console.log('TaskManagement - RPC result:', { staffTasks, error });
 
           if (error) throw error;
           
@@ -119,6 +142,10 @@ const TaskManagement = () => {
               full_name: task.assigned_by_full_name,
             } : undefined,
           }));
+          
+          console.log('TaskManagement - Converted tasks:', data);
+        } else {
+          console.log('TaskManagement - No staff ID found, cannot fetch tasks');
         }
       } else {
         // For admin/manager users, use regular query
