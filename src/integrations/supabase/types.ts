@@ -81,7 +81,6 @@ export type Database = {
           id: string
           is_active: boolean
           profile_id: string
-          rate_per_visit: number
           specialization: string
           updated_at: string
         }
@@ -91,7 +90,6 @@ export type Database = {
           id?: string
           is_active?: boolean
           profile_id: string
-          rate_per_visit?: number
           specialization: string
           updated_at?: string
         }
@@ -101,7 +99,6 @@ export type Database = {
           id?: string
           is_active?: boolean
           profile_id?: string
-          rate_per_visit?: number
           specialization?: string
           updated_at?: string
         }
@@ -213,7 +210,6 @@ export type Database = {
           payment_notes: string | null
           period_end: string
           period_start: string
-          rate_per_visit: number
           rejected_at: string | null
           rejected_by: string | null
           rejection_reason: string | null
@@ -236,7 +232,6 @@ export type Database = {
           payment_notes?: string | null
           period_end: string
           period_start: string
-          rate_per_visit: number
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
@@ -259,7 +254,6 @@ export type Database = {
           payment_notes?: string | null
           period_end?: string
           period_start?: string
-          rate_per_visit?: number
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null

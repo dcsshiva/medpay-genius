@@ -29,7 +29,6 @@ interface Payment {
   period_start: string;
   period_end: string;
   total_visits: number;
-  rate_per_visit: number;
   total_amount: number;
   paid_amount: number;
   remaining_amount: number;
@@ -74,7 +73,6 @@ interface Visit {
 interface PaymentCalculation {
   visits: Visit[];
   total_visits: number;
-  rate_per_visit: number;
   total_amount: number;
   period_start: string;
   period_end: string;
@@ -83,7 +81,6 @@ interface PaymentCalculation {
 interface Doctor {
   id: string;
   doctor_code: string;
-  rate_per_visit: number;
   profiles: {
     full_name: string;
   };
@@ -115,7 +112,6 @@ const PaymentManagement = () => {
   const [calculatedData, setCalculatedData] = useState<PaymentCalculation>({
     visits: [],
     total_visits: 0,
-    rate_per_visit: 0,
     total_amount: 0,
     period_start: '',
     period_end: ''
@@ -215,7 +211,6 @@ const PaymentManagement = () => {
         .select(`
           id,
           doctor_code,
-          rate_per_visit,
           profiles:profile_id (
             full_name
           )
@@ -306,14 +301,12 @@ const PaymentManagement = () => {
       }) || [];
 
       const totalVisits = unprocessedVisits.reduce((sum, visit) => sum + visit.patient_count, 0);
-      const ratePerVisit = doctorData.rate_per_visit;
       // Calculate total amount based on actual visit payments, not rate * count
       const totalAmount = unprocessedVisits.reduce((sum, visit) => sum + (visit.visit_payment || 0), 0);
 
       setCalculatedData({
         visits: unprocessedVisits,
         total_visits: totalVisits,
-        rate_per_visit: ratePerVisit,
         total_amount: totalAmount,
         period_start: formData.period_start,
         period_end: formData.period_end
@@ -354,7 +347,6 @@ const PaymentManagement = () => {
           period_start: formData.period_start,
           period_end: formData.period_end,
           total_visits: calculatedData.total_visits,
-          rate_per_visit: calculatedData.rate_per_visit,
           total_amount: calculatedData.total_amount,
           paid_amount: 0,
           remaining_amount: calculatedData.total_amount,
@@ -524,7 +516,6 @@ const PaymentManagement = () => {
     setCalculatedData({
       visits: [],
       total_visits: 0,
-      rate_per_visit: 0,
       total_amount: 0,
       period_start: '',
       period_end: ''
@@ -678,10 +669,6 @@ const PaymentManagement = () => {
                         <span className="text-sm text-muted-foreground">Total Patients:</span>
                         <span className="text-sm font-medium">{calculatedData.total_visits}</span>
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Rate per Patient:</span>
-                        <span className="text-sm font-medium">{formatCurrency(calculatedData.rate_per_visit)}</span>
-                      </div>
                       <div className="border-t pt-2">
                         <div className="flex justify-between items-center">
                           <span className="font-medium">Total Payment Amount:</span>
@@ -743,12 +730,6 @@ const PaymentManagement = () => {
                     <p className="text-sm text-muted-foreground">Total Patients</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-primary">
-                      {formatCurrency(calculatedData.rate_per_visit)}
-                    </p>
-                    <p className="text-sm text-muted-foreground">Rate/Patient</p>
-                  </div>
-                  <div className="text-center">
                     <p className="text-2xl font-bold text-success">
                       {formatCurrency(calculatedData.total_amount)}
                     </p>
@@ -790,9 +771,9 @@ const PaymentManagement = () => {
                             </p>
                           </div>
                           <div>
-                            <p className="text-sm text-muted-foreground">Payment</p>
+                            <p className="text-sm text-muted-foreground">Payment Amount</p>
                             <p className="font-bold text-primary">
-                              {formatCurrency(visit.patient_count * calculatedData.rate_per_visit)}
+                              {visit.visit_payment ? formatCurrency(visit.visit_payment) : 'N/A'}
                             </p>
                           </div>
                         </div>
@@ -1049,7 +1030,6 @@ const PaymentManagement = () => {
               
               <div className="flex justify-between items-center pt-2 border-t">
                 <div className="text-sm space-y-1">
-                  <p className="text-muted-foreground">Rate: {formatCurrency(payment.rate_per_visit)}/patient</p>
                   {payment.paid_amount > 0 && (
                     <div className="flex flex-col gap-1">
                       <span className="text-success text-xs">Paid: {formatCurrency(payment.paid_amount)}</span>
