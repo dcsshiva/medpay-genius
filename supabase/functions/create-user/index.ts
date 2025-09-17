@@ -53,6 +53,10 @@ serve(async (req) => {
     });
 
     if (createError) {
+      // Provide more specific error messages
+      if (createError.message?.includes('already been registered')) {
+        throw new Error('A user with this email address already exists. Please use a different email.');
+      }
       throw createError;
     }
 

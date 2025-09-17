@@ -311,10 +311,13 @@ const StaffManagement = () => {
         console.log(`Staff code collision, using ${newStaffCode} instead of ${staffCode}`);
       }
 
+      // Generate unique email if none provided
+      const uniqueEmail = formData.email || `${formData.username}.${Date.now()}@hospital.local`;
+      
       // Create auth user via edge function
       const { data: result, error: createUserError } = await supabase.functions.invoke('create-user', {
         body: {
-          email: formData.email || `${formData.username}@hospital.local`,
+          email: uniqueEmail,
           password: formData.password,
           userData: {
             full_name: formData.full_name,
