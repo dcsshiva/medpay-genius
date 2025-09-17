@@ -88,14 +88,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithUsername = async (username: string, password: string) => {
     try {
-      // First try the old verify_user_login method for existing staff
+      // Use the same approach as doctor login - simple demo password method
       const { data, error } = await supabase
         .rpc('verify_user_login', { 
           _username: username, 
           _password: password 
         });
 
-      // If old method succeeds, use it
+      // If login succeeds, create mock session like for doctors
       if (!error && data && typeof data === 'object' && data !== null && !Array.isArray(data)) {
         const loginResult = data as { 
           error?: string;
@@ -145,35 +145,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // If old method fails, try Supabase auth for newly created staff
-      // Use security definer function to bypass RLS and get email
-      const { data: emailData } = await supabase
-        .rpc('get_staff_auth_email', { _username: username });
-
-      if (emailData) {
-        console.log('Found staff email:', emailData);
-        // Try Supabase auth with their email
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-          email: emailData,
-          password
-        });
-
-        console.log('Supabase auth result:', { authData, authError });
-
-        if (!authError && authData.user) {
-          // Successfully signed in with Supabase auth - handled by onAuthStateChange
-          console.log('Supabase auth successful for:', username);
-          return { error: null };
-        }
-
-        // Propagate meaningful error if available
-        if (authError) {
-          console.error('Supabase auth error:', authError);
-          return { error: { message: authError.message || 'Authentication failed' } };
-        }
-      }
-
-      console.log('No email found for username:', username);
       // All methods failed
       return { error: { message: 'Invalid username or password' } };
 
