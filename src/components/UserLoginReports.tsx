@@ -50,7 +50,8 @@ const UserLoginReports = () => {
     dateTo: '',
     userType: 'all',
     role: 'all',
-    status: 'all'
+    status: 'all',
+    search: ''
   });
 
   // Redirect if not admin
@@ -167,7 +168,18 @@ const UserLoginReports = () => {
     }
   };
 
-  const filteredSessions = sessions;
+  const filteredSessions = sessions.filter(session => {
+    // Apply search filter
+    if (filters.search) {
+      const searchTerm = filters.search.toLowerCase();
+      const matchesName = session.full_name?.toLowerCase().includes(searchTerm);
+      const matchesUsername = session.username?.toLowerCase().includes(searchTerm);
+      if (!matchesName && !matchesUsername) {
+        return false;
+      }
+    }
+    return true;
+  });
 
   if (userRole !== 'admin') {
     return (
@@ -296,7 +308,18 @@ const UserLoginReports = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="search">Search Name</Label>
+              <Input
+                id="search"
+                type="text"
+                placeholder="Search by name or username..."
+                value={filters.search}
+                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+              />
+            </div>
+            
             <div className="space-y-2">
               <Label htmlFor="dateFrom">From Date</Label>
               <Input
