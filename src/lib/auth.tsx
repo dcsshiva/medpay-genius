@@ -9,6 +9,7 @@ interface AuthContextType {
   userRole: string | null;
   userProfile: any | null;
   signInWithUsername: (username: string, password: string) => Promise<{ error: any }>;
+  signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -162,7 +163,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signInWithEmail = async (email: string, password: string) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (error) {
+        return { error };
+      }
+
+      return { error: null };
+    } catch (error: any) {
+      console.error('Email sign in error:', error);
+      return { error: { message: 'Sign in failed' } };
+    }
+  };
+
   const signOut = async () => {
+    // For Supabase auth users, sign out through Supabase
+    if (user?.email && !user.email.includes('@westmed.local')) {
+      await supabase.auth.signOut();
+    }
+    
     // Clear our custom session state
     setUser(null);
     setSession(null);
@@ -178,6 +202,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       userRole,
       userProfile,
       signInWithUsername,
+      signInWithEmail,
       signOut,
     }}>
       {children}
