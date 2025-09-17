@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Calendar, Users, Stethoscope, Search } from 'lucide-react';
+import { Plus, Calendar, Users, Stethoscope, Search, Edit, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import ReportGeneration from './ReportGeneration';
 
@@ -49,6 +49,7 @@ const VisitManagement = () => {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
   const [formData, setFormData] = useState({
     doctor_id: '',
     visit_date: new Date().toISOString().split('T')[0],
@@ -175,35 +176,62 @@ const VisitManagement = () => {
     }
 
     try {
-      const { error } = await supabase
-        .from('visits')
-        .insert({
-          doctor_id: formData.doctor_id,
-          visit_date: formData.visit_date,
-          patient_count: formData.patient_count,
-          patient_id: formData.patient_id.trim(),
-          patient_name: formData.patient_name.trim(),
-          visit_payment: formData.visit_payment,
-          payment_type: formData.payment_type,
-          visit_reason: formData.visit_reason,
-          notes: formData.notes || null
+      if (editingVisit) {
+        // Update existing visit
+        const { error } = await supabase
+          .from('visits')
+          .update({
+            doctor_id: formData.doctor_id,
+            visit_date: formData.visit_date,
+            patient_count: formData.patient_count,
+            patient_id: formData.patient_id.trim(),
+            patient_name: formData.patient_name.trim(),
+            visit_payment: formData.visit_payment,
+            payment_type: formData.payment_type,
+            visit_reason: formData.visit_reason,
+            notes: formData.notes || null
+          })
+          .eq('id', editingVisit.id);
+
+        if (error) throw error;
+
+        toast({
+          title: "Success",
+          description: "Visit updated successfully"
         });
+      } else {
+        // Create new visit
+        const { error } = await supabase
+          .from('visits')
+          .insert({
+            doctor_id: formData.doctor_id,
+            visit_date: formData.visit_date,
+            patient_count: formData.patient_count,
+            patient_id: formData.patient_id.trim(),
+            patient_name: formData.patient_name.trim(),
+            visit_payment: formData.visit_payment,
+            payment_type: formData.payment_type,
+            visit_reason: formData.visit_reason,
+            notes: formData.notes || null
+          });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      toast({
-        title: "Success",
-        description: `Visit recorded successfully with Patient ID: ${formData.patient_id.trim()}`
-      });
+        toast({
+          title: "Success",
+          description: `Visit recorded successfully with Patient ID: ${formData.patient_id.trim()}`
+        });
+      }
 
       setDialogOpen(false);
+      setEditingVisit(null);
       resetForm();
       fetchVisits();
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to record visit"
+        description: error.message || `Failed to ${editingVisit ? 'update' : 'record'} visit`
       });
     }
   };
@@ -220,6 +248,51 @@ const VisitManagement = () => {
       visit_reason: 'regular_checkup',
       notes: ''
     });
+    setEditingVisit(null);
+  };
+
+  const handleEdit = (visit: Visit) => {
+    setEditingVisit(visit);
+    setFormData({
+      doctor_id: visit.doctor_id,
+      visit_date: visit.visit_date,
+      patient_count: visit.patient_count,
+      patient_id: visit.patient_id || '',
+      patient_name: visit.patient_name,
+      visit_payment: visit.visit_payment || 0,
+      payment_type: visit.payment_type,
+      visit_reason: visit.visit_reason,
+      notes: visit.notes || ''
+    });
+    setDialogOpen(true);
+  };
+
+  const handleDelete = async (visitId: string) => {
+    if (!confirm('Are you sure you want to delete this visit? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('visits')
+        .delete()
+        .eq('id', visitId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Visit deleted successfully"
+      });
+
+      fetchVisits();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to delete visit"
+      });
+    }
   };
 
   const getTotalPatients = () => {
@@ -263,7 +336,13 @@ const VisitManagement = () => {
         </div>
         
         {(userRole === 'admin' || userRole === 'manager') && (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <Dialog open={dialogOpen} onOpenChange={(open) => {
+            setDialogOpen(open);
+            if (!open) {
+              setEditingVisit(null);
+              resetForm();
+            }
+          }}>
             <DialogTrigger asChild>
               <Button onClick={resetForm}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -272,7 +351,9 @@ const VisitManagement = () => {
             </DialogTrigger>
           <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Record New Visit</DialogTitle>
+              <DialogTitle>
+                {editingVisit ? 'Edit Visit' : 'Record New Visit'}
+              </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               {(userRole === 'admin' || userRole === 'manager') && (
@@ -413,11 +494,15 @@ const VisitManagement = () => {
               </div>
               
               <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => {
+                  setDialogOpen(false);
+                  setEditingVisit(null);
+                  resetForm();
+                }}>
                   Cancel
                 </Button>
                 <Button type="submit">
-                  Record Visit
+                  {editingVisit ? 'Update Visit' : 'Record Visit'}
                 </Button>
               </div>
             </form>
@@ -595,6 +680,30 @@ const VisitManagement = () => {
                   <div className="space-y-2">
                     <p className="text-sm text-muted-foreground">Notes:</p>
                     <p className="text-sm">{visit.notes}</p>
+                  </div>
+                )}
+
+                {/* Admin Actions */}
+                {userRole === 'admin' && (
+                  <div className="flex gap-2 pt-3 border-t">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleEdit(visit)}
+                      className="flex-1"
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleDelete(visit.id)}
+                      className="flex-1"
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Delete
+                    </Button>
                   </div>
                 )}
               </div>

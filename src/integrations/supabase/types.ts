@@ -204,8 +204,11 @@ export type Database = {
           doctor_id: string
           id: string
           is_fully_paid: boolean | null
+          is_suspect: boolean
           manager_approved_at: string | null
           manager_approved_by: string | null
+          marked_suspect_at: string | null
+          marked_suspect_by: string | null
           paid_amount: number | null
           payment_notes: string | null
           period_end: string
@@ -215,6 +218,7 @@ export type Database = {
           rejection_reason: string | null
           remaining_amount: number | null
           status: Database["public"]["Enums"]["payment_status"]
+          suspect_reason: string | null
           total_amount: number
           total_visits: number
           updated_at: string
@@ -226,8 +230,11 @@ export type Database = {
           doctor_id: string
           id?: string
           is_fully_paid?: boolean | null
+          is_suspect?: boolean
           manager_approved_at?: string | null
           manager_approved_by?: string | null
+          marked_suspect_at?: string | null
+          marked_suspect_by?: string | null
           paid_amount?: number | null
           payment_notes?: string | null
           period_end: string
@@ -237,6 +244,7 @@ export type Database = {
           rejection_reason?: string | null
           remaining_amount?: number | null
           status?: Database["public"]["Enums"]["payment_status"]
+          suspect_reason?: string | null
           total_amount: number
           total_visits: number
           updated_at?: string
@@ -248,8 +256,11 @@ export type Database = {
           doctor_id?: string
           id?: string
           is_fully_paid?: boolean | null
+          is_suspect?: boolean
           manager_approved_at?: string | null
           manager_approved_by?: string | null
+          marked_suspect_at?: string | null
+          marked_suspect_by?: string | null
           paid_amount?: number | null
           payment_notes?: string | null
           period_end?: string
@@ -259,6 +270,7 @@ export type Database = {
           rejection_reason?: string | null
           remaining_amount?: number | null
           status?: Database["public"]["Enums"]["payment_status"]
+          suspect_reason?: string | null
           total_amount?: number
           total_visits?: number
           updated_at?: string
@@ -281,6 +293,13 @@ export type Database = {
           {
             foreignKeyName: "payments_manager_approved_by_fkey"
             columns: ["manager_approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_marked_suspect_by_fkey"
+            columns: ["marked_suspect_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

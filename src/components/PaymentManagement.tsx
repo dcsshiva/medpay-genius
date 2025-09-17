@@ -21,7 +21,10 @@ import {
   Calculator,
   TrendingUp,
   History,
-  Search
+  Search,
+  Edit,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { format } from 'date-fns';
 import ReportGeneration from './ReportGeneration';
@@ -44,6 +47,10 @@ interface Payment {
   rejected_by?: string;
   rejected_at?: string;
   rejection_reason?: string;
+  is_suspect?: boolean;
+  suspect_reason?: string;
+  marked_suspect_by?: string;
+  marked_suspect_at?: string;
   doctors: {
     doctor_code: string;
     profiles: {
@@ -102,6 +109,9 @@ const PaymentManagement = () => {
   const [transactionsDialog, setTransactionsDialog] = useState(false);
   const [selectedPaymentVisits, setSelectedPaymentVisits] = useState<Visit[]>([]);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
+  const [suspectDialog, setSuspectDialog] = useState(false);
+  const [suspectReason, setSuspectReason] = useState('');
   const [formData, setFormData] = useState({
     doctor_id: '',
     period_start: '',
@@ -190,6 +200,10 @@ const PaymentManagement = () => {
           rejected_by: payment.rejected_by,
           rejected_at: payment.rejected_at,
           rejection_reason: payment.rejection_reason,
+          is_suspect: payment.is_suspect,
+          suspect_reason: payment.suspect_reason,
+          marked_suspect_by: payment.marked_suspect_by,
+          marked_suspect_at: payment.marked_suspect_at,
           doctors: {
             doctor_code: payment.doctor_code,
             profiles: {
@@ -537,6 +551,131 @@ const PaymentManagement = () => {
         variant: "destructive",
         title: "Error",
         description: error.message || `Failed to ${action} payment`
+      });
+    }
+  };
+
+  const checkPaymentHasTransactions = async (paymentId: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .from('payment_transactions')
+        .select('id')
+        .eq('payment_id', paymentId)
+        .limit(1);
+
+      if (error) throw error;
+      return (data?.length || 0) > 0;
+    } catch (error) {
+      console.error('Error checking transactions:', error);
+      return false;
+    }
+  };
+
+  const handleEditPayment = async (payment: Payment) => {
+    const hasTransactions = await checkPaymentHasTransactions(payment.id);
+    
+    if (hasTransactions) {
+      toast({
+        variant: "destructive",
+        title: "Cannot Edit Payment",
+        description: "This payment has transactions and cannot be edited. You can mark it as suspect instead."
+      });
+      return;
+    }
+
+    setEditingPayment(payment);
+    setFormData({
+      doctor_id: payment.doctors.doctor_code, // This might need adjustment
+      period_start: payment.period_start,
+      period_end: payment.period_end
+    });
+    setDialogOpen(true);
+  };
+
+  const handleDeletePayment = async (paymentId: string) => {
+    const hasTransactions = await checkPaymentHasTransactions(paymentId);
+    
+    if (hasTransactions) {
+      toast({
+        variant: "destructive",
+        title: "Cannot Delete Payment",
+        description: "This payment has transactions and cannot be deleted. You can mark it as suspect instead."
+      });
+      return;
+    }
+
+    if (!confirm('Are you sure you want to delete this payment? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('payments')
+        .delete()
+        .eq('id', paymentId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Payment deleted successfully"
+      });
+
+      fetchPayments();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to delete payment"
+      });
+    }
+  };
+
+  const handleMarkSuspect = async () => {
+    if (!selectedPayment || !suspectReason.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Invalid Input",
+        description: "Please provide a reason for marking this payment as suspect."
+      });
+      return;
+    }
+
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+
+      if (!profile) throw new Error('Profile not found');
+
+      const { error } = await supabase
+        .from('payments')
+        .update({
+          is_suspect: true,
+          suspect_reason: suspectReason.trim(),
+          marked_suspect_by: profile.id,
+          marked_suspect_at: new Date().toISOString()
+        })
+        .eq('id', selectedPayment.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Payment marked as suspect successfully"
+      });
+
+      setSuspectDialog(false);
+      setSuspectReason('');
+      setSelectedPayment(null);
+      fetchPayments();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to mark payment as suspect"
       });
     }
   };
@@ -973,6 +1112,67 @@ const PaymentManagement = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Mark Suspect Dialog */}
+      <Dialog open={suspectDialog} onOpenChange={setSuspectDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center text-destructive">
+              <AlertTriangle className="h-5 w-5 mr-2" />
+              Mark Payment as Suspect
+            </DialogTitle>
+          </DialogHeader>
+          {selectedPayment && (
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <h4 className="font-medium mb-2">Payment Details</h4>
+                <p className="text-sm text-muted-foreground">
+                  Doctor: {selectedPayment.doctors?.profiles?.full_name}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Amount: {formatCurrency(selectedPayment.total_amount)}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Period: {format(new Date(selectedPayment.period_start), 'MMM dd')} - {format(new Date(selectedPayment.period_end), 'MMM dd, yyyy')}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="suspect_reason">Reason for Marking as Suspect *</Label>
+                <Textarea
+                  id="suspect_reason"
+                  value={suspectReason}
+                  onChange={(e) => setSuspectReason(e.target.value)}
+                  placeholder="Explain why this payment is being marked as suspect..."
+                  rows={4}
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSuspectDialog(false);
+                    setSuspectReason('');
+                    setSelectedPayment(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleMarkSuspect}
+                  disabled={!suspectReason.trim()}
+                >
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  Mark as Suspect
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Summary Cards for Managers and Admins */}
       {(userRole === 'manager' || userRole === 'admin') && payments.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
@@ -1257,6 +1457,55 @@ const PaymentManagement = () => {
                        )}
                     </p>
                   )}
+                </div>
+              )}
+
+              {/* Suspect Status */}
+              {payment.is_suspect && (
+                <div className="mt-3 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm">
+                  <p className="text-destructive font-medium">
+                    ⚠️ <strong>Marked as Suspect</strong>
+                  </p>
+                  <p className="text-muted-foreground mt-1">
+                    Marked on {payment.marked_suspect_at ? format(new Date(payment.marked_suspect_at), 'MMM dd, yyyy HH:mm') : 'N/A'}
+                  </p>
+                  {payment.suspect_reason && (
+                    <p className="text-sm mt-1">Reason: {payment.suspect_reason}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Admin Actions */}
+              {userRole === 'admin' && (
+                <div className="flex gap-2 mt-4 pt-3 border-t">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleEditPayment(payment)}
+                  >
+                    <Edit className="h-4 w-4 mr-1" />
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleDeletePayment(payment.id)}
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Delete
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedPayment(payment);
+                      setSuspectDialog(true);
+                    }}
+                    disabled={payment.is_suspect}
+                  >
+                    <AlertTriangle className="h-4 w-4 mr-1" />
+                    {payment.is_suspect ? 'Suspect' : 'Mark Suspect'}
+                  </Button>
                 </div>
               )}
             </CardContent>
