@@ -106,11 +106,11 @@ const StaffManagement = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (userRole !== 'admin') {
+    if (!['admin', 'manager'].includes(userRole || '')) {
       toast({
         variant: "destructive",
         title: "Access Denied",
-        description: "Only admins can create staff members"
+        description: "Only admins and managers can create staff members"
       });
       return;
     }
@@ -165,24 +165,7 @@ const StaffManagement = () => {
           }
         }
 
-        // Validate email uniqueness (exclude current staff) if email provided
-        if (formData.email.trim() && formData.email !== editingStaff.email) {
-          const { data: existingEmail } = await supabase
-            .from('staff')
-            .select('id')
-            .eq('email', formData.email)
-            .neq('id', editingStaff.id)
-            .single();
-          
-          if (existingEmail) {
-            toast({
-              variant: "destructive",
-              title: "Validation Error",
-              description: `Email "${formData.email}" is already in use`
-            });
-            return;
-          }
-        }
+        // Email can be duplicate, so no validation needed
 
         // Update existing staff
         const { error: staffError } = await supabase
@@ -280,10 +263,9 @@ const StaffManagement = () => {
 
       const staffCode = formData.staff_code || generateStaffCode();
 
-      // Validate uniqueness for new staff
-      const [usernameCheck, emailCheck, staffCodeCheck] = await Promise.all([
+      // Validate uniqueness for new staff (only username, email can be duplicate)
+      const [usernameCheck, staffCodeCheck] = await Promise.all([
         supabase.from('staff').select('id').eq('username', formData.username).single(),
-        formData.email ? supabase.from('staff').select('id').eq('email', formData.email).single() : { data: null },
         supabase.from('staff').select('id').eq('staff_code', staffCode).single()
       ]);
 
@@ -292,15 +274,6 @@ const StaffManagement = () => {
           variant: "destructive",
           title: "Validation Error",
           description: `Username "${formData.username}" is already in use`
-        });
-        return;
-      }
-
-      if (emailCheck.data) {
-        toast({
-          variant: "destructive",
-          title: "Validation Error",
-          description: `Email "${formData.email}" is already in use`
         });
         return;
       }
@@ -467,10 +440,10 @@ const StaffManagement = () => {
     }
   };
 
-  if (userRole !== 'admin') {
+  if (!['admin', 'manager'].includes(userRole || '')) {
     return (
       <div className="flex items-center justify-center h-64">
-        <p className="text-muted-foreground">Access denied. Only admins can manage staff.</p>
+        <p className="text-muted-foreground">Access denied. Only admins and managers can manage staff.</p>
       </div>
     );
   }

@@ -56,6 +56,12 @@ const TaskManagement = () => {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [updateFormData, setUpdateFormData] = useState({
+    status: '',
+    notes: ''
+  });
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [formData, setFormData] = useState({
@@ -273,6 +279,25 @@ const TaskManagement = () => {
     }
   };
 
+  const handleUpdateTask = (task: Task) => {
+    setSelectedTask(task);
+    setUpdateFormData({
+      status: task.status,
+      notes: task.notes || ''
+    });
+    setUpdateDialogOpen(true);
+  };
+
+  const handleUpdateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTask) return;
+
+    await updateTaskStatus(selectedTask.id, updateFormData.status, updateFormData.notes);
+    setUpdateDialogOpen(false);
+    setSelectedTask(null);
+    setUpdateFormData({ status: '', notes: '' });
+  };
+
   const resetForm = () => {
     setFormData({
       task_title: '',
@@ -458,6 +483,59 @@ const TaskManagement = () => {
         )}
       </div>
 
+      {/* Task Update Dialog for Staff */}
+      <Dialog open={updateDialogOpen} onOpenChange={setUpdateDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update Task</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleUpdateSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Task: {selectedTask?.task_title}</Label>
+              <p className="text-sm text-muted-foreground">{selectedTask?.task_description}</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="status">Status *</Label>
+              <Select 
+                value={updateFormData.status} 
+                onValueChange={(value) => setUpdateFormData({ ...updateFormData, status: value })}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes</Label>
+              <Textarea
+                id="notes"
+                value={updateFormData.notes}
+                onChange={(e) => setUpdateFormData({ ...updateFormData, notes: e.target.value })}
+                placeholder="Add any notes about this task..."
+                rows={3}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setUpdateDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">
+                Update Task
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <Card>
@@ -593,20 +671,33 @@ const TaskManagement = () => {
 
               {task.status !== 'completed' && task.status !== 'cancelled' && (
                 <div className="flex gap-2">
-                  {task.status === 'pending' && (
+                  {userRole === 'admin' || userRole === 'manager' ? (
+                    // Admin/Manager can manage all tasks
+                    <>
+                      {task.status === 'pending' && (
+                        <Button 
+                          size="sm" 
+                          onClick={() => updateTaskStatus(task.id, 'in_progress')}
+                        >
+                          Start Task
+                        </Button>
+                      )}
+                      {task.status === 'in_progress' && (
+                        <Button 
+                          size="sm" 
+                          onClick={() => updateTaskStatus(task.id, 'completed')}
+                        >
+                          Complete
+                        </Button>
+                      )}
+                    </>
+                  ) : (
+                    // Staff can update their own tasks with notes
                     <Button 
                       size="sm" 
-                      onClick={() => updateTaskStatus(task.id, 'in_progress')}
+                      onClick={() => handleUpdateTask(task)}
                     >
-                      Start Task
-                    </Button>
-                  )}
-                  {task.status === 'in_progress' && (
-                    <Button 
-                      size="sm" 
-                      onClick={() => updateTaskStatus(task.id, 'completed')}
-                    >
-                      Complete
+                      Update Task
                     </Button>
                   )}
                 </div>

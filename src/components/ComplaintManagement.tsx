@@ -179,11 +179,11 @@ const ComplaintManagement = () => {
   const handleAdminResponse = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (userRole !== 'admin') {
+    if (!['admin', 'manager'].includes(userRole || '')) {
       toast({
         variant: "destructive",
         title: "Access Denied",
-        description: "Only admins can respond to complaints"
+        description: "Only admins and managers can respond to complaints"
       });
       return;
     }
@@ -243,11 +243,11 @@ const ComplaintManagement = () => {
   };
 
   const updateComplaintStatus = async (complaintId: string, newStatus: string) => {
-    if (userRole !== 'admin') {
+    if (!['admin', 'manager'].includes(userRole || '')) {
       toast({
         variant: "destructive",
         title: "Access Denied",
-        description: "Only admins can update complaint status"
+        description: "Only admins and managers can update complaint status"
       });
       return;
     }
@@ -581,7 +581,7 @@ const ComplaintManagement = () => {
                 </div>
               )}
 
-              {userRole === 'admin' && complaint.status === 'open' && (
+              {(userRole === 'admin' || userRole === 'manager') && complaint.status === 'open' && (
                 <div className="flex gap-2">
                   <Button 
                     size="sm" 
@@ -647,7 +647,7 @@ const ComplaintManagement = () => {
             )}
             
             <div className="space-y-2">
-              <Label htmlFor="admin_response">Admin Response *</Label>
+              <Label htmlFor="admin_response">Response *</Label>
               <Textarea
                 id="admin_response"
                 value={adminResponse}
