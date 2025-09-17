@@ -152,10 +152,15 @@ const PaymentManagement = () => {
 
   const fetchPayments = async () => {
     try {
+      // For Supabase authenticated users (admin), use their user ID
+      // For custom auth users, use their original_id
+      const userId = user?.user_metadata?.original_id || user?.id;
+      const userType = user?.user_metadata?.user_type || 'staff';
+      
       // Use secure RPC function for custom auth
       const { data, error } = await supabase.rpc('get_user_payments', {
-        _user_type: user?.user_metadata?.user_type || 'staff',
-        _user_id: user?.user_metadata?.original_id,
+        _user_type: userType,
+        _user_id: userId,
         _user_role: userRole || 'staff'
       });
 
@@ -169,7 +174,6 @@ const PaymentManagement = () => {
           period_start: payment.period_start,
           period_end: payment.period_end,
           total_visits: payment.total_visits,
-          rate_per_visit: payment.rate_per_visit,
           total_amount: payment.total_amount,
           paid_amount: payment.paid_amount,
           remaining_amount: payment.remaining_amount,
