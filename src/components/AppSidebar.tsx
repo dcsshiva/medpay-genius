@@ -125,6 +125,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
         { id: 'payments', label: 'Payment Management', icon: CreditCard },
         { id: 'tasks', label: 'Task Management', icon: ClipboardList },
         { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
+        { id: 'login-reports', label: 'Login Reports', icon: TrendingUp },
         { id: 'chat', label: 'Team Chat', icon: MessageSquare },
         { id: 'settings', label: 'Settings', icon: Settings },
       ];

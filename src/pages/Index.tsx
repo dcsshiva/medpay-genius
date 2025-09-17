@@ -10,6 +10,7 @@ import StaffManagement from '@/components/StaffManagement';
 import TaskManagement from '@/components/TaskManagement';
 import TeamChat from '@/components/TeamChat';
 import ComplaintManagement from '@/components/ComplaintManagement';
+import UserLoginReports from '@/components/UserLoginReports';
 import Settings from '@/components/Settings';
 
 const Index = () => {
@@ -54,6 +55,8 @@ const Index = () => {
         return <TaskManagement />;
       case 'complaints':
         return <ComplaintManagement />;
+      case 'login-reports':
+        return <UserLoginReports />;
       case 'chat':
         return <TeamChat />;
       case 'settings':
