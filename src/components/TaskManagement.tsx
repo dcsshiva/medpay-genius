@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { getStaffId, isStaffRole, getStaffTasks } from '@/lib/staffUtils';
 import ReportGeneration from '@/components/ReportGeneration';
 import { 
@@ -72,6 +73,32 @@ const TaskManagement = () => {
     assigned_to: '',
     priority: 'medium',
     due_date: ''
+  });
+
+  // Check for unsaved changes
+  const hasUnsavedChanges = formData.task_title.trim() !== '' || 
+                           formData.task_description.trim() !== '' || 
+                           formData.assigned_to !== '' || 
+                           formData.due_date !== '';
+
+  // Handle session timeout clearing unsaved data
+  useUnsavedChanges({
+    hasUnsavedChanges,
+    onClear: () => {
+      setFormData({
+        task_title: '',
+        task_description: '',
+        assigned_to: '',
+        priority: 'medium',
+        due_date: ''
+      });
+      setUpdateFormData({ status: '', notes: '' });
+      toast({
+        title: "Form Cleared",
+        description: "Unsaved task data has been cleared due to session timeout.",
+        variant: "destructive"
+      });
+    }
   });
 
   useEffect(() => {

@@ -481,45 +481,57 @@ export type Database = {
           expires_at: string
           full_name: string | null
           id: string
+          idle_timeout_seconds: number | null
           is_active: boolean
+          last_activity_at: string | null
           original_id: string | null
           refresh_token: string | null
           role: string | null
           session_token: string
+          timeout_warnings_count: number | null
           updated_at: string
           user_id: string
           user_type: string
           username: string | null
+          warning_shown_at: string | null
         }
         Insert: {
           created_at?: string
           expires_at: string
           full_name?: string | null
           id?: string
+          idle_timeout_seconds?: number | null
           is_active?: boolean
+          last_activity_at?: string | null
           original_id?: string | null
           refresh_token?: string | null
           role?: string | null
           session_token: string
+          timeout_warnings_count?: number | null
           updated_at?: string
           user_id: string
           user_type: string
           username?: string | null
+          warning_shown_at?: string | null
         }
         Update: {
           created_at?: string
           expires_at?: string
           full_name?: string | null
           id?: string
+          idle_timeout_seconds?: number | null
           is_active?: boolean
+          last_activity_at?: string | null
           original_id?: string | null
           refresh_token?: string | null
           role?: string | null
           session_token?: string
+          timeout_warnings_count?: number | null
           updated_at?: string
           user_id?: string
           user_type?: string
           username?: string | null
+          warning_shown_at?: string | null
         }
         Relationships: []
       }

@@ -26,6 +26,9 @@ const createUserSession = async (sessionData: {
   const sessionToken = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const refreshToken = `refresh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  
+  // Set timeout duration based on role
+  const timeoutDuration = ['admin', 'manager'].includes(sessionData.role) ? 300 : 180;
 
   const { data, error } = await supabase
     .from('user_sessions')
@@ -39,6 +42,8 @@ const createUserSession = async (sessionData: {
       full_name: sessionData.full_name,
       role: sessionData.role,
       expires_at: expiresAt.toISOString(),
+      idle_timeout_seconds: timeoutDuration,
+      last_activity_at: new Date().toISOString(),
       is_active: true
     })
     .select()
