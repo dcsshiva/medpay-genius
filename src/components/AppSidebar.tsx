@@ -129,6 +129,15 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
       ];
     }
 
+    // Staff users (nurse, technician, receptionist, pharmacist, cleaner, security, etc.)
+    if (userRole && !['admin', 'manager', 'doctor'].includes(userRole)) {
+      return [
+        ...baseItems,
+        { id: 'tasks', label: 'My Tasks', icon: ClipboardList },
+        { id: 'complaints', label: 'Complaints', icon: MessageCircle },
+      ];
+    }
+
     return baseItems;
   };
 

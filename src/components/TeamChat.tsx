@@ -15,7 +15,7 @@ interface Message {
   content: string;
   sender_id: string;
   sender_name: string;
-  sender_role: 'admin' | 'manager' | 'doctor';
+  sender_role: 'admin' | 'manager' | 'doctor' | 'staff';
   created_at: string;
   updated_at: string;
   is_edited: boolean;
