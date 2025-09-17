@@ -24,6 +24,7 @@ import {
   Search
 } from 'lucide-react';
 import { format } from 'date-fns';
+import ReportGeneration from './ReportGeneration';
 
 interface Payment {
   id: string;
@@ -986,6 +987,80 @@ const PaymentManagement = () => {
           </Card>
         </div>
       )}
+
+      {/* Report Generation */}
+      <div className="flex justify-end mb-6">
+        <ReportGeneration
+          title="Payment Management Report"
+          data={payments.filter((payment) =>
+            payment.doctors?.profiles?.full_name.toLowerCase().includes(searchQuery.toLowerCase())
+          )}
+          columns={[
+            { 
+              key: 'doctors.profiles.full_name', 
+              label: 'Doctor Name' 
+            },
+            { 
+              key: 'doctors.doctor_code', 
+              label: 'Doctor Code' 
+            },
+            { 
+              key: 'period_start', 
+              label: 'Period Start',
+              format: (value) => format(new Date(value), 'MMM dd, yyyy')
+            },
+            { 
+              key: 'period_end', 
+              label: 'Period End',
+              format: (value) => format(new Date(value), 'MMM dd, yyyy')
+            },
+            { 
+              key: 'total_visits', 
+              label: 'Total Visits' 
+            },
+            { 
+              key: 'total_amount', 
+              label: 'Total Amount',
+              format: (value) => formatCurrency(value)
+            },
+            { 
+              key: 'paid_amount', 
+              label: 'Paid Amount',
+              format: (value) => formatCurrency(value)
+            },
+            { 
+              key: 'remaining_amount', 
+              label: 'Remaining Amount',
+              format: (value) => formatCurrency(value)
+            },
+            { 
+              key: 'is_fully_paid', 
+              label: 'Fully Paid',
+              format: (value) => value ? 'Yes' : 'No'
+            },
+            { 
+              key: 'status', 
+              label: 'Status',
+              format: (value) => value?.replace(/_/g, ' ').toUpperCase()
+            },
+            { 
+              key: 'payment_notes', 
+              label: 'Payment Notes' 
+            },
+            { 
+              key: 'manager_approved_at', 
+              label: 'Manager Approved At',
+              format: (value) => value ? format(new Date(value), 'MMM dd, yyyy HH:mm') : 'N/A'
+            },
+            { 
+              key: 'admin_approved_at', 
+              label: 'Admin Approved At',
+              format: (value) => value ? format(new Date(value), 'MMM dd, yyyy HH:mm') : 'N/A'
+            }
+          ]}
+          filename="payment_management_report"
+        />
+      </div>
 
       {/* Search Input */}
       <div className="relative">

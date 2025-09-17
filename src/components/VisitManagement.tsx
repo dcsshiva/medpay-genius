@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Calendar, Users, Stethoscope, Search } from 'lucide-react';
 import { format } from 'date-fns';
+import ReportGeneration from './ReportGeneration';
 
 interface Visit {
   id: string;
@@ -461,6 +462,67 @@ const VisitManagement = () => {
             <p className="text-xs text-muted-foreground">Patients per visit</p>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Report Generation */}
+      <div className="flex justify-end mb-6">
+        <ReportGeneration
+          title="Visit Management Report"
+          data={visits.filter((visit) => {
+            const query = searchQuery.toLowerCase();
+            return (
+              visit.doctors?.profiles?.full_name.toLowerCase().includes(query) ||
+              visit.patient_name.toLowerCase().includes(query) ||
+              (visit.patient_id && visit.patient_id.toLowerCase().includes(query))
+            );
+          })}
+          columns={[
+            { 
+              key: 'visit_date', 
+              label: 'Visit Date',
+              format: (value) => format(new Date(value), 'MMM dd, yyyy')
+            },
+            { 
+              key: 'doctors.profiles.full_name', 
+              label: 'Doctor Name' 
+            },
+            { 
+              key: 'doctors.doctor_code', 
+              label: 'Doctor Code' 
+            },
+            { 
+              key: 'patient_name', 
+              label: 'Patient Name' 
+            },
+            { 
+              key: 'patient_id', 
+              label: 'Patient ID' 
+            },
+            { 
+              key: 'patient_count', 
+              label: 'Patient Count' 
+            },
+            { 
+              key: 'visit_payment', 
+              label: 'Visit Payment',
+              format: (value) => value ? `₹${value}` : 'N/A'
+            },
+            { 
+              key: 'payment_type', 
+              label: 'Payment Type' 
+            },
+            { 
+              key: 'visit_reason', 
+              label: 'Visit Reason',
+              format: (value) => value?.replace(/_/g, ' ').toUpperCase()
+            },
+            { 
+              key: 'notes', 
+              label: 'Notes' 
+            }
+          ]}
+          filename="visit_management_report"
+        />
       </div>
 
       {/* Search Input */}
