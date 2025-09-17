@@ -165,17 +165,6 @@ const Auth = () => {
                     {isLoading ? 'Signing In...' : 'Sign In as Staff'}
                   </Button>
                 </form>
-                
-                <div className="mt-4 text-center">
-                  <p className="text-sm text-muted-foreground mb-2">
-                    <strong>Demo Credentials:</strong>
-                  </p>
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <p><strong>Staff:</strong> nurse1 / password123</p>
-                    <p><strong>Doctor:</strong> DOC0001 / password123</p>
-                    <p><strong>Manager:</strong> sarah.manager / password123</p>
-                  </div>
-                </div>
               </TabsContent>
               
               <TabsContent value="admin" className="space-y-4">
