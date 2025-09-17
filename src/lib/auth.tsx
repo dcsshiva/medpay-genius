@@ -153,16 +153,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .eq('username', username)
         .maybeSingle();
 
-      if (staffData?.email && staffData.profile_id) {
-        // This is a newly created staff with Supabase auth
+      if (staffData?.email) {
+        // Try Supabase auth with their email
         const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
           email: staffData.email,
           password
         });
 
         if (!authError && authData.user) {
-          // Successfully signed in with Supabase auth - it will be handled by onAuthStateChange
+          // Successfully signed in with Supabase auth - handled by onAuthStateChange
           return { error: null };
+        }
+
+        // Propagate meaningful error if available (e.g., email not confirmed)
+        if (authError) {
+          return { error: { message: authError.message || 'Authentication failed' } };
         }
       }
 
