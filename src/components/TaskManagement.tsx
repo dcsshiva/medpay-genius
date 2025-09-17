@@ -75,34 +75,76 @@ const TaskManagement = () => {
 
   const fetchTasks = async () => {
     try {
-      let query = supabase
-        .from('tasks')
-        .select(`
-          id,
-          task_title,
-          task_description,
-          priority,
-          status,
-          due_date,
-          completed_at,
-          notes,
-          created_at,
-          assigned_to_staff:assigned_to (
-            staff_code,
-            full_name,
-            role
-          ),
-          assigned_by_staff:assigned_by (
-            staff_code,
-            full_name
-          )
-        `)
-        .order('created_at', { ascending: false });
+      let data: Task[] = [];
 
-      const { data, error } = await query;
+      // For staff users, use RPC function to bypass RLS issues
+      if (userRole && !['admin', 'manager', 'doctor'].includes(userRole)) {
+        // Get staff ID for current user
+        let staffId: string | null = null;
+        
+        if (user?.user_metadata?.user_type === 'staff' && user?.user_metadata?.original_id) {
+          staffId = user.user_metadata.original_id as string;
+        }
 
-      if (error) throw error;
-      setTasks((data as unknown as Task[]) || []);
+        if (staffId) {
+          const { data: staffTasks, error } = await supabase
+            .rpc('get_staff_tasks', { _staff_id: staffId });
+
+          if (error) throw error;
+          
+          // Convert RPC result to Task format
+          data = (staffTasks || []).map((task: any) => ({
+            id: task.id,
+            task_title: task.task_title,
+            task_description: task.task_description,
+            priority: task.priority,
+            status: task.status,
+            due_date: task.due_date,
+            completed_at: task.completed_at,
+            notes: task.notes,
+            created_at: task.created_at,
+            assigned_to_staff: {
+              staff_code: task.assigned_to_staff_code,
+              full_name: task.assigned_to_full_name,
+              role: task.assigned_to_role,
+            },
+            assigned_by_staff: task.assigned_by_staff_code ? {
+              staff_code: task.assigned_by_staff_code,
+              full_name: task.assigned_by_full_name,
+            } : undefined,
+          }));
+        }
+      } else {
+        // For admin/manager users, use regular query
+        const { data: queryData, error } = await supabase
+          .from('tasks')
+          .select(`
+            id,
+            task_title,
+            task_description,
+            priority,
+            status,
+            due_date,
+            completed_at,
+            notes,
+            created_at,
+            assigned_to_staff:assigned_to (
+              staff_code,
+              full_name,
+              role
+            ),
+            assigned_by_staff:assigned_by (
+              staff_code,
+              full_name
+            )
+          `)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        data = (queryData as unknown as Task[]) || [];
+      }
+
+      setTasks(data);
     } catch (error) {
       console.error('Error fetching tasks:', error);
       toast({
