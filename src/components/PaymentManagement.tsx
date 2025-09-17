@@ -278,19 +278,19 @@ const PaymentManagement = () => {
 
       if (visitsError) throw visitsError;
 
-      // Get all approved payments for this doctor to exclude already processed visits
-      const { data: approvedPayments, error: paymentsError } = await supabase
+      // Get all non-rejected payments for this doctor to exclude already processed visits
+      const { data: existingPayments, error: paymentsError } = await supabase
         .from('payments')
-        .select('id, period_start, period_end')
+        .select('id, period_start, period_end, status')
         .eq('doctor_id', formData.doctor_id)
-        .in('status', ['admin_approved'])
+        .in('status', ['pending', 'manager_approved', 'admin_approved'])
         .order('period_start', { ascending: true });
 
       if (paymentsError) throw paymentsError;
 
-      // Filter out visits that have already been processed in approved payments
+      // Filter out visits that have already been processed in any non-rejected payment
       const unprocessedVisits = allVisits?.filter(visit => {
-        return !approvedPayments?.some(payment => {
+        return !existingPayments?.some(payment => {
           const visitDate = new Date(visit.visit_date);
           const paymentStart = new Date(payment.period_start);
           const paymentEnd = new Date(payment.period_end);
@@ -298,9 +298,35 @@ const PaymentManagement = () => {
         });
       }) || [];
 
+      // Show info about excluded visits if any
+      const excludedVisitsCount = (allVisits?.length || 0) - unprocessedVisits.length;
+      if (excludedVisitsCount > 0) {
+        toast({
+          title: "Info",
+          description: `${excludedVisitsCount} visits excluded as they are already included in existing payment requests.`
+        });
+      }
+
       const totalVisits = unprocessedVisits.reduce((sum, visit) => sum + visit.patient_count, 0);
       // Calculate total amount based on actual visit payments, not rate * count
       const totalAmount = unprocessedVisits.reduce((sum, visit) => sum + (visit.visit_payment || 0), 0);
+
+      // Prevent creating payment advice if no unprocessed visits
+      if (unprocessedVisits.length === 0) {
+        toast({
+          variant: "destructive",
+          title: "No Available Visits",
+          description: "All visits in this period have already been included in existing payment requests."
+        });
+        setCalculatedData({
+          visits: [],
+          total_visits: 0,
+          total_amount: 0,
+          period_start: formData.period_start,
+          period_end: formData.period_end
+        });
+        return;
+      }
 
       setCalculatedData({
         visits: unprocessedVisits,
@@ -333,6 +359,16 @@ const PaymentManagement = () => {
         variant: "destructive",
         title: "Access Denied",
         description: "Only admins can create payment requests"
+      });
+      return;
+    }
+
+    // Validate that there are calculated visits to process
+    if (calculatedData.total_visits === 0 || calculatedData.visits.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No Visits to Process",
+        description: "There are no unprocessed visits available for this period. All visits may already be included in existing payment requests."
       });
       return;
     }
@@ -696,7 +732,7 @@ const PaymentManagement = () => {
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={calculatedData.total_amount === 0}>
+                  <Button type="submit" disabled={calculatedData.total_amount === 0 || calculatedData.visits.length === 0}>
                     <CreditCard className="h-4 w-4 mr-2" />
                     Create Payment Advice
                   </Button>
