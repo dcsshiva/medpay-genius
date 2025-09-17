@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Users, Stethoscope } from 'lucide-react';
+import { Plus, Edit, Users, Stethoscope, Search } from 'lucide-react';
 
 interface Doctor {
   id: string;
@@ -28,6 +28,7 @@ const DoctorManagement = () => {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
   const [formData, setFormData] = useState({
     full_name: '',
@@ -479,8 +480,23 @@ const DoctorManagement = () => {
         )}
       </div>
 
+      {/* Search Input */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+        <Input
+          placeholder="Search by doctor name..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {doctors.map((doctor) => (
+        {doctors
+          .filter((doctor) =>
+            doctor.profiles?.full_name.toLowerCase().includes(searchQuery.toLowerCase())
+          )
+          .map((doctor) => (
           <Card key={doctor.id}>
             <CardHeader>
               <div className="flex justify-between items-start">

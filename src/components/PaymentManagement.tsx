@@ -20,7 +20,8 @@ import {
   X, 
   Calculator,
   TrendingUp,
-  History 
+  History,
+  Search
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -94,6 +95,7 @@ const PaymentManagement = () => {
   const [transactions, setTransactions] = useState<PaymentTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [visitDetailsDialog, setVisitDetailsDialog] = useState(false);
   const [paymentDialog, setPaymentDialog] = useState(false);
   const [transactionsDialog, setTransactionsDialog] = useState(false);
@@ -985,9 +987,24 @@ const PaymentManagement = () => {
         </div>
       )}
 
+      {/* Search Input */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+        <Input
+          placeholder="Search by doctor name..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
       {/* Payments List */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {payments.map((payment) => (
+        {payments
+          .filter((payment) =>
+            payment.doctors?.profiles?.full_name.toLowerCase().includes(searchQuery.toLowerCase())
+          )
+          .map((payment) => (
           <Card key={payment.id} className="relative">
             <CardHeader>
               <div className="flex justify-between items-start">

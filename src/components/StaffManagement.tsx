@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Users, UserCheck, UserX } from 'lucide-react';
+import { Plus, Edit, Users, UserCheck, UserX, Search } from 'lucide-react';
 import { format } from 'date-fns';
 
 interface Staff {
@@ -33,6 +33,7 @@ const StaffManagement = () => {
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
   const [formData, setFormData] = useState({
     staff_code: '',
@@ -667,9 +668,24 @@ const StaffManagement = () => {
         </Card>
       </div>
 
+      {/* Search Input */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+        <Input
+          placeholder="Search by staff name..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
       {/* Staff List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {staff.map((member) => (
+        {staff
+          .filter((member) =>
+            member.full_name.toLowerCase().includes(searchQuery.toLowerCase())
+          )
+          .map((member) => (
           <Card key={member.id}>
             <CardHeader className="pb-3">
               <div className="flex justify-between items-start">
