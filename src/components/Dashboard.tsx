@@ -81,11 +81,16 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
         // Support both custom-auth doctors and Supabase-auth doctors
         let doctorId: string | null = null;
 
+        console.log('Dashboard - Doctor user:', user);
+        console.log('Dashboard - User metadata:', user?.user_metadata);
+
         // Custom auth: we already have the doctor id in user metadata
         if (user?.user_metadata?.user_type === 'doctor' && user?.user_metadata?.original_id) {
           doctorId = user.user_metadata.original_id as string;
+          console.log('Dashboard - Using custom auth doctor ID:', doctorId);
         } else {
           // Supabase-auth fallback: resolve via profiles -> doctors
+          console.log('Dashboard - Falling back to Supabase auth lookup');
           const { data: profile } = await supabase
             .from('profiles')
             .select('id')
@@ -102,6 +107,8 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
           }
         }
 
+        console.log('Dashboard - Final doctor ID:', doctorId);
+
         if (doctorId) {
           const [visitsRes, paymentsRes, pendingRes] = await Promise.all([
             supabase.from('visits').select('id', { count: 'exact' }).eq('doctor_id', doctorId),
@@ -109,13 +116,23 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
             supabase.from('payments').select('id', { count: 'exact' }).eq('doctor_id', doctorId).eq('status', 'pending')
           ]);
 
+          console.log('Dashboard - Visits result:', visitsRes);
+          console.log('Dashboard - Payments result:', paymentsRes);
+          console.log('Dashboard - Pending result:', pendingRes);
+
           const totalEarnings = paymentsRes.data?.reduce((sum, payment) => sum + Number((payment as any).total_amount), 0) || 0;
 
-          setStats({
+          const statsData = {
             myVisits: visitsRes.count || 0,
             myEarnings: totalEarnings,
             pendingPayments: pendingRes.count || 0,
-          });
+          };
+
+          console.log('Dashboard - Setting stats:', statsData);
+
+          setStats(statsData);
+        } else {
+          console.log('Dashboard - No doctor ID found, cannot fetch stats');
         }
       }
     } catch (error) {
