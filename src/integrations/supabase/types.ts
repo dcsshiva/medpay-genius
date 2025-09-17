@@ -498,6 +498,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_staff_auth_email: {
+        Args: { _username: string }
+        Returns: string
+      }
       get_staff_task_counts: {
         Args: { _staff_id: string }
         Returns: {

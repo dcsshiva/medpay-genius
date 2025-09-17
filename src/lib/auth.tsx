@@ -146,31 +146,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // If old method fails, try Supabase auth for newly created staff
-      // Look up their email from staff table
-      const { data: staffData } = await supabase
-        .from('staff')
-        .select('email, profile_id, full_name, role')
-        .eq('username', username)
-        .maybeSingle();
+      // Use security definer function to bypass RLS and get email
+      const { data: emailData } = await supabase
+        .rpc('get_staff_auth_email', { _username: username });
 
-      if (staffData?.email) {
+      if (emailData) {
+        console.log('Found staff email:', emailData);
         // Try Supabase auth with their email
         const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-          email: staffData.email,
+          email: emailData,
           password
         });
 
+        console.log('Supabase auth result:', { authData, authError });
+
         if (!authError && authData.user) {
           // Successfully signed in with Supabase auth - handled by onAuthStateChange
+          console.log('Supabase auth successful for:', username);
           return { error: null };
         }
 
-        // Propagate meaningful error if available (e.g., email not confirmed)
+        // Propagate meaningful error if available
         if (authError) {
+          console.error('Supabase auth error:', authError);
           return { error: { message: authError.message || 'Authentication failed' } };
         }
       }
 
+      console.log('No email found for username:', username);
       // All methods failed
       return { error: { message: 'Invalid username or password' } };
 
