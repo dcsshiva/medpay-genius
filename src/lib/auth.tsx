@@ -33,7 +33,7 @@ const createUserSession = async (sessionData: {
   const { data, error } = await supabase
     .from('user_sessions')
     .insert({
-      user_id: `${sessionData.user_type}_${sessionData.original_id}`,
+      user_id: sessionData.user_type === 'supabase_auth' ? sessionData.original_id : `${sessionData.user_type}_${sessionData.original_id}`,
       user_type: sessionData.user_type,
       original_id: sessionData.original_id,
       session_token: sessionToken,
