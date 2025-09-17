@@ -134,6 +134,58 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
         } else {
           console.log('Dashboard - No doctor ID found, cannot fetch stats');
         }
+      } else {
+        // Handle staff users (nurse, cleaner, technician, etc.)
+        let staffId: string | null = null;
+
+        console.log('Dashboard - Staff user:', user);
+        console.log('Dashboard - User metadata:', user?.user_metadata);
+
+        // Custom auth: we already have the staff id in user metadata
+        if (user?.user_metadata?.user_type === 'staff' && user?.user_metadata?.original_id) {
+          staffId = user.user_metadata.original_id as string;
+          console.log('Dashboard - Using custom auth staff ID:', staffId);
+        } else {
+          // Supabase-auth fallback: resolve via profiles -> staff
+          console.log('Dashboard - Falling back to Supabase auth lookup for staff');
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('user_id', user!.id)
+            .maybeSingle();
+
+          if (profile) {
+            const { data: staffData } = await supabase
+              .from('staff')
+              .select('id')
+              .eq('profile_id', profile.id)
+              .maybeSingle();
+            staffId = staffData?.id ?? null;
+          }
+        }
+
+        console.log('Dashboard - Final staff ID:', staffId);
+
+        if (staffId) {
+          const [pendingTasksRes, completedTasksRes] = await Promise.all([
+            supabase.from('tasks').select('id', { count: 'exact' }).eq('assigned_to', staffId).in('status', ['pending', 'in_progress']),
+            supabase.from('tasks').select('id', { count: 'exact' }).eq('assigned_to', staffId).eq('status', 'completed')
+          ]);
+
+          console.log('Dashboard - Staff pending tasks result:', pendingTasksRes);
+          console.log('Dashboard - Staff completed tasks result:', completedTasksRes);
+
+          const statsData = {
+            pendingTasks: pendingTasksRes.count || 0,
+            completedTasks: completedTasksRes.count || 0,
+          };
+
+          console.log('Dashboard - Setting staff stats:', statsData);
+
+          setStats(statsData);
+        } else {
+          console.log('Dashboard - No staff ID found, cannot fetch tasks');
+        }
       }
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
@@ -290,6 +342,38 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
     </div>
   );
 
+  const renderStaffDashboard = () => (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
+        onClick={() => onTabChange?.('tasks')}
+      >
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">My Pending Tasks</CardTitle>
+          <ListTodo className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-warning">{stats.pendingTasks || 0}</div>
+          <p className="text-xs text-muted-foreground">Tasks assigned to me</p>
+        </CardContent>
+      </Card>
+
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
+        onClick={() => onTabChange?.('tasks')}
+      >
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Completed Tasks</CardTitle>
+          <CheckCircle className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-success">{stats.completedTasks || 0}</div>
+          <p className="text-xs text-muted-foreground">Tasks I've completed</p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+
   const renderDoctorDashboard = () => (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
       <Card 
@@ -366,6 +450,7 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
       {userRole === 'admin' && renderAdminDashboard()}
       {userRole === 'manager' && renderManagerDashboard()}
       {userRole === 'doctor' && renderDoctorDashboard()}
+      {(userRole && !['admin', 'manager', 'doctor'].includes(userRole)) && renderStaffDashboard()}
     </div>
   );
 };
