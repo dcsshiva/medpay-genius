@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getStaffId, isStaffRole, getStaffTasks } from '@/lib/staffUtils';
 import { 
   Plus, 
   Clock, 
@@ -84,65 +85,14 @@ const TaskManagement = () => {
       let data: Task[] = [];
 
       // For staff users, use RPC function to bypass RLS issues
-      if (userRole && !['admin', 'manager', 'doctor'].includes(userRole)) {
-        // Get staff ID for current user
-        let staffId: string | null = null;
+      if (isStaffRole(userRole)) {
+        console.log('TaskManagement - Staff user:', user);
         
-        // Custom auth: we already have the staff id in user metadata
-        if (user?.user_metadata?.user_type === 'staff' && user?.user_metadata?.original_id) {
-          staffId = user.user_metadata.original_id as string;
-          console.log('TaskManagement - Using custom auth staff ID:', staffId);
-        } else {
-          // Supabase-auth fallback: resolve via profiles -> staff
-          console.log('TaskManagement - Falling back to Supabase auth lookup for staff');
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('user_id', user!.id)
-            .maybeSingle();
-
-          if (profile) {
-            const { data: staffData } = await supabase
-              .from('staff')
-              .select('id')
-              .eq('profile_id', profile.id)
-              .maybeSingle();
-            staffId = staffData?.id ?? null;
-            console.log('TaskManagement - Found staff ID via profile lookup:', staffId);
-          }
-        }
+        const staffId = await getStaffId(user);
 
         if (staffId) {
           console.log('TaskManagement - About to query tasks for staff ID:', staffId);
-          const { data: staffTasks, error } = await supabase
-            .rpc('get_staff_tasks', { _staff_id: staffId });
-
-          console.log('TaskManagement - RPC result:', { staffTasks, error });
-
-          if (error) throw error;
-          
-          // Convert RPC result to Task format
-          data = (staffTasks || []).map((task: any) => ({
-            id: task.id,
-            task_title: task.task_title,
-            task_description: task.task_description,
-            priority: task.priority,
-            status: task.status,
-            due_date: task.due_date,
-            completed_at: task.completed_at,
-            notes: task.notes,
-            created_at: task.created_at,
-            assigned_to_staff: {
-              staff_code: task.assigned_to_staff_code,
-              full_name: task.assigned_to_full_name,
-              role: task.assigned_to_role,
-            },
-            assigned_by_staff: task.assigned_by_staff_code ? {
-              staff_code: task.assigned_by_staff_code,
-              full_name: task.assigned_by_full_name,
-            } : undefined,
-          }));
-          
+          data = await getStaffTasks(staffId);
           console.log('TaskManagement - Converted tasks:', data);
         } else {
           console.log('TaskManagement - No staff ID found, cannot fetch tasks');

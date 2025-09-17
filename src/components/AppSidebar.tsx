@@ -32,6 +32,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/currency';
+import { isStaffRole } from '@/lib/staffUtils';
 
 interface NavigationStats {
   pendingRequests: number;
@@ -130,7 +131,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
     }
 
     // Staff users (nurse, technician, receptionist, pharmacist, cleaner, security, etc.)
-    if (userRole && !['admin', 'manager', 'doctor'].includes(userRole)) {
+    if (isStaffRole(userRole)) {
       return [
         ...baseItems,
         { id: 'tasks', label: 'My Tasks', icon: ClipboardList },

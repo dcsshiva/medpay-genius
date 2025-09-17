@@ -3,6 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/currency';
+import { getStaffId, isStaffRole, getStaffTaskCounts } from '@/lib/staffUtils';
 import { 
   Users, 
   Calendar, 
@@ -134,65 +135,21 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
         } else {
           console.log('Dashboard - No doctor ID found, cannot fetch stats');
         }
-      } else {
-        // Handle staff users (nurse, cleaner, technician, etc.)
-        let staffId: string | null = null;
-
+      } else if (isStaffRole(userRole)) {
+        // Handle all staff users (nurse, technician, receptionist, pharmacist, cleaner, security, etc.)
         console.log('Dashboard - Staff user:', user);
-        console.log('Dashboard - User metadata:', user?.user_metadata);
-
-        // Custom auth: we already have the staff id in user metadata
-        if (user?.user_metadata?.user_type === 'staff' && user?.user_metadata?.original_id) {
-          staffId = user.user_metadata.original_id as string;
-          console.log('Dashboard - Using custom auth staff ID:', staffId);
-        } else {
-          // Supabase-auth fallback: resolve via profiles -> staff
-          console.log('Dashboard - Falling back to Supabase auth lookup for staff');
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('user_id', user!.id)
-            .maybeSingle();
-
-          if (profile) {
-            const { data: staffData } = await supabase
-              .from('staff')
-              .select('id')
-              .eq('profile_id', profile.id)
-              .maybeSingle();
-            staffId = staffData?.id ?? null;
-          }
-        }
-
-        console.log('Dashboard - Final staff ID:', staffId);
+        
+        const staffId = await getStaffId(user);
 
         if (staffId) {
           console.log('Dashboard - About to query tasks for staff ID:', staffId);
           
-          // Use RPC function to bypass RLS issues
-          const { data: taskCounts, error: countsError } = await supabase
-            .rpc('get_staff_task_counts', { _staff_id: staffId });
-
-          console.log('Dashboard - Staff task counts result:', taskCounts, countsError);
-
-          if (!countsError && taskCounts && taskCounts.length > 0) {
-            const counts = taskCounts[0];
-            const statsData = {
-              pendingTasks: (counts.pending_count || 0) + (counts.in_progress_count || 0),
-              completedTasks: counts.completed_count || 0,
-            };
-
-            console.log('Dashboard - Setting staff stats:', statsData);
-            setStats(statsData);
-          } else {
-            console.log('Dashboard - No task counts found or error:', countsError);
-            setStats({
-              pendingTasks: 0,
-              completedTasks: 0,
-            });
-          }
+          const taskStats = await getStaffTaskCounts(staffId);
+          console.log('Dashboard - Setting staff stats:', taskStats);
+          setStats(taskStats);
         } else {
           console.log('Dashboard - No staff ID found, cannot fetch tasks');
+          setStats({ pendingTasks: 0, completedTasks: 0 });
         }
       }
     } catch (error) {

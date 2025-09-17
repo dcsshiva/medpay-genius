@@ -3,6 +3,7 @@ import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import MobileHeader from '@/components/MobileHeader';
 import { AppSidebar } from '@/components/AppSidebar';
+import { isStaffRole } from '@/lib/staffUtils';
 import { 
   SidebarProvider, 
   SidebarInset, 
@@ -71,8 +72,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
       ];
     }
 
-    // Staff users (nurse, cleaner, technician, security, etc.)
-    if (userRole && !['admin', 'manager', 'doctor'].includes(userRole)) {
+    // Staff users (nurse, technician, receptionist, pharmacist, cleaner, security, etc.)
+    if (isStaffRole(userRole)) {
       return [
         ...baseItems,
         { id: 'tasks', label: 'My Tasks', icon: ClipboardList },
