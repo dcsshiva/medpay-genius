@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
 import { Stethoscope, LogIn, Shield } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -66,6 +67,41 @@ const Auth = () => {
     }
     
     setIsLoading(false);
+  };
+
+  const handleAdminResetPassword = async () => {
+    if (!adminData.email) {
+      toast({ variant: 'destructive', title: 'Email required', description: 'Enter your admin email first.' });
+      return;
+    }
+    try {
+      const redirectUrl = `${window.location.origin}/auth`;
+      const { error } = await supabase.auth.resetPasswordForEmail(adminData.email, {
+        redirectTo: redirectUrl,
+      });
+      if (error) throw error;
+      toast({ title: 'Reset link sent', description: 'Check your inbox to reset your password.' });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Reset failed', description: err?.message || 'Could not send reset email.' });
+    }
+  };
+
+  const handleAdminMagicLink = async () => {
+    if (!adminData.email) {
+      toast({ variant: 'destructive', title: 'Email required', description: 'Enter your admin email first.' });
+      return;
+    }
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+      const { error } = await supabase.auth.signInWithOtp({
+        email: adminData.email,
+        options: { emailRedirectTo: redirectUrl },
+      });
+      if (error) throw error;
+      toast({ title: 'Magic link sent', description: 'Check your inbox to sign in.' });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Magic link failed', description: err?.message || 'Could not send magic link.' });
+    }
   };
 
   return (
@@ -176,6 +212,14 @@ const Auth = () => {
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? 'Signing In...' : 'Sign In as Admin'}
                   </Button>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground mt-2">
+                    <button type="button" onClick={handleAdminResetPassword} className="underline hover:opacity-80">
+                      Forgot password?
+                    </button>
+                    <button type="button" onClick={handleAdminMagicLink} className="underline hover:opacity-80">
+                      Send magic link
+                    </button>
+                  </div>
                 </form>
               </TabsContent>
             </Tabs>
