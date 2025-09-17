@@ -167,6 +167,8 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
         console.log('Dashboard - Final staff ID:', staffId);
 
         if (staffId) {
+          console.log('Dashboard - About to query tasks for staff ID:', staffId);
+          
           const [pendingTasksRes, completedTasksRes] = await Promise.all([
             supabase.from('tasks').select('id', { count: 'exact' }).eq('assigned_to', staffId).in('status', ['pending', 'in_progress']),
             supabase.from('tasks').select('id', { count: 'exact' }).eq('assigned_to', staffId).eq('status', 'completed')
@@ -174,6 +176,14 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
 
           console.log('Dashboard - Staff pending tasks result:', pendingTasksRes);
           console.log('Dashboard - Staff completed tasks result:', completedTasksRes);
+
+          // Also try to get some actual task data to see what's happening
+          const testTaskQuery = await supabase
+            .from('tasks')
+            .select('id, task_title, status, assigned_to')
+            .eq('assigned_to', staffId);
+          
+          console.log('Dashboard - Test task query result:', testTaskQuery);
 
           const statsData = {
             pendingTasks: pendingTasksRes.count || 0,

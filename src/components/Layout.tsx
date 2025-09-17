@@ -71,6 +71,15 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
       ];
     }
 
+    // Staff users (nurse, cleaner, technician, security, etc.)
+    if (userRole && !['admin', 'manager', 'doctor'].includes(userRole)) {
+      return [
+        ...baseItems,
+        { id: 'tasks', label: 'My Tasks', icon: ClipboardList },
+        { id: 'complaints', label: 'Complaints', icon: MessageCircle },
+      ];
+    }
+
     return baseItems;
   };
 
