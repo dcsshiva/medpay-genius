@@ -88,14 +88,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithUsername = async (username: string, password: string) => {
     try {
-      // Use the same approach as doctor login - simple demo password method
+      // 1) Try legacy/custom auth via RPC (username + password stored in staff table)
       const { data, error } = await supabase
         .rpc('verify_user_login', { 
           _username: username, 
           _password: password 
         });
 
-      // If login succeeds, create mock session like for doctors
       if (!error && data && typeof data === 'object' && data !== null && !Array.isArray(data)) {
         const loginResult = data as { 
           error?: string;
@@ -105,9 +104,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           role?: string; 
         };
 
-        // Check if there's no error and we have valid data
+        // Success path for custom auth
         if (!loginResult.error && loginResult?.user_type && loginResult.id) {
-          // Create a mock session for our custom auth system
           const mockUser = {
             id: `${loginResult.user_type}_${loginResult.id}`,
             email: `${username}@westmed.local`,
@@ -142,6 +140,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
 
           return { error: null };
+        }
+        // If RPC explicitly returned an error, continue to fallback (Supabase auth)
+      }
+
+      // 2) Fallback: Staff created with Supabase auth → map username to email and sign in
+      const { data: emailData } = await supabase
+        .rpc('get_staff_auth_email', { _username: username });
+
+      if (emailData) {
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email: emailData,
+          password
+        });
+
+        if (!authError && authData.user) {
+          // Supabase will update session via onAuthStateChange
+          return { error: null };
+        }
+
+        if (authError) {
+          return { error: { message: authError.message || 'Authentication failed' } };
         }
       }
 
