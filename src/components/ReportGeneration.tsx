@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { FileText, Download, FileSpreadsheet, CheckCircle2, Circle } from 'lucide-react';
+import { FileText, Download, FileSpreadsheet, CheckCircle2, Circle, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -31,11 +32,22 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedRecords, setSelectedRecords] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
+  const [doctorSearch, setDoctorSearch] = useState('');
+
+  // Filter data based on doctor search
+  const filteredData = useMemo(() => {
+    if (!doctorSearch.trim()) return data;
+    
+    return data.filter(record => {
+      const doctorName = getNestedValue(record, 'doctor_name') || '';
+      return doctorName.toLowerCase().includes(doctorSearch.toLowerCase().trim());
+    });
+  }, [data, doctorSearch]);
 
   const handleSelectAll = (checked: boolean) => {
     setSelectAll(checked);
     if (checked) {
-      setSelectedRecords(new Set(data.map(record => record.id)));
+      setSelectedRecords(new Set(filteredData.map(record => record.id)));
     } else {
       setSelectedRecords(new Set());
     }
@@ -49,12 +61,12 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
       newSelected.delete(recordId);
     }
     setSelectedRecords(newSelected);
-    setSelectAll(newSelected.size === data.length);
+    setSelectAll(newSelected.size === filteredData.length && filteredData.length > 0);
   };
 
   const getSelectedData = () => {
     if (selectedRecords.size === 0) return [];
-    return data.filter(record => selectedRecords.has(record.id));
+    return filteredData.filter(record => selectedRecords.has(record.id));
   };
 
   const formatDataForExport = (records: any[]) => {
@@ -198,8 +210,18 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
     return null;
   }
 
+  // Reset selections when dialog opens
+  const handleDialogOpen = (open: boolean) => {
+    setDialogOpen(open);
+    if (open) {
+      setSelectedRecords(new Set());
+      setSelectAll(false);
+      setDoctorSearch('');
+    }
+  };
+
   return (
-    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+    <Dialog open={dialogOpen} onOpenChange={handleDialogOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" size="sm">
           <FileText className="h-4 w-4 mr-2" />
@@ -213,11 +235,22 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
             Generate {title} Report
           </DialogTitle>
           <DialogDescription>
-            Select the records you want to include in your report and choose your export format.
+            Search for specific doctors and select the records you want to include in your report.
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4">
+          {/* Doctor Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search by doctor name..."
+              value={doctorSearch}
+              onChange={(e) => setDoctorSearch(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
           {/* Selection Header */}
           <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
             <div className="flex items-center space-x-2">
@@ -225,12 +258,16 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
                 id="select-all"
                 checked={selectAll}
                 onCheckedChange={handleSelectAll}
+                disabled={filteredData.length === 0}
               />
               <label 
                 htmlFor="select-all" 
                 className="text-sm font-medium cursor-pointer"
               >
-                Select All ({data.length} records)
+                Select All ({filteredData.length} records)
+                {doctorSearch && (
+                  <span className="text-muted-foreground"> - filtered from {data.length}</span>
+                )}
               </label>
             </div>
             <Badge variant="secondary">
@@ -239,30 +276,39 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
           </div>
 
           {/* Records List */}
-          <div className="max-h-96 overflow-y-auto space-y-2">
-            {data.map((record) => (
-              <div
-                key={record.id}
-                className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-muted/50"
-              >
-                <Checkbox
-                  id={record.id}
-                  checked={selectedRecords.has(record.id)}
-                  onCheckedChange={(checked) => 
-                    handleSelectRecord(record.id, checked as boolean)
-                  }
-                />
-                <div className="flex-1 min-w-0">
-                  {renderRecordPreview(record, columns)}
+          {filteredData.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              {doctorSearch ? 
+                `No records found for "${doctorSearch}"` : 
+                'No records available'
+              }
+            </div>
+          ) : (
+            <div className="max-h-96 overflow-y-auto space-y-2">
+              {filteredData.map((record) => (
+                <div
+                  key={record.id}
+                  className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-muted/50"
+                >
+                  <Checkbox
+                    id={record.id}
+                    checked={selectedRecords.has(record.id)}
+                    onCheckedChange={(checked) => 
+                      handleSelectRecord(record.id, checked as boolean)
+                    }
+                  />
+                  <div className="flex-1 min-w-0">
+                    {renderRecordPreview(record, columns)}
+                  </div>
+                  {selectedRecords.has(record.id) ? (
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                  ) : (
+                    <Circle className="h-4 w-4 text-muted-foreground" />
+                  )}
                 </div>
-                {selectedRecords.has(record.id) ? (
-                  <CheckCircle2 className="h-4 w-4 text-primary" />
-                ) : (
-                  <Circle className="h-4 w-4 text-muted-foreground" />
-                )}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
           {/* Export Actions */}
           <div className="flex justify-end space-x-2 pt-4 border-t">
