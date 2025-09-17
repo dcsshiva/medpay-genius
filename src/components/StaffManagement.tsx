@@ -134,7 +134,7 @@ const StaffManagement = () => {
             .select('id')
             .eq('staff_code', formData.staff_code)
             .neq('id', editingStaff.id)
-            .single();
+            .maybeSingle();
           
           if (existingStaffCode) {
             toast({
@@ -153,7 +153,7 @@ const StaffManagement = () => {
             .select('id')
             .eq('username', formData.username)
             .neq('id', editingStaff.id)
-            .single();
+            .maybeSingle();
           
           if (existingUsername) {
             toast({
@@ -265,8 +265,8 @@ const StaffManagement = () => {
 
       // Validate uniqueness for new staff (only username, email can be duplicate)
       const [usernameCheck, staffCodeCheck] = await Promise.all([
-        supabase.from('staff').select('id').eq('username', formData.username).single(),
-        supabase.from('staff').select('id').eq('staff_code', staffCode).single()
+        supabase.from('staff').select('id').eq('username', formData.username).maybeSingle(),
+        supabase.from('staff').select('id').eq('staff_code', staffCode).maybeSingle()
       ]);
 
       if (usernameCheck.data) {
@@ -331,18 +331,45 @@ const StaffManagement = () => {
         createdUser = result.user;
       }
 
-      // Create profile record
-      const { data: profileData, error: profileError } = await supabase
+      // Get or create profile record (profile should exist due to trigger)
+      let profileData;
+      const { data: existingProfile, error: fetchError } = await supabase
         .from('profiles')
-        .insert({
-          user_id: createdUser.id,
-          full_name: formData.full_name,
-          role: profileRole as any
-        })
-        .select()
-        .single();
+        .select('*')
+        .eq('user_id', createdUser.id)
+        .maybeSingle();
 
-      if (profileError) throw profileError;
+      if (fetchError) throw fetchError;
+
+      if (existingProfile) {
+        // Update existing profile if needed
+        const { data: updatedProfile, error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            full_name: formData.full_name,
+            role: profileRole as any
+          })
+          .eq('id', existingProfile.id)
+          .select()
+          .single();
+        
+        if (updateError) throw updateError;
+        profileData = updatedProfile;
+      } else {
+        // Fallback: create profile if it doesn't exist (shouldn't happen due to trigger)
+        const { data: newProfile, error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            user_id: createdUser.id,
+            full_name: formData.full_name,
+            role: profileRole as any
+          })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        profileData = newProfile;
+      }
 
       // Create staff record with proper profile relationship
       const { error } = await supabase
