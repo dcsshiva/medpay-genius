@@ -224,7 +224,7 @@ const StaffManagement = () => {
               .from('profiles')
               .update({
                 full_name: formData.full_name.trim(),
-                role: formData.role as any
+                role: ((['admin','manager','doctor'] as const).includes(formData.role as any) ? formData.role : 'staff') as any
               })
               .eq('id', editingStaff.profile_id);
 
@@ -314,6 +314,10 @@ const StaffManagement = () => {
       // Generate unique email if none provided
       const baseGenerated = `${formData.username}.${Date.now()}@hospital.local`;
       const uniqueEmail = formData.email || baseGenerated;
+      // Map staff role to profiles.user_role enum
+      const profileRole = (['admin','manager','doctor'] as const).includes(formData.role as any)
+        ? (formData.role as 'admin'|'manager'|'doctor')
+        : 'staff';
 
       // Attempt to create auth user via edge function (with one retry on email collision)
       let createdUser: any = null;
@@ -323,7 +327,7 @@ const StaffManagement = () => {
           password: formData.password,
           userData: {
             full_name: formData.full_name,
-            role: formData.role
+            role: profileRole
           }
         }
       });
@@ -339,7 +343,7 @@ const StaffManagement = () => {
               password: formData.password,
               userData: {
                 full_name: formData.full_name,
-                role: formData.role
+                role: profileRole
               }
             }
           });
@@ -360,7 +364,7 @@ const StaffManagement = () => {
         .insert({
           user_id: createdUser.id,
           full_name: formData.full_name,
-          role: formData.role as any
+          role: profileRole as any
         })
         .select()
         .single();
