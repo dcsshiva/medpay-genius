@@ -252,15 +252,6 @@ const PaymentManagement = () => {
     if (!formData.doctor_id || !formData.period_start || !formData.period_end) return;
 
     try {
-      // Get doctor's rate
-      const { data: doctorData, error: doctorError } = await supabase
-        .from('doctors')
-        .select('rate_per_visit')
-        .eq('id', formData.doctor_id)
-        .single();
-
-      if (doctorError) throw doctorError;
-
       // Get all visits in the period
       const { data: allVisits, error: visitsError } = await supabase
         .from('visits')
