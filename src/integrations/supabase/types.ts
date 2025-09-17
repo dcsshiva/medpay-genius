@@ -514,7 +514,6 @@ export type Database = {
           payment_notes: string
           period_end: string
           period_start: string
-          rate_per_visit: number
           rejected_at: string
           rejected_by: string
           rejection_reason: string
