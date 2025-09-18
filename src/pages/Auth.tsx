@@ -7,12 +7,13 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
-import { Stethoscope, LogIn, Shield } from 'lucide-react';
+import { Stethoscope, LogIn, Shield, UserCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [staffData, setStaffData] = useState({ username: '', password: '' });
+  const [doctorData, setDoctorData] = useState({ doctorCode: '', password: '' });
   const [adminData, setAdminData] = useState({ email: '', password: '' });
   
   const { signInWithUsername, signInWithEmail, user } = useAuth();
@@ -41,6 +42,28 @@ const Auth = () => {
       toast({
         title: "Welcome back!",
         description: "Successfully signed in as staff.",
+      });
+    }
+    
+    setIsLoading(false);
+  };
+
+  const handleDoctorLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+
+    const { error } = await signInWithUsername(doctorData.doctorCode, doctorData.password);
+    
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Doctor Login Failed",
+        description: error.message,
+      });
+    } else {
+      toast({
+        title: "Welcome Doctor!",
+        description: "Successfully signed in.",
       });
     }
     
@@ -120,10 +143,14 @@ const Auth = () => {
         <Card>
           <CardContent className="pt-6">
             <Tabs defaultValue="staff" className="w-full">
-              <TabsList className="grid w-full grid-cols-2">
+              <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="staff" className="flex items-center gap-2">
                   <LogIn className="h-4 w-4" />
                   Hospital Staff
+                </TabsTrigger>
+                <TabsTrigger value="doctor" className="flex items-center gap-2">
+                  <UserCheck className="h-4 w-4" />
+                  Doctor
                 </TabsTrigger>
                 <TabsTrigger value="admin" className="flex items-center gap-2">
                   <Shield className="h-4 w-4" />
@@ -141,11 +168,11 @@ const Auth = () => {
                 
                 <form onSubmit={handleStaffLogin} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="staff-username">Username/Doctor Code</Label>
+                    <Label htmlFor="staff-username">Username</Label>
                     <Input
                       id="staff-username"
                       type="text"
-                      placeholder="Enter your username or doctor code"
+                      placeholder="Enter your username"
                       value={staffData.username}
                       onChange={(e) => setStaffData({ ...staffData, username: e.target.value })}
                       required
@@ -163,6 +190,43 @@ const Auth = () => {
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? 'Signing In...' : 'Sign In as Staff'}
+                  </Button>
+                </form>
+              </TabsContent>
+              
+              <TabsContent value="doctor" className="space-y-4">
+                <div className="text-center mb-6">
+                  <h2 className="text-xl font-semibold mb-2">Doctor Login</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Sign in with your doctor code and password
+                  </p>
+                </div>
+                
+                <form onSubmit={handleDoctorLogin} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="doctor-code">Doctor Code</Label>
+                    <Input
+                      id="doctor-code"
+                      type="text"
+                      placeholder="Enter your doctor code (e.g., DOC001)"
+                      value={doctorData.doctorCode}
+                      onChange={(e) => setDoctorData({ ...doctorData, doctorCode: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="doctor-password">Password</Label>
+                    <Input
+                      id="doctor-password"
+                      type="password"
+                      placeholder="Enter your password"
+                      value={doctorData.password}
+                      onChange={(e) => setDoctorData({ ...doctorData, password: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? 'Signing In...' : 'Sign In as Doctor'}
                   </Button>
                 </form>
               </TabsContent>
