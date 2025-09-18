@@ -33,7 +33,7 @@ const createUserSession = async (sessionData: {
   const { data, error } = await supabase
     .from('user_sessions')
     .insert({
-      user_id: sessionData.user_type === 'supabase_auth' ? sessionData.original_id : `${sessionData.user_type}_${sessionData.original_id}`,
+      user_id: sessionData.original_id,
       user_type: sessionData.user_type,
       original_id: sessionData.original_id,
       session_token: sessionToken,
@@ -146,8 +146,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithUsername = async (username: string, password: string) => {
     try {
-      console.log('signInWithUsername called with:', { username, password });
-      
       // Clean up any existing sessions first
       await invalidateSession();
 
@@ -157,8 +155,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           _username: username, 
           _password: password 
         });
-
-      console.log('RPC verify_user_login result:', { data, error });
 
       if (!error && data && typeof data === 'object' && data !== null && !Array.isArray(data)) {
         const loginResult = data as { 
