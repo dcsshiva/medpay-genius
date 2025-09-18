@@ -146,6 +146,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithUsername = async (username: string, password: string) => {
     try {
+      console.log('signInWithUsername called with:', { username, password });
+      
       // Clean up any existing sessions first
       await invalidateSession();
 
@@ -155,6 +157,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           _username: username, 
           _password: password 
         });
+
+      console.log('RPC verify_user_login result:', { data, error });
 
       if (!error && data && typeof data === 'object' && data !== null && !Array.isArray(data)) {
         const loginResult = data as { 
