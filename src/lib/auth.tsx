@@ -166,50 +166,90 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
 
         if (!loginResult.error && loginResult?.user_type && loginResult.id) {
-          // Create session in Supabase
-          const sessionData = await createUserSession({
-            user_type: loginResult.user_type,
-            original_id: loginResult.id,
-            username: username,
-            full_name: loginResult.full_name || username,
-            role: loginResult.role || 'staff'
-          });
+          // Try to create a tracked session in DB; if it fails, fall back to local mock session
+          try {
+            const sessionData = await createUserSession({
+              user_type: loginResult.user_type,
+              original_id: loginResult.id,
+              username: username,
+              full_name: loginResult.full_name || username,
+              role: loginResult.role || 'staff'
+            });
 
-          // Create user and session objects
-          const mockUser = {
-            id: sessionData.user_id,
-            email: `${username}@westmed.local`,
-            app_metadata: {},
-            aud: 'authenticated',
-            created_at: sessionData.created_at,
-            user_metadata: {
-              full_name: sessionData.full_name,
+            // Create user and session objects from DB session
+            const mockUser = {
+              id: sessionData.user_id,
+              email: `${username}@westmed.local`,
+              app_metadata: {},
+              aud: 'authenticated',
+              created_at: sessionData.created_at,
+              user_metadata: {
+                full_name: sessionData.full_name,
+                role: sessionData.role,
+                user_type: sessionData.user_type,
+                original_id: sessionData.original_id
+              }
+            } as User;
+
+            const mockSession = {
+              user: mockUser,
+              access_token: sessionData.session_token,
+              refresh_token: sessionData.refresh_token || '',
+              expires_in: Math.floor((new Date(sessionData.expires_at).getTime() - Date.now()) / 1000),
+              expires_at: Math.floor(new Date(sessionData.expires_at).getTime() / 1000),
+              token_type: 'bearer'
+            } as Session;
+
+            setUser(mockUser);
+            setSession(mockSession);
+            setUserRole(sessionData.role);
+            setUserProfile({
               role: sessionData.role,
-              user_type: sessionData.user_type,
-              original_id: sessionData.original_id
-            }
-          } as User;
+              full_name: sessionData.full_name,
+              id: sessionData.original_id,
+              user_type: sessionData.user_type
+            });
 
-          const mockSession = {
-            user: mockUser,
-            access_token: sessionData.session_token,
-            refresh_token: sessionData.refresh_token || '',
-            expires_in: Math.floor((new Date(sessionData.expires_at).getTime() - Date.now()) / 1000),
-            expires_at: Math.floor(new Date(sessionData.expires_at).getTime() / 1000),
-            token_type: 'bearer'
-          } as Session;
+            return { error: null };
+          } catch (e: any) {
+            console.error('createUserSession failed:', e?.message || e);
+            // Fallback: still log the user in locally so the app is usable
+            const fallbackUser = {
+              id: loginResult.id,
+              email: `${username}@westmed.local`,
+              app_metadata: {},
+              aud: 'authenticated',
+              created_at: new Date().toISOString(),
+              user_metadata: {
+                full_name: loginResult.full_name || username,
+                role: loginResult.role || 'staff',
+                user_type: loginResult.user_type,
+                original_id: loginResult.id
+              }
+            } as User;
 
-          setUser(mockUser);
-          setSession(mockSession);
-          setUserRole(sessionData.role);
-          setUserProfile({
-            role: sessionData.role,
-            full_name: sessionData.full_name,
-            id: sessionData.original_id,
-            user_type: sessionData.user_type
-          });
+            const expAt = Date.now() + 24 * 60 * 60 * 1000;
+            const fallbackSession = {
+              user: fallbackUser,
+              access_token: `session_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+              refresh_token: `refresh_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+              expires_in: Math.floor((expAt - Date.now()) / 1000),
+              expires_at: Math.floor(expAt / 1000),
+              token_type: 'bearer'
+            } as Session;
 
-          return { error: null };
+            setUser(fallbackUser);
+            setSession(fallbackSession);
+            setUserRole(loginResult.role || 'staff');
+            setUserProfile({
+              role: loginResult.role || 'staff',
+              full_name: loginResult.full_name || username,
+              id: loginResult.id,
+              user_type: loginResult.user_type
+            });
+
+            return { error: null };
+          }
         }
       }
 
@@ -283,18 +323,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .maybeSingle();
 
         if (profile) {
-          await createUserSession({
-            user_type: 'supabase_auth',
-            original_id: data.user.id,
-            username: email,
-            full_name: profile.full_name || email,
-            role: profile.role || 'staff'
-          });
-
+          // Set auth state immediately
           setUser(data.user);
           setSession(data.session);
           setUserRole(profile.role);
           setUserProfile(profile);
+
+          // Best-effort: create a tracked session in DB, but don't block login on failure
+          try {
+            await createUserSession({
+              user_type: 'supabase_auth',
+              original_id: data.user.id,
+              username: email,
+              full_name: profile.full_name || email,
+              role: profile.role || 'staff'
+            });
+          } catch (e: any) {
+            console.error('createUserSession (admin) failed:', e?.message || e);
+          }
         }
       }
 
