@@ -389,7 +389,7 @@ const VisitManagement = () => {
               )}
               
               <div className="space-y-2">
-                <Label htmlFor="visit_date">Visit Date</Label>
+                <Label htmlFor="visit_date">Discharge Date</Label>
                 <Input
                   id="visit_date"
                   type="date"
