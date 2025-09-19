@@ -25,6 +25,9 @@ interface Visit {
   visit_reason: string;
   notes?: string;
   doctor_id: string;
+  is_processed: boolean;
+  processed_in_payment_id?: string;
+  processed_at?: string;
   doctors: {
     doctor_code: string;
     profiles: {
@@ -100,6 +103,9 @@ const VisitManagement = () => {
           visit_reason: visit.visit_reason,
           notes: visit.notes,
           doctor_id: visit.doctor_id,
+          is_processed: visit.is_processed,
+          processed_in_payment_id: visit.processed_in_payment_id,
+          processed_at: visit.processed_at,
           doctors: {
             doctor_code: visit.doctor_code,
             profiles: {
@@ -636,14 +642,21 @@ const VisitManagement = () => {
               (visit.patient_id && visit.patient_id.toLowerCase().includes(query))
             );
           })
-          .map((visit) => (
-          <Card key={visit.id}>
+           .map((visit) => (
+          <Card key={visit.id} className={visit.is_processed ? 'opacity-60 border-muted' : ''}>
             <CardHeader>
               <div className="flex justify-between items-start">
                 <div>
-                  <CardTitle className="text-lg">
-                    {format(new Date(visit.visit_date), 'PPP')}
-                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-lg">
+                      {format(new Date(visit.visit_date), 'PPP')}
+                    </CardTitle>
+                    {visit.is_processed && (
+                      <Badge variant="secondary" className="text-xs">
+                        Processed
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-sm text-muted-foreground">
                     {visit.doctors?.profiles?.full_name} ({visit.doctors?.doctor_code})
                   </p>
@@ -688,7 +701,7 @@ const VisitManagement = () => {
                 )}
 
                 {/* Admin Actions */}
-                {userRole === 'admin' && (
+                {userRole === 'admin' && !visit.is_processed && (
                   <div className="flex gap-2 pt-3 border-t">
                     <Button
                       size="sm"
@@ -708,6 +721,15 @@ const VisitManagement = () => {
                       <Trash2 className="h-4 w-4 mr-1" />
                       Delete
                     </Button>
+                  </div>
+                )}
+                
+                {/* Processed Visit Info */}
+                {visit.is_processed && visit.processed_at && (
+                  <div className="pt-3 border-t">
+                    <p className="text-xs text-muted-foreground">
+                      Processed on {format(new Date(visit.processed_at), 'PPp')}
+                    </p>
                   </div>
                 )}
               </div>

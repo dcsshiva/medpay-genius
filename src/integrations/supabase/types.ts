@@ -540,11 +540,14 @@ export type Database = {
           created_at: string
           doctor_id: string
           id: string
+          is_processed: boolean
           notes: string | null
           patient_count: number
           patient_id: string | null
           patient_name: string
           payment_type: string
+          processed_at: string | null
+          processed_in_payment_id: string | null
           updated_at: string
           visit_date: string
           visit_payment: number | null
@@ -554,11 +557,14 @@ export type Database = {
           created_at?: string
           doctor_id: string
           id?: string
+          is_processed?: boolean
           notes?: string | null
           patient_count?: number
           patient_id?: string | null
           patient_name?: string
           payment_type?: string
+          processed_at?: string | null
+          processed_in_payment_id?: string | null
           updated_at?: string
           visit_date?: string
           visit_payment?: number | null
@@ -568,11 +574,14 @@ export type Database = {
           created_at?: string
           doctor_id?: string
           id?: string
+          is_processed?: boolean
           notes?: string | null
           patient_count?: number
           patient_id?: string | null
           patient_name?: string
           payment_type?: string
+          processed_at?: string | null
+          processed_in_payment_id?: string | null
           updated_at?: string
           visit_date?: string
           visit_payment?: number | null
@@ -584,6 +593,13 @@ export type Database = {
             columns: ["doctor_id"]
             isOneToOne: false
             referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visits_processed_in_payment_id_fkey"
+            columns: ["processed_in_payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
             referencedColumns: ["id"]
           },
         ]
@@ -668,11 +684,14 @@ export type Database = {
           doctor_id: string
           doctor_name: string
           id: string
+          is_processed: boolean
           notes: string
           patient_count: number
           patient_id: string
           patient_name: string
           payment_type: string
+          processed_at: string
+          processed_in_payment_id: string
           visit_date: string
           visit_payment: number
           visit_reason: string

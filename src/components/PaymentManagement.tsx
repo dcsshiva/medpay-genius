@@ -77,6 +77,9 @@ interface Visit {
   patient_id?: string;
   visit_payment?: number;
   visit_reason: string;
+  is_processed?: boolean;
+  processed_in_payment_id?: string;
+  processed_at?: string;
 }
 
 interface PaymentCalculation {
@@ -275,7 +278,7 @@ const PaymentManagement = () => {
     if (!formData.doctor_id || !formData.period_start || !formData.period_end) return;
 
     try {
-      // Get all visits in the period
+      // Get all unprocessed visits in the period
       const { data: allVisits, error: visitsError } = await supabase
         .from('visits')
         .select(`
@@ -285,43 +288,18 @@ const PaymentManagement = () => {
           patient_name,
           patient_id,
           visit_payment,
-          visit_reason
+          visit_reason,
+          is_processed
         `)
         .eq('doctor_id', formData.doctor_id)
+        .eq('is_processed', false)  // Only get unprocessed visits
         .gte('visit_date', formData.period_start)
         .lte('visit_date', formData.period_end)
         .order('visit_date', { ascending: true });
 
       if (visitsError) throw visitsError;
 
-      // Get all non-rejected payments for this doctor to exclude already processed visits
-      const { data: existingPayments, error: paymentsError } = await supabase
-        .from('payments')
-        .select('id, period_start, period_end, status')
-        .eq('doctor_id', formData.doctor_id)
-        .in('status', ['pending', 'manager_approved', 'admin_approved'])
-        .order('period_start', { ascending: true });
-
-      if (paymentsError) throw paymentsError;
-
-      // Filter out visits that have already been processed in any non-rejected payment
-      const unprocessedVisits = allVisits?.filter(visit => {
-        return !existingPayments?.some(payment => {
-          const visitDate = new Date(visit.visit_date);
-          const paymentStart = new Date(payment.period_start);
-          const paymentEnd = new Date(payment.period_end);
-          return visitDate >= paymentStart && visitDate <= paymentEnd;
-        });
-      }) || [];
-
-      // Show info about excluded visits if any
-      const excludedVisitsCount = (allVisits?.length || 0) - unprocessedVisits.length;
-      if (excludedVisitsCount > 0) {
-        toast({
-          title: "Info",
-          description: `${excludedVisitsCount} visits excluded as they are already included in existing payment requests.`
-        });
-      }
+      const unprocessedVisits = allVisits || [];
 
       const totalVisits = unprocessedVisits.reduce((sum, visit) => sum + visit.patient_count, 0);
       // Calculate total amount based on actual visit payments, not rate * count
@@ -332,7 +310,7 @@ const PaymentManagement = () => {
         toast({
           variant: "destructive",
           title: "No Available Visits",
-          description: "All visits in this period have already been included in existing payment requests."
+          description: "No unprocessed visits found in the selected date range."
         });
         setCalculatedData({
           visits: [],
