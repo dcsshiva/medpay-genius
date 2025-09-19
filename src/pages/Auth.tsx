@@ -11,7 +11,9 @@ import { Stethoscope, LogIn, Shield, UserCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 const Auth = () => {
-  const [isLoading, setIsLoading] = useState(false);
+  const [staffLoading, setStaffLoading] = useState(false);
+  const [doctorLoading, setDoctorLoading] = useState(false);
+  const [adminLoading, setAdminLoading] = useState(false);
   const [staffData, setStaffData] = useState({ username: '', password: '' });
   const [doctorData, setDoctorData] = useState({ doctorCode: '', password: '' });
   const [adminData, setAdminData] = useState({ email: '', password: '' });
@@ -28,7 +30,7 @@ const Auth = () => {
 
   const handleStaffLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setStaffLoading(true);
 
     const { error } = await signInWithUsername(staffData.username, staffData.password);
     
@@ -45,12 +47,12 @@ const Auth = () => {
       });
     }
     
-    setIsLoading(false);
+    setStaffLoading(false);
   };
 
   const handleDoctorLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setDoctorLoading(true);
 
     const { error } = await signInWithUsername(doctorData.doctorCode, doctorData.password);
     
@@ -67,12 +69,12 @@ const Auth = () => {
       });
     }
     
-    setIsLoading(false);
+    setDoctorLoading(false);
   };
 
   const handleAdminLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setAdminLoading(true);
 
     const { error } = await signInWithEmail(adminData.email, adminData.password);
     
@@ -89,7 +91,7 @@ const Auth = () => {
       });
     }
     
-    setIsLoading(false);
+    setAdminLoading(false);
   };
 
   const handleAdminResetPassword = async () => {
@@ -188,8 +190,8 @@ const Auth = () => {
                       required
                     />
                   </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? 'Signing In...' : 'Sign In as Staff'}
+                  <Button type="submit" className="w-full" disabled={staffLoading}>
+                    {staffLoading ? 'Signing In...' : 'Sign In as Staff'}
                   </Button>
                 </form>
               </TabsContent>
@@ -225,8 +227,8 @@ const Auth = () => {
                       required
                     />
                   </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? 'Signing In...' : 'Sign In as Doctor'}
+                  <Button type="submit" className="w-full" disabled={doctorLoading}>
+                    {doctorLoading ? 'Signing In...' : 'Sign In as Doctor'}
                   </Button>
                 </form>
               </TabsContent>
@@ -262,8 +264,8 @@ const Auth = () => {
                       required
                     />
                   </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? 'Signing In...' : 'Sign In as Admin'}
+                  <Button type="submit" className="w-full" disabled={adminLoading}>
+                    {adminLoading ? 'Signing In...' : 'Sign In as Admin'}
                   </Button>
                   <div className="flex items-center justify-between text-xs text-muted-foreground mt-2">
                     <button type="button" onClick={handleAdminResetPassword} className="underline hover:opacity-80">

@@ -102,6 +102,8 @@ const PaymentManagement = () => {
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [transactions, setTransactions] = useState<PaymentTransaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [creatingPayment, setCreatingPayment] = useState(false);
+  const [processingPayment, setProcessingPayment] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [visitDetailsDialog, setVisitDetailsDialog] = useState(false);
@@ -367,6 +369,7 @@ const PaymentManagement = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setCreatingPayment(true);
 
     if (userRole !== 'admin') {
       toast({
@@ -418,11 +421,14 @@ const PaymentManagement = () => {
         title: "Error",
         description: error.message || "Failed to create payment request"
       });
+    } finally {
+      setCreatingPayment(false);
     }
   };
 
   const handlePartialPayment = async (e: React.FormEvent) => {
     e.preventDefault();
+    setProcessingPayment(true);
 
     if (!selectedPayment || userRole !== 'admin') {
       toast({
@@ -495,6 +501,8 @@ const PaymentManagement = () => {
         title: "Error",
         description: error.message || "Failed to record payment"
       });
+    } finally {
+      setProcessingPayment(false);
     }
   };
 
@@ -871,9 +879,9 @@ const PaymentManagement = () => {
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={calculatedData.total_amount === 0 || calculatedData.visits.length === 0}>
+                  <Button type="submit" disabled={creatingPayment || calculatedData.total_amount === 0 || calculatedData.visits.length === 0}>
                     <CreditCard className="h-4 w-4 mr-2" />
-                    Create Payment Advice
+                    {creatingPayment ? 'Creating...' : 'Create Payment Advice'}
                   </Button>
                 </div>
               </form>
@@ -1036,9 +1044,9 @@ const PaymentManagement = () => {
                   <Button type="button" variant="outline" onClick={() => setPaymentDialog(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={paymentFormData.amount <= 0}>
+                  <Button type="submit" disabled={processingPayment || paymentFormData.amount <= 0}>
                     <CreditCard className="h-4 w-4 mr-2" />
-                    Record Payment
+                    {processingPayment ? 'Recording...' : 'Record Payment'}
                   </Button>
                 </div>
               </form>

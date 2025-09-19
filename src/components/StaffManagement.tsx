@@ -32,6 +32,7 @@ const StaffManagement = () => {
   const { toast } = useToast();
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingStaff, setEditingStaff] = useState<Staff | null>(null);
@@ -106,6 +107,7 @@ const StaffManagement = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
 
     if (!['admin', 'manager'].includes(userRole || '')) {
       toast({
@@ -392,6 +394,8 @@ const StaffManagement = () => {
         title: "Error",
         description: error.message || "Failed to save staff member"
       });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -620,8 +624,8 @@ const StaffManagement = () => {
                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit">
-                  Create Staff Member
+                <Button type="submit" disabled={submitting}>
+                  {submitting ? (editingStaff ? 'Updating...' : 'Creating...') : (editingStaff ? 'Update Staff Member' : 'Create Staff Member')}
                 </Button>
               </div>
             </form>

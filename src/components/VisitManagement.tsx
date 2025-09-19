@@ -47,6 +47,7 @@ const VisitManagement = () => {
   const [visits, setVisits] = useState<Visit[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
@@ -146,6 +147,7 @@ const VisitManagement = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
 
     // Validation checks
     if (!formData.patient_name?.trim()) {
@@ -233,6 +235,8 @@ const VisitManagement = () => {
         title: "Error",
         description: error.message || `Failed to ${editingVisit ? 'update' : 'record'} visit`
       });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -501,8 +505,8 @@ const VisitManagement = () => {
                 }}>
                   Cancel
                 </Button>
-                <Button type="submit">
-                  {editingVisit ? 'Update Visit' : 'Record Visit'}
+                <Button type="submit" disabled={submitting}>
+                  {submitting ? (editingVisit ? 'Updating...' : 'Recording...') : (editingVisit ? 'Update Visit' : 'Record Visit')}
                 </Button>
               </div>
             </form>

@@ -27,6 +27,7 @@ const DoctorManagement = () => {
   const { toast } = useToast();
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
@@ -84,6 +85,7 @@ const DoctorManagement = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
     
     if (userRole !== 'admin') {
       toast({
@@ -272,6 +274,8 @@ const DoctorManagement = () => {
         title: "Error",
         description: error.message || "Failed to save doctor"
       });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -470,8 +474,8 @@ const DoctorManagement = () => {
                   <Button type="button" variant="outline" onClick={handleDialogClose}>
                     Cancel
                   </Button>
-                  <Button type="submit">
-                    {editingDoctor ? 'Update' : 'Create'}
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? (editingDoctor ? 'Updating...' : 'Creating...') : (editingDoctor ? 'Update' : 'Create')}
                   </Button>
                 </div>
               </form>
