@@ -806,34 +806,53 @@ const PaymentManagement = () => {
                 </div>
 
                 {calculatedData.total_amount > 0 && (
-                  <Card className="border-primary/20 bg-primary/5">
+                  <Card className="border-success/20 bg-success/5">
                     <CardHeader>
                       <CardTitle className="text-sm flex items-center">
                         <Calculator className="h-4 w-4 mr-2" />
-                        Payment Advice Calculation
+                        Unprocessed Visits Found
                       </CardTitle>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        These visits will be included in the payment advice
+                      </p>
                     </CardHeader>
                     <CardContent className="space-y-3">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Period:</span>
+                        <span className="text-sm text-muted-foreground">Selected Period:</span>
                         <span className="text-sm font-medium">
                           {format(new Date(calculatedData.period_start), 'MMM dd')} - {format(new Date(calculatedData.period_end), 'MMM dd, yyyy')}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Visit Sessions:</span>
-                        <span className="text-sm font-medium">{calculatedData.visits.length}</span>
+                        <span className="text-sm text-muted-foreground">Unprocessed Visit Sessions:</span>
+                        <Badge variant="secondary" className="font-medium">
+                          {calculatedData.visits.length} sessions
+                        </Badge>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Total Patients:</span>
-                        <span className="text-sm font-medium">{calculatedData.total_visits}</span>
+                        <span className="text-sm text-muted-foreground">Total Patients Treated:</span>
+                        <Badge variant="secondary" className="font-medium">
+                          {calculatedData.total_visits} patients
+                        </Badge>
                       </div>
                       <div className="border-t pt-2">
                         <div className="flex justify-between items-center">
                           <span className="font-medium">Total Payment Amount:</span>
-                          <span className="text-lg font-bold text-primary">{formatCurrency(calculatedData.total_amount)}</span>
+                          <span className="text-lg font-bold text-success">{formatCurrency(calculatedData.total_amount)}</span>
                         </div>
                       </div>
+                      
+                      {/* Important Notice */}
+                      <div className="bg-warning/10 border border-warning/20 rounded-lg p-3 mt-3">
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="h-4 w-4 text-warning mt-0.5 flex-shrink-0" />
+                          <div className="text-xs text-warning-foreground">
+                            <p className="font-medium">Important:</p>
+                            <p>Only unprocessed visits are shown. Visits already included in existing payment advice are excluded.</p>
+                          </div>
+                        </div>
+                      </div>
+
                       {calculatedData.visits.length > 0 && (
                         <Button
                           type="button"
@@ -843,12 +862,36 @@ const PaymentManagement = () => {
                             setSelectedPaymentVisits(calculatedData.visits);
                             setVisitDetailsDialog(true);
                           }}
-                          className="w-full mt-3"
+                          className="w-full mt-3 border-success text-success hover:bg-success/10"
                         >
                           <TrendingUp className="h-4 w-4 mr-2" />
-                          View Visit Details ({calculatedData.visits.length} visits)
+                          Review All {calculatedData.visits.length} Unprocessed Visits
                         </Button>
                       )}
+                      
+                      {calculatedData.visits.length > 0 && (
+                        <div className="text-xs text-center text-muted-foreground">
+                          ✓ Review visits before creating payment advice
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Show message when no unprocessed visits found */}
+                {formData.doctor_id && formData.period_start && formData.period_end && calculatedData.total_amount === 0 && (
+                  <Card className="border-warning/20 bg-warning/5">
+                    <CardContent className="p-4 text-center">
+                      <div className="flex items-center justify-center gap-2 text-warning mb-2">
+                        <AlertCircle className="h-5 w-5" />
+                        <span className="font-medium">No Unprocessed Visits Found</span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        No unprocessed visits found for the selected period ({format(new Date(formData.period_start), 'MMM dd')} - {format(new Date(formData.period_end), 'MMM dd, yyyy')}).
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        All visits in this period may already be included in existing payment advice.
+                      </p>
                     </CardContent>
                   </Card>
                 )}
@@ -872,18 +915,24 @@ const PaymentManagement = () => {
       <Dialog open={visitDetailsDialog} onOpenChange={setVisitDetailsDialog}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Visit Details for Payment Calculation</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-success" />
+              Unprocessed Visits for Payment Advice
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Review all unprocessed visits that will be included in this payment advice
+            </p>
           </DialogHeader>
           <div className="space-y-4">
             {selectedPaymentVisits.length > 0 && (
               <>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-muted rounded-lg">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-success/5 border border-success/20 rounded-lg">
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-primary">{selectedPaymentVisits.length}</p>
-                    <p className="text-sm text-muted-foreground">Visit Sessions</p>
+                    <p className="text-2xl font-bold text-success">{selectedPaymentVisits.length}</p>
+                    <p className="text-sm text-muted-foreground">Unprocessed Visit Sessions</p>
                   </div>
                   <div className="text-center">
-                    <p className="text-2xl font-bold text-primary">
+                    <p className="text-2xl font-bold text-success">
                       {selectedPaymentVisits.reduce((sum, visit) => sum + visit.patient_count, 0)}
                     </p>
                     <p className="text-sm text-muted-foreground">Total Patients</p>
@@ -894,13 +943,45 @@ const PaymentManagement = () => {
                     </p>
                     <p className="text-sm text-muted-foreground">Total Payment</p>
                   </div>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-primary">
+                      {formatCurrency(calculatedData.total_amount / selectedPaymentVisits.length)}
+                    </p>
+                    <p className="text-sm text-muted-foreground">Avg per Visit</p>
+                  </div>
+                </div>
+
+                <div className="bg-info/10 border border-info/20 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <CheckCircle className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
+                    <div className="text-sm">
+                      <p className="font-medium text-info-foreground">Verification Status:</p>
+                      <p className="text-muted-foreground">
+                        ✓ All visits shown below are unprocessed and eligible for payment advice
+                      </p>
+                      <p className="text-muted-foreground">
+                        ✓ Visits already included in other payment advice are automatically excluded
+                      </p>
+                    </div>
+                  </div>
                 </div>
 
                 <div className="space-y-3">
-                  <h4 className="font-medium">Individual Visit Records</h4>
+                  <h4 className="font-medium flex items-center gap-2">
+                    <TrendingUp className="h-4 w-4" />
+                    Individual Visit Records ({selectedPaymentVisits.length} unprocessed visits)
+                  </h4>
                   <div className="grid gap-3">
-                    {selectedPaymentVisits.map((visit) => (
-                      <Card key={visit.id} className="p-4">
+                    {selectedPaymentVisits.map((visit, index) => (
+                      <Card key={visit.id} className="p-4 border-success/20">
+                        <div className="flex items-center justify-between mb-3">
+                          <Badge variant="secondary" className="text-xs">
+                            Visit #{index + 1}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs text-success border-success">
+                            ✓ Unprocessed
+                          </Badge>
+                        </div>
                         <div className="grid grid-cols-2 md:grid-cols-6 gap-4 items-center">
                           <div>
                             <p className="text-sm text-muted-foreground">Date</p>
@@ -931,7 +1012,7 @@ const PaymentManagement = () => {
                           </div>
                           <div>
                             <p className="text-sm text-muted-foreground">Payment Amount</p>
-                            <p className="font-bold text-primary">
+                            <p className="font-bold text-success">
                               {visit.visit_payment ? formatCurrency(visit.visit_payment) : 'N/A'}
                             </p>
                           </div>
