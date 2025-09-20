@@ -1210,11 +1210,64 @@ const PaymentManagement = () => {
         </div>
       )}
 
-      {/* Report Generation */}
-      <div className="flex justify-end mb-6">
+      {/* Report Generation by Status */}
+      <div className="flex flex-wrap gap-2 justify-end mb-6">
         <ReportGeneration
-          title="Payment Management Report"
+          title="Pending Payments Report"
           data={payments.filter((payment) =>
+            payment.status === 'pending' &&
+            payment.doctors?.profiles?.full_name.toLowerCase().includes(searchQuery.toLowerCase())
+          )}
+          columns={[
+            { 
+              key: 'doctors.profiles.full_name', 
+              label: 'Doctor Name' 
+            },
+            { 
+              key: 'doctors.doctor_code', 
+              label: 'Doctor Code' 
+            },
+            { 
+              key: 'period_start', 
+              label: 'Period Start',
+              format: (value) => format(new Date(value), 'MMM dd, yyyy')
+            },
+            { 
+              key: 'period_end', 
+              label: 'Period End',
+              format: (value) => format(new Date(value), 'MMM dd, yyyy')
+            },
+            { 
+              key: 'total_visits', 
+              label: 'Total Visits' 
+            },
+            { 
+              key: 'total_amount', 
+              label: 'Total Amount',
+              format: (value) => formatCurrency(value)
+            },
+            { 
+              key: 'paid_amount', 
+              label: 'Paid Amount',
+              format: (value) => formatCurrency(value)
+            },
+            { 
+              key: 'remaining_amount', 
+              label: 'Remaining Amount',
+              format: (value) => formatCurrency(value)
+            },
+            { 
+              key: 'payment_notes', 
+              label: 'Payment Notes' 
+            }
+          ]}
+          filename="pending_payments_report"
+        />
+        
+        <ReportGeneration
+          title="Approved Payments Report"
+          data={payments.filter((payment) =>
+            (payment.status === 'manager_approved' || payment.status === 'admin_approved') &&
             payment.doctors?.profiles?.full_name.toLowerCase().includes(searchQuery.toLowerCase())
           )}
           columns={[
@@ -1280,7 +1333,58 @@ const PaymentManagement = () => {
               format: (value) => value ? format(new Date(value), 'MMM dd, yyyy HH:mm') : 'N/A'
             }
           ]}
-          filename="payment_management_report"
+          filename="approved_payments_report"
+        />
+
+        <ReportGeneration
+          title="Rejected Payments Report"
+          data={payments.filter((payment) =>
+            payment.status === 'rejected' &&
+            payment.doctors?.profiles?.full_name.toLowerCase().includes(searchQuery.toLowerCase())
+          )}
+          columns={[
+            { 
+              key: 'doctors.profiles.full_name', 
+              label: 'Doctor Name' 
+            },
+            { 
+              key: 'doctors.doctor_code', 
+              label: 'Doctor Code' 
+            },
+            { 
+              key: 'period_start', 
+              label: 'Period Start',
+              format: (value) => format(new Date(value), 'MMM dd, yyyy')
+            },
+            { 
+              key: 'period_end', 
+              label: 'Period End',
+              format: (value) => format(new Date(value), 'MMM dd, yyyy')
+            },
+            { 
+              key: 'total_visits', 
+              label: 'Total Visits' 
+            },
+            { 
+              key: 'total_amount', 
+              label: 'Total Amount',
+              format: (value) => formatCurrency(value)
+            },
+            { 
+              key: 'payment_notes', 
+              label: 'Payment Notes' 
+            },
+            { 
+              key: 'rejected_at', 
+              label: 'Rejected At',
+              format: (value) => value ? format(new Date(value), 'MMM dd, yyyy HH:mm') : 'N/A'
+            },
+            { 
+              key: 'rejection_reason', 
+              label: 'Rejection Reason' 
+            }
+          ]}
+          filename="rejected_payments_report"
         />
       </div>
 
