@@ -10,8 +10,9 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Calendar, Users, Stethoscope, Search, Edit, Trash2 } from 'lucide-react';
+import { Plus, Calendar, Users, Stethoscope, Search, Edit, Trash2, CheckCircle, Clock } from 'lucide-react';
 import { format } from 'date-fns';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ReportGeneration from './ReportGeneration';
 
 interface Visit {
@@ -52,18 +53,18 @@ const VisitManagement = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
-    doctor_id: '',
     visit_date: new Date().toISOString().split('T')[0],
     patient_count: 1,
     patient_id: '',
     patient_name: '',
-    visit_payment: 0,
+    visit_payment: '',
     payment_type: 'cash',
     visit_reason: 'regular_checkup',
-    notes: ''
+    notes: '',
+    doctor_id: ''
   });
 
   useEffect(() => {
@@ -75,14 +76,12 @@ const VisitManagement = () => {
 
   const fetchVisits = async () => {
     try {
-      // For Supabase authenticated users (admin), use their user ID
-      // For custom auth users, use their original_id
-      const userId = user?.user_metadata?.original_id || user?.id;
-      const userType = user?.user_metadata?.user_type || 'staff';
-      
-      // Use secure RPC function for custom auth
+      const userId = userRole === 'doctor' 
+        ? user?.user_metadata?.original_id || user?.id
+        : user?.id;
+
       const { data, error } = await supabase.rpc('get_user_visits', {
-        _user_type: userType,
+        _user_type: userRole === 'doctor' ? 'doctor' : 'staff',
         _user_id: userId,
         _user_role: userRole || 'staff'
       });
@@ -116,7 +115,7 @@ const VisitManagement = () => {
         setVisits(transformedVisits);
       }
     } catch (error) {
-      console.error('Error fetching visits:', error);
+      console.error('Error:', error);
       setVisits([]);
     } finally {
       setLoading(false);
@@ -125,13 +124,12 @@ const VisitManagement = () => {
 
   const fetchDoctors = async () => {
     try {
-      console.log('Fetching doctors...');
       const { data, error } = await supabase
         .from('doctors')
         .select(`
           id,
           doctor_code,
-          profiles:profile_id (
+          profiles!inner (
             full_name
           )
         `)
@@ -139,14 +137,13 @@ const VisitManagement = () => {
         .order('doctor_code');
 
       if (error) throw error;
-      console.log('Fetched doctors:', data);
       setDoctors(data || []);
     } catch (error) {
       console.error('Error fetching doctors:', error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to fetch doctors. Please try again."
+        description: "Failed to fetch doctors"
       });
     }
   };
@@ -155,50 +152,28 @@ const VisitManagement = () => {
     e.preventDefault();
     setSubmitting(true);
 
-    // Validation checks
-    if (!formData.patient_name?.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "Patient name is required"
-      });
-      return;
-    }
-
-    if (!formData.patient_id?.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error", 
-        description: "Patient ID is required"
-      });
-      return;
-    }
-
-    if (!formData.visit_payment || formData.visit_payment <= 0) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "Visit payment must be greater than zero"
-      });
-      return;
-    }
-
     try {
+      const doctorId = (userRole === 'admin' || userRole === 'manager') 
+        ? formData.doctor_id 
+        : (user?.user_metadata?.original_id || user?.id);
+
+      const visitData = {
+        visit_date: formData.visit_date,
+        patient_count: parseInt(formData.patient_count.toString()),
+        patient_id: formData.patient_id || null,
+        patient_name: formData.patient_name,
+        visit_payment: formData.visit_payment ? parseFloat(formData.visit_payment) : null,
+        payment_type: formData.payment_type,
+        visit_reason: formData.visit_reason,
+        notes: formData.notes || null,
+        doctor_id: doctorId
+      };
+
       if (editingVisit) {
         // Update existing visit
         const { error } = await supabase
           .from('visits')
-          .update({
-            doctor_id: formData.doctor_id,
-            visit_date: formData.visit_date,
-            patient_count: formData.patient_count,
-            patient_id: formData.patient_id.trim(),
-            patient_name: formData.patient_name.trim(),
-            visit_payment: formData.visit_payment,
-            payment_type: formData.payment_type,
-            visit_reason: formData.visit_reason,
-            notes: formData.notes || null
-          })
+          .update(visitData)
           .eq('id', editingVisit.id);
 
         if (error) throw error;
@@ -211,35 +186,24 @@ const VisitManagement = () => {
         // Create new visit
         const { error } = await supabase
           .from('visits')
-          .insert({
-            doctor_id: formData.doctor_id,
-            visit_date: formData.visit_date,
-            patient_count: formData.patient_count,
-            patient_id: formData.patient_id.trim(),
-            patient_name: formData.patient_name.trim(),
-            visit_payment: formData.visit_payment,
-            payment_type: formData.payment_type,
-            visit_reason: formData.visit_reason,
-            notes: formData.notes || null
-          });
+          .insert([visitData]);
 
         if (error) throw error;
 
         toast({
           title: "Success",
-          description: `Visit recorded successfully with Patient ID: ${formData.patient_id.trim()}`
+          description: "Visit recorded successfully"
         });
       }
 
       setDialogOpen(false);
-      setEditingVisit(null);
       resetForm();
       fetchVisits();
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || `Failed to ${editingVisit ? 'update' : 'record'} visit`
+        description: error.message || "Failed to save visit"
       });
     } finally {
       setSubmitting(false);
@@ -248,39 +212,37 @@ const VisitManagement = () => {
 
   const resetForm = () => {
     setFormData({
-      doctor_id: '',
       visit_date: new Date().toISOString().split('T')[0],
       patient_count: 1,
       patient_id: '',
       patient_name: '',
-      visit_payment: 0,
+      visit_payment: '',
       payment_type: 'cash',
       visit_reason: 'regular_checkup',
-      notes: ''
+      notes: '',
+      doctor_id: ''
     });
     setEditingVisit(null);
   };
 
   const handleEdit = (visit: Visit) => {
-    setEditingVisit(visit);
     setFormData({
-      doctor_id: visit.doctor_id,
       visit_date: visit.visit_date,
       patient_count: visit.patient_count,
       patient_id: visit.patient_id || '',
       patient_name: visit.patient_name,
-      visit_payment: visit.visit_payment || 0,
+      visit_payment: visit.visit_payment?.toString() || '',
       payment_type: visit.payment_type,
       visit_reason: visit.visit_reason,
-      notes: visit.notes || ''
+      notes: visit.notes || '',
+      doctor_id: visit.doctor_id
     });
+    setEditingVisit(visit);
     setDialogOpen(true);
   };
 
   const handleDelete = async (visitId: string) => {
-    if (!confirm('Are you sure you want to delete this visit? This action cannot be undone.')) {
-      return;
-    }
+    if (!confirm('Are you sure you want to delete this visit?')) return;
 
     try {
       const { error } = await supabase
@@ -294,7 +256,7 @@ const VisitManagement = () => {
         title: "Success",
         description: "Visit deleted successfully"
       });
-
+      
       fetchVisits();
     } catch (error: any) {
       toast({
@@ -334,189 +296,155 @@ const VisitManagement = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">
-            {userRole === 'doctor' ? 'My Visits' : 'Visit Management'}
-          </h1>
-          <p className="text-muted-foreground">
-            {userRole === 'doctor' 
-              ? 'View your patient visits'
-              : 'Record and manage doctor visits'
-            }
-          </p>
+          <h1 className="text-3xl font-bold text-foreground">Visit Management</h1>
+          <p className="text-muted-foreground">Record and manage patient visits</p>
         </div>
         
         {(userRole === 'admin' || userRole === 'manager') && (
           <Dialog open={dialogOpen} onOpenChange={(open) => {
-            setDialogOpen(open);
-            if (!open) {
-              setEditingVisit(null);
+            if (open) {
               resetForm();
+              setEditingVisit(null);
             }
+            setDialogOpen(open);
           }}>
             <DialogTrigger asChild>
-              <Button onClick={resetForm}>
+              <Button>
                 <Plus className="h-4 w-4 mr-2" />
                 Record Visit
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {editingVisit ? 'Edit Visit' : 'Record New Visit'}
-              </DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {(userRole === 'admin' || userRole === 'manager') && (
-                <div className="space-y-2">
-                  <Label htmlFor="doctor_id">Doctor</Label>
-                  <Select 
-                    value={formData.doctor_id} 
-                    onValueChange={(value) => setFormData({ ...formData, doctor_id: value })}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a doctor" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {doctors.length === 0 ? (
-                        <SelectItem value="no-doctors" disabled>
-                          No doctors available - Create a doctor first
-                        </SelectItem>
-                      ) : (
-                        doctors.map((doctor) => (
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>
+                  {editingVisit ? 'Edit Visit' : 'Record New Visit'}
+                </DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {(userRole === 'admin' || userRole === 'manager') && (
+                  <div className="space-y-2">
+                    <Label htmlFor="doctor_id">Doctor</Label>
+                    <Select value={formData.doctor_id} onValueChange={(value) => setFormData({ ...formData, doctor_id: value })}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a doctor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {doctors.map((doctor) => (
                           <SelectItem key={doctor.id} value={doctor.id}>
-                            {doctor.profiles?.full_name} ({doctor.doctor_code})
+                            {doctor.profiles.full_name} ({doctor.doctor_code})
                           </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-              
-              <div className="space-y-2">
-                <Label htmlFor="visit_date">Discharge Date</Label>
-                <Input
-                  id="visit_date"
-                  type="date"
-                  value={formData.visit_date}
-                  onChange={(e) => setFormData({ ...formData, visit_date: e.target.value })}
-                  required
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="patient_count">Patient Count</Label>
-                <Input
-                  id="patient_count"
-                  type="number"
-                  min="1"
-                  value={formData.patient_count}
-                  onChange={(e) => setFormData({ ...formData, patient_count: parseInt(e.target.value) })}
-                  required
-                />
-              </div>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="patient_id">Patient ID *</Label>
-                  <Input
-                    id="patient_id"
-                    value={formData.patient_id}
-                    onChange={(e) => setFormData({ ...formData, patient_id: e.target.value })}
-                    placeholder="P001, P002, etc."
-                    required
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="visit_date">Visit Date</Label>
+                    <Input
+                      id="visit_date"
+                      type="date"
+                      value={formData.visit_date}
+                      onChange={(e) => setFormData({ ...formData, visit_date: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="patient_count">Patient Count</Label>
+                    <Input
+                      id="patient_count"
+                      type="number"
+                      min="1"
+                      value={formData.patient_count}
+                      onChange={(e) => setFormData({ ...formData, patient_count: parseInt(e.target.value) || 1 })}
+                      required
+                    />
+                  </div>
                 </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="patient_name">Patient Name *</Label>
-                  <Input
-                    id="patient_name"
-                    value={formData.patient_name}
-                    onChange={(e) => setFormData({ ...formData, patient_name: e.target.value })}
-                    placeholder="John Doe"
-                    required
-                  />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="visit_payment">Visit Payment (₹) *</Label>
-                  <Input
-                    id="visit_payment"
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    value={formData.visit_payment}
-                    onChange={(e) => setFormData({ ...formData, visit_payment: parseFloat(e.target.value) || 0 })}
-                    placeholder="500.00"
-                    required
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="patient_name">Patient Name</Label>
+                    <Input
+                      id="patient_name"
+                      value={formData.patient_name}
+                      onChange={(e) => setFormData({ ...formData, patient_name: e.target.value })}
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="patient_id">Patient ID (Optional)</Label>
+                    <Input
+                      id="patient_id"
+                      value={formData.patient_id}
+                      onChange={(e) => setFormData({ ...formData, patient_id: e.target.value })}
+                    />
+                  </div>
                 </div>
-                
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="visit_payment">Payment Amount (Optional)</Label>
+                    <Input
+                      id="visit_payment"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.visit_payment}
+                      onChange={(e) => setFormData({ ...formData, visit_payment: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="payment_type">Payment Type</Label>
+                    <Select value={formData.payment_type} onValueChange={(value) => setFormData({ ...formData, payment_type: value })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="cash">Cash</SelectItem>
+                        <SelectItem value="insurance">Insurance</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
                 <div className="space-y-2">
-                  <Label htmlFor="payment_type">Payment Type</Label>
-                  <Select 
-                    value={formData.payment_type} 
-                    onValueChange={(value) => setFormData({ ...formData, payment_type: value })}
-                  >
+                  <Label htmlFor="visit_reason">Visit Reason</Label>
+                  <Select value={formData.visit_reason} onValueChange={(value) => setFormData({ ...formData, visit_reason: value })}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select payment type" />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="insurance">Insurance</SelectItem>
+                      <SelectItem value="regular_checkup">Regular Checkup</SelectItem>
+                      <SelectItem value="follow_up">Follow Up</SelectItem>
+                      <SelectItem value="emergency">Emergency</SelectItem>
+                      <SelectItem value="consultation">Consultation</SelectItem>
+                      <SelectItem value="treatment">Treatment</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="visit_reason">Visit Reason</Label>
-                <Select 
-                  value={formData.visit_reason} 
-                  onValueChange={(value) => setFormData({ ...formData, visit_reason: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select reason" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="regular_checkup">Regular Checkup</SelectItem>
-                    <SelectItem value="surgery">Surgery</SelectItem>
-                    <SelectItem value="follow_up">Follow Up</SelectItem>
-                    <SelectItem value="emergency">Emergency</SelectItem>
-                    <SelectItem value="consultation">Consultation</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes (Optional)</Label>
-                <Textarea
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                  placeholder="Any additional notes about the visit..."
-                  rows={3}
-                />
-              </div>
-              
-              <div className="flex justify-end space-x-2">
-                <Button type="button" variant="outline" onClick={() => {
-                  setDialogOpen(false);
-                  setEditingVisit(null);
-                  resetForm();
-                }}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? (editingVisit ? 'Updating...' : 'Recording...') : (editingVisit ? 'Update Visit' : 'Record Visit')}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes (Optional)</Label>
+                  <Textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    rows={3}
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-2">
+                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? (editingVisit ? 'Updating...' : 'Recording...') : (editingVisit ? 'Update Visit' : 'Record Visit')}
+                  </Button>
+                </div>
+              </form>
+            </DialogContent>
           </Dialog>
         )}
       </div>
@@ -599,7 +527,7 @@ const VisitManagement = () => {
             },
             { 
               key: 'visit_payment', 
-              label: 'Visit Payment',
+              label: 'Payment',
               format: (value) => value ? `₹${value}` : 'N/A'
             },
             { 
@@ -608,151 +536,249 @@ const VisitManagement = () => {
             },
             { 
               key: 'visit_reason', 
-              label: 'Visit Reason',
-              format: (value) => value?.replace(/_/g, ' ').toUpperCase()
+              label: 'Visit Reason' 
             },
             { 
               key: 'notes', 
               label: 'Notes' 
+            },
+            { 
+              key: 'is_processed', 
+              label: 'Status',
+              format: (value) => value ? 'Processed' : 'Unprocessed'
             }
           ]}
           filename="visit_management_report"
         />
       </div>
 
-      {/* Search Input */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-        <Input
-          placeholder="Search by doctor name, patient name, or patient ID..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
-      </div>
+      {/* Visits Dashboard with Tabs */}
+      <Tabs defaultValue="unprocessed" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="unprocessed" className="flex items-center gap-2">
+            <Clock className="h-4 w-4" />
+            Unprocessed Visits ({visits.filter(v => !v.is_processed).length})
+          </TabsTrigger>
+          <TabsTrigger value="processed" className="flex items-center gap-2">
+            <CheckCircle className="h-4 w-4" />
+            Processed Visits ({visits.filter(v => v.is_processed).length})
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Visits List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {visits
-          .filter((visit) => {
-            const query = searchQuery.toLowerCase();
-            return (
-              visit.doctors?.profiles?.full_name.toLowerCase().includes(query) ||
-              visit.patient_name.toLowerCase().includes(query) ||
-              (visit.patient_id && visit.patient_id.toLowerCase().includes(query))
-            );
-          })
-           .map((visit) => (
-          <Card key={visit.id} className={visit.is_processed ? 'opacity-60 border-muted' : ''}>
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <CardTitle className="text-lg">
-                      {format(new Date(visit.visit_date), 'PPP')}
-                    </CardTitle>
-                    {visit.is_processed && (
-                      <Badge variant="secondary" className="text-xs">
-                        Processed
+        <TabsContent value="unprocessed" className="space-y-6">
+          {/* Search Input for Unprocessed */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Search unprocessed visits by doctor name, patient name, or patient ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          {/* Unprocessed Visits List */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {visits
+              .filter((visit) => !visit.is_processed)
+              .filter((visit) => {
+                const query = searchQuery.toLowerCase();
+                return (
+                  visit.doctors?.profiles?.full_name.toLowerCase().includes(query) ||
+                  visit.patient_name.toLowerCase().includes(query) ||
+                  (visit.patient_id && visit.patient_id.toLowerCase().includes(query))
+                );
+              })
+               .map((visit) => (
+              <Card key={visit.id}>
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-lg">
+                          {format(new Date(visit.visit_date), 'PPP')}
+                        </CardTitle>
+                        <Badge variant="outline" className="text-xs">
+                          Unprocessed
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {visit.doctors?.profiles?.full_name} ({visit.doctors?.doctor_code})
+                      </p>
+                      {visit.patient_name && (
+                        <p className="text-sm font-medium">
+                          Patient: {visit.patient_name}
+                          {visit.patient_id && ` (${visit.patient_id})`}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <Badge variant="secondary">
+                        {visit.patient_count} {visit.patient_count === 1 ? 'Patient' : 'Patients'}
                       </Badge>
+                      {visit.visit_payment && (
+                        <div className="mt-1 flex flex-col gap-1">
+                          <Badge variant="outline">₹{visit.visit_payment}</Badge>
+                          <Badge variant={visit.payment_type === 'cash' ? 'default' : 'secondary'} className="text-xs">
+                            {visit.payment_type === 'cash' ? 'Cash' : 'Insurance'}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Reason:</span>
+                      <span className="font-medium capitalize">{visit.visit_reason.replace('_', ' ')}</span>
+                    </div>
+                    {visit.notes && (
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Notes:</span>
+                        <p className="mt-1 text-sm bg-muted p-2 rounded">{visit.notes}</p>
+                      </div>
                     )}
                   </div>
-                  <p className="text-sm text-muted-foreground">
-                    {visit.doctors?.profiles?.full_name} ({visit.doctors?.doctor_code})
-                  </p>
-                  {visit.patient_name && (
-                    <p className="text-sm font-medium">
-                      Patient: {visit.patient_name}
-                      {visit.patient_id && ` (${visit.patient_id})`}
-                    </p>
-                  )}
-                </div>
-                <div className="text-right">
-                  <Badge variant="secondary">
-                    {visit.patient_count} {visit.patient_count === 1 ? 'Patient' : 'Patients'}
-                  </Badge>
-                  {visit.visit_payment && (
-                    <div className="mt-1 flex flex-col gap-1">
-                      <Badge variant="outline">₹{visit.visit_payment}</Badge>
-                      <Badge variant={visit.payment_type === 'cash' ? 'default' : 'secondary'} className="text-xs">
-                        {visit.payment_type === 'cash' ? 'Cash' : 'Insurance'}
-                      </Badge>
+                  
+                  {(userRole === 'admin' || userRole === 'manager') && (
+                    <div className="flex space-x-2 mt-4">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => handleEdit(visit)}
+                      >
+                        <Edit className="h-4 w-4 mr-1" />
+                        Edit
+                      </Button>
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        onClick={() => handleDelete(visit.id)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Delete
+                      </Button>
                     </div>
                   )}
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {visit.visit_reason && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Reason:</span>
-                    <Badge variant="default">
-                      {visit.visit_reason.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    </Badge>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Empty State for Unprocessed */}
+          {visits.filter(v => !v.is_processed).length === 0 && (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <Clock className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">No unprocessed visits</h3>
+                <p className="text-muted-foreground text-center mb-4">
+                  All visits have been processed in payment advice.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="processed" className="space-y-6">
+          {/* Search Input for Processed */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Search processed visits by doctor name, patient name, or patient ID..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          {/* Processed Visits List */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {visits
+              .filter((visit) => visit.is_processed)
+              .filter((visit) => {
+                const query = searchQuery.toLowerCase();
+                return (
+                  visit.doctors?.profiles?.full_name.toLowerCase().includes(query) ||
+                  visit.patient_name.toLowerCase().includes(query) ||
+                  (visit.patient_id && visit.patient_id.toLowerCase().includes(query))
+                );
+              })
+               .map((visit) => (
+              <Card key={visit.id} className="opacity-80 border-success/20">
+                <CardHeader>
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-lg">
+                          {format(new Date(visit.visit_date), 'PPP')}
+                        </CardTitle>
+                        <Badge variant="default" className="text-xs bg-success">
+                          Processed
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        {visit.doctors?.profiles?.full_name} ({visit.doctors?.doctor_code})
+                      </p>
+                      {visit.patient_name && (
+                        <p className="text-sm font-medium">
+                          Patient: {visit.patient_name}
+                          {visit.patient_id && ` (${visit.patient_id})`}
+                        </p>
+                      )}
+                      {visit.processed_at && (
+                        <p className="text-xs text-muted-foreground">
+                          Processed: {format(new Date(visit.processed_at), 'MMM dd, yyyy HH:mm')}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <Badge variant="secondary">
+                        {visit.patient_count} {visit.patient_count === 1 ? 'Patient' : 'Patients'}
+                      </Badge>
+                      {visit.visit_payment && (
+                        <div className="mt-1 flex flex-col gap-1">
+                          <Badge variant="outline">₹{visit.visit_payment}</Badge>
+                          <Badge variant={visit.payment_type === 'cash' ? 'default' : 'secondary'} className="text-xs">
+                            {visit.payment_type === 'cash' ? 'Cash' : 'Insurance'}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                )}
-                
-                {visit.notes && (
+                </CardHeader>
+                <CardContent>
                   <div className="space-y-2">
-                    <p className="text-sm text-muted-foreground">Notes:</p>
-                    <p className="text-sm">{visit.notes}</p>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Reason:</span>
+                      <span className="font-medium capitalize">{visit.visit_reason.replace('_', ' ')}</span>
+                    </div>
+                    {visit.notes && (
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Notes:</span>
+                        <p className="mt-1 text-sm bg-muted p-2 rounded">{visit.notes}</p>
+                      </div>
+                    )}
                   </div>
-                )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
 
-                {/* Admin Actions */}
-                {userRole === 'admin' && !visit.is_processed && (
-                  <div className="flex gap-2 pt-3 border-t">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleEdit(visit)}
-                      className="flex-1"
-                    >
-                      <Edit className="h-4 w-4 mr-1" />
-                      Edit
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={() => handleDelete(visit.id)}
-                      className="flex-1"
-                    >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      Delete
-                    </Button>
-                  </div>
-                )}
-                
-                {/* Processed Visit Info */}
-                {visit.is_processed && visit.processed_at && (
-                  <div className="pt-3 border-t">
-                    <p className="text-xs text-muted-foreground">
-                      Processed on {format(new Date(visit.processed_at), 'PPp')}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Empty State */}
-      {visits.length === 0 && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">No visits recorded</h3>
-            <p className="text-muted-foreground text-center mb-4">
-              {userRole === 'doctor' 
-                ? "No visits have been recorded for you yet."
-                : "No visits have been recorded in the system yet."
-              }
-            </p>
-          </CardContent>
-        </Card>
-      )}
+          {/* Empty State for Processed */}
+          {visits.filter(v => v.is_processed).length === 0 && (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <CheckCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-lg font-medium mb-2">No processed visits</h3>
+                <p className="text-muted-foreground text-center mb-4">
+                  No visits have been processed in payment advice yet.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

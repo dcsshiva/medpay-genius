@@ -28,6 +28,7 @@ import {
   FileText
 } from 'lucide-react';
 import { format } from 'date-fns';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ReportGeneration from './ReportGeneration';
 
 interface Payment {
@@ -70,27 +71,6 @@ interface PaymentTransaction {
   created_at: string;
 }
 
-interface Visit {
-  id: string;
-  visit_date: string;
-  patient_count: number;
-  patient_name: string;
-  patient_id?: string;
-  visit_payment?: number;
-  visit_reason: string;
-  is_processed?: boolean;
-  processed_in_payment_id?: string;
-  processed_at?: string;
-}
-
-interface PaymentCalculation {
-  visits: Visit[];
-  total_visits: number;
-  total_amount: number;
-  period_start: string;
-  period_end: string;
-}
-
 interface Doctor {
   id: string;
   doctor_code: string;
@@ -99,86 +79,106 @@ interface Doctor {
   };
 }
 
+interface Visit {
+  id: string;
+  visit_date: string;
+  patient_count: number;
+  patient_name: string;
+  visit_payment?: number;
+  payment_type: string;
+  visit_reason: string;
+  notes?: string;
+  is_processed: boolean;
+  doctor_id: string;
+  doctors: {
+    doctor_code: string;
+    profiles: {
+      full_name: string;
+    };
+  };
+}
+
 const PaymentManagement = () => {
   const { userRole, user } = useAuth();
   const { toast } = useToast();
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [visits, setVisits] = useState<Visit[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [transactions, setTransactions] = useState<PaymentTransaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [creatingPayment, setCreatingPayment] = useState(false);
-  const [processingPayment, setProcessingPayment] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [visitDetailsDialog, setVisitDetailsDialog] = useState(false);
+  const [suspectDialog, setSuspectDialog] = useState(false);
   const [paymentDialog, setPaymentDialog] = useState(false);
   const [transactionsDialog, setTransactionsDialog] = useState(false);
-  const [selectedPaymentVisits, setSelectedPaymentVisits] = useState<Visit[]>([]);
-  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [processingPayment, setProcessingPayment] = useState(false);
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
-  const [suspectDialog, setSuspectDialog] = useState(false);
-  const [suspectReason, setSuspectReason] = useState('');
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Global payment statistics
+  const [totalPaid, setTotalPaid] = useState(0);
+  const [totalPending, setTotalPending] = useState(0);
+  const [pendingTotal, setPendingTotal] = useState(0);
+
   const [formData, setFormData] = useState({
     doctor_id: '',
     period_start: '',
-    period_end: ''
+    period_end: '',
+    payment_notes: ''
   });
+
+  const [suspectFormData, setSuspectFormData] = useState({
+    suspect_reason: ''
+  });
+
   const [paymentFormData, setPaymentFormData] = useState({
     amount: 0,
     transaction_reference: '',
     notes: ''
   });
-  const [calculatedData, setCalculatedData] = useState<PaymentCalculation>({
-    visits: [],
-    total_visits: 0,
-    total_amount: 0,
-    period_start: '',
-    period_end: ''
-  });
-
-  const [visitsTotal, setVisitsTotal] = useState(0);
-  const [paidTotal, setPaidTotal] = useState(0);
-
-  const fetchGlobalTotals = async () => {
-    try {
-      if (!(userRole === 'manager' || userRole === 'admin')) return;
-      const [{ data: visitsData, error: visitsError }, { data: ptData, error: ptError }] = await Promise.all([
-        supabase.from('visits').select('visit_payment'),
-        supabase.from('payment_transactions').select('amount')
-      ]);
-      if (visitsError) throw visitsError;
-      if (ptError) throw ptError;
-      const vTotal = (visitsData || []).reduce((sum: number, v: any) => sum + (Number(v.visit_payment) || 0), 0);
-      const pTotal = (ptData || []).reduce((sum: number, t: any) => sum + (Number(t.amount) || 0), 0);
-      setVisitsTotal(vTotal);
-      setPaidTotal(pTotal);
-    } catch (err) {
-      console.error('Error fetching totals:', err);
-    }
-  };
-
-  const pendingTotal = Math.max(0, visitsTotal - paidTotal);
 
   useEffect(() => {
     fetchPayments();
-    if (userRole === 'admin') {
+    fetchGlobalTotals();
+    if (userRole === 'admin' || userRole === 'manager') {
       fetchDoctors();
-    }
-    if (userRole === 'manager' || userRole === 'admin') {
-      fetchGlobalTotals();
     }
   }, [userRole]);
 
+  const fetchGlobalTotals = async () => {
+    try {
+      const [visitsResponse, transactionsResponse] = await Promise.all([
+        supabase.from('visits').select('visit_payment'),
+        supabase.from('payment_transactions').select('amount')
+      ]);
+
+      if (visitsResponse.data) {
+        const totalFromVisits = visitsResponse.data.reduce((sum, visit) => 
+          sum + (visit.visit_payment || 0), 0
+        );
+        setTotalPending(totalFromVisits);
+      }
+
+      if (transactionsResponse.data) {
+        const totalPaidAmount = transactionsResponse.data.reduce((sum, transaction) => 
+          sum + transaction.amount, 0
+        );
+        setTotalPaid(totalPaidAmount);
+      }
+    } catch (error) {
+      console.error('Error fetching global totals:', error);
+    }
+  };
+
   const fetchPayments = async () => {
     try {
-      // For Supabase authenticated users (admin), use their user ID
-      // For custom auth users, use their original_id
-      const userId = user?.user_metadata?.original_id || user?.id;
-      const userType = user?.user_metadata?.user_type || 'staff';
-      
-      // Use secure RPC function for custom auth
+      const userId = userRole === 'doctor' 
+        ? user?.user_metadata?.original_id || user?.id
+        : user?.id;
+
       const { data, error } = await supabase.rpc('get_user_payments', {
-        _user_type: userType,
+        _user_type: userRole === 'doctor' ? 'doctor' : 'staff',
         _user_id: userId,
         _user_role: userRole || 'staff'
       });
@@ -187,7 +187,6 @@ const PaymentManagement = () => {
         console.error('Error fetching payments:', error);
         setPayments([]);
       } else {
-        // Transform the RPC response to match the expected format
         const transformedPayments = data?.map((payment: any) => ({
           id: payment.id,
           period_start: payment.period_start,
@@ -206,10 +205,6 @@ const PaymentManagement = () => {
           rejected_by: payment.rejected_by,
           rejected_at: payment.rejected_at,
           rejection_reason: payment.rejection_reason,
-          is_suspect: payment.is_suspect,
-          suspect_reason: payment.suspect_reason,
-          marked_suspect_by: payment.marked_suspect_by,
-          marked_suspect_at: payment.marked_suspect_at,
           doctors: {
             doctor_code: payment.doctor_code,
             profiles: {
@@ -218,14 +213,16 @@ const PaymentManagement = () => {
           }
         })) || [];
         setPayments(transformedPayments);
+
+        // Calculate pending total from current payments
+        const currentPendingTotal = transformedPayments
+          .filter((p: any) => p.status === 'pending')
+          .reduce((sum: number, p: any) => sum + p.total_amount, 0);
+        setPendingTotal(currentPendingTotal);
       }
     } catch (error) {
-      console.error('Error fetching payments:', error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to fetch payments"
-      });
+      console.error('Error:', error);
+      setPayments([]);
     } finally {
       setLoading(false);
     }
@@ -238,7 +235,7 @@ const PaymentManagement = () => {
         .select(`
           id,
           doctor_code,
-          profiles:profile_id (
+          profiles!inner (
             full_name
           )
         `)
@@ -249,6 +246,11 @@ const PaymentManagement = () => {
       setDoctors(data || []);
     } catch (error) {
       console.error('Error fetching doctors:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch doctors"
+      });
     }
   };
 
@@ -272,117 +274,77 @@ const PaymentManagement = () => {
       setTransactions(data || []);
     } catch (error) {
       console.error('Error fetching transactions:', error);
-    }
-  };
-
-  const calculatePayment = async () => {
-    if (!formData.doctor_id || !formData.period_start || !formData.period_end) return;
-
-    try {
-      // Get all unprocessed visits in the period
-      const { data: allVisits, error: visitsError } = await supabase
-        .from('visits')
-        .select(`
-          id,
-          visit_date,
-          patient_count,
-          patient_name,
-          patient_id,
-          visit_payment,
-          visit_reason,
-          is_processed
-        `)
-        .eq('doctor_id', formData.doctor_id)
-        .eq('is_processed', false)  // Only get unprocessed visits
-        .gte('visit_date', formData.period_start)
-        .lte('visit_date', formData.period_end)
-        .order('visit_date', { ascending: true });
-
-      if (visitsError) throw visitsError;
-
-      const unprocessedVisits = allVisits || [];
-
-      const totalVisits = unprocessedVisits.reduce((sum, visit) => sum + visit.patient_count, 0);
-      // Calculate total amount based on actual visit payments, not rate * count
-      const totalAmount = unprocessedVisits.reduce((sum, visit) => sum + (visit.visit_payment || 0), 0);
-
-      // Prevent creating payment advice if no unprocessed visits
-      if (unprocessedVisits.length === 0) {
-        toast({
-          variant: "destructive",
-          title: "No Available Visits",
-          description: "No unprocessed visits found in the selected date range."
-        });
-        setCalculatedData({
-          visits: [],
-          total_visits: 0,
-          total_amount: 0,
-          period_start: formData.period_start,
-          period_end: formData.period_end
-        });
-        return;
-      }
-
-      setCalculatedData({
-        visits: unprocessedVisits,
-        total_visits: totalVisits,
-        total_amount: totalAmount,
-        period_start: formData.period_start,
-        period_end: formData.period_end
-      });
-    } catch (error) {
-      console.error('Error calculating payment:', error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to calculate payment"
+        description: "Failed to fetch payment transactions"
       });
     }
   };
 
-  useEffect(() => {
-    if (formData.doctor_id && formData.period_start && formData.period_end) {
-      calculatePayment();
+  const fetchUnprocessedVisits = async (doctorId: string, startDate: string, endDate: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('visits')
+        .select(`
+          *,
+          doctors!inner (
+            doctor_code,
+            profiles!inner (
+              full_name
+            )
+          )
+        `)
+        .eq('doctor_id', doctorId)
+        .eq('is_processed', false)
+        .gte('visit_date', startDate)
+        .lte('visit_date', endDate)
+        .order('visit_date', { ascending: true });
+
+      if (error) throw error;
+      setVisits(data || []);
+    } catch (error) {
+      console.error('Error fetching visits:', error);
+      setVisits([]);
     }
-  }, [formData.doctor_id, formData.period_start, formData.period_end]);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setCreatingPayment(true);
-
-    if (userRole !== 'admin') {
-      toast({
-        variant: "destructive",
-        title: "Access Denied",
-        description: "Only admins can create payment requests"
-      });
-      return;
-    }
-
-    // Validate that there are calculated visits to process
-    if (calculatedData.total_visits === 0 || calculatedData.visits.length === 0) {
-      toast({
-        variant: "destructive",
-        title: "No Visits to Process",
-        description: "There are no unprocessed visits available for this period. All visits may already be included in existing payment requests."
-      });
-      return;
-    }
+    setSubmitting(true);
 
     try {
+      if (!formData.doctor_id || !formData.period_start || !formData.period_end) {
+        throw new Error('Please fill in all required fields');
+      }
+
+      // Fetch unprocessed visits for validation
+      await fetchUnprocessedVisits(formData.doctor_id, formData.period_start, formData.period_end);
+      
+      if (visits.length === 0) {
+        throw new Error('No unprocessed visits found for the selected period');
+      }
+
+      // Calculate total amount from visits
+      const totalAmount = visits.reduce((sum, visit) => sum + (visit.visit_payment || 0), 0);
+      const totalVisits = visits.reduce((sum, visit) => sum + visit.patient_count, 0);
+
+      const paymentData = {
+        doctor_id: formData.doctor_id,
+        period_start: formData.period_start,
+        period_end: formData.period_end,
+        total_visits: totalVisits,
+        total_amount: totalAmount,
+        paid_amount: 0,
+        remaining_amount: totalAmount,
+        is_fully_paid: false,
+        payment_notes: formData.payment_notes || null,
+        status: 'pending'
+      };
+
       const { error } = await supabase
         .from('payments')
-        .insert({
-          doctor_id: formData.doctor_id,
-          period_start: formData.period_start,
-          period_end: formData.period_end,
-          total_visits: calculatedData.total_visits,
-          total_amount: calculatedData.total_amount,
-          paid_amount: 0,
-          remaining_amount: calculatedData.total_amount,
-          is_fully_paid: false,
-          status: 'pending'
-        });
+        .insert([paymentData]);
 
       if (error) throw error;
 
@@ -394,29 +356,23 @@ const PaymentManagement = () => {
       setDialogOpen(false);
       resetForm();
       fetchPayments();
+      fetchGlobalTotals();
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to create payment request"
+        description: error.message || "Failed to create payment advice"
       });
     } finally {
-      setCreatingPayment(false);
+      setSubmitting(false);
     }
   };
 
-  const handlePartialPayment = async (e: React.FormEvent) => {
+  const handlePaymentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!selectedPayment) return;
+    
     setProcessingPayment(true);
-
-    if (!selectedPayment || userRole !== 'admin') {
-      toast({
-        variant: "destructive",
-        title: "Access Denied",
-        description: "Only admins can process partial payments"
-      });
-      return;
-    }
 
     if (paymentFormData.amount <= 0 || paymentFormData.amount > selectedPayment.remaining_amount) {
       toast({
@@ -505,11 +461,23 @@ const PaymentManagement = () => {
             manager_approved_at: new Date().toISOString()
           };
         } else if (userRole === 'admin') {
-          updateData = {
-            status: 'admin_approved',
-            admin_approved_by: profile.id,
-            admin_approved_at: new Date().toISOString()
-          };
+          const payment = payments.find(p => p.id === paymentId);
+          if (payment?.status === 'pending') {
+            // Skip manager approval and go directly to admin approval
+            updateData = {
+              status: 'admin_approved',
+              manager_approved_by: profile.id,
+              manager_approved_at: new Date().toISOString(),
+              admin_approved_by: profile.id,
+              admin_approved_at: new Date().toISOString()
+            };
+          } else {
+            updateData = {
+              status: 'admin_approved',
+              admin_approved_by: profile.id,
+              admin_approved_at: new Date().toISOString()
+            };
+          }
         }
       } else {
         updateData = {
@@ -542,6 +510,50 @@ const PaymentManagement = () => {
     }
   };
 
+  const handleSuspectToggle = async (paymentId: string, reason?: string) => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+
+      if (!profile) throw new Error('Profile not found');
+
+      const payment = payments.find(p => p.id === paymentId);
+      const isMarking = !payment?.is_suspect;
+
+      const updateData = {
+        is_suspect: isMarking,
+        suspect_reason: isMarking ? reason : null,
+        marked_suspect_by: isMarking ? profile.id : null,
+        marked_suspect_at: isMarking ? new Date().toISOString() : null
+      };
+
+      const { error } = await supabase
+        .from('payments')
+        .update(updateData)
+        .eq('id', paymentId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Payment ${isMarking ? 'marked as suspect' : 'unmarked as suspect'}`
+      });
+
+      setSuspectDialog(false);
+      setSuspectFormData({ suspect_reason: '' });
+      fetchPayments();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to update payment status"
+      });
+    }
+  };
+
   const checkPaymentHasTransactions = async (paymentId: string): Promise<boolean> => {
     try {
       const { data, error } = await supabase
@@ -570,12 +582,13 @@ const PaymentManagement = () => {
       return;
     }
 
-    setEditingPayment(payment);
     setFormData({
-      doctor_id: payment.doctors.doctor_code, // This might need adjustment
+      doctor_id: payment.doctors ? '' : payment.doctors.profiles.full_name,
       period_start: payment.period_start,
-      period_end: payment.period_end
+      period_end: payment.period_end,
+      payment_notes: payment.payment_notes || ''
     });
+    setEditingPayment(payment);
     setDialogOpen(true);
   };
 
@@ -591,9 +604,7 @@ const PaymentManagement = () => {
       return;
     }
 
-    if (!confirm('Are you sure you want to delete this payment? This action cannot be undone.')) {
-      return;
-    }
+    if (!confirm('Are you sure you want to delete this payment advice?')) return;
 
     try {
       const { error } = await supabase
@@ -605,64 +616,16 @@ const PaymentManagement = () => {
 
       toast({
         title: "Success",
-        description: "Payment deleted successfully"
+        description: "Payment advice deleted successfully"
       });
-
+      
       fetchPayments();
+      fetchGlobalTotals();
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to delete payment"
-      });
-    }
-  };
-
-  const handleMarkSuspect = async () => {
-    if (!selectedPayment || !suspectReason.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Invalid Input",
-        description: "Please provide a reason for marking this payment as suspect."
-      });
-      return;
-    }
-
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('user_id', user!.id)
-        .maybeSingle();
-
-      if (!profile) throw new Error('Profile not found');
-
-      const { error } = await supabase
-        .from('payments')
-        .update({
-          is_suspect: true,
-          suspect_reason: suspectReason.trim(),
-          marked_suspect_by: profile.id,
-          marked_suspect_at: new Date().toISOString()
-        })
-        .eq('id', selectedPayment.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Payment marked as suspect successfully"
-      });
-
-      setSuspectDialog(false);
-      setSuspectReason('');
-      setSelectedPayment(null);
-      fetchPayments();
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to mark payment as suspect"
+        description: error.message || "Failed to delete payment advice"
       });
     }
   };
@@ -671,44 +634,30 @@ const PaymentManagement = () => {
     setFormData({
       doctor_id: '',
       period_start: '',
-      period_end: ''
+      period_end: '',
+      payment_notes: ''
     });
-    setCalculatedData({
-      visits: [],
-      total_visits: 0,
-      total_amount: 0,
-      period_start: '',
-      period_end: ''
-    });
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending':
-        return <Clock className="h-4 w-4" />;
-      case 'manager_approved':
-        return <CheckCircle className="h-4 w-4" />;
-      case 'admin_approved':
-        return <CheckCircle className="h-4 w-4" />;
-      case 'rejected':
-        return <X className="h-4 w-4" />;
-      default:
-        return <AlertCircle className="h-4 w-4" />;
-    }
+    setEditingPayment(null);
+    setVisits([]);
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending':
-        return 'warning';
-      case 'manager_approved':
-        return 'default';
-      case 'admin_approved':
-        return 'default';
-      case 'rejected':
-        return 'destructive';
-      default:
-        return 'secondary';
+      case 'pending': return 'secondary';
+      case 'manager_approved': return 'outline';
+      case 'admin_approved': return 'default';
+      case 'rejected': return 'destructive';
+      default: return 'secondary';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pending': return <Clock className="h-3 w-3" />;
+      case 'manager_approved': return <AlertCircle className="h-3 w-3" />;
+      case 'admin_approved': return <CheckCircle className="h-3 w-3" />;
+      case 'rejected': return <X className="h-3 w-3" />;
+      default: return <Clock className="h-3 w-3" />;
     }
   };
 
@@ -716,8 +665,8 @@ const PaymentManagement = () => {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl font-bold text-foreground">Payment Management</h1>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {[1, 2, 3, 4].map((i) => (
             <Card key={i}>
               <CardContent className="p-6">
                 <div className="animate-pulse">
@@ -733,1043 +682,145 @@ const PaymentManagement = () => {
     );
   }
 
+  // Filter payments for tabs - not fully paid means pending or approved
+  const waitingForApprovalPayments = payments.filter(p => 
+    (p.status === 'pending' || p.status === 'manager_approved' || p.status === 'admin_approved') && !p.is_fully_paid
+  );
+  const fullyPaidPayments = payments.filter(p => p.is_fully_paid);
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">
-            {userRole === 'doctor' ? 'My Payments' : 
-             userRole === 'manager' ? 'Payment Approvals' : 
-             'Payment Management'}
-          </h1>
-          <p className="text-muted-foreground">
-            {userRole === 'doctor' ? 'View your payment history and status' :
-             userRole === 'manager' ? 'Review and approve payment requests' :
-             'Manage payment advice and partial payments'}
-          </p>
+          <h1 className="text-3xl font-bold text-foreground">Payment Management</h1>
+          <p className="text-muted-foreground">Manage doctor payment advice and transactions</p>
         </div>
         
-        {userRole === 'admin' && (
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        {(userRole === 'admin' || userRole === 'manager') && (
+          <Dialog open={dialogOpen} onOpenChange={(open) => {
+            if (open) {
+              resetForm();
+              setEditingPayment(null);
+            }
+            setDialogOpen(open);
+          }}>
             <DialogTrigger asChild>
-              <Button onClick={resetForm}>
+              <Button>
                 <Plus className="h-4 w-4 mr-2" />
                 Create Payment Advice
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Create Payment Advice</DialogTitle>
+                <DialogTitle>
+                  {editingPayment ? 'Edit Payment Advice' : 'Create Payment Advice'}
+                </DialogTitle>
               </DialogHeader>
+              
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="doctor_id">Doctor</Label>
-                  <Select 
-                    value={formData.doctor_id} 
-                    onValueChange={(value) => setFormData({ ...formData, doctor_id: value })}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a doctor" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {doctors.map((doctor) => (
-                        <SelectItem key={doctor.id} value={doctor.id}>
-                          {doctor.profiles?.full_name} ({doctor.doctor_code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="doctor_id">Doctor</Label>
+                    <Select 
+                      value={formData.doctor_id} 
+                      onValueChange={(value) => {
+                        setFormData({ ...formData, doctor_id: value });
+                        if (formData.period_start && formData.period_end) {
+                          fetchUnprocessedVisits(value, formData.period_start, formData.period_end);
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a doctor" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {doctors.map((doctor) => (
+                          <SelectItem key={doctor.id} value={doctor.id}>
+                            {doctor.profiles.full_name} ({doctor.doctor_code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
                   <div className="space-y-2">
                     <Label htmlFor="period_start">Period Start</Label>
                     <Input
                       id="period_start"
                       type="date"
                       value={formData.period_start}
-                      onChange={(e) => setFormData({ ...formData, period_start: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, period_start: e.target.value });
+                        if (formData.doctor_id && formData.period_end) {
+                          fetchUnprocessedVisits(formData.doctor_id, e.target.value, formData.period_end);
+                        }
+                      }}
                       required
                     />
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="period_end">Period End</Label>
                     <Input
                       id="period_end"
                       type="date"
                       value={formData.period_end}
-                      onChange={(e) => setFormData({ ...formData, period_end: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, period_end: e.target.value });
+                        if (formData.doctor_id && formData.period_start) {
+                          fetchUnprocessedVisits(formData.doctor_id, formData.period_start, e.target.value);
+                        }
+                      }}
                       required
                     />
                   </div>
                 </div>
 
-                {calculatedData.total_amount > 0 && (
-                  <Card className="border-success/20 bg-success/5">
-                    <CardHeader>
-                      <CardTitle className="text-sm flex items-center">
-                        <Calculator className="h-4 w-4 mr-2" />
-                        Unprocessed Visits Found
-                      </CardTitle>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        These visits will be included in the payment advice
-                      </p>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Selected Period:</span>
-                        <span className="text-sm font-medium">
-                          {format(new Date(calculatedData.period_start), 'MMM dd')} - {format(new Date(calculatedData.period_end), 'MMM dd, yyyy')}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Unprocessed Visit Sessions:</span>
-                        <Badge variant="secondary" className="font-medium">
-                          {calculatedData.visits.length} sessions
-                        </Badge>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Total Patients Treated:</span>
-                        <Badge variant="secondary" className="font-medium">
-                          {calculatedData.total_visits} patients
-                        </Badge>
-                      </div>
-                      <div className="border-t pt-2">
-                        <div className="flex justify-between items-center">
-                          <span className="font-medium">Total Payment Amount:</span>
-                          <span className="text-lg font-bold text-success">{formatCurrency(calculatedData.total_amount)}</span>
-                        </div>
-                      </div>
-                      
-                      {/* Important Notice */}
-                      <div className="bg-warning/10 border border-warning/20 rounded-lg p-3 mt-3">
-                        <div className="flex items-start gap-2">
-                          <AlertCircle className="h-4 w-4 text-warning mt-0.5 flex-shrink-0" />
-                          <div className="text-xs text-warning-foreground">
-                            <p className="font-medium">Important:</p>
-                            <p>Only unprocessed visits are shown. Visits already included in existing payment advice are excluded.</p>
-                          </div>
-                        </div>
-                      </div>
-
-                      {calculatedData.visits.length > 0 && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedPaymentVisits(calculatedData.visits);
-                            setVisitDetailsDialog(true);
-                          }}
-                          className="w-full mt-3 border-success text-success hover:bg-success/10"
-                        >
-                          <TrendingUp className="h-4 w-4 mr-2" />
-                          Review All {calculatedData.visits.length} Unprocessed Visits
-                        </Button>
-                      )}
-                      
-                      {calculatedData.visits.length > 0 && (
-                        <div className="text-xs text-center text-muted-foreground">
-                          ✓ Review visits before creating payment advice
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                )}
-
-                {/* Show message when no unprocessed visits found */}
-                {formData.doctor_id && formData.period_start && formData.period_end && calculatedData.total_amount === 0 && (
-                  <Card className="border-warning/20 bg-warning/5">
-                    <CardContent className="p-4 text-center">
-                      <div className="flex items-center justify-center gap-2 text-warning mb-2">
-                        <AlertCircle className="h-5 w-5" />
-                        <span className="font-medium">No Unprocessed Visits Found</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        No unprocessed visits found for the selected period ({format(new Date(formData.period_start), 'MMM dd')} - {format(new Date(formData.period_end), 'MMM dd, yyyy')}).
-                      </p>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        All visits in this period may already be included in existing payment advice.
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
-                
-                <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={creatingPayment || calculatedData.total_amount === 0 || calculatedData.visits.length === 0}>
-                    <CreditCard className="h-4 w-4 mr-2" />
-                    {creatingPayment ? 'Creating...' : 'Create Payment Advice'}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        )}
-      </div>
-
-      {/* Visit Details Dialog */}
-      <Dialog open={visitDetailsDialog} onOpenChange={setVisitDetailsDialog}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-success" />
-              Unprocessed Visits for Payment Advice
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground">
-              Review all unprocessed visits that will be included in this payment advice
-            </p>
-          </DialogHeader>
-          <div className="space-y-4">
-            {selectedPaymentVisits.length > 0 && (
-              <>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-success/5 border border-success/20 rounded-lg">
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-success">{selectedPaymentVisits.length}</p>
-                    <p className="text-sm text-muted-foreground">Unprocessed Visit Sessions</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-success">
-                      {selectedPaymentVisits.reduce((sum, visit) => sum + visit.patient_count, 0)}
-                    </p>
-                    <p className="text-sm text-muted-foreground">Total Patients</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-success">
-                      {formatCurrency(calculatedData.total_amount)}
-                    </p>
-                    <p className="text-sm text-muted-foreground">Total Payment</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="text-2xl font-bold text-primary">
-                      {formatCurrency(calculatedData.total_amount / selectedPaymentVisits.length)}
-                    </p>
-                    <p className="text-sm text-muted-foreground">Avg per Visit</p>
-                  </div>
-                </div>
-
-                <div className="bg-info/10 border border-info/20 rounded-lg p-3">
-                  <div className="flex items-start gap-2">
-                    <CheckCircle className="h-4 w-4 text-success mt-0.5 flex-shrink-0" />
-                    <div className="text-sm">
-                      <p className="font-medium text-info-foreground">Verification Status:</p>
-                      <p className="text-muted-foreground">
-                        ✓ All visits shown below are unprocessed and eligible for payment advice
-                      </p>
-                      <p className="text-muted-foreground">
-                        ✓ Visits already included in other payment advice are automatically excluded
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  <h4 className="font-medium flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4" />
-                    Individual Visit Records ({selectedPaymentVisits.length} unprocessed visits)
-                  </h4>
-                  <div className="grid gap-3">
-                    {selectedPaymentVisits.map((visit, index) => (
-                      <Card key={visit.id} className="p-4 border-success/20">
-                        <div className="flex items-center justify-between mb-3">
-                          <Badge variant="secondary" className="text-xs">
-                            Visit #{index + 1}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs text-success border-success">
-                            ✓ Unprocessed
-                          </Badge>
-                        </div>
-                        <div className="grid grid-cols-2 md:grid-cols-6 gap-4 items-center">
-                          <div>
-                            <p className="text-sm text-muted-foreground">Date</p>
-                            <p className="font-medium">{format(new Date(visit.visit_date), 'MMM dd, yyyy')}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Patient</p>
-                            <p className="font-medium">{visit.patient_name}</p>
-                            {visit.patient_id && (
-                              <p className="text-xs text-muted-foreground">ID: {visit.patient_id}</p>
-                            )}
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Reason</p>
-                            <Badge variant="outline" className="text-xs">
-                              {visit.visit_reason.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                            </Badge>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Patients</p>
-                            <p className="font-medium">{visit.patient_count}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Visit Fee</p>
-                            <p className="font-medium">
-                              {visit.visit_payment ? formatCurrency(visit.visit_payment) : 'N/A'}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Payment Amount</p>
-                            <p className="font-bold text-success">
-                              {visit.visit_payment ? formatCurrency(visit.visit_payment) : 'N/A'}
-                            </p>
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Partial Payment Dialog */}
-      <Dialog open={paymentDialog} onOpenChange={setPaymentDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Record Partial Payment</DialogTitle>
-          </DialogHeader>
-          {selectedPayment && (
-            <div className="space-y-4">
-              <div className="p-4 bg-muted rounded-lg">
-                <h4 className="font-medium mb-2">{selectedPayment.doctors?.profiles?.full_name}</h4>
-                <div className="text-sm space-y-1">
-                  <div className="flex justify-between">
-                    <span>Total Amount:</span>
-                    <span className="font-medium">{formatCurrency(selectedPayment.total_amount)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Paid Amount:</span>
-                    <span className="font-medium">{formatCurrency(selectedPayment.paid_amount)}</span>
-                  </div>
-                  <div className="flex justify-between border-t pt-1">
-                    <span>Remaining:</span>
-                    <span className="font-bold text-destructive">{formatCurrency(selectedPayment.remaining_amount)}</span>
-                  </div>
-                </div>
-              </div>
-
-              <form onSubmit={handlePartialPayment} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="payment_amount">Payment Amount (₹)</Label>
-                  <Input
-                    id="payment_amount"
-                    type="number"
-                    min="1"
-                    max={selectedPayment.remaining_amount}
-                    step="0.01"
-                    value={paymentFormData.amount || ''}
-                    onChange={(e) => setPaymentFormData({ 
-                      ...paymentFormData, 
-                      amount: parseFloat(e.target.value) || 0 
-                    })}
-                    placeholder={`Max: ${selectedPayment.remaining_amount}`}
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="transaction_ref">Transaction Reference</Label>
-                  <Input
-                    id="transaction_ref"
-                    value={paymentFormData.transaction_reference}
-                    onChange={(e) => setPaymentFormData({ 
-                      ...paymentFormData, 
-                      transaction_reference: e.target.value 
-                    })}
-                    placeholder="Bank ref, cheque no, etc."
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="payment_notes">Notes</Label>
+                  <Label htmlFor="payment_notes">Payment Notes (Optional)</Label>
                   <Textarea
                     id="payment_notes"
-                    value={paymentFormData.notes}
-                    onChange={(e) => setPaymentFormData({ 
-                      ...paymentFormData, 
-                      notes: e.target.value 
-                    })}
-                    placeholder="Payment method, additional notes..."
+                    value={formData.payment_notes}
+                    onChange={(e) => setFormData({ ...formData, payment_notes: e.target.value })}
                     rows={3}
                   />
                 </div>
-                
-                <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setPaymentDialog(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={processingPayment || paymentFormData.amount <= 0}>
-                    <CreditCard className="h-4 w-4 mr-2" />
-                    {processingPayment ? 'Recording...' : 'Record Payment'}
-                  </Button>
-                </div>
-              </form>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
 
-      {/* Payment Transactions Dialog */}
-      <Dialog open={transactionsDialog} onOpenChange={setTransactionsDialog}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <History className="h-5 w-5 text-primary" />
-              Payment Transaction History
-            </DialogTitle>
-            <p className="text-sm text-muted-foreground">
-              Complete transaction history for this payment advice
-            </p>
-          </DialogHeader>
-          {selectedPayment && (
-            <div className="space-y-4">
-              <div className="p-4 bg-muted rounded-lg">
-                <h4 className="font-medium mb-2 flex items-center gap-2">
-                  <CreditCard className="h-4 w-4" />
-                  Payment Summary - {selectedPayment.doctors?.profiles?.full_name}
-                </h4>
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Total Amount</p>
-                    <p className="font-bold">{formatCurrency(selectedPayment.total_amount)}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Paid Amount</p>
-                    <p className="font-bold text-success">{formatCurrency(selectedPayment.paid_amount)}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Remaining</p>
-                    <p className="font-bold text-warning">{formatCurrency(selectedPayment.remaining_amount)}</p>
-                  </div>
-                </div>
-                {selectedPayment.is_fully_paid && (
-                  <div className="mt-3 p-2 bg-success/10 border border-success/20 rounded">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-success" />
-                      <span className="text-sm font-medium text-success">✓ Payment Fully Completed</span>
+                {visits.length > 0 && (
+                  <div className="border rounded-lg p-4 bg-muted/50">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold flex items-center gap-2">
+                        <CheckCircle className="h-5 w-5 text-success" />
+                        Unprocessed Visits Found ({visits.length})
+                      </h3>
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Total Amount</p>
+                        <p className="text-xl font-bold text-primary">
+                          {formatCurrency(visits.reduce((sum, visit) => sum + (visit.visit_payment || 0), 0))}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <h4 className="font-medium flex items-center gap-2">
-                  <FileText className="h-4 w-4" />
-                  Transaction Details ({transactions.length} transactions)
-                </h4>
-                {transactions.length > 0 ? (
-                  <div className="space-y-3 max-h-60 overflow-y-auto">
-                    {transactions.map((transaction, index) => (
-                      <Card key={transaction.id} className="p-4 border-success/20">
-                        <div className="flex justify-between items-start mb-3">
-                          <Badge variant="secondary" className="text-xs">
-                            Transaction #{transactions.length - index}
-                          </Badge>
-                          <Badge variant="outline" className="text-xs">
-                            {format(new Date(transaction.created_at), 'HH:mm:ss')}
-                          </Badge>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-sm text-muted-foreground">Payment Amount</p>
-                            <p className="font-bold text-lg text-success">{formatCurrency(transaction.amount)}</p>
-                          </div>
-                          <div>
-                            <p className="text-sm text-muted-foreground">Transaction Date</p>
-                            <p className="font-medium">
-                              {format(new Date(transaction.transaction_date), 'MMM dd, yyyy')}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Processed: {format(new Date(transaction.created_at), 'MMM dd, yyyy HH:mm:ss')}
-                            </p>
-                          </div>
-                        </div>
-                        {transaction.transaction_reference && (
-                          <div className="mt-3 p-2 bg-primary/5 border border-primary/20 rounded">
-                            <p className="text-sm text-muted-foreground">Transaction Reference</p>
-                            <p className="font-mono font-medium text-primary">{transaction.transaction_reference}</p>
-                          </div>
-                        )}
-                        {transaction.notes && (
-                          <div className="mt-2">
-                            <p className="text-sm text-muted-foreground">Payment Notes</p>
-                            <p className="text-sm">{transaction.notes}</p>
-                          </div>
-                        )}
-                      </Card>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                    <p className="text-muted-foreground">No payment transactions recorded yet</p>
-                    <p className="text-sm text-muted-foreground mt-1">Transaction details will appear here once payments are processed</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Mark Suspect Dialog */}
-      <Dialog open={suspectDialog} onOpenChange={setSuspectDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center text-destructive">
-              <AlertTriangle className="h-5 w-5 mr-2" />
-              Mark Payment as Suspect
-            </DialogTitle>
-          </DialogHeader>
-          {selectedPayment && (
-            <div className="space-y-4">
-              <div className="p-4 bg-muted rounded-lg">
-                <h4 className="font-medium mb-2">Payment Details</h4>
-                <p className="text-sm text-muted-foreground">
-                  Doctor: {selectedPayment.doctors?.profiles?.full_name}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Amount: {formatCurrency(selectedPayment.total_amount)}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Period: {format(new Date(selectedPayment.period_start), 'MMM dd')} - {format(new Date(selectedPayment.period_end), 'MMM dd, yyyy')}
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="suspect_reason">Reason for Marking as Suspect *</Label>
-                <Textarea
-                  id="suspect_reason"
-                  value={suspectReason}
-                  onChange={(e) => setSuspectReason(e.target.value)}
-                  placeholder="Explain why this payment is being marked as suspect..."
-                  rows={4}
-                  required
-                />
-              </div>
-
-              <div className="flex justify-end space-x-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSuspectDialog(false);
-                    setSuspectReason('');
-                    setSelectedPayment(null);
-                  }}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={handleMarkSuspect}
-                  disabled={!suspectReason.trim()}
-                >
-                  <AlertTriangle className="h-4 w-4 mr-2" />
-                  Mark as Suspect
-                </Button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Summary Cards for Managers and Admins */}
-      {(userRole === 'manager' || userRole === 'admin') && payments.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <Clock className="h-8 w-8 text-warning mr-3" />
-                <div>
-                  <p className="text-2xl font-bold">
-                    {payments.filter(p => p.status === 'pending').length}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Pending Requests</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <CreditCard className="h-8 w-8 text-primary mr-3" />
-                <div>
-                  <p className="text-2xl font-bold">
-                    {formatCurrency(pendingTotal)}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Total Pending Amount</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center">
-                <CheckCircle className="h-8 w-8 text-success mr-3" />
-                <div>
-                  <p className="text-2xl font-bold">
-                    {formatCurrency(
-                      payments
-                        .filter(p => p.status === 'admin_approved')
-                        .reduce((sum, p) => sum + p.paid_amount, 0)
-                    )}
-                  </p>
-                  <p className="text-sm text-muted-foreground">Total Paid Amount</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Report Generation by Status */}
-      <div className="flex flex-wrap gap-2 justify-end mb-6">
-        <ReportGeneration
-          title="Pending Payments Report"
-          data={payments.filter((payment) =>
-            payment.status === 'pending' &&
-            payment.doctors?.profiles?.full_name.toLowerCase().includes(searchQuery.toLowerCase())
-          )}
-          columns={[
-            { 
-              key: 'doctors.profiles.full_name', 
-              label: 'Doctor Name' 
-            },
-            { 
-              key: 'doctors.doctor_code', 
-              label: 'Doctor Code' 
-            },
-            { 
-              key: 'period_start', 
-              label: 'Period Start',
-              format: (value) => format(new Date(value), 'MMM dd, yyyy')
-            },
-            { 
-              key: 'period_end', 
-              label: 'Period End',
-              format: (value) => format(new Date(value), 'MMM dd, yyyy')
-            },
-            { 
-              key: 'total_visits', 
-              label: 'Total Visits' 
-            },
-            { 
-              key: 'total_amount', 
-              label: 'Total Amount',
-              format: (value) => formatCurrency(value)
-            },
-            { 
-              key: 'paid_amount', 
-              label: 'Paid Amount',
-              format: (value) => formatCurrency(value)
-            },
-            { 
-              key: 'remaining_amount', 
-              label: 'Remaining Amount',
-              format: (value) => formatCurrency(value)
-            },
-            { 
-              key: 'payment_notes', 
-              label: 'Payment Notes' 
-            }
-          ]}
-          filename="pending_payments_report"
-        />
-        
-        <ReportGeneration
-          title="Approved Payments Report"
-          data={payments.filter((payment) =>
-            (payment.status === 'manager_approved' || payment.status === 'admin_approved') &&
-            payment.doctors?.profiles?.full_name.toLowerCase().includes(searchQuery.toLowerCase())
-          )}
-          columns={[
-            { 
-              key: 'doctors.profiles.full_name', 
-              label: 'Doctor Name' 
-            },
-            { 
-              key: 'doctors.doctor_code', 
-              label: 'Doctor Code' 
-            },
-            { 
-              key: 'period_start', 
-              label: 'Period Start',
-              format: (value) => format(new Date(value), 'MMM dd, yyyy')
-            },
-            { 
-              key: 'period_end', 
-              label: 'Period End',
-              format: (value) => format(new Date(value), 'MMM dd, yyyy')
-            },
-            { 
-              key: 'total_visits', 
-              label: 'Total Visits' 
-            },
-            { 
-              key: 'total_amount', 
-              label: 'Total Amount',
-              format: (value) => formatCurrency(value)
-            },
-            { 
-              key: 'paid_amount', 
-              label: 'Paid Amount',
-              format: (value) => formatCurrency(value)
-            },
-            { 
-              key: 'remaining_amount', 
-              label: 'Remaining Amount',
-              format: (value) => formatCurrency(value)
-            },
-            { 
-              key: 'is_fully_paid', 
-              label: 'Fully Paid',
-              format: (value) => value ? 'Yes' : 'No'
-            },
-            { 
-              key: 'status', 
-              label: 'Status',
-              format: (value) => value?.replace(/_/g, ' ').toUpperCase()
-            },
-            { 
-              key: 'payment_notes', 
-              label: 'Payment Notes' 
-            },
-            { 
-              key: 'manager_approved_at', 
-              label: 'Manager Approved At',
-              format: (value) => value ? format(new Date(value), 'MMM dd, yyyy HH:mm') : 'N/A'
-            },
-            { 
-              key: 'admin_approved_at', 
-              label: 'Admin Approved At',
-              format: (value) => value ? format(new Date(value), 'MMM dd, yyyy HH:mm') : 'N/A'
-            }
-          ]}
-          filename="approved_payments_report"
-        />
-
-        <ReportGeneration
-          title="Rejected Payments Report"
-          data={payments.filter((payment) =>
-            payment.status === 'rejected' &&
-            payment.doctors?.profiles?.full_name.toLowerCase().includes(searchQuery.toLowerCase())
-          )}
-          columns={[
-            { 
-              key: 'doctors.profiles.full_name', 
-              label: 'Doctor Name' 
-            },
-            { 
-              key: 'doctors.doctor_code', 
-              label: 'Doctor Code' 
-            },
-            { 
-              key: 'period_start', 
-              label: 'Period Start',
-              format: (value) => format(new Date(value), 'MMM dd, yyyy')
-            },
-            { 
-              key: 'period_end', 
-              label: 'Period End',
-              format: (value) => format(new Date(value), 'MMM dd, yyyy')
-            },
-            { 
-              key: 'total_visits', 
-              label: 'Total Visits' 
-            },
-            { 
-              key: 'total_amount', 
-              label: 'Total Amount',
-              format: (value) => formatCurrency(value)
-            },
-            { 
-              key: 'payment_notes', 
-              label: 'Payment Notes' 
-            },
-            { 
-              key: 'rejected_at', 
-              label: 'Rejected At',
-              format: (value) => value ? format(new Date(value), 'MMM dd, yyyy HH:mm') : 'N/A'
-            },
-            { 
-              key: 'rejection_reason', 
-              label: 'Rejection Reason' 
-            }
-          ]}
-          filename="rejected_payments_report"
-        />
-      </div>
-
-      {/* Search Input */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-        <Input
-          placeholder="Search by doctor name..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
-        />
-      </div>
-
-      {/* Payments List */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {payments
-          .filter((payment) =>
-            payment.doctors?.profiles?.full_name.toLowerCase().includes(searchQuery.toLowerCase())
-          )
-          .map((payment) => (
-          <Card key={payment.id} className="relative">
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-lg flex items-center">
-                    <CreditCard className="h-5 w-5 mr-2" />
-                    {payment.doctors?.profiles?.full_name}
-                  </CardTitle>
-                  <p className="text-sm text-muted-foreground">
-                    Payment Advice - Code: {payment.doctors?.doctor_code}
-                  </p>
-                </div>
-                <Badge 
-                  variant={getStatusColor(payment.status) as any}
-                  className="flex items-center gap-1"
-                >
-                  {getStatusIcon(payment.status)}
-                  {payment.status.replace('_', ' ').toUpperCase()}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-muted-foreground">Period</p>
-                  <p className="font-medium">
-                    {format(new Date(payment.period_start), 'MMM dd')} - {format(new Date(payment.period_end), 'MMM dd, yyyy')}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Total Patients</p>
-                  <p className="font-medium">{payment.total_visits}</p>
-                </div>
-              </div>
-              
-              <div className="flex justify-between items-center pt-2 border-t">
-                <div className="text-sm space-y-1">
-                  {payment.paid_amount > 0 && (
-                    <div className="flex flex-col gap-1">
-                      <span className="text-success text-xs">Paid: {formatCurrency(payment.paid_amount)}</span>
-                      {!payment.is_fully_paid && (
-                        <span className="text-warning text-xs">Remaining: {formatCurrency(payment.remaining_amount)}</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              <div className="text-right">
-                <p className="text-xs text-muted-foreground">Total Amount</p>
-                <p className="text-lg font-bold text-primary">{formatCurrency(payment.total_amount)}</p>
-                {payment.is_fully_paid && (
-                  <Badge variant="default" className="mt-1">
-                    ✓ Fully Paid
-                  </Badge>
-                )}
-              </div>
-              </div>
-
-              {/* Approval Actions - Only show for appropriate users */}
-              {((userRole === 'manager' && payment.status === 'pending') ||
-                (userRole === 'admin' && (payment.status === 'pending' || payment.status === 'manager_approved'))) && (
-                <div className="flex gap-2 mt-4">
-                  <Button
-                    size="sm"
-                    onClick={() => handleApproval(payment.id, 'approve')}
-                    className="flex-1"
-                  >
-                    <CheckCircle className="h-4 w-4 mr-1" />
-                    {userRole === 'manager' ? 'Approve for Admin' : 'Approve for Bank Processing'}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => handleApproval(payment.id, 'reject', 'Rejected by ' + userRole)}
-                    className="flex-1"
-                  >
-                    <X className="h-4 w-4 mr-1" />
-                    Reject
-                  </Button>
-                </div>
-              )}
-
-              {/* Payment Actions - Only for Admin on approved payments */}
-              {userRole === 'admin' && payment.status === 'admin_approved' && !payment.is_fully_paid && (
-                <div className="flex gap-2 mt-4 pt-3 border-t">
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      setSelectedPayment(payment);
-                      setPaymentFormData({ 
-                        amount: payment.remaining_amount, 
-                        transaction_reference: '', 
-                        notes: '' 
-                      });
-                      setPaymentDialog(true);
-                    }}
-                    className="flex-1"
-                  >
-                    <CreditCard className="h-4 w-4 mr-1" />
-                    Make Payment
-                  </Button>
-                  {payment.paid_amount > 0 && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedPayment(payment);
-                        fetchTransactions(payment.id);
-                        setTransactionsDialog(true);
-                      }}
-                    >
-                      <History className="h-4 w-4 mr-1" />
-                      History
-                    </Button>
-                  )}
-                </div>
-              )}
-
-              {/* Approval Status */}
-              {payment.status !== 'pending' && (
-                <div className="mt-3 p-3 bg-muted rounded-lg text-sm">
-                  {payment.status === 'manager_approved' && (
-                    <p className="text-muted-foreground">
-                      ✓ Manager approved on {payment.manager_approved_at ? format(new Date(payment.manager_approved_at), 'MMM dd, yyyy HH:mm') : 'N/A'}
-                      <br />⏳ Awaiting admin approval for bank processing
-                    </p>
-                  )}
-                  {payment.status === 'admin_approved' && (
-                    <p className="text-success">
-                      ✓ <strong>Approved for bank processing</strong> on {payment.admin_approved_at ? format(new Date(payment.admin_approved_at), 'MMM dd, yyyy HH:mm') : 'N/A'}
-                      <br />💰 Ready for payment transfer
-                    </p>
-                  )}
-                  {payment.status === 'rejected' && (
-                    <p className="text-destructive">
-                      ✗ Payment advice rejected on {payment.rejected_at ? format(new Date(payment.rejected_at), 'MMM dd, yyyy HH:mm') : 'N/A'}
-                       {payment.rejection_reason && (
-                         <><br />Reason: {payment.rejection_reason}</>
-                       )}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              {/* Transaction Details for Fully Paid Payments */}
-              {payment.is_fully_paid && (
-                <div className="mt-3 p-3 bg-success/10 border border-success/20 rounded-lg text-sm">
-                  <div className="flex items-center gap-2 mb-2">
-                    <CheckCircle className="h-4 w-4 text-success" />
-                    <span className="font-medium text-success">Payment Completed</span>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-muted-foreground">
-                      🏦 <strong>Bank Processing Status:</strong> Payment successfully processed and completed
-                    </p>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedPayment(payment);
-                        fetchTransactions(payment.id);
-                        setTransactionsDialog(true);
-                      }}
-                      className="mt-2 text-xs"
-                    >
-                      <History className="h-3 w-3 mr-1" />
-                      View Transaction Details
-                    </Button>
-                  </div>
-                </div>
-              )}
-
-              {/* Suspect Status */}
-              {payment.is_suspect && (
-                <div className="mt-3 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-sm">
-                  <p className="text-destructive font-medium">
-                    ⚠️ <strong>Marked as Suspect</strong>
-                  </p>
-                  <p className="text-muted-foreground mt-1">
-                    Marked on {payment.marked_suspect_at ? format(new Date(payment.marked_suspect_at), 'MMM dd, yyyy HH:mm') : 'N/A'}
-                  </p>
-                  {payment.suspect_reason && (
-                    <p className="text-sm mt-1">Reason: {payment.suspect_reason}</p>
-                  )}
-                </div>
-              )}
-
-              {/* Admin Actions */}
-              {userRole === 'admin' && (
-                <div className="flex gap-2 mt-4 pt-3 border-t">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleEditPayment(payment)}
-                  >
-                    <Edit className="h-4 w-4 mr-1" />
-                    Edit
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => handleDeletePayment(payment.id)}
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Delete
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setSelectedPayment(payment);
-                      setSuspectDialog(true);
-                    }}
-                    disabled={payment.is_suspect}
-                  >
-                    <AlertTriangle className="h-4 w-4 mr-1" />
-                    {payment.is_suspect ? 'Suspect' : 'Mark Suspect'}
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Empty State */}
-      {payments.length === 0 && !loading && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <CreditCard className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">No payment requests</h3>
-            <p className="text-muted-foreground text-center mb-4">
-              {userRole === 'doctor' 
-                ? "No payment requests have been created for you yet."
-                : userRole === 'manager'
-                ? "No pending payment advice requires your approval."
-                : "No payment advice has been created yet. Create payment requests based on doctor visits."
-              }
-            </p>
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
-};
-
-export default PaymentManagement;
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-60 overflow-y-auto">
+                      {visits.map((visit) => (
+                        <Card key={visit.id} className="bg-background">
+                          <CardContent className="p-3">
+                            <div className="space-y-1">
+                              <div className="flex justify-between items-start">
+                                <p className="font-medium text-sm">
+                                  {format(new Date(visit.visit_date), 'MMM dd, yyyy')}
+                                </p>
+                                <Badge variant="outline" className="text-xs">
+                                  {visit.patient_count} {visit.patient_count === 1 ? 'Patient' : 'Patients'}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {visit.patient_name}
+                              </p>
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs capitalize">{visit.visit_reason.replace('_', ' ')}</span>
+                                {visit.visit_payment && (
+                                  <span className="text-sm font-semibold text-primary">
+                                    ₹{visit.visit_payment}
+                                  </span>
+                                )
