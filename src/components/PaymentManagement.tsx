@@ -24,7 +24,8 @@ import {
   Search,
   Edit,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  FileText
 } from 'lucide-react';
 import { format } from 'date-fns';
 import ReportGeneration from './ReportGeneration';
@@ -1118,19 +1119,28 @@ const PaymentManagement = () => {
       <Dialog open={transactionsDialog} onOpenChange={setTransactionsDialog}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Payment Transaction History</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="h-5 w-5 text-primary" />
+              Payment Transaction History
+            </DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Complete transaction history for this payment advice
+            </p>
           </DialogHeader>
           {selectedPayment && (
             <div className="space-y-4">
               <div className="p-4 bg-muted rounded-lg">
-                <h4 className="font-medium mb-2">Payment Summary - {selectedPayment.doctors?.profiles?.full_name}</h4>
+                <h4 className="font-medium mb-2 flex items-center gap-2">
+                  <CreditCard className="h-4 w-4" />
+                  Payment Summary - {selectedPayment.doctors?.profiles?.full_name}
+                </h4>
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
                     <p className="text-muted-foreground">Total Amount</p>
                     <p className="font-bold">{formatCurrency(selectedPayment.total_amount)}</p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Paid</p>
+                    <p className="text-muted-foreground">Paid Amount</p>
                     <p className="font-bold text-success">{formatCurrency(selectedPayment.paid_amount)}</p>
                   </div>
                   <div>
@@ -1138,40 +1148,69 @@ const PaymentManagement = () => {
                     <p className="font-bold text-warning">{formatCurrency(selectedPayment.remaining_amount)}</p>
                   </div>
                 </div>
+                {selectedPayment.is_fully_paid && (
+                  <div className="mt-3 p-2 bg-success/10 border border-success/20 rounded">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="h-4 w-4 text-success" />
+                      <span className="text-sm font-medium text-success">✓ Payment Fully Completed</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-3">
-                <h4 className="font-medium">Transaction History</h4>
+                <h4 className="font-medium flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  Transaction Details ({transactions.length} transactions)
+                </h4>
                 {transactions.length > 0 ? (
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {transactions.map((transaction) => (
-                      <Card key={transaction.id} className="p-4">
-                        <div className="flex justify-between items-start">
-                          <div className="space-y-1">
-                            <p className="font-medium">{formatCurrency(transaction.amount)}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {format(new Date(transaction.transaction_date), 'MMM dd, yyyy')}
-                            </p>
-                            {transaction.transaction_reference && (
-                              <p className="text-sm text-muted-foreground">
-                                Ref: {transaction.transaction_reference}
-                              </p>
-                            )}
-                            {transaction.notes && (
-                              <p className="text-sm text-muted-foreground">
-                                {transaction.notes}
-                              </p>
-                            )}
-                          </div>
-                          <Badge variant="outline">
-                            {format(new Date(transaction.created_at), 'HH:mm')}
+                  <div className="space-y-3 max-h-60 overflow-y-auto">
+                    {transactions.map((transaction, index) => (
+                      <Card key={transaction.id} className="p-4 border-success/20">
+                        <div className="flex justify-between items-start mb-3">
+                          <Badge variant="secondary" className="text-xs">
+                            Transaction #{transactions.length - index}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {format(new Date(transaction.created_at), 'HH:mm:ss')}
                           </Badge>
                         </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Payment Amount</p>
+                            <p className="font-bold text-lg text-success">{formatCurrency(transaction.amount)}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Transaction Date</p>
+                            <p className="font-medium">
+                              {format(new Date(transaction.transaction_date), 'MMM dd, yyyy')}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Processed: {format(new Date(transaction.created_at), 'MMM dd, yyyy HH:mm:ss')}
+                            </p>
+                          </div>
+                        </div>
+                        {transaction.transaction_reference && (
+                          <div className="mt-3 p-2 bg-primary/5 border border-primary/20 rounded">
+                            <p className="text-sm text-muted-foreground">Transaction Reference</p>
+                            <p className="font-mono font-medium text-primary">{transaction.transaction_reference}</p>
+                          </div>
+                        )}
+                        {transaction.notes && (
+                          <div className="mt-2">
+                            <p className="text-sm text-muted-foreground">Payment Notes</p>
+                            <p className="text-sm">{transaction.notes}</p>
+                          </div>
+                        )}
                       </Card>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-muted-foreground text-center py-4">No payment transactions recorded yet</p>
+                  <div className="text-center py-8">
+                    <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-muted-foreground">No payment transactions recorded yet</p>
+                    <p className="text-sm text-muted-foreground mt-1">Transaction details will appear here once payments are processed</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -1533,15 +1572,15 @@ const PaymentManagement = () => {
                     </div>
                   )}
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-muted-foreground">Total Amount</p>
-                  <p className="text-lg font-bold text-primary">{formatCurrency(payment.total_amount)}</p>
-                  {payment.is_fully_paid && (
-                    <Badge variant="default" className="mt-1">
-                      ✓ Fully Paid
-                    </Badge>
-                  )}
-                </div>
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">Total Amount</p>
+                <p className="text-lg font-bold text-primary">{formatCurrency(payment.total_amount)}</p>
+                {payment.is_fully_paid && (
+                  <Badge variant="default" className="mt-1">
+                    ✓ Fully Paid
+                  </Badge>
+                )}
+              </div>
               </div>
 
               {/* Approval Actions - Only show for appropriate users */}
@@ -1628,6 +1667,34 @@ const PaymentManagement = () => {
                        )}
                     </p>
                   )}
+                </div>
+              )}
+
+              {/* Transaction Details for Fully Paid Payments */}
+              {payment.is_fully_paid && (
+                <div className="mt-3 p-3 bg-success/10 border border-success/20 rounded-lg text-sm">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle className="h-4 w-4 text-success" />
+                    <span className="font-medium text-success">Payment Completed</span>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-muted-foreground">
+                      🏦 <strong>Bank Processing Status:</strong> Payment successfully processed and completed
+                    </p>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setSelectedPayment(payment);
+                        fetchTransactions(payment.id);
+                        setTransactionsDialog(true);
+                      }}
+                      className="mt-2 text-xs"
+                    >
+                      <History className="h-3 w-3 mr-1" />
+                      View Transaction Details
+                    </Button>
+                  </div>
                 </div>
               )}
 
