@@ -87,11 +87,11 @@ const DoctorManagement = () => {
     e.preventDefault();
     setSubmitting(true);
     
-    if (userRole !== 'admin') {
+    if (!['admin', 'manager'].includes(userRole || '')) {
       toast({
         variant: "destructive",
         title: "Access Denied",
-        description: "Only admins can manage doctors"
+        description: "Only admins and managers can manage doctors"
       });
       return;
     }
@@ -304,11 +304,11 @@ const DoctorManagement = () => {
   };
 
   const toggleDoctorStatus = async (doctorId: string, currentStatus: boolean) => {
-    if (userRole !== 'admin') {
+    if (!['admin', 'manager'].includes(userRole || '')) {
       toast({
         variant: "destructive",
         title: "Access Denied",
-        description: "Only admins can modify doctor status"
+        description: "Only admins and managers can modify doctor status"
       });
       return;
     }
@@ -365,7 +365,7 @@ const DoctorManagement = () => {
           <p className="text-muted-foreground">Manage doctor profiles</p>
         </div>
         
-        {userRole === 'admin' && (
+        {(userRole === 'admin' || userRole === 'manager') && (
           <Dialog open={dialogOpen} onOpenChange={(open) => {
             if (open) {
               resetForm();
@@ -526,7 +526,7 @@ const DoctorManagement = () => {
                 </div>
               </div>
               
-              {userRole === 'admin' && (
+              {(userRole === 'admin' || userRole === 'manager') && (
                 <div className="flex space-x-2 mt-4">
                   <Button 
                     variant="outline" 
@@ -556,7 +556,7 @@ const DoctorManagement = () => {
             <Users className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No doctors found</h3>
             <p className="text-muted-foreground text-center mb-4">
-              {userRole === 'admin' 
+              {(userRole === 'admin' || userRole === 'manager')
                 ? "Get started by adding your first doctor to the system."
                 : "No doctors are currently registered in the system."
               }
