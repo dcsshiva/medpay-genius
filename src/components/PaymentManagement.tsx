@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
@@ -339,7 +339,7 @@ const PaymentManagement = () => {
         remaining_amount: totalAmount,
         is_fully_paid: false,
         payment_notes: formData.payment_notes || null,
-        status: 'pending'
+        status: 'pending' as const
       };
 
       const { error } = await supabase
@@ -682,6 +682,84 @@ const PaymentManagement = () => {
     );
   }
 
+  // PaymentCard component
+  const PaymentCard = ({ payment }: { payment: Payment & { profiles?: { full_name: string } } }) => (
+    <Card className="w-full">
+      <CardHeader className="pb-3">
+        <div className="flex justify-between items-start">
+          <div>
+            <CardTitle className="text-lg">
+              {payment.profiles?.full_name || 'Unknown Doctor'}
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {format(new Date(payment.period_start), 'MMM dd')} - {format(new Date(payment.period_end), 'MMM dd, yyyy')}
+            </p>
+          </div>
+          <Badge
+            variant={
+              payment.status === 'pending' ? 'secondary' :
+              payment.status === 'manager_approved' ? 'outline' :
+              payment.status === 'admin_approved' ? 'default' :
+              'destructive'
+            }
+          >
+            {payment.status.replace('_', ' ').toUpperCase()}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <div>
+            <p className="text-sm text-muted-foreground">Total Visits</p>
+            <p className="text-xl font-semibold">{payment.total_visits}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Total Amount</p>
+            <p className="text-xl font-semibold text-primary">{formatCurrency(payment.total_amount)}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Paid Amount</p>
+            <p className="text-xl font-semibold text-success">{formatCurrency(payment.paid_amount)}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Remaining</p>
+            <p className="text-xl font-semibold text-warning">{formatCurrency(payment.remaining_amount)}</p>
+          </div>
+        </div>
+        
+        {payment.is_fully_paid && (
+          <div className="border-t pt-4 mt-4">
+            <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 text-success" />
+              Transaction Details
+            </h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+              {payment.admin_approved_at && (
+                <div>
+                  <span className="text-muted-foreground">Processed Date:</span>
+                  <span className="ml-2 font-medium">
+                    {format(new Date(payment.admin_approved_at), 'MMM dd, yyyy HH:mm')}
+                  </span>
+                </div>
+              )}
+              <div>
+                <span className="text-muted-foreground">Transaction Ref:</span>
+                <span className="ml-2 font-medium">{payment.id.slice(-8).toUpperCase()}</span>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {payment.payment_notes && (
+          <div className="border-t pt-3 mt-3">
+            <p className="text-sm text-muted-foreground">Notes:</p>
+            <p className="text-sm">{payment.payment_notes}</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+
   // Filter payments for tabs - not fully paid means pending or approved
   const waitingForApprovalPayments = payments.filter(p => 
     (p.status === 'pending' || p.status === 'manager_approved' || p.status === 'admin_approved') && !p.is_fully_paid
@@ -819,8 +897,76 @@ const PaymentManagement = () => {
                               </p>
                               <div className="flex justify-between items-center">
                                 <span className="text-xs capitalize">{visit.visit_reason.replace('_', ' ')}</span>
-                                {visit.visit_payment && (
-                                  <span className="text-sm font-semibold text-primary">
-                                    ₹{visit.visit_payment}
-                                  </span>
-                                )
+                                 {visit.visit_payment && (
+                                   <span className="text-sm font-semibold text-primary">
+                                     ₹{visit.visit_payment}
+                                   </span>
+                                 )}
+                               </div>
+                             </div>
+                           </CardContent>
+                         </Card>
+                       ))}
+                     </div>
+                   </div>
+                 )}
+
+                 <DialogFooter>
+                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                     Cancel
+                   </Button>
+                   <Button type="submit" disabled={loading || visits.length === 0}>
+                     {loading ? 'Creating...' : 'Create Payment Advice'}
+                   </Button>
+                 </DialogFooter>
+               </form>
+             </DialogContent>
+           </Dialog>
+         )}
+       </div>
+
+       <Tabs defaultValue="waiting" className="w-full">
+         <TabsList className="grid w-full grid-cols-2">
+           <TabsTrigger value="waiting">Waiting for Approval ({waitingForApprovalPayments.length})</TabsTrigger>
+           <TabsTrigger value="paid">Fully Paid ({fullyPaidPayments.length})</TabsTrigger>
+         </TabsList>
+
+         <TabsContent value="waiting" className="space-y-4">
+           <div className="grid grid-cols-1 gap-4">
+             {waitingForApprovalPayments.map((payment) => (
+               <PaymentCard key={payment.id} payment={payment} />
+             ))}
+             {waitingForApprovalPayments.length === 0 && (
+               <Card>
+                 <CardContent className="p-8 text-center">
+                   <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                   <h3 className="text-lg font-semibold mb-2">No Payments Waiting for Approval</h3>
+                   <p className="text-muted-foreground">All payments have been processed or no payments exist yet.</p>
+                 </CardContent>
+               </Card>
+             )}
+           </div>
+         </TabsContent>
+
+         <TabsContent value="paid" className="space-y-4">
+           <div className="grid grid-cols-1 gap-4">
+             {fullyPaidPayments.map((payment) => (
+               <PaymentCard key={payment.id} payment={payment} />
+             ))}
+             {fullyPaidPayments.length === 0 && (
+               <Card>
+                 <CardContent className="p-8 text-center">
+                   <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                   <h3 className="text-lg font-semibold mb-2">No Fully Paid Payments</h3>
+                   <p className="text-muted-foreground">No payments have been fully processed yet.</p>
+                 </CardContent>
+               </Card>
+             )}
+           </div>
+         </TabsContent>
+       </Tabs>
+     </div>
+   );
+ };
+
+ export default PaymentManagement;
