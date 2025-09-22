@@ -967,6 +967,6 @@ const PaymentManagement = () => {
        </Tabs>
      </div>
    );
- };
+};
 
- export default PaymentManagement;
+export default PaymentManagement;
