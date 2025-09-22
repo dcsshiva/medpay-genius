@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
@@ -31,6 +32,11 @@ const DoctorManagement = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [editingDoctor, setEditingDoctor] = useState<Doctor | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    doctor: Doctor | null;
+    action: 'activate' | 'deactivate' | null;
+  }>({ open: false, doctor: null, action: null });
   const [formData, setFormData] = useState({
     full_name: '',
     doctor_code: '',
@@ -303,6 +309,54 @@ const DoctorManagement = () => {
     setDialogOpen(true);
   };
 
+  const handleStatusChange = (doctor: Doctor) => {
+    const action = doctor.is_active ? 'deactivate' : 'activate';  
+    
+    // Check permissions for reactivation
+    if (!doctor.is_active && userRole !== 'admin') {
+      toast({
+        variant: "destructive",
+        title: "Access Denied",
+        description: "Only administrators can reactivate deactivated doctors"
+      });
+      return;
+    }
+
+    setConfirmDialog({
+      open: true,
+      doctor,
+      action
+    });
+  };
+
+  const confirmStatusChange = async () => {
+    if (!confirmDialog.doctor || !confirmDialog.action) return;
+
+    try {
+      const { error } = await supabase
+        .from('doctors')
+        .update({ is_active: confirmDialog.action === 'activate' })
+        .eq('id', confirmDialog.doctor.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Doctor ${confirmDialog.action === 'activate' ? 'activated' : 'deactivated'} successfully`
+      });
+
+      fetchDoctors();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to update doctor status"
+      });
+    } finally {
+      setConfirmDialog({ open: false, doctor: null, action: null });
+    }
+  };
+
   const toggleDoctorStatus = async (doctorId: string, currentStatus: boolean) => {
     if (!['admin', 'manager'].includes(userRole || '')) {
       toast({
@@ -536,36 +590,65 @@ const DoctorManagement = () => {
                     <Edit className="h-4 w-4 mr-1" />
                     Edit
                   </Button>
-                  <Button 
-                    variant={doctor.is_active ? "destructive" : "default"}
-                    size="sm"
-                    onClick={() => toggleDoctorStatus(doctor.id, doctor.is_active)}
-                  >
-                    {doctor.is_active ? 'Deactivate' : 'Activate'}
-                  </Button>
+                   <Button 
+                     variant={doctor.is_active ? "destructive" : "default"}
+                     size="sm"
+                     onClick={() => handleStatusChange(doctor)}
+                     disabled={!doctor.is_active && userRole !== 'admin'}
+                   >
+                     {doctor.is_active ? 'Deactivate' : 'Activate'}
+                   </Button>
                 </div>
               )}
             </CardContent>
           </Card>
         ))}
-      </div>
+       </div>
 
-      {doctors.length === 0 && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Users className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-medium mb-2">No doctors found</h3>
-            <p className="text-muted-foreground text-center mb-4">
-              {(userRole === 'admin' || userRole === 'manager')
-                ? "Get started by adding your first doctor to the system."
-                : "No doctors are currently registered in the system."
-              }
-            </p>
-          </CardContent>
-        </Card>
-      )}
-    </div>
-  );
-};
+       {doctors.length === 0 && (
+         <Card>
+           <CardContent className="flex flex-col items-center justify-center py-12">
+             <Users className="h-12 w-12 text-muted-foreground mb-4" />
+             <h3 className="text-lg font-medium mb-2">No doctors found</h3>
+             <p className="text-muted-foreground text-center mb-4">
+               {(userRole === 'admin' || userRole === 'manager')
+                 ? "Get started by adding your first doctor to the system."
+                 : "No doctors are currently registered in the system."
+               }
+             </p>
+           </CardContent>
+          </Card>
+        )}
+
+       {/* Confirmation Dialog */}
+       <AlertDialog open={confirmDialog.open} onOpenChange={(open) => 
+         !open && setConfirmDialog({ open: false, doctor: null, action: null })
+       }>
+         <AlertDialogContent>
+           <AlertDialogHeader>
+             <AlertDialogTitle>
+               {confirmDialog.action === 'deactivate' ? 'Deactivate Doctor' : 'Activate Doctor'}
+             </AlertDialogTitle>
+             <AlertDialogDescription>
+               {confirmDialog.action === 'deactivate' 
+                 ? `Are you sure you want to deactivate Dr. ${confirmDialog.doctor?.profiles?.full_name}? They will no longer be able to access the system.`
+                 : `Are you sure you want to activate Dr. ${confirmDialog.doctor?.profiles?.full_name}? They will regain access to the system.`
+               }
+             </AlertDialogDescription>
+           </AlertDialogHeader>
+           <AlertDialogFooter>
+             <AlertDialogCancel>Cancel</AlertDialogCancel>
+             <AlertDialogAction 
+               onClick={confirmStatusChange}
+               className={confirmDialog.action === 'deactivate' ? 'bg-destructive hover:bg-destructive/90' : ''}
+             >
+               {confirmDialog.action === 'deactivate' ? 'Deactivate' : 'Activate'}
+             </AlertDialogAction>
+           </AlertDialogFooter>
+         </AlertDialogContent>
+       </AlertDialog>
+     </div>
+   );
+ };
 
 export default DoctorManagement;
