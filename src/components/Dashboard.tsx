@@ -20,6 +20,8 @@ interface DashboardStats {
   totalVisits?: number;
   totalPayments?: number;
   pendingApprovals?: number;
+  totalUnprocessedVisits?: number;
+  totalPendingPayment?: number;
   myVisits?: number;
   myEarnings?: number;
   pendingPayments?: number;
@@ -45,22 +47,26 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
   const fetchDashboardStats = async () => {
     try {
       if (userRole === 'admin') {
-        const [doctorsRes, visitsRes, paymentsRes, pendingRes, pendingTasksRes, completedTasksRes] = await Promise.all([
+        const [doctorsRes, visitsRes, paymentsRes, pendingRes, unprocessedVisitsRes, pendingTasksRes, completedTasksRes] = await Promise.all([
           supabase.from('doctors').select('id', { count: 'exact' }),
           supabase.from('visits').select('id', { count: 'exact' }),
           supabase.from('payments').select('total_amount'),
           supabase.from('payments').select('id', { count: 'exact' }).eq('status', 'pending'),
+          supabase.from('visits').select('visit_payment', { count: 'exact' }).eq('is_processed', false),
           supabase.from('tasks').select('id', { count: 'exact' }).in('status', ['pending', 'in_progress']),
           supabase.from('tasks').select('id', { count: 'exact' }).eq('status', 'completed')
         ]);
 
         const totalPaymentAmount = paymentsRes.data?.reduce((sum, payment) => sum + Number(payment.total_amount), 0) || 0;
+        const totalPendingPaymentAmount = unprocessedVisitsRes.data?.reduce((sum, visit) => sum + Number(visit.visit_payment || 0), 0) || 0;
 
         setStats({
           totalDoctors: doctorsRes.count || 0,
           totalVisits: visitsRes.count || 0,
           totalPayments: totalPaymentAmount,
           pendingApprovals: pendingRes.count || 0,
+          totalUnprocessedVisits: unprocessedVisitsRes.count || 0,
+          totalPendingPayment: totalPendingPaymentAmount,
           pendingTasks: pendingTasksRes.count || 0,
           completedTasks: completedTasksRes.count || 0,
         });
@@ -160,7 +166,7 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
   };
 
   const renderAdminDashboard = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
       <Card 
         className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
         onClick={() => onTabChange?.('doctors')}
@@ -242,6 +248,34 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
         <CardContent>
           <div className="text-2xl font-bold text-success">{stats.completedTasks || 0}</div>
           <p className="text-xs text-muted-foreground">Tasks completed</p>
+        </CardContent>
+      </Card>
+
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
+        onClick={() => onTabChange?.('visits')}
+      >
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Unprocessed Visits</CardTitle>
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-info">{stats.totalUnprocessedVisits || 0}</div>
+          <p className="text-xs text-muted-foreground">Visits awaiting payment</p>
+        </CardContent>
+      </Card>
+
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
+        onClick={() => onTabChange?.('payments')}
+      >
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Pending Payment Value</CardTitle>
+          <CreditCard className="h-4 w-4 text-muted-foreground" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-warning">{formatCurrency(stats.totalPendingPayment || 0)}</div>
+          <p className="text-xs text-muted-foreground">Value of unprocessed visits</p>
         </CardContent>
       </Card>
     </div>
