@@ -954,9 +954,8 @@ const PaymentManagement = () => {
                       value={formData.doctor_id} 
                       onValueChange={(value) => {
                         setFormData({ ...formData, doctor_id: value });
-                        if (formData.period_start && formData.period_end) {
-                          fetchUnprocessedVisits(value, formData.period_start, formData.period_end);
-                        }
+                        // Clear visits when doctor changes - user needs to set dates first
+                        setVisits([]);
                       }}
                     >
                       <SelectTrigger>
@@ -980,9 +979,8 @@ const PaymentManagement = () => {
                       value={formData.period_start}
                       onChange={(e) => {
                         setFormData({ ...formData, period_start: e.target.value });
-                        if (formData.doctor_id && formData.period_end) {
-                          fetchUnprocessedVisits(formData.doctor_id, e.target.value, formData.period_end);
-                        }
+                        // Clear visits when start date changes
+                        setVisits([]);
                       }}
                       required
                     />
@@ -995,9 +993,12 @@ const PaymentManagement = () => {
                       type="date"
                       value={formData.period_end}
                       onChange={(e) => {
-                        setFormData({ ...formData, period_end: e.target.value });
-                        if (formData.doctor_id && formData.period_start) {
-                          fetchUnprocessedVisits(formData.doctor_id, formData.period_start, e.target.value);
+                        const newEndDate = e.target.value;
+                        setFormData({ ...formData, period_end: newEndDate });
+                        
+                        // Only fetch visits when all three fields are filled and end date is set
+                        if (formData.doctor_id && formData.period_start && newEndDate) {
+                          fetchUnprocessedVisits(formData.doctor_id, formData.period_start, newEndDate);
                         }
                       }}
                       required
