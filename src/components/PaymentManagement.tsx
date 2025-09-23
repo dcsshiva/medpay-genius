@@ -689,22 +689,30 @@ const PaymentManagement = () => {
         <div className="flex justify-between items-start">
           <div>
             <CardTitle className="text-lg">
-              {payment.profiles?.full_name || 'Unknown Doctor'}
+              {payment.profiles?.full_name || payment.doctors?.profiles?.full_name || 'Unknown Doctor'}
             </CardTitle>
             <p className="text-sm text-muted-foreground">
               {format(new Date(payment.period_start), 'MMM dd')} - {format(new Date(payment.period_end), 'MMM dd, yyyy')}
             </p>
           </div>
-          <Badge
-            variant={
-              payment.status === 'pending' ? 'secondary' :
-              payment.status === 'manager_approved' ? 'outline' :
-              payment.status === 'admin_approved' ? 'default' :
-              'destructive'
-            }
-          >
-            {payment.status.replace('_', ' ').toUpperCase()}
-          </Badge>
+          <div className="flex gap-2 items-center">
+            {payment.is_suspect && (
+              <Badge variant="destructive" className="text-xs">
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                SUSPECT
+              </Badge>
+            )}
+            <Badge
+              variant={
+                payment.status === 'pending' ? 'secondary' :
+                payment.status === 'manager_approved' ? 'outline' :
+                payment.status === 'admin_approved' ? 'default' :
+                'destructive'
+              }
+            >
+              {payment.status.replace('_', ' ').toUpperCase()}
+            </Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="pt-0">
@@ -724,6 +732,135 @@ const PaymentManagement = () => {
           <div>
             <p className="text-sm text-muted-foreground">Remaining</p>
             <p className="text-xl font-semibold text-warning">{formatCurrency(payment.remaining_amount)}</p>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="border-t pt-4 mt-4">
+          <div className="flex flex-wrap gap-2">
+            {/* View Transactions Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSelectedPayment(payment);
+                fetchTransactions(payment.id);
+                setTransactionsDialog(true);
+              }}
+            >
+              <History className="h-4 w-4 mr-1" />
+              View Transactions
+            </Button>
+
+            {/* Manager/Admin Actions */}
+            {(userRole === 'manager' || userRole === 'admin') && (
+              <>
+                {/* Approval buttons for pending payments */}
+                {payment.status === 'pending' && (
+                  <>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => handleApproval(payment.id, 'approve')}
+                    >
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      Approve
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        const reason = prompt('Enter rejection reason:');
+                        if (reason) handleApproval(payment.id, 'reject', reason);
+                      }}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Reject
+                    </Button>
+                  </>
+                )}
+
+                {/* Admin approval for manager approved payments */}
+                {userRole === 'admin' && payment.status === 'manager_approved' && (
+                  <>
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => handleApproval(payment.id, 'approve')}
+                    >
+                      <CheckCircle className="h-4 w-4 mr-1" />
+                      Final Approve
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        const reason = prompt('Enter rejection reason:');
+                        if (reason) handleApproval(payment.id, 'reject', reason);
+                      }}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Reject
+                    </Button>
+                  </>
+                )}
+
+                {/* Edit/Delete buttons for pending payments */}
+                {payment.status === 'pending' && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEditPayment(payment)}
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDeletePayment(payment.id)}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Delete
+                    </Button>
+                  </>
+                )}
+
+                {/* Suspect marking */}
+                <Button
+                  variant={payment.is_suspect ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => {
+                    if (!payment.is_suspect) {
+                      setSelectedPayment(payment);
+                      setSuspectDialog(true);
+                    } else {
+                      handleSuspectToggle(payment.id);
+                    }
+                  }}
+                >
+                  <AlertTriangle className="h-4 w-4 mr-1" />
+                  {payment.is_suspect ? 'Remove Suspect' : 'Mark Suspect'}
+                </Button>
+              </>
+            )}
+
+            {/* Admin Payment Recording */}
+            {userRole === 'admin' && payment.status === 'admin_approved' && !payment.is_fully_paid && (
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => {
+                  setSelectedPayment(payment);
+                  setPaymentFormData({ amount: payment.remaining_amount, transaction_reference: '', notes: '' });
+                  setPaymentDialog(true);
+                }}
+              >
+                <CreditCard className="h-4 w-4 mr-1" />
+                Record Payment
+              </Button>
+            )}
           </div>
         </div>
         
@@ -754,6 +891,20 @@ const PaymentManagement = () => {
           <div className="border-t pt-3 mt-3">
             <p className="text-sm text-muted-foreground">Notes:</p>
             <p className="text-sm">{payment.payment_notes}</p>
+          </div>
+        )}
+
+        {payment.suspect_reason && (
+          <div className="border-t pt-3 mt-3 bg-destructive/10 p-3 rounded">
+            <p className="text-sm text-destructive font-medium">Suspect Reason:</p>
+            <p className="text-sm text-destructive">{payment.suspect_reason}</p>
+          </div>
+        )}
+
+        {payment.rejection_reason && (
+          <div className="border-t pt-3 mt-3 bg-destructive/10 p-3 rounded">
+            <p className="text-sm text-destructive font-medium">Rejection Reason:</p>
+            <p className="text-sm text-destructive">{payment.rejection_reason}</p>
           </div>
         )}
       </CardContent>
@@ -963,9 +1114,186 @@ const PaymentManagement = () => {
                </Card>
              )}
            </div>
-         </TabsContent>
-       </Tabs>
-     </div>
+          </TabsContent>
+        </Tabs>
+
+        {/* Suspect Dialog */}
+        <Dialog open={suspectDialog} onOpenChange={setSuspectDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Mark Payment as Suspect</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (selectedPayment) {
+                handleSuspectToggle(selectedPayment.id, suspectFormData.suspect_reason);
+              }
+            }}>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="suspect_reason">Reason for marking as suspect</Label>
+                  <Textarea
+                    id="suspect_reason"
+                    value={suspectFormData.suspect_reason}
+                    onChange={(e) => setSuspectFormData({ ...suspectFormData, suspect_reason: e.target.value })}
+                    placeholder="Enter reason..."
+                    required
+                  />
+                </div>
+              </div>
+              <DialogFooter className="mt-4">
+                <Button type="button" variant="outline" onClick={() => setSuspectDialog(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="destructive">
+                  Mark as Suspect
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Payment Recording Dialog */}
+        <Dialog open={paymentDialog} onOpenChange={setPaymentDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Record Payment</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handlePaymentSubmit}>
+              <div className="space-y-4">
+                {selectedPayment && (
+                  <div className="bg-muted p-4 rounded-lg">
+                    <p className="text-sm text-muted-foreground">Payment for:</p>
+                    <p className="font-semibold">{selectedPayment.doctors?.profiles?.full_name}</p>
+                    <p className="text-sm">
+                      Period: {format(new Date(selectedPayment.period_start), 'MMM dd')} - {format(new Date(selectedPayment.period_end), 'MMM dd, yyyy')}
+                    </p>
+                    <p className="text-sm">
+                      Remaining Amount: <span className="font-semibold text-primary">{formatCurrency(selectedPayment.remaining_amount)}</span>
+                    </p>
+                  </div>
+                )}
+                
+                <div>
+                  <Label htmlFor="amount">Payment Amount</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    max={selectedPayment?.remaining_amount || 0}
+                    value={paymentFormData.amount}
+                    onChange={(e) => setPaymentFormData({ ...paymentFormData, amount: parseFloat(e.target.value) || 0 })}
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="transaction_reference">Transaction Reference (Optional)</Label>
+                  <Input
+                    id="transaction_reference"
+                    value={paymentFormData.transaction_reference}
+                    onChange={(e) => setPaymentFormData({ ...paymentFormData, transaction_reference: e.target.value })}
+                    placeholder="Enter transaction reference..."
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="payment_notes">Notes (Optional)</Label>
+                  <Textarea
+                    id="payment_notes"
+                    value={paymentFormData.notes}
+                    onChange={(e) => setPaymentFormData({ ...paymentFormData, notes: e.target.value })}
+                    placeholder="Enter payment notes..."
+                  />
+                </div>
+              </div>
+              <DialogFooter className="mt-4">
+                <Button type="button" variant="outline" onClick={() => setPaymentDialog(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={processingPayment}>
+                  {processingPayment ? 'Recording...' : 'Record Payment'}
+                </Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Transaction History Dialog */}
+        <Dialog open={transactionsDialog} onOpenChange={setTransactionsDialog}>
+          <DialogContent className="max-w-4xl">
+            <DialogHeader>
+              <DialogTitle>Payment Transactions</DialogTitle>
+            </DialogHeader>
+            {selectedPayment && (
+              <div className="space-y-4">
+                <div className="bg-muted p-4 rounded-lg">
+                  <p className="font-semibold">{selectedPayment.doctors?.profiles?.full_name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Period: {format(new Date(selectedPayment.period_start), 'MMM dd')} - {format(new Date(selectedPayment.period_end), 'MMM dd, yyyy')}
+                  </p>
+                  <div className="grid grid-cols-3 gap-4 mt-2">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Total Amount</p>
+                      <p className="font-semibold">{formatCurrency(selectedPayment.total_amount)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Paid Amount</p>
+                      <p className="font-semibold text-success">{formatCurrency(selectedPayment.paid_amount)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Remaining</p>
+                      <p className="font-semibold text-warning">{formatCurrency(selectedPayment.remaining_amount)}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <h3 className="text-lg font-semibold">Transaction History</h3>
+                  {transactions.length > 0 ? (
+                    <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {transactions.map((transaction) => (
+                        <Card key={transaction.id}>
+                          <CardContent className="p-4">
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="font-semibold text-primary">{formatCurrency(transaction.amount)}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {format(new Date(transaction.transaction_date), 'MMM dd, yyyy')}
+                                </p>
+                                {transaction.transaction_reference && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Ref: {transaction.transaction_reference}
+                                  </p>
+                                )}
+                              </div>
+                              <div className="text-right text-xs text-muted-foreground">
+                                <p>{format(new Date(transaction.created_at), 'MMM dd, yyyy HH:mm')}</p>
+                              </div>
+                            </div>
+                            {transaction.notes && (
+                              <p className="text-sm mt-2 text-muted-foreground">{transaction.notes}</p>
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <CreditCard className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                      <p className="text-muted-foreground">No transactions recorded yet</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button onClick={() => setTransactionsDialog(false)}>Close</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
    );
 };
 
