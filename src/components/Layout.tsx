@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import MobileHeader from '@/components/MobileHeader';
 import { AppSidebar } from '@/components/AppSidebar';
 import { isStaffRole } from '@/lib/staffUtils';
+import VersionDisplay from '@/components/VersionDisplay';
 import { 
   SidebarProvider, 
   SidebarInset, 
@@ -152,6 +153,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
             {children}
           </main>
         </div>
+        
+        {/* Version Display */}
+        <VersionDisplay />
       </div>
     </SidebarProvider>
   );
