@@ -80,6 +80,34 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
     });
   };
 
+  const calculateNetTotals = (records: any[]) => {
+    const totals: any = {};
+    
+    columns.forEach(column => {
+      const values = records.map(record => getNestedValue(record, column.key));
+      
+      // Check if this column contains numerical data that should be summed
+      const isNumericColumn = column.key.includes('amount') || 
+                             column.key.includes('visits') || 
+                             column.key.includes('payment') ||
+                             values.some(val => typeof val === 'number' && val > 0);
+      
+      if (isNumericColumn) {
+        const numericValues = values
+          .map(val => typeof val === 'number' ? val : parseFloat(String(val).replace(/[^\d.-]/g, '')) || 0)
+          .filter(val => !isNaN(val));
+        
+        const total = numericValues.reduce((sum, val) => sum + val, 0);
+        totals[column.label] = column.format ? column.format(total) : total;
+      } else {
+        // For non-numeric columns, show "NET TOTAL" in the first column, empty in others
+        totals[column.label] = column === columns[0] ? 'NET TOTAL' : '';
+      }
+    });
+    
+    return totals;
+  };
+
   const getNestedValue = (obj: any, path: string) => {
     return path.split('.').reduce((current, key) => current?.[key], obj);
   };
@@ -97,12 +125,35 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
 
     try {
       const exportData = formatDataForExport(selectedData);
-      const ws = XLSX.utils.json_to_sheet(exportData);
+      const netTotals = calculateNetTotals(selectedData);
+      
+      // Add net totals row to export data
+      const dataWithTotals = [...exportData, netTotals];
+      
+      const ws = XLSX.utils.json_to_sheet(dataWithTotals);
       const wb = XLSX.utils.book_new();
       
       // Auto-size columns
-      const colWidths = columns.map(col => ({ wch: Math.max(col.label.length, 15) }));
+      const colWidths = columns.map(col => ({ wch: Math.max(col.label.length, 20) }));
       ws['!cols'] = colWidths;
+      
+      // Style the totals row (last row)
+      const lastRowIndex = dataWithTotals.length;
+      columns.forEach((col, colIndex) => {
+        const cellAddress = XLSX.utils.encode_cell({ r: lastRowIndex, c: colIndex });
+        if (ws[cellAddress]) {
+          ws[cellAddress].s = {
+            font: { bold: true, color: { rgb: "000000" } },
+            fill: { fgColor: { rgb: "E8E8E8" } },
+            border: {
+              top: { style: "thick", color: { rgb: "000000" } },
+              bottom: { style: "thick", color: { rgb: "000000" } },
+              left: { style: "thin", color: { rgb: "000000" } },
+              right: { style: "thin", color: { rgb: "000000" } }
+            }
+          };
+        }
+      });
       
       XLSX.utils.book_append_sheet(wb, ws, title);
       
@@ -111,7 +162,7 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
       
       toast({
         title: "Export Successful",
-        description: `${selectedData.length} records exported to Excel successfully.`
+        description: `${selectedData.length} records exported to Excel with net totals.`
       });
       
       setDialogOpen(false);
@@ -150,6 +201,8 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
       
       // Prepare table data
       const exportData = formatDataForExport(selectedData);
+      const netTotals = calculateNetTotals(selectedData);
+      
       const tableHeaders = columns.map(col => col.label);
       const tableData = exportData.map(record => 
         columns.map(col => {
@@ -159,6 +212,14 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
           return String(value);
         })
       );
+      
+      // Add net totals row
+      const totalsRow = columns.map(col => {
+        const value = netTotals[col.label];
+        if (value === null || value === undefined) return '';
+        return String(value);
+      });
+      tableData.push(totalsRow);
       
       // Add table using autoTable plugin
       autoTable(doc, {
@@ -174,6 +235,16 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
           fillColor: [63, 81, 181],
           textColor: [255, 255, 255],
           fontStyle: 'bold'
+        },
+        // Style the last row (totals row) differently
+        didParseCell: (data: any) => {
+          if (data.row.index === tableData.length - 1) {
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fillColor = [230, 230, 230];
+            data.cell.styles.textColor = [0, 0, 0];
+            data.cell.styles.lineWidth = 0.5;
+            data.cell.styles.lineColor = [0, 0, 0];
+          }
         },
         margin: { left: 14, right: 14 },
         tableWidth: 'auto',
@@ -192,7 +263,7 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
       
       toast({
         title: "Export Successful",
-        description: `${selectedData.length} records exported to PDF successfully.`
+        description: `${selectedData.length} records exported to PDF with net totals.`
       });
       
       setDialogOpen(false);
