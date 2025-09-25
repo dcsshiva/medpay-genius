@@ -1103,6 +1103,10 @@ const PaymentManagement = () => {
           <TabsContent value="waiting" className="space-y-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Payments Waiting for Approval</h3>
+              {/* Debug info */}
+              <div className="text-xs text-muted-foreground">
+                Data count: {waitingForApprovalPayments.length} | Role: {userRole}
+              </div>
               {waitingForApprovalPayments.length > 0 && (userRole === 'admin' || userRole === 'manager') && (
                 <ReportGeneration
                   title="Payments Waiting for Approval Report"
@@ -1131,6 +1135,10 @@ const PaymentManagement = () => {
           <TabsContent value="paid" className="space-y-4">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Fully Paid Payments</h3>
+              {/* Debug info */}
+              <div className="text-xs text-muted-foreground">
+                Data count: {fullyPaidPayments.length} | Role: {userRole}
+              </div>
               {fullyPaidPayments.length > 0 && (userRole === 'admin' || userRole === 'manager') && (
                 <ReportGeneration
                   title="Fully Paid Payments Report"
