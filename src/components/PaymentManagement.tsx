@@ -917,6 +917,23 @@ const PaymentManagement = () => {
   );
   const fullyPaidPayments = payments.filter(p => p.is_fully_paid);
 
+  // Report generation configuration
+  const paymentReportColumns = [
+    { key: 'doctors.profiles.full_name', label: 'Doctor Name' },
+    { key: 'doctors.doctor_code', label: 'Doctor Code' },
+    { key: 'period_start', label: 'Period Start Date', format: (value: string) => format(new Date(value), 'MMM dd, yyyy') },
+    { key: 'period_end', label: 'Period End Date', format: (value: string) => format(new Date(value), 'MMM dd, yyyy') },
+    { key: 'total_visits', label: 'Total Visits' },
+    { key: 'total_amount', label: 'Total Amount', format: (value: number) => formatCurrency(value) },
+    { key: 'paid_amount', label: 'Paid Amount', format: (value: number) => formatCurrency(value) },
+    { key: 'remaining_amount', label: 'Remaining Amount', format: (value: number) => formatCurrency(value) },
+    { key: 'is_fully_paid', label: 'Fully Paid Status', format: (value: boolean) => value ? 'Yes' : 'No' },
+    { key: 'status', label: 'Status', format: (value: string) => value.replace('_', ' ').toUpperCase() },
+    { key: 'payment_notes', label: 'Payment Notes' },
+    { key: 'manager_approved_at', label: 'Manager Approved Date & Time', format: (value: string) => value ? format(new Date(value), 'MMM dd, yyyy HH:mm') : 'N/A' },
+    { key: 'admin_approved_at', label: 'Admin Approved Date & Time', format: (value: string) => value ? format(new Date(value), 'MMM dd, yyyy HH:mm') : 'N/A' }
+  ];
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -1083,38 +1100,60 @@ const PaymentManagement = () => {
            <TabsTrigger value="paid">Fully Paid ({fullyPaidPayments.length})</TabsTrigger>
          </TabsList>
 
-         <TabsContent value="waiting" className="space-y-4">
-           <div className="grid grid-cols-1 gap-4">
-             {waitingForApprovalPayments.map((payment) => (
-               <PaymentCard key={payment.id} payment={payment} />
-             ))}
-             {waitingForApprovalPayments.length === 0 && (
-               <Card>
-                 <CardContent className="p-8 text-center">
-                   <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                   <h3 className="text-lg font-semibold mb-2">No Payments Waiting for Approval</h3>
-                   <p className="text-muted-foreground">All payments have been processed or no payments exist yet.</p>
-                 </CardContent>
-               </Card>
-             )}
-           </div>
-         </TabsContent>
+          <TabsContent value="waiting" className="space-y-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Payments Waiting for Approval</h3>
+              {waitingForApprovalPayments.length > 0 && (userRole === 'admin' || userRole === 'manager') && (
+                <ReportGeneration
+                  title="Payments Waiting for Approval Report"
+                  data={waitingForApprovalPayments}
+                  columns={paymentReportColumns}
+                  filename="payment_waiting_approval_report"
+                />
+              )}
+            </div>
+            <div className="grid grid-cols-1 gap-4">
+              {waitingForApprovalPayments.map((payment) => (
+                <PaymentCard key={payment.id} payment={payment} />
+              ))}
+              {waitingForApprovalPayments.length === 0 && (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No Payments Waiting for Approval</h3>
+                    <p className="text-muted-foreground">All payments have been processed or no payments exist yet.</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+          </TabsContent>
 
-         <TabsContent value="paid" className="space-y-4">
-           <div className="grid grid-cols-1 gap-4">
-             {fullyPaidPayments.map((payment) => (
-               <PaymentCard key={payment.id} payment={payment} />
-             ))}
-             {fullyPaidPayments.length === 0 && (
-               <Card>
-                 <CardContent className="p-8 text-center">
-                   <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                   <h3 className="text-lg font-semibold mb-2">No Fully Paid Payments</h3>
-                   <p className="text-muted-foreground">No payments have been fully processed yet.</p>
-                 </CardContent>
-               </Card>
-             )}
-           </div>
+          <TabsContent value="paid" className="space-y-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold">Fully Paid Payments</h3>
+              {fullyPaidPayments.length > 0 && (userRole === 'admin' || userRole === 'manager') && (
+                <ReportGeneration
+                  title="Fully Paid Payments Report"
+                  data={fullyPaidPayments}
+                  columns={paymentReportColumns}
+                  filename="payment_fully_paid_report"
+                />
+              )}
+            </div>
+            <div className="grid grid-cols-1 gap-4">
+              {fullyPaidPayments.map((payment) => (
+                <PaymentCard key={payment.id} payment={payment} />
+              ))}
+              {fullyPaidPayments.length === 0 && (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No Fully Paid Payments</h3>
+                    <p className="text-muted-foreground">No payments have been fully processed yet.</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
 
