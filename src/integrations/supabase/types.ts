@@ -92,27 +92,42 @@ export type Database = {
       }
       doctors: {
         Row: {
+          account_holder_name: string | null
+          bank_account_number: string | null
+          bank_name: string | null
+          branch_name: string | null
           created_at: string
           doctor_code: string
           id: string
+          ifsc_code: string | null
           is_active: boolean
           profile_id: string
           specialization: string
           updated_at: string
         }
         Insert: {
+          account_holder_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          branch_name?: string | null
           created_at?: string
           doctor_code: string
           id?: string
+          ifsc_code?: string | null
           is_active?: boolean
           profile_id: string
           specialization: string
           updated_at?: string
         }
         Update: {
+          account_holder_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          branch_name?: string | null
           created_at?: string
           doctor_code?: string
           id?: string
+          ifsc_code?: string | null
           is_active?: boolean
           profile_id?: string
           specialization?: string

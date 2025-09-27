@@ -17,6 +17,11 @@ interface Doctor {
   doctor_code: string;
   specialization: string;
   is_active: boolean;
+  bank_account_number?: string;
+  account_holder_name?: string;
+  bank_name?: string;
+  branch_name?: string;
+  ifsc_code?: string;
   profiles: {
     id: string;
     full_name: string;
@@ -43,7 +48,12 @@ const DoctorManagement = () => {
     specialization: '',
     is_active: true,
     email: '',
-    password: ''
+    password: '',
+    bank_account_number: '',
+    account_holder_name: '',
+    bank_name: '',
+    branch_name: '',
+    ifsc_code: ''
   });
 
   useEffect(() => {
@@ -68,6 +78,11 @@ const DoctorManagement = () => {
             doctor_code,
             specialization,
             is_active,
+            bank_account_number,
+            account_holder_name,
+            bank_name,
+            branch_name,
+            ifsc_code,
             profiles:profile_id (
               id,
               full_name
@@ -129,7 +144,12 @@ const DoctorManagement = () => {
           .update({
             doctor_code: formData.doctor_code,
             specialization: formData.specialization,
-            is_active: formData.is_active
+            is_active: formData.is_active,
+            bank_account_number: formData.bank_account_number,
+            account_holder_name: formData.account_holder_name,
+            bank_name: formData.bank_name,
+            branch_name: formData.branch_name,
+            ifsc_code: formData.ifsc_code
           })
           .eq('id', editingDoctor.id);
 
@@ -258,7 +278,12 @@ const DoctorManagement = () => {
             profile_id: profileData.id,
             doctor_code: formData.doctor_code,
             specialization: formData.specialization,
-            is_active: formData.is_active
+            is_active: formData.is_active,
+            bank_account_number: formData.bank_account_number,
+            account_holder_name: formData.account_holder_name,
+            bank_name: formData.bank_name,
+            branch_name: formData.branch_name,
+            ifsc_code: formData.ifsc_code
           });
 
         if (createDoctorError) throw createDoctorError;
@@ -292,7 +317,12 @@ const DoctorManagement = () => {
       specialization: '',
       is_active: true,
       email: '',
-      password: ''
+      password: '',
+      bank_account_number: '',
+      account_holder_name: '',
+      bank_name: '',
+      branch_name: '',
+      ifsc_code: ''
     });
   };
 
@@ -304,7 +334,12 @@ const DoctorManagement = () => {
       specialization: doctor.specialization,
       is_active: doctor.is_active,
       email: '', // Don't pre-fill for security
-      password: '' // Don't pre-fill for security
+      password: '', // Don't pre-fill for security
+      bank_account_number: doctor.bank_account_number || '',
+      account_holder_name: doctor.account_holder_name || '',
+      bank_name: doctor.bank_name || '',
+      branch_name: doctor.branch_name || '',
+      ifsc_code: doctor.ifsc_code || ''
     });
     setDialogOpen(true);
   };
@@ -507,6 +542,61 @@ const DoctorManagement = () => {
                       Leave blank to keep current password
                     </p>
                   )}
+                </div>
+                
+                {/* Bank Details Section */}
+                <div className="space-y-4 border-t pt-4">
+                  <h3 className="text-lg font-medium text-foreground">Bank Details</h3>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="account_holder_name">Account Holder Name</Label>
+                    <Input
+                      id="account_holder_name"
+                      value={formData.account_holder_name}
+                      onChange={(e) => setFormData({ ...formData, account_holder_name: e.target.value })}
+                      placeholder="Dr. John Doe"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="bank_account_number">Bank Account Number</Label>
+                    <Input
+                      id="bank_account_number"
+                      value={formData.bank_account_number}
+                      onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value })}
+                      placeholder="1234567890"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="bank_name">Bank Name</Label>
+                    <Input
+                      id="bank_name"
+                      value={formData.bank_name}
+                      onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
+                      placeholder="State Bank of India"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="branch_name">Branch Name</Label>
+                    <Input
+                      id="branch_name"
+                      value={formData.branch_name}
+                      onChange={(e) => setFormData({ ...formData, branch_name: e.target.value })}
+                      placeholder="Main Branch"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="ifsc_code">IFSC Code</Label>
+                    <Input
+                      id="ifsc_code"
+                      value={formData.ifsc_code}
+                      onChange={(e) => setFormData({ ...formData, ifsc_code: e.target.value })}
+                      placeholder="SBIN0000123"
+                    />
+                  </div>
                 </div>
                 
                 <div className="space-y-2">
