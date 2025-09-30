@@ -24,6 +24,7 @@ import {
   MessageSquare,
   History as HistoryIcon
 } from 'lucide-react';
+import westmedLogo from '@/assets/westmed-logo.png';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -110,8 +111,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
                 <div className="flex items-center space-x-3">
                   <SidebarTrigger />
                   <div className="flex items-center space-x-3">
-                    <div className="bg-primary p-2 rounded-lg">
-                      <Stethoscope className="h-6 w-6 text-primary-foreground" />
+                    <div className="bg-white p-2 rounded-lg shadow-sm">
+                      <img src={westmedLogo} alt="WestMed Hospital" className="h-8 w-8" />
                     </div>
                     <div>
                       <h1 className="text-xl font-bold text-foreground">WestMed Hospital</h1>

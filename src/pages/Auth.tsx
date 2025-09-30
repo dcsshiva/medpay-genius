@@ -7,8 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
-import { Stethoscope, LogIn, Shield, UserCheck } from 'lucide-react';
+import { LogIn, Shield, UserCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import westmedBanner from '@/assets/westmed-banner.png';
+import westmedLogo from '@/assets/westmed-logo.png';
 
 const Auth = () => {
   const [staffLoading, setStaffLoading] = useState(false);
@@ -130,16 +132,24 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div 
+      className="min-h-screen bg-background flex items-center justify-center p-4 relative"
+      style={{
+        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${westmedBanner})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat'
+      }}
+    >
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="bg-primary p-3 rounded-full">
-              <Stethoscope className="h-8 w-8 text-primary-foreground" />
+            <div className="bg-white p-4 rounded-full shadow-lg">
+              <img src={westmedLogo} alt="WestMed Hospital Logo" className="h-16 w-16" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold text-foreground">WestMed Hospital</h1>
-          <p className="text-muted-foreground">Hospital Management System</p>
+          <h1 className="text-3xl font-bold text-white drop-shadow-lg">WestMed Hospital</h1>
+          <p className="text-white/90 drop-shadow-md">Hospital Management System</p>
         </div>
 
         <Card>

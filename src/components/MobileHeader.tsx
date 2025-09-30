@@ -1,8 +1,9 @@
 import React from 'react';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
-import { Stethoscope, Menu, LogOut } from 'lucide-react';
+import { Menu, LogOut } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import westmedLogo from '@/assets/westmed-logo.png';
 
 interface MobileHeaderProps {
   navigationItems: Array<{
@@ -25,12 +26,12 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
     <header className="bg-card border-b border-border shadow-sm md:hidden">
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center space-x-3">
-          <div className="bg-primary p-2 rounded-lg">
-            <Stethoscope className="h-5 w-5 text-primary-foreground" />
+          <div className="bg-white p-2 rounded-lg shadow-sm">
+            <img src={westmedLogo} alt="WestMed Hospital" className="h-6 w-6" />
           </div>
           <div>
             <h1 className="text-lg font-bold text-foreground">WestMed</h1>
-            <p className="text-xs text-muted-foreground">Payment System</p>
+            <p className="text-xs text-muted-foreground">HMS</p>
           </div>
         </div>
         

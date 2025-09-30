@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Stethoscope, 
   Users, 
   Calendar, 
   CreditCard, 
@@ -12,8 +11,10 @@ import {
   MessageSquare,
   Clock,
   CheckCircle,
-  TrendingUp
+  TrendingUp,
+  History as HistoryIcon
 } from 'lucide-react';
+import westmedLogo from '@/assets/westmed-logo.png';
 import {
   Sidebar,
   SidebarContent,
@@ -127,6 +128,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
         { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
         { id: 'login-reports', label: 'Login Reports', icon: TrendingUp },
         { id: 'chat', label: 'Team Chat', icon: MessageSquare },
+        { id: 'version', label: 'Version Management', icon: HistoryIcon },
         { id: 'settings', label: 'Settings', icon: Settings },
       ];
     }
@@ -150,8 +152,8 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
     <Sidebar className="border-r">
       <SidebarHeader className="border-b p-4">
         <div className="flex items-center space-x-3">
-          <div className="bg-primary p-2 rounded-lg">
-            <Stethoscope className="h-6 w-6 text-primary-foreground" />
+          <div className="bg-white p-2 rounded-lg shadow-sm">
+            <img src={westmedLogo} alt="WestMed Hospital" className="h-8 w-8" />
           </div>
           {!isCollapsed && (
             <div>
