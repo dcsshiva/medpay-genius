@@ -550,6 +550,48 @@ export type Database = {
         }
         Relationships: []
       }
+      version_history: {
+        Row: {
+          branch: string
+          changelog: string | null
+          created_at: string
+          created_by: string | null
+          environment: string
+          git_commit: string
+          id: string
+          is_active: boolean
+          release_date: string
+          updated_at: string
+          version: string
+        }
+        Insert: {
+          branch?: string
+          changelog?: string | null
+          created_at?: string
+          created_by?: string | null
+          environment?: string
+          git_commit: string
+          id?: string
+          is_active?: boolean
+          release_date?: string
+          updated_at?: string
+          version: string
+        }
+        Update: {
+          branch?: string
+          changelog?: string | null
+          created_at?: string
+          created_by?: string | null
+          environment?: string
+          git_commit?: string
+          id?: string
+          is_active?: boolean
+          release_date?: string
+          updated_at?: string
+          version?: string
+        }
+        Relationships: []
+      }
       visits: {
         Row: {
           created_at: string

@@ -12,6 +12,7 @@ import TeamChat from '@/components/TeamChat';
 import ComplaintManagement from '@/components/ComplaintManagement';
 import UserLoginReports from '@/components/UserLoginReports';
 import Settings from '@/components/Settings';
+import VersionManager from '@/components/VersionManager';
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -59,6 +60,8 @@ const Index = () => {
         return <UserLoginReports />;
       case 'chat':
         return <TeamChat />;
+      case 'version':
+        return <VersionManager />;
       case 'settings':
         return <Settings />;
       default:

@@ -21,7 +21,8 @@ import {
   ClipboardList,
   MessageCircle,
   UserCog,
-  MessageSquare
+  MessageSquare,
+  History as HistoryIcon
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -69,6 +70,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
         { id: 'tasks', label: 'Task Management', icon: ClipboardList },
         { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
         { id: 'chat', label: 'Team Chat', icon: MessageSquare },
+        { id: 'version', label: 'Version Management', icon: HistoryIcon },
         { id: 'settings', label: 'Settings', icon: Settings },
       ];
     }
