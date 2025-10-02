@@ -22,6 +22,11 @@ const Index = () => {
   useEffect(() => {
     if (!loading && !user) {
       navigate('/auth');
+    } else if (!loading && user) {
+      // Ensure we're on /dashboard when authenticated
+      if (window.location.pathname === '/') {
+        navigate('/dashboard');
+      }
     }
   }, [user, loading, navigate]);
 

@@ -26,7 +26,7 @@ const Auth = () => {
 
   useEffect(() => {
     if (user) {
-      navigate('/');
+      navigate('/dashboard');
     }
   }, [user, navigate]);
 
@@ -119,7 +119,7 @@ const Auth = () => {
       return;
     }
     try {
-      const redirectUrl = `${window.location.origin}/`;
+      const redirectUrl = `${window.location.origin}/dashboard`;
       const { error } = await supabase.auth.signInWithOtp({
         email: adminData.email,
         options: { emailRedirectTo: redirectUrl },
