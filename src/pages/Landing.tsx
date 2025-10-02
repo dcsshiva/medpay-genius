@@ -102,7 +102,7 @@ const Landing = () => {
               className="text-lg px-8 bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20"
             >
               <Phone className="mr-2 h-5 w-5" />
-              Emergency: 911
+              Emergency: Coming Soon
             </Button>
           </div>
         </div>
@@ -247,8 +247,8 @@ const Landing = () => {
                 <Phone className="h-8 w-8 text-primary" />
               </div>
               <h3 className="font-semibold mb-2">Phone</h3>
-              <p className="text-muted-foreground">Emergency: 911</p>
-              <p className="text-muted-foreground">Appointments: (555) 123-4567</p>
+              <p className="text-muted-foreground">Coming Soon</p>
+              <p className="text-muted-foreground">Details Coming Soon</p>
             </div>
 
             <div className="text-center p-6">
@@ -256,8 +256,8 @@ const Landing = () => {
                 <MapPin className="h-8 w-8 text-primary" />
               </div>
               <h3 className="font-semibold mb-2">Location</h3>
-              <p className="text-muted-foreground">123 Medical Center Drive</p>
-              <p className="text-muted-foreground">Healthcare City, HC 12345</p>
+              <p className="text-muted-foreground">Details Coming Soon</p>
+              <p className="text-muted-foreground"></p>
             </div>
 
             <div className="text-center p-6">
@@ -265,8 +265,8 @@ const Landing = () => {
                 <Clock className="h-8 w-8 text-primary" />
               </div>
               <h3 className="font-semibold mb-2">Hours</h3>
-              <p className="text-muted-foreground">Emergency: 24/7</p>
-              <p className="text-muted-foreground">Outpatient: Mon-Sat 8AM-8PM</p>
+              <p className="text-muted-foreground">Coming Soon</p>
+              <p className="text-muted-foreground">Details Coming Soon</p>
             </div>
           </div>
         </div>
