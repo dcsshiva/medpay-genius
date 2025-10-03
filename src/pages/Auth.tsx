@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
-import { LogIn, Shield, UserCheck } from 'lucide-react';
+import { LogIn, Shield, UserCheck, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import westmedBanner from '@/assets/westmed-banner.png';
 import westmedLogo from '@/assets/westmed-logo.png';
@@ -142,6 +142,15 @@ const Auth = () => {
       }}
     >
       <div className="w-full max-w-md">
+        <Button
+          variant="ghost"
+          onClick={() => navigate('/')}
+          className="mb-4 text-white hover:bg-white/10 hover:text-white"
+        >
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Home
+        </Button>
+        
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
             <div className="bg-white p-4 rounded-full shadow-lg">
