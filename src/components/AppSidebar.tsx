@@ -12,7 +12,8 @@ import {
   Clock,
   CheckCircle,
   TrendingUp,
-  History as HistoryIcon
+  History as HistoryIcon,
+  Globe
 } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
 import {
@@ -129,6 +130,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
         { id: 'login-reports', label: 'Login Reports', icon: TrendingUp },
         { id: 'chat', label: 'Team Chat', icon: MessageSquare },
         { id: 'version', label: 'Version Management', icon: HistoryIcon },
+        { id: 'website-settings', label: 'Website Settings', icon: Globe },
         { id: 'settings', label: 'Settings', icon: Settings },
       ];
     }

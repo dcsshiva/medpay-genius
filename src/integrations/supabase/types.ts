@@ -661,6 +661,93 @@ export type Database = {
           },
         ]
       }
+      website_settings: {
+        Row: {
+          about_paragraph_1: string | null
+          about_paragraph_2: string | null
+          banner_url: string | null
+          book_appointment_text: string | null
+          copyright_text: string | null
+          created_at: string | null
+          emergency_button_text: string | null
+          emergency_care_description: string | null
+          emergency_contact: string | null
+          expert_doctors: number | null
+          health_checkups_description: string | null
+          hero_headline: string | null
+          hero_tagline: string | null
+          hospital_name: string | null
+          id: string
+          is_active: boolean | null
+          location: string | null
+          logo_url: string | null
+          operating_hours: string | null
+          patient_rating: number | null
+          patients_served: string | null
+          phone: string | null
+          specialist_care_description: string | null
+          updated_at: string | null
+          why_choose_us: Json | null
+          years_of_service: number | null
+        }
+        Insert: {
+          about_paragraph_1?: string | null
+          about_paragraph_2?: string | null
+          banner_url?: string | null
+          book_appointment_text?: string | null
+          copyright_text?: string | null
+          created_at?: string | null
+          emergency_button_text?: string | null
+          emergency_care_description?: string | null
+          emergency_contact?: string | null
+          expert_doctors?: number | null
+          health_checkups_description?: string | null
+          hero_headline?: string | null
+          hero_tagline?: string | null
+          hospital_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          location?: string | null
+          logo_url?: string | null
+          operating_hours?: string | null
+          patient_rating?: number | null
+          patients_served?: string | null
+          phone?: string | null
+          specialist_care_description?: string | null
+          updated_at?: string | null
+          why_choose_us?: Json | null
+          years_of_service?: number | null
+        }
+        Update: {
+          about_paragraph_1?: string | null
+          about_paragraph_2?: string | null
+          banner_url?: string | null
+          book_appointment_text?: string | null
+          copyright_text?: string | null
+          created_at?: string | null
+          emergency_button_text?: string | null
+          emergency_care_description?: string | null
+          emergency_contact?: string | null
+          expert_doctors?: number | null
+          health_checkups_description?: string | null
+          hero_headline?: string | null
+          hero_tagline?: string | null
+          hospital_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          location?: string | null
+          logo_url?: string | null
+          operating_hours?: string | null
+          patient_rating?: number | null
+          patients_served?: string | null
+          phone?: string | null
+          specialist_care_description?: string | null
+          updated_at?: string | null
+          why_choose_us?: Json | null
+          years_of_service?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
