@@ -765,6 +765,17 @@ export type Database = {
         Args: { _username: string }
         Returns: string
       }
+      get_staff_list_for_management: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          department: string
+          full_name: string
+          id: string
+          is_active: boolean
+          role: Database["public"]["Enums"]["staff_role"]
+          staff_code: string
+        }[]
+      }
       get_staff_task_counts: {
         Args: { _staff_id: string }
         Returns: {
