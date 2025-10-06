@@ -23,23 +23,27 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Verify the requesting user is an admin or manager
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(
-      authHeader.replace('Bearer ', '')
-    );
-    
-    if (authError || !user) {
-      throw new Error('Invalid authentication');
-    }
+    // Extract session token from Authorization header
+    const sessionToken = authHeader.replace('Bearer ', '');
 
-    // Check if user is admin or manager
-    const { data: profile } = await supabaseClient
-      .from('profiles')
-      .select('role')
-      .eq('user_id', user.id)
+    // Validate session using custom user_sessions table
+    const { data: session, error: sessionError } = await supabaseClient
+      .from('user_sessions')
+      .select('user_id, role, is_active, expires_at')
+      .eq('session_token', sessionToken)
       .single();
     
-    if (!profile || !['admin', 'manager'].includes(profile.role)) {
+    if (sessionError || !session) {
+      throw new Error('Invalid session token');
+    }
+
+    // Check if session is active and not expired
+    if (!session.is_active || new Date(session.expires_at) < new Date()) {
+      throw new Error('Session expired or inactive');
+    }
+
+    // Check if user has admin or manager role
+    if (!['admin', 'manager'].includes(session.role)) {
       throw new Error('Only admins and managers can update user credentials');
     }
 

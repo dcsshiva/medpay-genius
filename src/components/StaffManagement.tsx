@@ -20,6 +20,7 @@ import {
   analyzeStaffImport,
   type ImportResults
 } from '@/lib/excelImportUtils';
+import { getSessionAuthHeaders } from '@/lib/sessionAuth';
 
 interface Staff {
   id: string;
@@ -240,7 +241,8 @@ const StaffManagement = () => {
                 body: {
                   userId: profileData.user_id,
                   password: formData.password.trim()
-                }
+                },
+                headers: getSessionAuthHeaders()
               });
 
               if (credUpdateError) {
@@ -323,7 +325,8 @@ const StaffManagement = () => {
             full_name: formData.full_name,
             role: profileRole
           }
-        }
+        },
+        headers: getSessionAuthHeaders()
       });
 
       if (createUserError || !result?.success) {
@@ -339,7 +342,8 @@ const StaffManagement = () => {
                 full_name: formData.full_name,
                 role: profileRole
               }
-            }
+            },
+            headers: getSessionAuthHeaders()
           });
           if (retry.error || !retry.data?.success) {
             throw new Error(retry.data?.error || retry.error?.message || 'Failed to create user');
@@ -626,7 +630,8 @@ const StaffManagement = () => {
                     body: {
                       userId: profile.user_id,
                       password: row.password
-                    }
+                    },
+                    headers: getSessionAuthHeaders()
                   });
                 }
               }
@@ -655,7 +660,8 @@ const StaffManagement = () => {
                   full_name: row.full_name,
                   role: profileRole
                 }
-              }
+              },
+              headers: getSessionAuthHeaders()
             });
             
             if (authError || !authResult?.success) {

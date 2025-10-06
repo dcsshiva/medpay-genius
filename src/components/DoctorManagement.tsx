@@ -18,6 +18,7 @@ import {
   analyzeDoctorImport,
   type ImportResults
 } from '@/lib/excelImportUtils';
+import { getSessionAuthHeaders } from '@/lib/sessionAuth';
 
 interface Doctor {
   id: string;
@@ -207,7 +208,8 @@ const DoctorManagement = () => {
                 userId: authProfile.user_id,
                 email: formData.email.trim(),
                 password: formData.password.trim()
-              }
+              },
+              headers: getSessionAuthHeaders()
             });
 
             if (credUpdateError) {
@@ -257,7 +259,7 @@ const DoctorManagement = () => {
           return;
         }
 
-        // Create auth user via edge function
+        // Create auth user, profile, and doctor via edge function
         const { data: result, error: createUserError } = await supabase.functions.invoke('create-user', {
           body: {
             email: formData.email,
@@ -265,39 +267,23 @@ const DoctorManagement = () => {
             userData: {
               full_name: formData.full_name,
               role: 'doctor'
+            },
+            doctorData: {
+              doctor_code: formData.doctor_code,
+              specialization: formData.specialization,
+              bank_account_number: formData.bank_account_number,
+              account_holder_name: formData.account_holder_name,
+              bank_name: formData.bank_name,
+              branch_name: formData.branch_name,
+              ifsc_code: formData.ifsc_code
             }
-          }
+          },
+          headers: getSessionAuthHeaders()
         });
 
         if (createUserError || !result?.success) {
           throw new Error(result?.error || createUserError?.message || 'Failed to create user');
         }
-
-        // The edge function already creates the profile, so get it instead of creating
-        const { data: profileData, error: profileError } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('user_id', result.user.id)
-          .single();
-
-        if (profileError) throw profileError;
-
-        // Create doctor record
-        const { error: createDoctorError } = await supabase
-          .from('doctors')
-          .insert({
-            profile_id: profileData.id,
-            doctor_code: formData.doctor_code,
-            specialization: formData.specialization,
-            is_active: formData.is_active,
-            bank_account_number: formData.bank_account_number,
-            account_holder_name: formData.account_holder_name,
-            bank_name: formData.bank_name,
-            branch_name: formData.branch_name,
-            ifsc_code: formData.ifsc_code
-          });
-
-        if (createDoctorError) throw createDoctorError;
 
         toast({
           title: "Success",
@@ -511,7 +497,8 @@ const DoctorManagement = () => {
                   body: {
                     userId: decision.existingRecord.profiles.user_id,
                     password: row.password
-                  }
+                  },
+                  headers: getSessionAuthHeaders()
                 });
               }
             }
@@ -533,35 +520,23 @@ const DoctorManagement = () => {
                 userData: {
                   full_name: row.full_name,
                   role: 'doctor'
+                },
+                doctorData: {
+                  doctor_code: row.doctor_code,
+                  specialization: row.specialization,
+                  bank_account_number: row.bank_account_number || null,
+                  account_holder_name: row.account_holder_name || null,
+                  bank_name: row.bank_name || null,
+                  branch_name: row.branch_name || null,
+                  ifsc_code: row.ifsc_code || null
                 }
-              }
+              },
+              headers: getSessionAuthHeaders()
             });
             
             if (authError || !authResult?.success) {
               throw new Error(authResult?.error || 'Failed to create user');
             }
-            
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('id')
-              .eq('user_id', authResult.user.id)
-              .single();
-            
-            const { error: doctorError } = await supabase
-              .from('doctors')
-              .insert({
-                profile_id: profile.id,
-                doctor_code: row.doctor_code,
-                specialization: row.specialization,
-                is_active: true,
-                bank_account_number: row.bank_account_number || null,
-                account_holder_name: row.account_holder_name || null,
-                bank_name: row.bank_name || null,
-                branch_name: row.branch_name || null,
-                ifsc_code: row.ifsc_code || null
-              });
-            
-            if (doctorError) throw doctorError;
             
             results.inserted++;
           }

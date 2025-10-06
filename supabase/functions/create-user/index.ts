@@ -47,7 +47,7 @@ serve(async (req) => {
       throw new Error('Only admins and managers can create users');
     }
 
-    const { email, password, userData } = await req.json();
+    const { email, password, userData, doctorData } = await req.json();
 
     // Create the auth user
     const { data: authData, error: createError } = await supabaseClient.auth.admin.createUser({
@@ -65,8 +65,52 @@ serve(async (req) => {
       throw createError;
     }
 
+    // Create profile entry
+    const { data: profileData, error: profileError } = await supabaseClient
+      .from('profiles')
+      .insert({
+        user_id: authData.user.id,
+        full_name: userData.full_name,
+        role: userData.role || 'doctor'
+      })
+      .select()
+      .single();
+
+    if (profileError) {
+      console.error('Error creating profile:', profileError);
+      throw new Error('Failed to create user profile');
+    }
+
+    let doctorId = null;
+    // If doctorData is provided, create doctor entry
+    if (doctorData) {
+      const { data: doctor, error: doctorError } = await supabaseClient
+        .from('doctors')
+        .insert({
+          profile_id: profileData.id,
+          doctor_code: doctorData.doctor_code,
+          specialization: doctorData.specialization,
+          bank_name: doctorData.bank_name,
+          bank_account_number: doctorData.bank_account_number,
+          ifsc_code: doctorData.ifsc_code,
+          branch_name: doctorData.branch_name,
+          account_holder_name: doctorData.account_holder_name,
+          is_active: true
+        })
+        .select()
+        .single();
+
+      if (doctorError) {
+        console.error('Error creating doctor:', doctorError);
+        throw new Error('Failed to create doctor record');
+      }
+      doctorId = doctor.id;
+    }
+
     return new Response(JSON.stringify({ 
       user: authData.user,
+      profile_id: profileData.id,
+      doctor_id: doctorId,
       success: true 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
