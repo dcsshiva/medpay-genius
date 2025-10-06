@@ -13,7 +13,8 @@ import {
   CheckCircle,
   TrendingUp,
   History as HistoryIcon,
-  Globe
+  Globe,
+  BookOpen
 } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
 import {
@@ -95,6 +96,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const getNavigationItems = () => {
     const baseItems = [
       { id: 'dashboard', label: 'Dashboard', icon: Home },
+      { id: 'user-guide', label: 'User Guide', icon: BookOpen },
     ];
 
     if (userRole === 'doctor') {
