@@ -12,7 +12,9 @@ import {
   Clock,
   CheckCircle,
   AlertCircle,
-  ListTodo
+  ListTodo,
+  Banknote,
+  FileText
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -27,6 +29,8 @@ interface DashboardStats {
   pendingPayments?: number;
   pendingTasks?: number;
   completedTasks?: number;
+  pendingCashApprovals?: number;
+  pendingInsuranceApprovals?: number;
 }
 
 interface DashboardProps {
@@ -47,14 +51,16 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
   const fetchDashboardStats = async () => {
     try {
       if (userRole === 'admin') {
-        const [doctorsRes, visitsRes, paymentsRes, pendingRes, unprocessedVisitsRes, pendingTasksRes, completedTasksRes] = await Promise.all([
+        const [doctorsRes, visitsRes, paymentsRes, pendingRes, unprocessedVisitsRes, pendingTasksRes, completedTasksRes, cashApprovalsRes, insuranceApprovalsRes] = await Promise.all([
           supabase.from('doctors').select('id', { count: 'exact' }),
           supabase.from('visits').select('id', { count: 'exact' }),
           supabase.from('payments').select('total_amount'),
           supabase.from('payments').select('id', { count: 'exact' }).eq('status', 'pending'),
           supabase.from('visits').select('visit_payment', { count: 'exact' }).eq('is_processed', false),
           supabase.from('tasks').select('id', { count: 'exact' }).in('status', ['pending', 'in_progress']),
-          supabase.from('tasks').select('id', { count: 'exact' }).eq('status', 'completed')
+          supabase.from('tasks').select('id', { count: 'exact' }).eq('status', 'completed'),
+          supabase.from('payments').select('id', { count: 'exact' }).or('cash_approval_status.eq.pending,cash_approval_status.eq.manager_approved').not('cash_approval_status', 'is', null),
+          supabase.from('payments').select('id', { count: 'exact' }).or('insurance_approval_status.eq.pending,insurance_approval_status.eq.manager_approved').not('insurance_approval_status', 'is', null)
         ]);
 
         const totalPaymentAmount = paymentsRes.data?.reduce((sum, payment) => sum + Number(payment.total_amount), 0) || 0;
@@ -69,13 +75,17 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
           totalPendingPayment: totalPendingPaymentAmount,
           pendingTasks: pendingTasksRes.count || 0,
           completedTasks: completedTasksRes.count || 0,
+          pendingCashApprovals: cashApprovalsRes.count || 0,
+          pendingInsuranceApprovals: insuranceApprovalsRes.count || 0,
         });
       } else if (userRole === 'manager') {
-        const [doctorsRes, pendingRes, pendingTasksRes, completedTasksRes] = await Promise.all([
+        const [doctorsRes, pendingRes, pendingTasksRes, completedTasksRes, cashApprovalsRes, insuranceApprovalsRes] = await Promise.all([
           supabase.from('doctors').select('id', { count: 'exact' }),
           supabase.from('payments').select('id', { count: 'exact' }).eq('status', 'pending'),
           supabase.from('tasks').select('id', { count: 'exact' }).in('status', ['pending', 'in_progress']),
-          supabase.from('tasks').select('id', { count: 'exact' }).eq('status', 'completed')
+          supabase.from('tasks').select('id', { count: 'exact' }).eq('status', 'completed'),
+          supabase.from('payments').select('id', { count: 'exact' }).or('cash_approval_status.eq.pending,cash_approval_status.eq.manager_approved').not('cash_approval_status', 'is', null),
+          supabase.from('payments').select('id', { count: 'exact' }).or('insurance_approval_status.eq.pending,insurance_approval_status.eq.manager_approved').not('insurance_approval_status', 'is', null)
         ]);
 
         setStats({
@@ -83,6 +93,8 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
           pendingApprovals: pendingRes.count || 0,
           pendingTasks: pendingTasksRes.count || 0,
           completedTasks: completedTasksRes.count || 0,
+          pendingCashApprovals: cashApprovalsRes.count || 0,
+          pendingInsuranceApprovals: insuranceApprovalsRes.count || 0,
         });
       } else if (userRole === 'doctor') {
         // Support both custom-auth doctors and Supabase-auth doctors
@@ -270,6 +282,34 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
           <p className="text-xs text-muted-foreground">Value of unprocessed visits</p>
         </CardContent>
       </Card>
+
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-emerald-500/50"
+        onClick={() => onTabChange?.('payments')}
+      >
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Pending Cash Approvals</CardTitle>
+          <Banknote className="h-4 w-4 text-emerald-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-emerald-600">{stats.pendingCashApprovals || 0}</div>
+          <p className="text-xs text-muted-foreground">Cash payments awaiting approval</p>
+        </CardContent>
+      </Card>
+
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-blue-500/50"
+        onClick={() => onTabChange?.('payments')}
+      >
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Pending Insurance Approvals</CardTitle>
+          <FileText className="h-4 w-4 text-blue-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-blue-600">{stats.pendingInsuranceApprovals || 0}</div>
+          <p className="text-xs text-muted-foreground">Insurance payments awaiting approval</p>
+        </CardContent>
+      </Card>
     </div>
   );
 
@@ -328,6 +368,34 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
         <CardContent>
           <div className="text-2xl font-bold text-success">{stats.completedTasks || 0}</div>
           <p className="text-xs text-muted-foreground">Tasks completed</p>
+        </CardContent>
+      </Card>
+
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-emerald-500/50"
+        onClick={() => onTabChange?.('payments')}
+      >
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Pending Cash Approvals</CardTitle>
+          <Banknote className="h-4 w-4 text-emerald-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-emerald-600">{stats.pendingCashApprovals || 0}</div>
+          <p className="text-xs text-muted-foreground">Cash payments awaiting approval</p>
+        </CardContent>
+      </Card>
+
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-blue-500/50"
+        onClick={() => onTabChange?.('payments')}
+      >
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Pending Insurance Approvals</CardTitle>
+          <FileText className="h-4 w-4 text-blue-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-blue-600">{stats.pendingInsuranceApprovals || 0}</div>
+          <p className="text-xs text-muted-foreground">Insurance payments awaiting approval</p>
         </CardContent>
       </Card>
     </div>
