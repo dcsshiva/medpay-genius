@@ -8,67 +8,67 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* WestMed Hospital Color System */
-    --background: 0 0% 100%;
-    --foreground: 210 40% 20%;
+    /* WestMed Hospital Color System - Soft Nature Theme */
+    --background: 140 20% 97%;
+    --foreground: 160 20% 20%;
 
     --card: 0 0% 100%;
-    --card-foreground: 210 40% 20%;
+    --card-foreground: 160 20% 20%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 210 40% 20%;
+    --popover-foreground: 160 20% 20%;
 
-    /* WestMed Primary Green - Fresh medical green */
-    --primary: 95 65% 60%;
+    /* WestMed Primary Green - Softer Meadow Green */
+    --primary: 140 45% 50%;
     --primary-foreground: 0 0% 100%;
 
-    /* WestMed Secondary Teal */
-    --secondary: 195 55% 65%;
+    /* WestMed Secondary Teal - Soft Sky Teal */
+    --secondary: 180 40% 60%;
     --secondary-foreground: 0 0% 100%;
 
-    --muted: 210 16% 96%;
-    --muted-foreground: 210 12% 55%;
+    --muted: 150 25% 95%;
+    --muted-foreground: 155 12% 50%;
 
-    --accent: 195 55% 65%;
+    --accent: 180 40% 60%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 210 20% 90%;
-    --input: 210 20% 95%;
-    --ring: 95 65% 60%;
+    --border: 150 8% 88%;
+    --input: 150 25% 95%;
+    --ring: 140 45% 50%;
 
-    --success: 95 65% 60%;
+    --success: 140 45% 50%;
     --success-foreground: 0 0% 100%;
 
     --warning: 38 92% 50%;
     --warning-foreground: 0 0% 100%;
 
-    /* WestMed Brand Colors */
-    --westmed-green: 95 65% 60%;
-    --westmed-teal: 195 55% 65%;
-    --westmed-navy: 210 40% 20%;
+    /* WestMed Brand Colors - Soft Nature Palette */
+    --westmed-green: 140 45% 50%;
+    --westmed-teal: 180 40% 60%;
+    --westmed-navy: 160 20% 20%;
     --westmed-coral: 14 100% 70%;
-    --westmed-light-green: 95 45% 85%;
-    --westmed-light-teal: 195 40% 90%;
+    --westmed-light-green: 150 40% 92%;
+    --westmed-light-teal: 180 30% 94%;
 
     /* Legacy medical colors for compatibility */
-    --medical-blue: 195 55% 65%;
-    --medical-green: 95 65% 60%;
-    --medical-light: 210 16% 98%;
+    --medical-blue: 180 40% 60%;
+    --medical-green: 140 45% 50%;
+    --medical-light: 150 25% 95%;
 
     --radius: 0.5rem;
 
-    /* Sidebar colors updated with WestMed theme */
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 210 40% 20%;
-    --sidebar-primary: 95 65% 60%;
+    /* Sidebar colors - Soft Eucalyptus Theme */
+    --sidebar-background: 165 30% 96%;
+    --sidebar-foreground: 155 15% 35%;
+    --sidebar-primary: 140 35% 45%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 95 45% 95%;
-    --sidebar-accent-foreground: 210 40% 20%;
-    --sidebar-border: 210 20% 90%;
-    --sidebar-ring: 95 65% 60%;
+    --sidebar-accent: 150 40% 92%;
+    --sidebar-accent-foreground: 155 15% 35%;
+    --sidebar-border: 150 8% 88%;
+    --sidebar-ring: 140 45% 50%;
   }
 
   .dark {
