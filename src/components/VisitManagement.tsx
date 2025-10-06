@@ -347,7 +347,7 @@ const VisitManagement = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="visit_date">Visit Date</Label>
+                    <Label htmlFor="visit_date">Discharge Date</Label>
                     <Input
                       id="visit_date"
                       type="date"
