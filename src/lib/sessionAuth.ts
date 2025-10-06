@@ -7,7 +7,7 @@
  */
 export const getSessionToken = (): string | null => {
   if (typeof window === 'undefined') return null;
-  return sessionStorage.getItem('session_token');
+  return sessionStorage.getItem('supabase_session_token');
 };
 
 /**
