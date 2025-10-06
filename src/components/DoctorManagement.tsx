@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,7 +10,14 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Users, Stethoscope, Search } from 'lucide-react';
+import { Plus, Edit, Users, Stethoscope, Search, Download, Upload, Loader2 } from 'lucide-react';
+import { 
+  generateDoctorTemplate, 
+  parseExcelFile, 
+  validateDoctorCode,
+  analyzeDoctorImport,
+  type ImportResults
+} from '@/lib/excelImportUtils';
 
 interface Doctor {
   id: string;
@@ -55,6 +62,10 @@ const DoctorManagement = () => {
     branch_name: '',
     ifsc_code: ''
   });
+  const [importing, setImporting] = useState(false);
+  const [importResults, setImportResults] = useState<ImportResults | null>(null);
+  const [showImportResults, setShowImportResults] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchDoctors();
@@ -392,6 +403,196 @@ const DoctorManagement = () => {
     }
   };
 
+  const handleDoctorImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!['admin', 'manager'].includes(userRole || '')) {
+      toast({
+        variant: "destructive",
+        title: "Access Denied",
+        description: "Only admins and managers can import doctors"
+      });
+      return;
+    }
+    
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    if (!file.name.match(/\.(xlsx|xls)$/)) {
+      toast({
+        variant: "destructive",
+        title: "Invalid File",
+        description: "Please upload an Excel file (.xlsx or .xls)"
+      });
+      return;
+    }
+    
+    setImporting(true);
+    const results: ImportResults = {
+      inserted: 0,
+      updated: 0,
+      skipped: 0,
+      errors: []
+    };
+    
+    try {
+      const rows = await parseExcelFile(file);
+      const { data: existingDoctors } = await supabase
+        .from('doctors')
+        .select(`
+          id,
+          doctor_code,
+          specialization,
+          bank_account_number,
+          account_holder_name,
+          bank_name,
+          branch_name,
+          ifsc_code,
+          profiles:profile_id (
+            id,
+            full_name,
+            user_id
+          )
+        `);
+      
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowNumber = i + 2;
+        
+        try {
+          if (!row.doctor_code || !row.full_name || !row.specialization) {
+            results.errors.push({
+              row: rowNumber,
+              message: 'Missing required fields (doctor_code, full_name, or specialization)'
+            });
+            continue;
+          }
+          
+          if (!validateDoctorCode(row.doctor_code)) {
+            results.errors.push({
+              row: rowNumber,
+              message: `Invalid doctor code format: ${row.doctor_code}`
+            });
+            continue;
+          }
+          
+          const decision = analyzeDoctorImport(row, existingDoctors || []);
+          
+          if (decision.action === 'skip') {
+            results.skipped++;
+            continue;
+          }
+          
+          if (decision.action === 'update') {
+            const { error } = await supabase
+              .from('doctors')
+              .update({
+                specialization: row.specialization,
+                bank_account_number: row.bank_account_number || null,
+                account_holder_name: row.account_holder_name || null,
+                bank_name: row.bank_name || null,
+                branch_name: row.branch_name || null,
+                ifsc_code: row.ifsc_code || null
+              })
+              .eq('doctor_code', row.doctor_code);
+            
+            if (error) throw error;
+            
+            if (decision.existingRecord?.profiles?.id) {
+              await supabase
+                .from('profiles')
+                .update({ full_name: row.full_name })
+                .eq('id', decision.existingRecord.profiles.id);
+                
+              if (row.password && decision.existingRecord.profiles.user_id) {
+                await supabase.functions.invoke('update-user-credentials', {
+                  body: {
+                    userId: decision.existingRecord.profiles.user_id,
+                    password: row.password
+                  }
+                });
+              }
+            }
+            
+            results.updated++;
+          } else {
+            if (!row.email || !row.password) {
+              results.errors.push({
+                row: rowNumber,
+                message: 'Email and password required for new doctors'
+              });
+              continue;
+            }
+            
+            const { data: authResult, error: authError } = await supabase.functions.invoke('create-user', {
+              body: {
+                email: row.email,
+                password: row.password,
+                userData: {
+                  full_name: row.full_name,
+                  role: 'doctor'
+                }
+              }
+            });
+            
+            if (authError || !authResult?.success) {
+              throw new Error(authResult?.error || 'Failed to create user');
+            }
+            
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('user_id', authResult.user.id)
+              .single();
+            
+            const { error: doctorError } = await supabase
+              .from('doctors')
+              .insert({
+                profile_id: profile.id,
+                doctor_code: row.doctor_code,
+                specialization: row.specialization,
+                is_active: true,
+                bank_account_number: row.bank_account_number || null,
+                account_holder_name: row.account_holder_name || null,
+                bank_name: row.bank_name || null,
+                branch_name: row.branch_name || null,
+                ifsc_code: row.ifsc_code || null
+              });
+            
+            if (doctorError) throw doctorError;
+            
+            results.inserted++;
+          }
+          
+        } catch (error: any) {
+          results.errors.push({
+            row: rowNumber,
+            message: error.message || 'Unknown error'
+          });
+        }
+      }
+      
+      setImportResults(results);
+      setShowImportResults(true);
+      fetchDoctors();
+      
+      toast({
+        title: "Import Complete",
+        description: `Inserted: ${results.inserted}, Updated: ${results.updated}, Skipped: ${results.skipped}, Errors: ${results.errors.length}`
+      });
+      
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Import Failed",
+        description: error.message
+      });
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   const toggleDoctorStatus = async (doctorId: string, currentStatus: boolean) => {
     if (!['admin', 'manager'].includes(userRole || '')) {
       toast({
@@ -454,20 +655,47 @@ const DoctorManagement = () => {
           <p className="text-muted-foreground">Manage doctor profiles</p>
         </div>
         
-        {(userRole === 'admin' || userRole === 'manager') && (
-          <Dialog open={dialogOpen} onOpenChange={(open) => {
-            if (open) {
-              resetForm();
-              setEditingDoctor(null);
-            }
-            setDialogOpen(open);
-          }}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Doctor
-              </Button>
-            </DialogTrigger>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={generateDoctorTemplate}>
+            <Download className="h-4 w-4 mr-2" />
+            Download Template
+          </Button>
+          
+          <Button
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+          >
+            {importing ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4 mr-2" />
+            )}
+            Import from Excel
+          </Button>
+          
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={handleDoctorImport}
+          />
+        
+          {(userRole === 'admin' || userRole === 'manager') && (
+            <Dialog open={dialogOpen} onOpenChange={(open) => {
+              if (open) {
+                resetForm();
+                setEditingDoctor(null);
+              }
+              setDialogOpen(open);
+            }}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Doctor
+                </Button>
+              </DialogTrigger>
             <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>
@@ -627,8 +855,9 @@ const DoctorManagement = () => {
           </Dialog>
         )}
       </div>
+    </div>
 
-      {/* Search Input */}
+    {/* Search Input */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
         <Input

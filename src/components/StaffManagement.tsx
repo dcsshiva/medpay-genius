@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,8 +10,16 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Users, UserCheck, UserX, Search } from 'lucide-react';
+import { Plus, Edit, Users, UserCheck, UserX, Search, Download, Upload, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { 
+  generateStaffTemplate, 
+  parseExcelFile, 
+  generateStaffCodeByRole, 
+  validateStaffCode,
+  analyzeStaffImport,
+  type ImportResults
+} from '@/lib/excelImportUtils';
 
 interface Staff {
   id: string;
@@ -52,6 +60,10 @@ const StaffManagement = () => {
     role: 'nurse',
     department: ''
   });
+  const [importing, setImporting] = useState(false);
+  const [importResults, setImportResults] = useState<ImportResults | null>(null);
+  const [showImportResults, setShowImportResults] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const staffRoles = [
     'admin', 'manager', 'nurse', 'doctor', 'technician', 
@@ -506,6 +518,202 @@ const StaffManagement = () => {
     setDialogOpen(true);
   };
 
+  const handleStaffImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (!['admin', 'manager'].includes(userRole || '')) {
+      toast({
+        variant: "destructive",
+        title: "Access Denied",
+        description: "Only admins and managers can import staff"
+      });
+      return;
+    }
+    
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    if (!file.name.match(/\.(xlsx|xls)$/)) {
+      toast({
+        variant: "destructive",
+        title: "Invalid File",
+        description: "Please upload an Excel file (.xlsx or .xls)"
+      });
+      return;
+    }
+    
+    setImporting(true);
+    const results: ImportResults = {
+      inserted: 0,
+      updated: 0,
+      skipped: 0,
+      errors: []
+    };
+    
+    try {
+      const rows = await parseExcelFile(file);
+      const { data: existingStaff } = await supabase.from('staff').select('*');
+      
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowNumber = i + 2;
+        
+        try {
+          if (!row.username || !row.full_name || !row.role) {
+            results.errors.push({
+              row: rowNumber,
+              message: 'Missing required fields (username, full_name, or role)'
+            });
+            continue;
+          }
+          
+          let staffCode = row.staff_code?.trim();
+          if (!staffCode) {
+            staffCode = generateStaffCodeByRole(row.role);
+            while (existingStaff?.some(s => s.staff_code === staffCode)) {
+              staffCode = generateStaffCodeByRole(row.role);
+            }
+          } else if (!validateStaffCode(staffCode)) {
+            results.errors.push({
+              row: rowNumber,
+              message: `Invalid staff code format: ${staffCode}`
+            });
+            continue;
+          }
+          
+          const decision = analyzeStaffImport(
+            { ...row, staff_code: staffCode },
+            existingStaff || []
+          );
+          
+          if (decision.action === 'skip') {
+            results.skipped++;
+            continue;
+          }
+          
+          if (decision.action === 'update') {
+            const { error } = await supabase
+              .from('staff')
+              .update({
+                username: row.username,
+                full_name: row.full_name,
+                email: row.email || null,
+                phone: row.phone || null,
+                role: row.role,
+                department: row.department || null
+              })
+              .eq('staff_code', staffCode);
+            
+            if (error) throw error;
+            
+            if (decision.existingRecord?.profile_id) {
+              await supabase
+                .from('profiles')
+                .update({ full_name: row.full_name })
+                .eq('id', decision.existingRecord.profile_id);
+                
+              if (row.password) {
+                const { data: profile } = await supabase
+                  .from('profiles')
+                  .select('user_id')
+                  .eq('id', decision.existingRecord.profile_id)
+                  .single();
+                
+                if (profile?.user_id) {
+                  await supabase.functions.invoke('update-user-credentials', {
+                    body: {
+                      userId: profile.user_id,
+                      password: row.password
+                    }
+                  });
+                }
+              }
+            }
+            
+            results.updated++;
+          } else {
+            if (!row.password) {
+              results.errors.push({
+                row: rowNumber,
+                message: 'Password required for new staff'
+              });
+              continue;
+            }
+            
+            const email = row.email || `${row.username}.${Date.now()}@hospital.local`;
+            const profileRole = ['admin','manager','doctor'].includes(row.role) 
+              ? row.role 
+              : 'staff';
+            
+            const { data: authResult, error: authError } = await supabase.functions.invoke('create-user', {
+              body: {
+                email,
+                password: row.password,
+                userData: {
+                  full_name: row.full_name,
+                  role: profileRole
+                }
+              }
+            });
+            
+            if (authError || !authResult?.success) {
+              throw new Error(authResult?.error || 'Failed to create user');
+            }
+            
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('user_id', authResult.user.id)
+              .single();
+            
+            const { error: staffError } = await supabase
+              .from('staff')
+              .insert({
+                profile_id: profile.id,
+                staff_code: staffCode,
+                username: row.username,
+                password_hash: 'managed_by_supabase_auth',
+                full_name: row.full_name,
+                email: authResult.user.email,
+                phone: row.phone || null,
+                role: row.role,
+                department: row.department || null
+              });
+            
+            if (staffError) throw staffError;
+            
+            results.inserted++;
+          }
+          
+        } catch (error: any) {
+          results.errors.push({
+            row: rowNumber,
+            message: error.message || 'Unknown error'
+          });
+        }
+      }
+      
+      setImportResults(results);
+      setShowImportResults(true);
+      fetchStaff();
+      
+      toast({
+        title: "Import Complete",
+        description: `Inserted: ${results.inserted}, Updated: ${results.updated}, Skipped: ${results.skipped}, Errors: ${results.errors.length}`
+      });
+      
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Import Failed",
+        description: error.message
+      });
+    } finally {
+      setImporting(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
       case 'admin': return 'destructive';
@@ -552,13 +760,40 @@ const StaffManagement = () => {
           <p className="text-muted-foreground">Manage hospital staff members and their access</p>
         </div>
         
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button onClick={resetForm}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Staff Member
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={generateStaffTemplate}>
+            <Download className="h-4 w-4 mr-2" />
+            Download Template
+          </Button>
+          
+          <Button
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+          >
+            {importing ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4 mr-2" />
+            )}
+            Import from Excel
+          </Button>
+          
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            className="hidden"
+            onChange={handleStaffImport}
+          />
+        
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button onClick={resetForm}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Staff Member
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Add New Staff Member</DialogTitle>
@@ -686,6 +921,7 @@ const StaffManagement = () => {
           </DialogContent>
         </Dialog>
       </div>
+    </div>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
