@@ -144,6 +144,12 @@ const PaymentManagement = () => {
   const [selectedPaymentsForBankAdvice, setSelectedPaymentsForBankAdvice] = useState<Set<string>>(new Set());
   const [generatingBankAdvice, setGeneratingBankAdvice] = useState(false);
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<'all' | 'cash' | 'insurance' | 'mixed'>('all');
+  
+  // Bank Advice Review Dialog States
+  const [showBankAdviceReviewDialog, setShowBankAdviceReviewDialog] = useState(false);
+  const [transactionTypeSelections, setTransactionTypeSelections] = useState<Map<string, string>>(new Map());
+  const [bulkTransactionType, setBulkTransactionType] = useState<string>('NEFT TRANSFER');
+  const [selectedPaymentsForReview, setSelectedPaymentsForReview] = useState<any[]>([]);
 
   // Global payment statistics
   const [totalPaid, setTotalPaid] = useState(0);
@@ -983,6 +989,31 @@ const PaymentManagement = () => {
     setVisits([]);
   };
 
+  // Transaction Type Constants
+  const TRANSACTION_TYPES = [
+    'INTERNAL TRANSFER',
+    'NEFT TRANSFER',
+    'RTGS TRANSFER',
+    'IMPS TRANSFER-MMID',
+    'IMPS TRANSFER-IFSC'
+  ];
+
+  const TRANSACTION_TYPE_CODES: Record<string, string> = {
+    'INTERNAL TRANSFER': 'INT',
+    'NEFT TRANSFER': 'N06',
+    'RTGS TRANSFER': 'R41',
+    'IMPS TRANSFER-MMID': 'MID',
+    'IMPS TRANSFER-IFSC': 'IFS'
+  };
+
+  const TRANSACTION_REQUIRES_IFSC: Record<string, boolean> = {
+    'INTERNAL TRANSFER': false,
+    'NEFT TRANSFER': true,
+    'RTGS TRANSFER': true,
+    'IMPS TRANSFER-MMID': false,
+    'IMPS TRANSFER-IFSC': true
+  };
+
   // Bank Advice Generation Functions
   const handleSelectPaymentForBankAdvice = (paymentId: string, checked: boolean) => {
     const newSelection = new Set(selectedPaymentsForBankAdvice);
@@ -992,6 +1023,225 @@ const PaymentManagement = () => {
       newSelection.delete(paymentId);
     }
     setSelectedPaymentsForBankAdvice(newSelection);
+  };
+
+  const handleOpenBankAdviceReview = async () => {
+    if (selectedPaymentsForBankAdvice.size === 0) {
+      toast({
+        variant: "destructive",
+        title: "No Payments Selected",
+        description: "Please select at least one payment to generate bank advice"
+      });
+      return;
+    }
+
+    setGeneratingBankAdvice(true);
+
+    try {
+      // Fetch detailed payment and doctor data
+      const selectedPaymentIds = Array.from(selectedPaymentsForBankAdvice);
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from('payments')
+        .select(`
+          *,
+          doctors!inner (
+            id,
+            doctor_code,
+            full_name,
+            ifsc_code,
+            bank_account_number,
+            account_holder_name,
+            bank_name,
+            branch_name
+          )
+        `)
+        .in('id', selectedPaymentIds);
+
+      if (paymentsError) throw paymentsError;
+
+      // Validate doctor bank details
+      const incompleteBankDetails: string[] = [];
+      const validPayments: any[] = [];
+
+      paymentsData?.forEach((payment: any) => {
+        const doctor = payment.doctors;
+        if (!doctor.bank_account_number || !doctor.account_holder_name) {
+          incompleteBankDetails.push(`${doctor.full_name} (${doctor.doctor_code})`);
+        } else {
+          validPayments.push(payment);
+        }
+      });
+
+      if (incompleteBankDetails.length > 0) {
+        toast({
+          variant: "destructive",
+          title: "Incomplete Bank Details",
+          description: `The following doctors have incomplete bank details: ${incompleteBankDetails.join(', ')}. Please update their information before generating bank advice.`
+        });
+        setGeneratingBankAdvice(false);
+        return;
+      }
+
+      if (validPayments.length === 0) {
+        toast({
+          variant: "destructive",
+          title: "No Valid Payments",
+          description: "No payments with complete bank details found"
+        });
+        setGeneratingBankAdvice(false);
+        return;
+      }
+
+      // Initialize transaction types with default NEFT
+      const initialTypes = new Map();
+      validPayments.forEach(p => {
+        initialTypes.set(p.id, 'NEFT TRANSFER');
+      });
+      setTransactionTypeSelections(initialTypes);
+      setSelectedPaymentsForReview(validPayments);
+      setShowBankAdviceReviewDialog(true);
+    } catch (error: any) {
+      console.error('Error preparing bank advice:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to prepare bank advice"
+      });
+    } finally {
+      setGeneratingBankAdvice(false);
+    }
+  };
+
+  const handleApplyBulkTransactionType = () => {
+    const newSelections = new Map(transactionTypeSelections);
+    selectedPaymentsForReview.forEach(payment => {
+      newSelections.set(payment.id, bulkTransactionType);
+    });
+    setTransactionTypeSelections(newSelections);
+    toast({
+      title: "Applied",
+      description: `Set all payments to ${bulkTransactionType}`
+    });
+  };
+
+  const handleTransactionTypeChange = (paymentId: string, transactionType: string) => {
+    const newSelections = new Map(transactionTypeSelections);
+    newSelections.set(paymentId, transactionType);
+    setTransactionTypeSelections(newSelections);
+  };
+
+  const generateBankAdviceTextFile = async () => {
+    try {
+      // Validate all selections
+      const validationErrors: string[] = [];
+      selectedPaymentsForReview.forEach(payment => {
+        const transactionType = transactionTypeSelections.get(payment.id);
+        if (!transactionType) {
+          validationErrors.push(`${payment.doctors.full_name}: No transaction type selected`);
+        }
+        if (transactionType && TRANSACTION_REQUIRES_IFSC[transactionType] && !payment.doctors.ifsc_code) {
+          validationErrors.push(`${payment.doctors.full_name}: IFSC code required for ${transactionType}`);
+        }
+      });
+
+      if (validationErrors.length > 0) {
+        toast({
+          variant: "destructive",
+          title: "Validation Errors",
+          description: validationErrors.join('; ')
+        });
+        return;
+      }
+
+      // Generate GEFU format text file
+      const totalAmount = selectedPaymentsForReview.reduce((sum, p) => sum + parseFloat(p.paid_amount || 0), 0);
+      const today = new Date();
+      const dateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
+      
+      // Header line
+      let fileContent = `H~${dateStr}~ABC07112007\n`;
+
+      // Detail lines
+      selectedPaymentsForReview.forEach((payment, index) => {
+        const doctor = payment.doctors;
+        const transactionType = transactionTypeSelections.get(payment.id) || 'NEFT TRANSFER';
+        const transactionCode = TRANSACTION_TYPE_CODES[transactionType];
+        const amount = parseFloat(payment.paid_amount).toFixed(2);
+        
+        const detailLine = [
+          'D',
+          index + 1, // Seq No
+          transactionCode, // Transaction Type Code
+          '124578326598', // Ordering Account Number (from hospital settings)
+          'Westmed Hospital', // Ordering Customer Name
+          'Hospital Address', // Ordering Institution Address
+          '', // Empty
+          '', // Empty
+          doctor.ifsc_code || '', // Beneficiary IFSC Code
+          doctor.bank_account_number, // Beneficiary Account Number
+          '', // Empty
+          doctor.account_holder_name, // Beneficiary Name
+          '', // Empty
+          '', // Beneficiary Email
+          `TXN${String(index + 1).padStart(6, '0')}`, // Transaction Reference Code
+          '', // Empty
+          amount, // Amount
+          dateStr, // Transaction Date
+          '', // Empty
+          '', // Empty
+          '', // Empty
+          'Payment for medical services', // Sender to Receiver Info
+          '' // Empty
+        ].join('~');
+        
+        fileContent += detailLine + '\n';
+      });
+
+      // Footer line
+      fileContent += `F~${selectedPaymentsForReview.length}~${totalAmount.toFixed(2)}`;
+
+      // Create and download file
+      const blob = new Blob([fileContent], { type: 'text/plain' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const timestamp = `${String(today.getDate()).padStart(2, '0')}${String(today.getMonth() + 1).padStart(2, '0')}${today.getFullYear()}_${String(today.getHours()).padStart(2, '0')}${String(today.getMinutes()).padStart(2, '0')}${String(today.getSeconds()).padStart(2, '0')}`;
+      a.download = `bank_advice_${timestamp}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      // Mark payments as bank advice generated
+      const { error: updateError } = await supabase
+        .from('payments')
+        .update({
+          bank_advice_generated: true,
+          bank_advice_generated_at: toISOStringIST(),
+          bank_advice_generated_by: user?.id
+        })
+        .in('id', selectedPaymentsForReview.map(p => p.id));
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: "Success",
+        description: `Bank advice text file generated for ${selectedPaymentsForReview.length} payment(s) and marked as processed`
+      });
+
+      // Clear selection and refresh
+      setSelectedPaymentsForBankAdvice(new Set());
+      setShowBankAdviceReviewDialog(false);
+      fetchPayments();
+
+    } catch (error: any) {
+      console.error('Error generating bank advice:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to generate bank advice text file"
+      });
+    }
   };
 
   const generateBankAdviceExcel = async () => {
@@ -1904,11 +2154,11 @@ const PaymentManagement = () => {
                   </p>
                 </div>
                 <Button
-                  onClick={generateBankAdviceExcel}
+                  onClick={handleOpenBankAdviceReview}
                   disabled={selectedPaymentsForBankAdvice.size === 0 || generatingBankAdvice}
                 >
                   <Download className="h-4 w-4 mr-2" />
-                  {generatingBankAdvice ? 'Generating...' : `Generate Excel (${selectedPaymentsForBankAdvice.size})`}
+                  {generatingBankAdvice ? 'Loading...' : `Review & Generate (${selectedPaymentsForBankAdvice.size})`}
                 </Button>
               </div>
               <PaymentManagementTable
@@ -2044,6 +2294,125 @@ const PaymentManagement = () => {
                 </Button>
               </DialogFooter>
             </form>
+          </DialogContent>
+        </Dialog>
+
+        {/* Bank Advice Review Dialog */}
+        <Dialog open={showBankAdviceReviewDialog} onOpenChange={setShowBankAdviceReviewDialog}>
+          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Review & Select Transaction Types</DialogTitle>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              {/* Summary Section */}
+              <div className="bg-muted p-4 rounded-lg">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Payments</p>
+                    <p className="text-2xl font-bold">{selectedPaymentsForReview.length}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Total Amount</p>
+                    <p className="text-2xl font-bold text-primary">
+                      {formatCurrency(selectedPaymentsForReview.reduce((sum, p) => sum + parseFloat(p.paid_amount || 0), 0))}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bulk Selection Section */}
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-4">
+                    <Label className="text-sm font-semibold min-w-fit">Apply to All Rows:</Label>
+                    <Select value={bulkTransactionType} onValueChange={setBulkTransactionType}>
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {TRANSACTION_TYPES.map(type => (
+                          <SelectItem key={type} value={type}>{type}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button onClick={handleApplyBulkTransactionType} variant="outline">
+                      Apply to All
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Payments Table */}
+              <div className="border rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-muted">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-semibold">Seq</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold">Doctor Name</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold">Account Number</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold">IFSC Code</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold">Bank Name</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold">Amount</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold min-w-[200px]">Transaction Type</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {selectedPaymentsForReview.map((payment, index) => {
+                        const doctor = payment.doctors;
+                        const transactionType = transactionTypeSelections.get(payment.id) || 'NEFT TRANSFER';
+                        const requiresIfsc = TRANSACTION_REQUIRES_IFSC[transactionType];
+                        const hasIfscIssue = requiresIfsc && !doctor.ifsc_code;
+                        
+                        return (
+                          <tr key={payment.id} className={`hover:bg-muted/50 ${hasIfscIssue ? 'bg-destructive/10' : ''}`}>
+                            <td className="px-4 py-3 text-sm">{index + 1}</td>
+                            <td className="px-4 py-3 text-sm font-medium">{doctor.full_name}</td>
+                            <td className="px-4 py-3 text-sm font-mono">{doctor.bank_account_number}</td>
+                            <td className="px-4 py-3 text-sm font-mono">
+                              {doctor.ifsc_code || <span className="text-destructive text-xs">Missing</span>}
+                            </td>
+                            <td className="px-4 py-3 text-sm">{doctor.bank_name || '-'}</td>
+                            <td className="px-4 py-3 text-sm text-right font-semibold">
+                              {formatCurrency(parseFloat(payment.paid_amount || 0))}
+                            </td>
+                            <td className="px-4 py-3">
+                              <Select
+                                value={transactionType}
+                                onValueChange={(value) => handleTransactionTypeChange(payment.id, value)}
+                              >
+                                <SelectTrigger className="w-full">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {TRANSACTION_TYPES.map(type => (
+                                    <SelectItem key={type} value={type}>{type}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              {hasIfscIssue && (
+                                <p className="text-xs text-destructive mt-1">⚠️ IFSC required for this type</p>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowBankAdviceReviewDialog(false)}>
+                Cancel
+              </Button>
+              <Button onClick={generateBankAdviceTextFile}>
+                <Download className="h-4 w-4 mr-2" />
+                Generate Text File (GEFU)
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
 
