@@ -68,7 +68,7 @@ export const WebsiteSettings = () => {
       </div>
 
       <Tabs defaultValue="contact" className="space-y-6">
-        <TabsList className="grid grid-cols-4 lg:grid-cols-8 gap-2 h-auto">
+        <TabsList className="grid grid-cols-4 lg:grid-cols-9 gap-2 h-auto">
           <TabsTrigger value="contact">Contact</TabsTrigger>
           <TabsTrigger value="services">Services</TabsTrigger>
           <TabsTrigger value="about">About</TabsTrigger>
@@ -76,6 +76,7 @@ export const WebsiteSettings = () => {
           <TabsTrigger value="branding">Branding</TabsTrigger>
           <TabsTrigger value="stats">Statistics</TabsTrigger>
           <TabsTrigger value="footer">Footer</TabsTrigger>
+          <TabsTrigger value="bank">Bank Settings</TabsTrigger>
           <TabsTrigger value="user-guide">User Guide</TabsTrigger>
         </TabsList>
 
@@ -423,6 +424,61 @@ export const WebsiteSettings = () => {
                   onChange={(e) => handleInputChange("copyright_text", e.target.value)}
                   maxLength={200}
                 />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Bank Settings */}
+        <TabsContent value="bank" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Hospital Bank Details</CardTitle>
+              <CardDescription>Bank account information used for generating bank advice files</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="hospital_bank_account_number">Bank Account Number</Label>
+                <Input
+                  id="hospital_bank_account_number"
+                  value={formData.hospital_bank_account_number || ""}
+                  onChange={(e) => handleInputChange("hospital_bank_account_number", e.target.value)}
+                  placeholder="125001608553"
+                />
+              </div>
+              <div>
+                <Label htmlFor="hospital_bank_account_holder_name">Account Holder Name (Legal Entity)</Label>
+                <Input
+                  id="hospital_bank_account_holder_name"
+                  value={formData.hospital_bank_account_holder_name || ""}
+                  onChange={(e) => handleInputChange("hospital_bank_account_holder_name", e.target.value)}
+                  placeholder="WESTMED HEALTHCARE PRIVATE LIMITED"
+                />
+              </div>
+              <div>
+                <Label htmlFor="hospital_institution_address">Institution Address</Label>
+                <Textarea
+                  id="hospital_institution_address"
+                  value={formData.hospital_institution_address || ""}
+                  onChange={(e) => handleInputChange("hospital_institution_address", e.target.value)}
+                  placeholder="ECR Road, 02, New Street, Pudupet, Lawspet, Puducherry, 605008"
+                  rows={3}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Full address used in bank transfer files
+                </p>
+              </div>
+              <div>
+                <Label htmlFor="hospital_institution_code">Institution Code</Label>
+                <Input
+                  id="hospital_institution_code"
+                  value={formData.hospital_institution_code || ""}
+                  onChange={(e) => handleInputChange("hospital_institution_code", e.target.value)}
+                  placeholder="ABC07112007"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Code used in GEFU bank advice file header (optional)
+                </p>
               </div>
             </CardContent>
           </Card>

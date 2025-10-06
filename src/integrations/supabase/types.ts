@@ -1092,6 +1092,10 @@ export type Database = {
           health_checkups_description: string | null
           hero_headline: string | null
           hero_tagline: string | null
+          hospital_bank_account_holder_name: string | null
+          hospital_bank_account_number: string | null
+          hospital_institution_address: string | null
+          hospital_institution_code: string | null
           hospital_name: string | null
           id: string
           is_active: boolean | null
@@ -1120,6 +1124,10 @@ export type Database = {
           health_checkups_description?: string | null
           hero_headline?: string | null
           hero_tagline?: string | null
+          hospital_bank_account_holder_name?: string | null
+          hospital_bank_account_number?: string | null
+          hospital_institution_address?: string | null
+          hospital_institution_code?: string | null
           hospital_name?: string | null
           id?: string
           is_active?: boolean | null
@@ -1148,6 +1156,10 @@ export type Database = {
           health_checkups_description?: string | null
           hero_headline?: string | null
           hero_tagline?: string | null
+          hospital_bank_account_holder_name?: string | null
+          hospital_bank_account_number?: string | null
+          hospital_institution_address?: string | null
+          hospital_institution_code?: string | null
           hospital_name?: string | null
           id?: string
           is_active?: boolean | null

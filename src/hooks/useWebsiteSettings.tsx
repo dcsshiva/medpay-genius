@@ -31,6 +31,10 @@ export interface WebsiteSettings {
   patients_served: string | null;
   patient_rating: number | null;
   copyright_text: string | null;
+  hospital_bank_account_number: string | null;
+  hospital_bank_account_holder_name: string | null;
+  hospital_institution_address: string | null;
+  hospital_institution_code: string | null;
 }
 
 export const useWebsiteSettings = () => {

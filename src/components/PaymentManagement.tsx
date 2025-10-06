@@ -35,6 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ReportGeneration from './ReportGeneration';
 import PaymentManagementTable from './PaymentManagementTable';
 import BankAdviceReports from './BankAdviceReports';
+import { useWebsiteSettings } from '@/hooks/useWebsiteSettings';
 
 interface Payment {
   id: string;
@@ -146,8 +147,9 @@ const PaymentManagement = () => {
   const [generatingBankAdvice, setGeneratingBankAdvice] = useState(false);
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<'all' | 'cash' | 'insurance' | 'mixed'>('all');
   
-  // Bank Advice Review Dialog States
   const [showBankAdviceReviewDialog, setShowBankAdviceReviewDialog] = useState(false);
+  
+  const { data: websiteSettings } = useWebsiteSettings();
   const [transactionTypeSelections, setTransactionTypeSelections] = useState<Map<string, string>>(new Map());
   const [bulkTransactionType, setBulkTransactionType] = useState<string>('NEFT TRANSFER');
   const [selectedPaymentsForReview, setSelectedPaymentsForReview] = useState<any[]>([]);
@@ -1160,7 +1162,7 @@ const PaymentManagement = () => {
       const dateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
       
       // Header line
-      let fileContent = `H~${dateStr}~ABC07112007\n`;
+      let fileContent = `H~${dateStr}~${websiteSettings?.hospital_institution_code || 'ABC07112007'}\n`;
 
       // Detail lines
       selectedPaymentsForReview.forEach((payment, index) => {
@@ -1173,9 +1175,9 @@ const PaymentManagement = () => {
           'D',
           index + 1, // Seq No
           transactionCode, // Transaction Type Code
-          '124578326598', // Ordering Account Number (from hospital settings)
-          'Westmed Hospital', // Ordering Customer Name
-          'Hospital Address', // Ordering Institution Address
+          websiteSettings?.hospital_bank_account_number || '125001608553', // Hospital Account
+          websiteSettings?.hospital_bank_account_holder_name || 'WESTMED HEALTHCARE PRIVATE LIMITED', // Legal Name
+          websiteSettings?.hospital_institution_address || 'ECR Road, 02, New Street, Pudupet, Lawspet, Puducherry, 605008', // Hospital Address
           '', // Empty
           '', // Empty
           doctor.ifsc_code || '', // Beneficiary IFSC Code
