@@ -34,6 +34,7 @@ import { formatDateIST, formatDateTimeIST, toISOStringIST, formatReportDateIST, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ReportGeneration from './ReportGeneration';
 import PaymentManagementTable from './PaymentManagementTable';
+import BankAdviceReports from './BankAdviceReports';
 
 interface Payment {
   id: string;
@@ -2044,13 +2045,19 @@ const PaymentManagement = () => {
 
         <Tabs defaultValue="waiting" className="w-full">
           <div className="flex justify-between items-center mb-4">
-            <TabsList className="grid w-full max-w-md grid-cols-3">
+            <TabsList className="grid w-full max-w-4xl grid-cols-4">
               <TabsTrigger value="waiting">Waiting for Approval ({waitingForApprovalPayments.length})</TabsTrigger>
               <TabsTrigger value="paid">Fully Paid ({fullyPaidPayments.length})</TabsTrigger>
               {(userRole === 'admin' || userRole === 'manager') && (
                 <TabsTrigger value="bankadvice">
                   <Building2 className="h-4 w-4 mr-1" />
                   Bank Advice ({payments.filter(p => p.is_fully_paid && !p.bank_advice_generated).length})
+                </TabsTrigger>
+              )}
+              {(userRole === 'admin' || userRole === 'manager') && (
+                <TabsTrigger value="history">
+                  <History className="h-4 w-4 mr-1" />
+                  Bank Advice History
                 </TabsTrigger>
               )}
             </TabsList>
@@ -2190,6 +2197,13 @@ const PaymentManagement = () => {
                   </CardContent>
                 </Card>
               )}
+            </TabsContent>
+          )}
+
+          {/* Bank Advice History Tab */}
+          {(userRole === 'admin' || userRole === 'manager') && (
+            <TabsContent value="history">
+              <BankAdviceReports />
             </TabsContent>
           )}
         </Tabs>
