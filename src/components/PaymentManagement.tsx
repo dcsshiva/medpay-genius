@@ -416,18 +416,23 @@ const PaymentManagement = () => {
 
       if (visitsError) throw visitsError;
 
-      // Fetch existing non-rejected payments for this doctor
-      const existingPayments = await fetchExistingPayments(doctorId);
+      // Get visit IDs that are actually linked in payment_visits for non-rejected payments
+      const { data: linkedVisits, error: linkedError } = await supabase
+        .from('payment_visits')
+        .select('visit_id, payments!inner(status, doctor_id)')
+        .eq('payments.doctor_id', doctorId)
+        .in('payments.status', ['pending', 'manager_approved', 'admin_approved']);
 
-      // Filter out visits that fall within existing payment periods
+      if (linkedError) {
+        console.error('Error fetching linked visits:', linkedError);
+      }
+
+      // Create a Set of visit IDs that are actually linked to payments
+      const linkedVisitIds = new Set(linkedVisits?.map(v => v.visit_id) || []);
+
+      // Filter out visits that are actually linked in payment_visits
       const availableVisits = (allVisits || []).filter(visit => {
-        // Check if visit falls within any existing payment period
-        const isInExistingPayment = existingPayments.some(payment => {
-          return visit.visit_date >= payment.period_start && 
-                 visit.visit_date <= payment.period_end;
-        });
-
-        return !isInExistingPayment;
+        return !linkedVisitIds.has(visit.id);
       });
 
       // Show notification if some visits were excluded
