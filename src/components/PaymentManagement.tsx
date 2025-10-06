@@ -440,9 +440,11 @@ const PaymentManagement = () => {
       }));
       
       setVisits(transformedData);
+      return transformedData;
     } catch (error) {
       console.error('Error fetching visits:', error);
       setVisits([]);
+      return [];
     }
   };
 
@@ -456,20 +458,20 @@ const PaymentManagement = () => {
       }
 
       // Fetch available visits for the selected doctor and payment type
-      await fetchUnprocessedVisits(formData.doctor_id, formData.payment_type_filter);
+      const filteredVisits = await fetchUnprocessedVisits(formData.doctor_id, formData.payment_type_filter);
       
-      if (visits.length === 0) {
+      if (filteredVisits.length === 0) {
         throw new Error(`No available visits found for the selected payment type (${formData.payment_type_filter}). All visits are already included in existing payment requests.`);
       }
 
       // Calculate period dates from actual visits
-      const visitDates = visits.map(v => new Date(v.visit_date));
+      const visitDates = filteredVisits.map(v => new Date(v.visit_date));
       const period_start = new Date(Math.min(...visitDates.map(d => d.getTime()))).toISOString().split('T')[0];
       const period_end = new Date(Math.max(...visitDates.map(d => d.getTime()))).toISOString().split('T')[0];
 
       // Check for existing payments - verify if selected visits conflict
       const existingPayments = await fetchExistingPayments(formData.doctor_id);
-      const conflictingVisits = visits.filter(visit => {
+      const conflictingVisits = filteredVisits.filter(visit => {
         return existingPayments.some(payment => {
           return visit.visit_date >= payment.period_start && 
                  visit.visit_date <= payment.period_end;
@@ -481,15 +483,15 @@ const PaymentManagement = () => {
       }
 
       // Calculate total amount from visits
-      const totalAmount = visits.reduce((sum, visit) => sum + (visit.visit_payment || 0), 0);
-      const totalVisits = visits.reduce((sum, visit) => sum + visit.patient_count, 0);
+      const totalAmount = filteredVisits.reduce((sum, visit) => sum + (visit.visit_payment || 0), 0);
+      const totalVisits = filteredVisits.reduce((sum, visit) => sum + visit.patient_count, 0);
 
       // Calculate cash and insurance totals from actual visits
-      const cashTotal = visits
+      const cashTotal = filteredVisits
         .filter(v => v.payment_type === 'cash')
         .reduce((sum, v) => sum + (v.visit_payment || 0), 0);
       
-      const insuranceTotal = visits
+      const insuranceTotal = filteredVisits
         .filter(v => v.payment_type === 'insurance')
         .reduce((sum, v) => sum + (v.visit_payment || 0), 0);
 
