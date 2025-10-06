@@ -22,6 +22,8 @@ import { getSessionAuthHeaders } from '@/lib/sessionAuth';
 
 interface Doctor {
   id: string;
+  user_id?: string;
+  full_name?: string;
   doctor_code: string;
   specialization: string;
   is_active: boolean;
@@ -87,6 +89,8 @@ const DoctorManagement = () => {
           .from('doctors')
           .select(`
             id,
+            user_id,
+            full_name,
             doctor_code,
             specialization,
             is_active,
@@ -94,16 +98,20 @@ const DoctorManagement = () => {
             account_holder_name,
             bank_name,
             branch_name,
-            ifsc_code,
-            profiles:profile_id (
-              id,
-              full_name
-            )
+            ifsc_code
           `)
           .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setDoctors(data || []);
+      // Transform data to match old structure for backward compatibility
+      const transformedData = (data || []).map(doc => ({
+        ...doc,
+        profiles: {
+          id: doc.user_id,
+          full_name: doc.full_name
+        }
+      }));
+      setDoctors(transformedData);
     } catch (error) {
       console.error('Error fetching doctors:', error);
       toast({
@@ -150,10 +158,11 @@ const DoctorManagement = () => {
           }
         }
 
-        // Update existing doctor and profile
+        // Update existing doctor
         const { error: updateDoctorError } = await supabase
           .from('doctors')
           .update({
+            full_name: formData.full_name,
             doctor_code: formData.doctor_code,
             specialization: formData.specialization,
             is_active: formData.is_active,
@@ -178,34 +187,12 @@ const DoctorManagement = () => {
           throw updateDoctorError;
         }
 
-        // Update profile name if changed
-        if (editingDoctor.profiles?.id) {
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .update({
-              full_name: formData.full_name
-            })
-            .eq('id', editingDoctor.profiles.id);
-
-          if (profileError) {
-            console.error('Profile update error:', profileError);
-            throw profileError;
-          }
-        }
-
         // Update auth user email/password if provided
         if (formData.email.trim() || formData.password.trim()) {
-          // Get the auth user ID from the profile
-          const { data: authProfile } = await supabase
-            .from('profiles')
-            .select('user_id')
-            .eq('id', editingDoctor.profiles?.id)
-            .single();
-
-          if (authProfile?.user_id) {
+          if (editingDoctor.user_id) {
             const { error: credUpdateError } = await supabase.functions.invoke('update-user-credentials', {
               body: {
-                userId: authProfile.user_id,
+                userId: editingDoctor.user_id,
                 email: formData.email.trim(),
                 password: formData.password.trim()
               },
@@ -259,16 +246,17 @@ const DoctorManagement = () => {
           return;
         }
 
-        // Create auth user, profile, and doctor via edge function
+        // Create auth user and doctor via edge function
         const { data: result, error: createUserError } = await supabase.functions.invoke('create-user', {
           body: {
             email: formData.email,
             password: formData.password,
+            designation: 'doctor',
             userData: {
-              full_name: formData.full_name,
-              role: 'doctor'
+              full_name: formData.full_name
             },
             doctorData: {
+              password: formData.password,
               doctor_code: formData.doctor_code,
               specialization: formData.specialization,
               bank_account_number: formData.bank_account_number,

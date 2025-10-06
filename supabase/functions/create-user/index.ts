@@ -47,7 +47,7 @@ serve(async (req) => {
       throw new Error('Only admins and managers can create users');
     }
 
-    const { email, password, userData, doctorData } = await req.json();
+    const { email, password, userData, doctorData, staffData, designation } = await req.json();
 
     // Create the auth user
     const { data: authData, error: createError } = await supabaseClient.auth.admin.createUser({
@@ -65,29 +65,42 @@ serve(async (req) => {
       throw createError;
     }
 
-    // Create profile entry
-    const { data: profileData, error: profileError } = await supabaseClient
-      .from('profiles')
-      .insert({
-        user_id: authData.user.id,
-        full_name: userData.full_name,
-        role: userData.role || 'doctor'
-      })
-      .select()
-      .single();
+    const userId = authData.user.id;
 
-    if (profileError) {
-      console.error('Error creating profile:', profileError);
-      throw new Error('Failed to create user profile');
+    // Insert into user_designations table
+    const { error: designationError } = await supabaseClient
+      .from('user_designations')
+      .insert({
+        user_id: userId,
+        designation: designation || 'doctor'
+      });
+
+    if (designationError) {
+      console.error('Error creating user designation:', designationError);
+      throw new Error('Failed to assign user designation');
     }
 
     let doctorId = null;
-    // If doctorData is provided, create doctor entry
+    let staffId = null;
+
+    // Create doctor entry if doctorData is provided
     if (doctorData) {
+      // Hash the password
+      const { data: hashData, error: hashError } = await supabaseClient.rpc('simple_hash', {
+        password: doctorData.password || password
+      });
+
+      if (hashError) {
+        console.error('Error hashing password:', hashError);
+        throw new Error('Failed to hash password');
+      }
+
       const { data: doctor, error: doctorError } = await supabaseClient
         .from('doctors')
         .insert({
-          profile_id: profileData.id,
+          user_id: userId,
+          full_name: userData.full_name,
+          password_hash: hashData,
           doctor_code: doctorData.doctor_code,
           specialization: doctorData.specialization,
           bank_name: doctorData.bank_name,
@@ -107,10 +120,47 @@ serve(async (req) => {
       doctorId = doctor.id;
     }
 
+    // Create staff entry if staffData is provided
+    if (staffData) {
+      // Hash the password
+      const { data: hashData, error: hashError } = await supabaseClient.rpc('simple_hash', {
+        password: staffData.password || password
+      });
+
+      if (hashError) {
+        console.error('Error hashing password:', hashError);
+        throw new Error('Failed to hash password');
+      }
+
+      const { data: staff, error: staffError } = await supabaseClient
+        .from('staff')
+        .insert({
+          user_id: userId,
+          full_name: userData.full_name,
+          password_hash: hashData,
+          staff_code: staffData.staff_code,
+          username: staffData.username,
+          role: staffData.role || 'nurse',
+          department: staffData.department,
+          phone: staffData.phone,
+          email: email,
+          staff_category_id: staffData.staff_category_id,
+          is_active: true
+        })
+        .select()
+        .single();
+
+      if (staffError) {
+        console.error('Error creating staff:', staffError);
+        throw new Error('Failed to create staff record');
+      }
+      staffId = staff.id;
+    }
+
     return new Response(JSON.stringify({ 
       user: authData.user,
-      profile_id: profileData.id,
       doctor_id: doctorId,
+      staff_id: staffId,
       success: true 
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

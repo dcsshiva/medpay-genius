@@ -98,12 +98,15 @@ export type Database = {
           branch_name: string | null
           created_at: string
           doctor_code: string
+          full_name: string | null
           id: string
           ifsc_code: string | null
           is_active: boolean
+          password_hash: string | null
           profile_id: string
           specialization: string
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           account_holder_name?: string | null
@@ -112,12 +115,15 @@ export type Database = {
           branch_name?: string | null
           created_at?: string
           doctor_code: string
+          full_name?: string | null
           id?: string
           ifsc_code?: string | null
           is_active?: boolean
+          password_hash?: string | null
           profile_id: string
           specialization: string
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           account_holder_name?: string | null
@@ -126,12 +132,15 @@ export type Database = {
           branch_name?: string | null
           created_at?: string
           doctor_code?: string
+          full_name?: string | null
           id?: string
           ifsc_code?: string | null
           is_active?: boolean
+          password_hash?: string | null
           profile_id?: string
           specialization?: string
           updated_at?: string
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -384,8 +393,10 @@ export type Database = {
           phone: string | null
           profile_id: string | null
           role: Database["public"]["Enums"]["staff_role"]
+          staff_category_id: string | null
           staff_code: string
           updated_at: string
+          user_id: string | null
           username: string
         }
         Insert: {
@@ -400,8 +411,10 @@ export type Database = {
           phone?: string | null
           profile_id?: string | null
           role?: Database["public"]["Enums"]["staff_role"]
+          staff_category_id?: string | null
           staff_code: string
           updated_at?: string
+          user_id?: string | null
           username: string
         }
         Update: {
@@ -416,8 +429,10 @@ export type Database = {
           phone?: string | null
           profile_id?: string | null
           role?: Database["public"]["Enums"]["staff_role"]
+          staff_category_id?: string | null
           staff_code?: string
           updated_at?: string
+          user_id?: string | null
           username?: string
         }
         Relationships: [
@@ -426,6 +441,13 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: true
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_staff_category_id_fkey"
+            columns: ["staff_category_id"]
+            isOneToOne: false
+            referencedRelation: "staff_categories"
             referencedColumns: ["id"]
           },
         ]
