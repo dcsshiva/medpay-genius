@@ -1207,10 +1207,18 @@ export type Database = {
           bank_advice_generated: boolean
           bank_advice_generated_at: string
           bank_advice_generated_by: string
+          cash_approval_status: string
+          cash_approved_at: string
+          cash_approved_by: string
+          cash_rejection_reason: string
           doctor_code: string
           doctor_id: string
           doctor_name: string
           id: string
+          insurance_approval_status: string
+          insurance_approved_at: string
+          insurance_approved_by: string
+          insurance_rejection_reason: string
           is_fully_paid: boolean
           manager_approved_at: string
           manager_approved_by: string
