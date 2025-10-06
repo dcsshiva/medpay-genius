@@ -1697,9 +1697,20 @@ const PaymentManagement = () => {
                                 <p className="font-medium text-sm">
                                   {formatDateIST(visit.visit_date)}
                                 </p>
-                                <Badge variant="outline" className="text-xs">
-                                  {visit.patient_count} {visit.patient_count === 1 ? 'Patient' : 'Patients'}
-                                </Badge>
+                                <div className="flex gap-1.5">
+                                  <Badge variant="outline" className="text-xs">
+                                    {visit.patient_count} {visit.patient_count === 1 ? 'Patient' : 'Patients'}
+                                  </Badge>
+                                  <Badge 
+                                    className={`text-xs ${
+                                      visit.payment_type === 'cash' 
+                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' 
+                                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                    }`}
+                                  >
+                                    {visit.payment_type === 'cash' ? 'Cash' : 'Insurance'}
+                                  </Badge>
+                                </div>
                               </div>
                               <p className="text-xs text-muted-foreground">
                                 {visit.patient_name}
