@@ -229,6 +229,9 @@ export type Database = {
         Row: {
           admin_approved_at: string | null
           admin_approved_by: string | null
+          bank_advice_generated: boolean
+          bank_advice_generated_at: string | null
+          bank_advice_generated_by: string | null
           created_at: string
           doctor_id: string
           id: string
@@ -255,6 +258,9 @@ export type Database = {
         Insert: {
           admin_approved_at?: string | null
           admin_approved_by?: string | null
+          bank_advice_generated?: boolean
+          bank_advice_generated_at?: string | null
+          bank_advice_generated_by?: string | null
           created_at?: string
           doctor_id: string
           id?: string
@@ -281,6 +287,9 @@ export type Database = {
         Update: {
           admin_approved_at?: string | null
           admin_approved_by?: string | null
+          bank_advice_generated?: boolean
+          bank_advice_generated_at?: string | null
+          bank_advice_generated_by?: string | null
           created_at?: string
           doctor_id?: string
           id?: string

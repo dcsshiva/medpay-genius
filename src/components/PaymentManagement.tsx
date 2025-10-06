@@ -25,8 +25,11 @@ import {
   Edit,
   Trash2,
   AlertTriangle,
-  FileText
+  FileText,
+  Download,
+  Building2
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ReportGeneration from './ReportGeneration';
@@ -53,12 +56,16 @@ interface Payment {
   suspect_reason?: string;
   marked_suspect_by?: string;
   marked_suspect_at?: string;
+  bank_advice_generated?: boolean;
+  bank_advice_generated_at?: string;
+  bank_advice_generated_by?: string;
   doctors: {
     doctor_code: string;
     profiles: {
       full_name: string;
     };
   };
+  doctor_id?: string;
 }
 
 interface PaymentTransaction {
@@ -74,6 +81,11 @@ interface PaymentTransaction {
 interface Doctor {
   id: string;
   doctor_code: string;
+  full_name?: string;
+  ifsc_code?: string;
+  bank_account_number?: string;
+  account_holder_name?: string;
+  bank_name?: string;
   profiles: {
     full_name: string;
   };
@@ -115,6 +127,8 @@ const PaymentManagement = () => {
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPaymentsForBankAdvice, setSelectedPaymentsForBankAdvice] = useState<Set<string>>(new Set());
+  const [generatingBankAdvice, setGeneratingBankAdvice] = useState(false);
 
   // Global payment statistics
   const [totalPaid, setTotalPaid] = useState(0);
@@ -205,6 +219,10 @@ const PaymentManagement = () => {
           rejected_by: payment.rejected_by,
           rejected_at: payment.rejected_at,
           rejection_reason: payment.rejection_reason,
+          bank_advice_generated: payment.bank_advice_generated,
+          bank_advice_generated_at: payment.bank_advice_generated_at,
+          bank_advice_generated_by: payment.bank_advice_generated_by,
+          doctor_id: payment.doctor_id,
           doctors: {
             doctor_code: payment.doctor_code,
             profiles: {
@@ -235,7 +253,11 @@ const PaymentManagement = () => {
         .select(`
           id,
           doctor_code,
-          full_name
+          full_name,
+          ifsc_code,
+          bank_account_number,
+          account_holder_name,
+          bank_name
         `)
         .eq('is_active', true)
         .order('doctor_code');
@@ -650,6 +672,172 @@ const PaymentManagement = () => {
     setVisits([]);
   };
 
+  // Bank Advice Generation Functions
+  const handleSelectPaymentForBankAdvice = (paymentId: string, checked: boolean) => {
+    const newSelection = new Set(selectedPaymentsForBankAdvice);
+    if (checked) {
+      newSelection.add(paymentId);
+    } else {
+      newSelection.delete(paymentId);
+    }
+    setSelectedPaymentsForBankAdvice(newSelection);
+  };
+
+  const generateBankAdviceExcel = async () => {
+    if (selectedPaymentsForBankAdvice.size === 0) {
+      toast({
+        variant: "destructive",
+        title: "No Payments Selected",
+        description: "Please select at least one payment to generate bank advice"
+      });
+      return;
+    }
+
+    setGeneratingBankAdvice(true);
+
+    try {
+      // Fetch detailed payment and doctor data
+      const selectedPaymentIds = Array.from(selectedPaymentsForBankAdvice);
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from('payments')
+        .select(`
+          *,
+          doctors!inner (
+            id,
+            doctor_code,
+            full_name,
+            ifsc_code,
+            bank_account_number,
+            account_holder_name,
+            bank_name
+          )
+        `)
+        .in('id', selectedPaymentIds);
+
+      if (paymentsError) throw paymentsError;
+
+      // Validate doctor bank details
+      const incompleteBankDetails: string[] = [];
+      const validPayments: any[] = [];
+
+      paymentsData?.forEach((payment: any) => {
+        const doctor = payment.doctors;
+        if (!doctor.ifsc_code || !doctor.bank_account_number || !doctor.account_holder_name) {
+          incompleteBankDetails.push(`${doctor.full_name} (${doctor.doctor_code})`);
+        } else {
+          validPayments.push(payment);
+        }
+      });
+
+      if (incompleteBankDetails.length > 0) {
+        toast({
+          variant: "destructive",
+          title: "Incomplete Bank Details",
+          description: `The following doctors have incomplete bank details: ${incompleteBankDetails.join(', ')}. Please update their information before generating bank advice.`
+        });
+        setGeneratingBankAdvice(false);
+        return;
+      }
+
+      if (validPayments.length === 0) {
+        toast({
+          variant: "destructive",
+          title: "No Valid Payments",
+          description: "No payments with complete bank details found"
+        });
+        setGeneratingBankAdvice(false);
+        return;
+      }
+
+      // Calculate totals
+      const totalAmount = validPayments.reduce((sum, p) => sum + parseFloat(p.paid_amount || 0), 0);
+      const recordCount = validPayments.length;
+      const today = format(new Date(), 'dd/MM/yyyy');
+
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      
+      // Header rows
+      const headerData = [
+        ['Canara Bank Bulk Upload Sheet', '', '', 'Bulk Upload Date*', 'Total Amount*', 'Record Count*'],
+        ['', '', '', today, totalAmount.toFixed(2), recordCount],
+        ['Debiting Account No*', '124578326598', 'Ordering Customer Name*', 'Westmed Hospital', 'Address Line 1*', 'Hospital Address', 'Address Line 2', '', 'Address Line 3', ''],
+        [],
+        ['Seq', 'Transaction Type*', 'Bene IFSC Code*', 'Bene A/C No.*', 'Bene Name*', 'Bene Add Line 1', 'Bene Add Line 2', 'Bene Add Line 3', 'Bene e-mail ID', 'Txn Ref No*', 'Amount*', 'Sender To Rcvr Info*', 'Add Info 1', 'Add Info 2', 'Add Info 3', 'Beneficiary LEI Code']
+      ];
+
+      // Data rows
+      const dataRows = validPayments.map((payment, index) => {
+        const doctor = payment.doctors;
+        return [
+          index + 1, // Seq
+          'NEFT TRANSFER', // Transaction Type
+          doctor.ifsc_code, // Bene IFSC Code
+          doctor.bank_account_number, // Bene A/C No.
+          doctor.account_holder_name, // Bene Name
+          '', // Bene Add Line 1
+          '', // Bene Add Line 2
+          '', // Bene Add Line 3
+          '', // Bene e-mail ID
+          index + 1, // Txn Ref No
+          parseFloat(payment.paid_amount).toFixed(2), // Amount
+          'westmed Hospital', // Sender To Rcvr Info
+          '', // Add Info 1
+          '', // Add Info 2
+          '', // Add Info 3
+          '' // Beneficiary LEI Code
+        ];
+      });
+
+      // Combine all rows
+      const wsData = [...headerData, ...dataRows];
+
+      // Create worksheet
+      const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+      // Add worksheet to workbook
+      XLSX.utils.book_append_sheet(wb, ws, 'Bank Upload');
+
+      // Generate filename with timestamp
+      const timestamp = format(new Date(), 'yyyy-MM-dd_HH-mm-ss');
+      const filename = `bank_advice_${timestamp}.xls`;
+
+      // Save file
+      XLSX.writeFile(wb, filename);
+
+      // Mark payments as bank advice generated
+      const { error: updateError } = await supabase
+        .from('payments')
+        .update({
+          bank_advice_generated: true,
+          bank_advice_generated_at: new Date().toISOString(),
+          bank_advice_generated_by: user?.id
+        })
+        .in('id', validPayments.map(p => p.id));
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: "Success",
+        description: `Bank advice Excel generated for ${validPayments.length} payment(s) and marked as processed`
+      });
+
+      // Clear selection and refresh payments
+      setSelectedPaymentsForBankAdvice(new Set());
+      fetchPayments();
+
+    } catch (error: any) {
+      console.error('Error generating bank advice:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to generate bank advice Excel"
+      });
+    } finally {
+      setGeneratingBankAdvice(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'secondary';
@@ -875,16 +1063,32 @@ const PaymentManagement = () => {
         
         {payment.is_fully_paid && (
           <div className="border-t pt-4 mt-4">
-            <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-success" />
-              Transaction Details
-            </h4>
+            <div className="flex justify-between items-start mb-2">
+              <h4 className="text-sm font-semibold flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-success" />
+                Transaction Details
+              </h4>
+              {payment.bank_advice_generated && (
+                <Badge variant="default" className="text-xs bg-blue-600">
+                  <Building2 className="h-3 w-3 mr-1" />
+                  Bank Advice Generated
+                </Badge>
+              )}
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
               {payment.admin_approved_at && (
                 <div>
                   <span className="text-muted-foreground">Processed Date:</span>
                   <span className="ml-2 font-medium">
                     {format(new Date(payment.admin_approved_at), 'MMM dd, yyyy HH:mm')}
+                  </span>
+                </div>
+              )}
+              {payment.bank_advice_generated_at && (
+                <div>
+                  <span className="text-muted-foreground">Bank Advice Generated:</span>
+                  <span className="ml-2 font-medium">
+                    {format(new Date(payment.bank_advice_generated_at), 'MMM dd, yyyy HH:mm')}
                   </span>
                 </div>
               )}
@@ -925,6 +1129,14 @@ const PaymentManagement = () => {
     (p.status === 'pending' || p.status === 'manager_approved' || p.status === 'admin_approved') && !p.is_fully_paid
   );
   const fullyPaidPayments = payments.filter(p => p.is_fully_paid);
+
+  // Fetch doctor details when we have doctor_id in payments
+  useEffect(() => {
+    const paymentDoctorIds = payments.map(p => p.doctor_id).filter(Boolean);
+    if (paymentDoctorIds.length > 0 && doctors.length === 0 && (userRole === 'admin' || userRole === 'manager')) {
+      fetchDoctors();
+    }
+  }, [payments, doctors.length, userRole]);
 
   // Report generation configuration
   const paymentReportColumns = [
@@ -1103,11 +1315,17 @@ const PaymentManagement = () => {
          )}
        </div>
 
-       <Tabs defaultValue="waiting" className="w-full">
-         <TabsList className="grid w-full grid-cols-2">
-           <TabsTrigger value="waiting">Waiting for Approval ({waitingForApprovalPayments.length})</TabsTrigger>
-           <TabsTrigger value="paid">Fully Paid ({fullyPaidPayments.length})</TabsTrigger>
-         </TabsList>
+        <Tabs defaultValue="waiting" className="w-full">
+          <TabsList className="grid w-full grid-cols-3">
+            <TabsTrigger value="waiting">Waiting for Approval ({waitingForApprovalPayments.length})</TabsTrigger>
+            <TabsTrigger value="paid">Fully Paid ({fullyPaidPayments.length})</TabsTrigger>
+            {(userRole === 'admin' || userRole === 'manager') && (
+              <TabsTrigger value="bankadvice">
+                <Building2 className="h-4 w-4 mr-1" />
+                Bank Advice ({payments.filter(p => p.is_fully_paid && !p.bank_advice_generated).length})
+              </TabsTrigger>
+            )}
+          </TabsList>
 
           <TabsContent value="waiting" className="space-y-4">
             <div className="flex justify-between items-center mb-4">
@@ -1164,6 +1382,112 @@ const PaymentManagement = () => {
               )}
             </div>
           </TabsContent>
+
+          {/* Bank Advice Tab */}
+          {(userRole === 'admin' || userRole === 'manager') && (
+            <TabsContent value="bankadvice" className="space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold">Bank Advice Generation</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Select payments to generate bank upload Excel file
+                  </p>
+                </div>
+                <Button
+                  onClick={generateBankAdviceExcel}
+                  disabled={selectedPaymentsForBankAdvice.size === 0 || generatingBankAdvice}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  {generatingBankAdvice ? 'Generating...' : `Generate Excel (${selectedPaymentsForBankAdvice.size})`}
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4">
+                {payments
+                  .filter(p => p.is_fully_paid && !p.bank_advice_generated)
+                  .map((payment) => {
+                    const doctor = doctors.find(d => d.id === payment.doctor_id);
+                    const hasCompleteBankDetails = doctor?.ifsc_code && doctor?.bank_account_number && doctor?.account_holder_name;
+                    
+                    return (
+                      <Card key={payment.id} className={`w-full ${!hasCompleteBankDetails ? 'border-destructive' : ''}`}>
+                        <CardHeader className="pb-3">
+                          <div className="flex items-start gap-4">
+                            <input
+                              type="checkbox"
+                              className="mt-1 h-5 w-5 rounded border-gray-300"
+                              checked={selectedPaymentsForBankAdvice.has(payment.id)}
+                              onChange={(e) => handleSelectPaymentForBankAdvice(payment.id, e.target.checked)}
+                              disabled={!hasCompleteBankDetails}
+                            />
+                            <div className="flex-1">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <CardTitle className="text-lg">
+                                    {payment.doctors?.profiles?.full_name || 'Unknown Doctor'}
+                                  </CardTitle>
+                                  <p className="text-sm text-muted-foreground">
+                                    {payment.doctors?.doctor_code || 'N/A'} | Period: {format(new Date(payment.period_start), 'MMM dd')} - {format(new Date(payment.period_end), 'MMM dd, yyyy')}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-sm text-muted-foreground">Paid Amount</p>
+                                  <p className="text-xl font-semibold text-success">{formatCurrency(payment.paid_amount)}</p>
+                                </div>
+                              </div>
+                              
+                              {!hasCompleteBankDetails && (
+                                <div className="mt-2 p-2 bg-destructive/10 border border-destructive rounded-md">
+                                  <p className="text-sm text-destructive flex items-center gap-2">
+                                    <AlertTriangle className="h-4 w-4" />
+                                    Incomplete bank details - cannot generate advice
+                                  </p>
+                                </div>
+                              )}
+                              
+                              {hasCompleteBankDetails && doctor && (
+                                <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-muted/50 rounded-md">
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">IFSC Code</p>
+                                    <p className="text-sm font-medium">{doctor.ifsc_code}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">Account Number</p>
+                                    <p className="text-sm font-medium">{doctor.bank_account_number}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-muted-foreground">Account Holder</p>
+                                    <p className="text-sm font-medium">{doctor.account_holder_name}</p>
+                                  </div>
+                                  {doctor.bank_name && (
+                                    <div className="md:col-span-3">
+                                      <p className="text-xs text-muted-foreground">Bank Name</p>
+                                      <p className="text-sm font-medium">{doctor.bank_name}</p>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </CardHeader>
+                      </Card>
+                    );
+                  })}
+                
+                {payments.filter(p => p.is_fully_paid && !p.bank_advice_generated).length === 0 && (
+                  <Card>
+                    <CardContent className="p-8 text-center">
+                      <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                      <h3 className="text-lg font-semibold mb-2">No Payments Pending Bank Advice</h3>
+                      <p className="text-muted-foreground">
+                        All fully paid payments have been processed for bank advice.
+                      </p>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </TabsContent>
+          )}
         </Tabs>
 
         {/* Suspect Dialog */}
