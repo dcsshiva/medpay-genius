@@ -14,6 +14,7 @@ import UserLoginReports from '@/components/UserLoginReports';
 import Settings from '@/components/Settings';
 import VersionManager from '@/components/VersionManager';
 import { WebsiteSettings } from '@/components/WebsiteSettings';
+import UserGuide from '@/pages/UserGuide';
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -70,6 +71,8 @@ const Index = () => {
         return <VersionManager />;
       case 'website-settings':
         return <WebsiteSettings />;
+      case 'user-guide':
+        return <UserGuide />;
       case 'settings':
         return <Settings />;
       default:

@@ -490,6 +490,66 @@ export type Database = {
           },
         ]
       }
+      user_guide_settings: {
+        Row: {
+          announcement_text: string | null
+          announcement_type: string | null
+          created_at: string | null
+          custom_notes: Json | null
+          faq_items: Json | null
+          help_desk_contact: string | null
+          help_desk_email: string | null
+          help_desk_hours: string | null
+          id: string
+          is_active: boolean | null
+          show_announcement: boolean | null
+          tutorial_video_urls: Json | null
+          updated_at: string | null
+          welcome_message_admin: string | null
+          welcome_message_doctor: string | null
+          welcome_message_manager: string | null
+          welcome_message_staff: string | null
+        }
+        Insert: {
+          announcement_text?: string | null
+          announcement_type?: string | null
+          created_at?: string | null
+          custom_notes?: Json | null
+          faq_items?: Json | null
+          help_desk_contact?: string | null
+          help_desk_email?: string | null
+          help_desk_hours?: string | null
+          id?: string
+          is_active?: boolean | null
+          show_announcement?: boolean | null
+          tutorial_video_urls?: Json | null
+          updated_at?: string | null
+          welcome_message_admin?: string | null
+          welcome_message_doctor?: string | null
+          welcome_message_manager?: string | null
+          welcome_message_staff?: string | null
+        }
+        Update: {
+          announcement_text?: string | null
+          announcement_type?: string | null
+          created_at?: string | null
+          custom_notes?: Json | null
+          faq_items?: Json | null
+          help_desk_contact?: string | null
+          help_desk_email?: string | null
+          help_desk_hours?: string | null
+          id?: string
+          is_active?: boolean | null
+          show_announcement?: boolean | null
+          tutorial_video_urls?: Json | null
+          updated_at?: string | null
+          welcome_message_admin?: string | null
+          welcome_message_doctor?: string | null
+          welcome_message_manager?: string | null
+          welcome_message_staff?: string | null
+        }
+        Relationships: []
+      }
       user_sessions: {
         Row: {
           created_at: string

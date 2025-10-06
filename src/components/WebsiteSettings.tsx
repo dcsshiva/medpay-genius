@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Loader2, Upload, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
+import { UserGuideSettingsTab } from "@/components/UserGuideSettingsTab";
 
 export const WebsiteSettings = () => {
   const { data: settings, isLoading } = useWebsiteSettings();
@@ -67,7 +68,7 @@ export const WebsiteSettings = () => {
       </div>
 
       <Tabs defaultValue="contact" className="space-y-6">
-        <TabsList className="grid grid-cols-4 lg:grid-cols-7 gap-2 h-auto">
+        <TabsList className="grid grid-cols-4 lg:grid-cols-8 gap-2 h-auto">
           <TabsTrigger value="contact">Contact</TabsTrigger>
           <TabsTrigger value="services">Services</TabsTrigger>
           <TabsTrigger value="about">About</TabsTrigger>
@@ -75,6 +76,7 @@ export const WebsiteSettings = () => {
           <TabsTrigger value="branding">Branding</TabsTrigger>
           <TabsTrigger value="stats">Statistics</TabsTrigger>
           <TabsTrigger value="footer">Footer</TabsTrigger>
+          <TabsTrigger value="user-guide">User Guide</TabsTrigger>
         </TabsList>
 
         {/* Contact Information */}
@@ -424,6 +426,11 @@ export const WebsiteSettings = () => {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* User Guide Settings */}
+        <TabsContent value="user-guide" className="space-y-6">
+          <UserGuideSettingsTab />
         </TabsContent>
       </Tabs>
 
