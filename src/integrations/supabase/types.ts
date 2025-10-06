@@ -430,6 +430,36 @@ export type Database = {
           },
         ]
       }
+      staff_categories: {
+        Row: {
+          category_name: string
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          category_name: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          category_name?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           assigned_by: string | null
@@ -489,6 +519,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_designations: {
+        Row: {
+          created_at: string
+          designation: Database["public"]["Enums"]["app_designation"]
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          designation: Database["public"]["Enums"]["app_designation"]
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          designation?: Database["public"]["Enums"]["app_designation"]
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_guide_settings: {
         Row: {
@@ -912,6 +966,13 @@ export type Database = {
           visit_reason: string
         }[]
       }
+      has_designation: {
+        Args: {
+          _designation: Database["public"]["Enums"]["app_designation"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       link_profile_to_user: {
         Args: {
           _auth_user_id: string
@@ -930,6 +991,7 @@ export type Database = {
       }
     }
     Enums: {
+      app_designation: "admin" | "manager" | "supervisor" | "doctor" | "staff"
       complaint_status:
         | "open"
         | "in_review"
@@ -1087,6 +1149,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      app_designation: ["admin", "manager", "supervisor", "doctor", "staff"],
       complaint_status: [
         "open",
         "in_review",
