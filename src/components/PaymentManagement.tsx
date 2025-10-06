@@ -484,7 +484,16 @@ const PaymentManagement = () => {
       const totalAmount = visits.reduce((sum, visit) => sum + (visit.visit_payment || 0), 0);
       const totalVisits = visits.reduce((sum, visit) => sum + visit.patient_count, 0);
 
-      // Initialize approval status based on payment type filter
+      // Calculate cash and insurance totals from actual visits
+      const cashTotal = visits
+        .filter(v => v.payment_type === 'cash')
+        .reduce((sum, v) => sum + (v.visit_payment || 0), 0);
+      
+      const insuranceTotal = visits
+        .filter(v => v.payment_type === 'insurance')
+        .reduce((sum, v) => sum + (v.visit_payment || 0), 0);
+
+      // Initialize payment data
       const paymentData: any = {
         doctor_id: formData.doctor_id,
         period_start,
@@ -498,14 +507,11 @@ const PaymentManagement = () => {
         status: 'pending' as const
       };
 
-      // Set approval status based on payment type
-      if (formData.payment_type_filter === 'cash') {
+      // Set approval status only for payment types that exist in visits
+      if (cashTotal > 0) {
         paymentData.cash_approval_status = 'pending';
-      } else if (formData.payment_type_filter === 'insurance') {
-        paymentData.insurance_approval_status = 'pending';
-      } else {
-        // Both types
-        paymentData.cash_approval_status = 'pending';
+      }
+      if (insuranceTotal > 0) {
         paymentData.insurance_approval_status = 'pending';
       }
 
