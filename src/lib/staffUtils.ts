@@ -16,23 +16,15 @@ export const getStaffId = async (user: User | null): Promise<string | null> => {
     staffId = user.user_metadata.original_id as string;
     console.log('Using custom auth staff ID:', staffId);
   } else {
-    // Supabase-auth fallback: resolve via profiles -> staff
+    // Supabase-auth fallback: resolve via user_id -> staff
     console.log('Falling back to Supabase auth lookup for staff');
-    const { data: profile } = await supabase
-      .from('profiles')
+    const { data: staffData } = await supabase
+      .from('staff')
       .select('id')
       .eq('user_id', user.id)
       .maybeSingle();
-
-    if (profile) {
-      const { data: staffData } = await supabase
-        .from('staff')
-        .select('id')
-        .eq('profile_id', profile.id)
-        .maybeSingle();
-      staffId = staffData?.id ?? null;
-      console.log('Found staff ID via profile lookup:', staffId);
-    }
+    staffId = staffData?.id ?? null;
+    console.log('Found staff ID via user_id lookup:', staffId);
   }
 
   console.log('Final staff ID:', staffId);

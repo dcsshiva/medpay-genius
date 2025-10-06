@@ -96,22 +96,14 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
           doctorId = user.user_metadata.original_id as string;
           console.log('Dashboard - Using custom auth doctor ID:', doctorId);
         } else {
-          // Supabase-auth fallback: resolve via profiles -> doctors
+          // Supabase-auth fallback: resolve via user_id -> doctors
           console.log('Dashboard - Falling back to Supabase auth lookup');
-          const { data: profile } = await supabase
-            .from('profiles')
+          const { data: doctorData } = await supabase
+            .from('doctors')
             .select('id')
             .eq('user_id', user!.id)
             .maybeSingle();
-
-          if (profile) {
-            const { data: doctorData } = await supabase
-              .from('doctors')
-              .select('id')
-              .eq('profile_id', profile.id)
-              .maybeSingle();
-            doctorId = doctorData?.id ?? null;
-          }
+          doctorId = doctorData?.id ?? null;
         }
 
         console.log('Dashboard - Final doctor ID:', doctorId);

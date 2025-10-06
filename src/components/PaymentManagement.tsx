@@ -235,15 +235,18 @@ const PaymentManagement = () => {
         .select(`
           id,
           doctor_code,
-          profiles!inner (
-            full_name
-          )
+          full_name
         `)
         .eq('is_active', true)
         .order('doctor_code');
 
       if (error) throw error;
-      setDoctors(data || []);
+      // Transform to match expected structure
+      const transformedData = (data || []).map(doc => ({
+        ...doc,
+        profiles: { full_name: doc.full_name }
+      }));
+      setDoctors(transformedData);
     } catch (error) {
       console.error('Error fetching doctors:', error);
       toast({
@@ -290,9 +293,7 @@ const PaymentManagement = () => {
           *,
           doctors!inner (
             doctor_code,
-            profiles!inner (
-              full_name
-            )
+            full_name
           )
         `)
         .eq('doctor_id', doctorId)
@@ -302,7 +303,15 @@ const PaymentManagement = () => {
         .order('visit_date', { ascending: true });
 
       if (error) throw error;
-      setVisits(data || []);
+      // Transform to match expected structure
+      const transformedData = (data || []).map(visit => ({
+        ...visit,
+        doctors: {
+          doctor_code: visit.doctors.doctor_code,
+          profiles: { full_name: visit.doctors.full_name }
+        }
+      }));
+      setVisits(transformedData);
     } catch (error) {
       console.error('Error fetching visits:', error);
       setVisits([]);
