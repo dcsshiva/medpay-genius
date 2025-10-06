@@ -8,6 +8,7 @@ import VisitManagement from '@/components/VisitManagement';
 import PaymentManagement from '@/components/PaymentManagement';
 import StaffManagement from '@/components/StaffManagement';
 import TaskManagement from '@/components/TaskManagement';
+import StaffAppraisalManagement from '@/components/StaffAppraisalManagement';
 import TeamChat from '@/components/TeamChat';
 import ComplaintManagement from '@/components/ComplaintManagement';
 import UserLoginReports from '@/components/UserLoginReports';
@@ -61,6 +62,8 @@ const Index = () => {
         return <PaymentManagement />;
       case 'tasks':
         return <TaskManagement />;
+      case 'appraisals':
+        return <StaffAppraisalManagement />;
       case 'complaints':
         return <ComplaintManagement />;
       case 'login-reports':

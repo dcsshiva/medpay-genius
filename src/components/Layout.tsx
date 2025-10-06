@@ -23,7 +23,8 @@ import {
   UserCog,
   MessageSquare,
   History as HistoryIcon,
-  BookOpen
+  BookOpen,
+  ClipboardCheck
 } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
 
@@ -58,6 +59,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
         { id: 'doctors', label: 'Doctors', icon: Users },
         { id: 'payments', label: 'Payment Approvals', icon: CreditCard },
         { id: 'tasks', label: 'Task Management', icon: ClipboardList },
+        { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
         { id: 'complaints', label: 'Complaints', icon: MessageCircle },
         { id: 'chat', label: 'Team Chat', icon: MessageSquare },
       ];
@@ -71,6 +73,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
         { id: 'visits', label: 'Visit Management', icon: Calendar },
         { id: 'payments', label: 'Payment Management', icon: CreditCard },
         { id: 'tasks', label: 'Task Management', icon: ClipboardList },
+        { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
         { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
         { id: 'chat', label: 'Team Chat', icon: MessageSquare },
         { id: 'version', label: 'Version Management', icon: HistoryIcon },

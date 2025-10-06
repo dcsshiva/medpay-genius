@@ -440,6 +440,87 @@ export type Database = {
           },
         ]
       }
+      staff_appraisals: {
+        Row: {
+          action_plan: string | null
+          appraisal_date: string
+          appraisal_period_end: string
+          appraisal_period_start: string
+          appraised_by: string | null
+          areas_for_improvement: string | null
+          communication_rating: number
+          created_at: string
+          id: string
+          manager_comments: string | null
+          next_review_date: string | null
+          overall_rating: Database["public"]["Enums"]["appraisal_rating"]
+          professionalism_rating: number
+          punctuality_rating: number
+          staff_id: string
+          strengths: string | null
+          teamwork_rating: number
+          updated_at: string
+          work_quality_rating: number
+        }
+        Insert: {
+          action_plan?: string | null
+          appraisal_date?: string
+          appraisal_period_end: string
+          appraisal_period_start: string
+          appraised_by?: string | null
+          areas_for_improvement?: string | null
+          communication_rating: number
+          created_at?: string
+          id?: string
+          manager_comments?: string | null
+          next_review_date?: string | null
+          overall_rating: Database["public"]["Enums"]["appraisal_rating"]
+          professionalism_rating: number
+          punctuality_rating: number
+          staff_id: string
+          strengths?: string | null
+          teamwork_rating: number
+          updated_at?: string
+          work_quality_rating: number
+        }
+        Update: {
+          action_plan?: string | null
+          appraisal_date?: string
+          appraisal_period_end?: string
+          appraisal_period_start?: string
+          appraised_by?: string | null
+          areas_for_improvement?: string | null
+          communication_rating?: number
+          created_at?: string
+          id?: string
+          manager_comments?: string | null
+          next_review_date?: string | null
+          overall_rating?: Database["public"]["Enums"]["appraisal_rating"]
+          professionalism_rating?: number
+          punctuality_rating?: number
+          staff_id?: string
+          strengths?: string | null
+          teamwork_rating?: number
+          updated_at?: string
+          work_quality_rating?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_appraisals_appraised_by_fkey"
+            columns: ["appraised_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "staff_appraisals_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_categories: {
         Row: {
           category_name: string
@@ -469,6 +550,144 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      staff_daily_activities: {
+        Row: {
+          activity_date: string
+          attendance_status: Database["public"]["Enums"]["attendance_status"]
+          created_at: string
+          id: string
+          patients_handled: number | null
+          recorded_by: string | null
+          shift_end_time: string | null
+          shift_start_time: string | null
+          special_notes: string | null
+          staff_id: string
+          supervisor_notes: string | null
+          tasks_completed: Json | null
+          updated_at: string
+        }
+        Insert: {
+          activity_date?: string
+          attendance_status: Database["public"]["Enums"]["attendance_status"]
+          created_at?: string
+          id?: string
+          patients_handled?: number | null
+          recorded_by?: string | null
+          shift_end_time?: string | null
+          shift_start_time?: string | null
+          special_notes?: string | null
+          staff_id: string
+          supervisor_notes?: string | null
+          tasks_completed?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          activity_date?: string
+          attendance_status?: Database["public"]["Enums"]["attendance_status"]
+          created_at?: string
+          id?: string
+          patients_handled?: number | null
+          recorded_by?: string | null
+          shift_end_time?: string | null
+          shift_start_time?: string | null
+          special_notes?: string | null
+          staff_id?: string
+          supervisor_notes?: string | null
+          tasks_completed?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_daily_activities_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "staff_daily_activities_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_warnings: {
+        Row: {
+          action_taken: string | null
+          created_at: string
+          description: string
+          follow_up_date: string | null
+          follow_up_required: boolean
+          id: string
+          incident_date: string
+          incident_time: string | null
+          issued_by: string | null
+          resolution_notes: string | null
+          resolved_at: string | null
+          severity: Database["public"]["Enums"]["warning_severity"]
+          staff_id: string
+          staff_response: string | null
+          updated_at: string
+          warning_type: Database["public"]["Enums"]["warning_type"]
+          witness_name: string | null
+        }
+        Insert: {
+          action_taken?: string | null
+          created_at?: string
+          description: string
+          follow_up_date?: string | null
+          follow_up_required?: boolean
+          id?: string
+          incident_date: string
+          incident_time?: string | null
+          issued_by?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          severity: Database["public"]["Enums"]["warning_severity"]
+          staff_id: string
+          staff_response?: string | null
+          updated_at?: string
+          warning_type: Database["public"]["Enums"]["warning_type"]
+          witness_name?: string | null
+        }
+        Update: {
+          action_taken?: string | null
+          created_at?: string
+          description?: string
+          follow_up_date?: string | null
+          follow_up_required?: boolean
+          id?: string
+          incident_date?: string
+          incident_time?: string | null
+          issued_by?: string | null
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          severity?: Database["public"]["Enums"]["warning_severity"]
+          staff_id?: string
+          staff_response?: string | null
+          updated_at?: string
+          warning_type?: Database["public"]["Enums"]["warning_type"]
+          witness_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_warnings_issued_by_fkey"
+            columns: ["issued_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "staff_warnings_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tasks: {
         Row: {
@@ -885,6 +1104,18 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
+      get_staff_appraisal_summary: {
+        Args: { _staff_id: string }
+        Returns: {
+          average_score: number
+          latest_rating: Database["public"]["Enums"]["appraisal_rating"]
+          total_appraisals: number
+        }[]
+      }
+      get_staff_attendance_percentage: {
+        Args: { _end_date: string; _staff_id: string; _start_date: string }
+        Returns: number
+      }
       get_staff_auth_email: {
         Args: { _username: string }
         Returns: string
@@ -926,6 +1157,13 @@ export type Database = {
           task_description: string
           task_title: string
         }[]
+      }
+      get_staff_warning_count: {
+        Args: {
+          _severity?: Database["public"]["Enums"]["warning_severity"]
+          _staff_id: string
+        }
+        Returns: number
       }
       get_user_payments: {
         Args: { _user_id: string; _user_role: string; _user_type: string }
@@ -1005,6 +1243,13 @@ export type Database = {
     }
     Enums: {
       app_designation: "admin" | "manager" | "supervisor" | "doctor" | "staff"
+      appraisal_rating:
+        | "excellent"
+        | "good"
+        | "satisfactory"
+        | "needs_improvement"
+        | "poor"
+      attendance_status: "present" | "late" | "absent" | "half_day" | "leave"
       complaint_status:
         | "open"
         | "in_review"
@@ -1035,6 +1280,30 @@ export type Database = {
         | "cancelled"
         | "overdue"
       user_role: "doctor" | "manager" | "admin" | "staff"
+      warning_severity:
+        | "verbal_warning"
+        | "written_warning"
+        | "final_warning"
+        | "suspension"
+      warning_type:
+        | "late_coming"
+        | "unauthorized_absence"
+        | "leaving_early"
+        | "excessive_absenteeism"
+        | "insubordination"
+        | "improper_mobile_use"
+        | "unprofessional_language"
+        | "gossip_rumors"
+        | "arguments_colleagues"
+        | "breach_confidentiality"
+        | "medication_errors"
+        | "hygiene_violations"
+        | "improper_documentation"
+        | "patient_neglect"
+        | "dress_code_violations"
+        | "misuse_hospital_property"
+        | "safety_protocol_failure"
+        | "sleeping_on_duty"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1163,6 +1432,14 @@ export const Constants = {
   public: {
     Enums: {
       app_designation: ["admin", "manager", "supervisor", "doctor", "staff"],
+      appraisal_rating: [
+        "excellent",
+        "good",
+        "satisfactory",
+        "needs_improvement",
+        "poor",
+      ],
+      attendance_status: ["present", "late", "absent", "half_day", "leave"],
       complaint_status: [
         "open",
         "in_review",
@@ -1197,6 +1474,32 @@ export const Constants = {
         "overdue",
       ],
       user_role: ["doctor", "manager", "admin", "staff"],
+      warning_severity: [
+        "verbal_warning",
+        "written_warning",
+        "final_warning",
+        "suspension",
+      ],
+      warning_type: [
+        "late_coming",
+        "unauthorized_absence",
+        "leaving_early",
+        "excessive_absenteeism",
+        "insubordination",
+        "improper_mobile_use",
+        "unprofessional_language",
+        "gossip_rumors",
+        "arguments_colleagues",
+        "breach_confidentiality",
+        "medication_errors",
+        "hygiene_violations",
+        "improper_documentation",
+        "patient_neglect",
+        "dress_code_violations",
+        "misuse_hospital_property",
+        "safety_protocol_failure",
+        "sleeping_on_duty",
+      ],
     },
   },
 } as const
