@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { FileText, Download, FileSpreadsheet, CheckCircle2, Circle, Search } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatFileTimestampIST, formatFullDateTimeIST } from '@/lib/dateUtils';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -157,7 +157,7 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
       
       XLSX.utils.book_append_sheet(wb, ws, title);
       
-      const timestamp = format(new Date(), 'yyyy-MM-dd_HH-mm-ss');
+      const timestamp = formatFileTimestampIST();
       XLSX.writeFile(wb, `${filename}_${timestamp}.xlsx`);
       
       toast({
@@ -196,7 +196,7 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
       
       // Add generation info
       doc.setFontSize(10);
-      doc.text(`Generated on: ${format(new Date(), 'PPpp')}`, 14, 32);
+      doc.text(`Generated on: ${formatFullDateTimeIST(new Date())}`, 14, 32);
       doc.text(`Total Records: ${selectedData.length}`, 14, 38);
       
       // Prepare table data
@@ -258,7 +258,7 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
         }
       });
       
-      const timestamp = format(new Date(), 'yyyy-MM-dd_HH-mm-ss');
+      const timestamp = formatFileTimestampIST();
       doc.save(`${filename}_${timestamp}.pdf`);
       
       toast({

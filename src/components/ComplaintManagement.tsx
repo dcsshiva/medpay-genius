@@ -20,7 +20,7 @@ import {
   User,
   Filter
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatDateIST, formatDateTimeIST, toISOStringIST } from '@/lib/dateUtils';
 
 interface Complaint {
   id: string;
@@ -315,7 +315,7 @@ const ComplaintManagement = () => {
           status: 'resolved',
           admin_response: adminResponse.trim(),
           resolved_by: currentStaff?.id || null,
-          resolved_at: new Date().toISOString()
+          resolved_at: toISOStringIST()
         })
         .eq('id', selectedComplaint.id);
 
@@ -369,7 +369,7 @@ const ComplaintManagement = () => {
       // If marking as taken, in_progress, or solved, record who took action
       if (['taken', 'in_progress', 'solved'].includes(newStatus)) {
         updateData.taken_care_by = currentStaff?.id;
-        updateData.taken_care_at = new Date().toISOString();
+        updateData.taken_care_at = toISOStringIST();
         if (actionNotes) {
           updateData.action_notes = actionNotes;
         }
@@ -684,10 +684,10 @@ const ComplaintManagement = () => {
             { key: 'category', label: 'Category', format: (value: string) => value.charAt(0).toUpperCase() + value.slice(1) },
             { key: 'priority', label: 'Priority', format: (value: string) => value.charAt(0).toUpperCase() + value.slice(1) },
             { key: 'status', label: 'Status', format: (value: string) => value.replace('_', ' ').charAt(0).toUpperCase() + value.replace('_', ' ').slice(1) },
-            { key: 'created_at', label: 'Created', format: (value: string) => format(new Date(value), 'MMM d, yyyy') },
-            { key: 'taken_care_at', label: 'Action Date', format: (value: string) => value ? format(new Date(value), 'MMM d, yyyy HH:mm') : 'No action taken' },
+            { key: 'created_at', label: 'Created', format: (value: string) => formatDateIST(value) },
+            { key: 'taken_care_at', label: 'Action Date', format: (value: string) => value ? formatDateTimeIST(value) : 'No action taken' },
             { key: 'taken_care_by_staff.full_name', label: 'Action By' },
-            { key: 'resolved_at', label: 'Resolved', format: (value: string) => value ? format(new Date(value), 'MMM d, yyyy') : 'Not resolved' },
+            { key: 'resolved_at', label: 'Resolved', format: (value: string) => value ? formatDateIST(value) : 'Not resolved' },
             { key: 'complaint_description', label: 'Description' },
             { key: 'admin_response', label: 'Admin Response' },
             { key: 'action_notes', label: 'Action Notes' }
@@ -766,7 +766,7 @@ const ComplaintManagement = () => {
                     {complaint.category.charAt(0).toUpperCase() + complaint.category.slice(1)}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
-                    {format(new Date(complaint.created_at), 'MMM d, yyyy')}
+                    {formatDateIST(complaint.created_at)}
                   </span>
                 </div>
                 
@@ -784,7 +784,7 @@ const ComplaintManagement = () => {
                   <p className="text-sm">{complaint.admin_response}</p>
                   {complaint.resolved_at && (
                     <p className="text-xs text-muted-foreground mt-1">
-                      Resolved on {format(new Date(complaint.resolved_at), 'MMM d, yyyy')}
+                      Resolved on {formatDateIST(complaint.resolved_at)}
                     </p>
                   )}
                 </div>
@@ -796,7 +796,7 @@ const ComplaintManagement = () => {
                   <p className="text-sm font-medium">{complaint.taken_care_by_staff.full_name}</p>
                   {complaint.taken_care_at && (
                     <p className="text-xs text-muted-foreground">
-                      on {format(new Date(complaint.taken_care_at), 'MMM d, yyyy HH:mm')}
+                      on {formatDateTimeIST(complaint.taken_care_at)}
                     </p>
                   )}
                   {complaint.action_notes && (

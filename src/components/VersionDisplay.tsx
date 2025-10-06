@@ -4,14 +4,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Clock, GitBranch, Hash, Monitor } from 'lucide-react';
+import { formatFullDateTimeIST } from '@/lib/dateUtils';
 
 const VersionDisplay: React.FC = () => {
   const versionInfo = useVersionInfo();
   const [detailsOpen, setDetailsOpen] = useState(false);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
-  };
 
   return (
     <>
@@ -50,7 +48,7 @@ const VersionDisplay: React.FC = () => {
                   <Clock className="h-4 w-4 mt-0.5 text-muted-foreground" />
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Build Date</p>
-                    <p className="text-sm">{formatDate(versionInfo.buildDate)}</p>
+                    <p className="text-sm">{formatFullDateTimeIST(versionInfo.buildDate)}</p>
                   </div>
                 </div>
                 

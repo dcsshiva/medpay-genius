@@ -8,7 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useToast } from '@/components/ui/use-toast';
 import { Send, MessageCircle, Users } from 'lucide-react';
-import { formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNowIST } from '@/lib/dateUtils';
 
 interface Message {
   id: string;
@@ -251,8 +251,8 @@ const TeamChat = () => {
                               <span className="text-xs opacity-70">(edited)</span>
                             )}
                           </div>
-                          <span className="text-xs text-muted-foreground mt-1">
-                            {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+            <span className="text-xs text-muted-foreground mt-1">
+                            {formatDistanceToNowIST(message.created_at)}
                           </span>
                         </div>
                       </div>

@@ -20,7 +20,7 @@ import {
   LogOut,
   UserCheck
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatDateTimeIST } from '@/lib/dateUtils';
 
 interface LoginSession {
   id: string;
@@ -236,9 +236,9 @@ const UserLoginReports = () => {
             { key: 'full_name', label: 'Full Name' },
             { key: 'role', label: 'Role', format: (value: string) => value.charAt(0).toUpperCase() + value.slice(1) },
             { key: 'user_type', label: 'User Type', format: (value: string) => value.replace('_', ' ').charAt(0).toUpperCase() + value.replace('_', ' ').slice(1) },
-            { key: 'created_at', label: 'Login Time', format: (value: string) => format(new Date(value), 'MMM d, yyyy HH:mm:ss') },
-            { key: 'last_activity_at', label: 'Last Activity', format: (value: string) => format(new Date(value), 'MMM d, yyyy HH:mm:ss') },
-            { key: 'expires_at', label: 'Session Expires', format: (value: string) => format(new Date(value), 'MMM d, yyyy HH:mm:ss') },
+            { key: 'created_at', label: 'Login Time', format: (value: string) => formatDateTimeIST(value) + ':' + new Date(value).getSeconds().toString().padStart(2, '0') },
+            { key: 'last_activity_at', label: 'Last Activity', format: (value: string) => formatDateTimeIST(value) + ':' + new Date(value).getSeconds().toString().padStart(2, '0') },
+            { key: 'expires_at', label: 'Session Expires', format: (value: string) => formatDateTimeIST(value) + ':' + new Date(value).getSeconds().toString().padStart(2, '0') },
             { key: 'idle_timeout_seconds', label: 'Timeout (sec)' },
             { key: 'timeout_warnings_count', label: 'Warnings' },
             { key: 'is_active', label: 'Status', format: (value: boolean) => value ? 'Active' : 'Inactive' },
@@ -418,11 +418,11 @@ const UserLoginReports = () => {
                   <div className="flex items-center gap-4">
                     <div>
                       <p className="font-medium">Login Time</p>
-                      <p>{format(new Date(session.created_at), 'MMM d, HH:mm:ss')}</p>
+                      <p>{formatDateTimeIST(session.created_at).replace(',', '')}</p>
                     </div>
                     <div>
                       <p className="font-medium">Last Activity</p>
-                      <p>{format(new Date(session.last_activity_at), 'MMM d, HH:mm:ss')}</p>
+                      <p>{formatDateTimeIST(session.last_activity_at).replace(',', '')}</p>
                     </div>
                     <div>
                       <p className="font-medium">Timeout</p>

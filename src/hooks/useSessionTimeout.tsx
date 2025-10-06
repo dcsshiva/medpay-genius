@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { toISOStringIST } from '@/lib/dateUtils';
 
 interface SessionTimeoutConfig {
   staff: 180; // 3 minutes
@@ -62,7 +63,7 @@ export const useSessionTimeout = () => {
       await supabase
         .from('user_sessions')
         .update({ 
-          last_activity_at: new Date().toISOString(),
+          last_activity_at: toISOStringIST(),
           warning_shown_at: null 
         })
         .eq('session_token', sessionToken)
@@ -155,7 +156,7 @@ export const useSessionTimeout = () => {
     await supabase
       .from('user_sessions')
       .update({ 
-        warning_shown_at: new Date().toISOString(),
+        warning_shown_at: toISOStringIST(),
         timeout_warnings_count: (currentSession?.timeout_warnings_count || 0) + 1
       })
       .eq('session_token', sessionToken);

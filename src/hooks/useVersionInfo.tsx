@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { toISOStringIST } from '@/lib/dateUtils';
 
 interface VersionInfo {
   version: string;
@@ -18,7 +19,7 @@ interface BuildInfo {
 export const useVersionInfo = () => {
   const [versionInfo, setVersionInfo] = useState<VersionInfo>({
     version: '1.0.0',
-    buildDate: new Date().toISOString(),
+    buildDate: toISOStringIST(),
     gitCommit: 'dev',
     environment: 'development',
     branch: 'main'
@@ -40,7 +41,7 @@ export const useVersionInfo = () => {
       // Fallback for development
       setVersionInfo({
         version: '1.0.0-dev',
-        buildDate: new Date().toISOString(),
+        buildDate: toISOStringIST(),
         gitCommit: 'local',
         environment: 'development',
         branch: 'local'

@@ -22,7 +22,7 @@ import {
   Calendar,
   Filter
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatDateIST, formatDateTimeIST, toISOStringIST } from '@/lib/dateUtils';
 
 interface Task {
   id: string;
@@ -259,7 +259,7 @@ const TaskManagement = () => {
       };
 
       if (newStatus === 'completed') {
-        updateData.completed_at = new Date().toISOString();
+        updateData.completed_at = toISOStringIST();
       }
 
       const { error } = await supabase
@@ -395,9 +395,9 @@ const TaskManagement = () => {
                 { key: 'assigned_to_staff.role', label: 'Role' },
                 { key: 'priority', label: 'Priority', format: (value: string) => value.charAt(0).toUpperCase() + value.slice(1) },
                 { key: 'status', label: 'Status', format: (value: string) => value.replace('_', ' ').charAt(0).toUpperCase() + value.replace('_', ' ').slice(1) },
-                { key: 'due_date', label: 'Due Date', format: (value: string) => value ? format(new Date(value), 'MMM d, yyyy HH:mm') : 'No due date' },
-                { key: 'created_at', label: 'Created', format: (value: string) => format(new Date(value), 'MMM d, yyyy') },
-                { key: 'completed_at', label: 'Completed', format: (value: string) => value ? format(new Date(value), 'MMM d, yyyy') : 'Not completed' },
+                { key: 'due_date', label: 'Due Date', format: (value: string) => value ? formatDateTimeIST(value) : 'No due date' },
+                { key: 'created_at', label: 'Created', format: (value: string) => formatDateIST(value) },
+                { key: 'completed_at', label: 'Completed', format: (value: string) => value ? formatDateIST(value) : 'Not completed' },
                 { key: 'task_description', label: 'Description' },
                 { key: 'notes', label: 'Notes' }
               ]}
@@ -678,7 +678,7 @@ const TaskManagement = () => {
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm">
-                      Due: {format(new Date(task.due_date), 'MMM d, yyyy HH:mm')}
+                      Due: {formatDateTimeIST(task.due_date)}
                     </span>
                   </div>
                 )}
@@ -689,7 +689,7 @@ const TaskManagement = () => {
                     {task.status.replace('_', ' ').charAt(0).toUpperCase() + task.status.replace('_', ' ').slice(1)}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
-                    {format(new Date(task.created_at), 'MMM d')}
+                    {formatDateIST(task.created_at).split(',')[0]}
                   </span>
                 </div>
               </div>

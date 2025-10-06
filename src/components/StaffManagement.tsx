@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Edit, Users, UserCheck, UserX, Search, Download, Upload, Loader2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatDateIST } from '@/lib/dateUtils';
 import { 
   generateStaffTemplate, 
   parseExcelFile, 
@@ -1030,7 +1030,7 @@ const StaffManagement = () => {
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">Last Login:</span>
                     <span className="text-sm font-medium">
-                      {format(new Date(member.last_login), 'MMM d, yyyy')}
+                      {formatDateIST(member.last_login)}
                     </span>
                   </div>
                 )}

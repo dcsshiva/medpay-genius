@@ -9,6 +9,7 @@ import { useVersionInfo } from '@/hooks/useVersionInfo';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { GitBranch, Clock, Hash, Download, ArrowLeft, RefreshCw, History } from 'lucide-react';
+import { formatFullDateTimeIST } from '@/lib/dateUtils';
 
 interface VersionHistory {
   id: string;
@@ -119,9 +120,6 @@ const VersionManager = () => {
     fetchVersions();
   }, []);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString();
-  };
 
   if (loading) {
     return (
@@ -201,7 +199,7 @@ const VersionManager = () => {
                   {versions.map((version) => (
                     <TableRow key={version.id}>
                       <TableCell className="font-medium">{version.version}</TableCell>
-                      <TableCell className="text-sm">{formatDate(version.release_date)}</TableCell>
+                      <TableCell className="text-sm">{formatFullDateTimeIST(version.release_date)}</TableCell>
                       <TableCell>
                         <Badge variant={version.environment === 'production' ? 'default' : 'secondary'}>
                           {version.environment}

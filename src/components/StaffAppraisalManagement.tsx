@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ClipboardCheck, AlertTriangle, Calendar, Search, Plus } from "lucide-react";
-import { format } from "date-fns";
+import { formatDateIST, formatDateTimeIST, formatInputDateIST, getCurrentISTDate, formatLongDateIST } from '@/lib/dateUtils';
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -170,7 +170,7 @@ export default function StaffAppraisalManagement() {
   // Daily activity form state
   const [showActivityForm, setShowActivityForm] = useState(false);
   const [selectedStaffForActivity, setSelectedStaffForActivity] = useState("");
-  const [activityDate, setActivityDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [activityDate, setActivityDate] = useState(formatInputDateIST(getCurrentISTDate()));
   const [shiftStartTime, setShiftStartTime] = useState("");
   const [shiftEndTime, setShiftEndTime] = useState("");
   const [attendanceStatus, setAttendanceStatus] = useState("");
@@ -435,7 +435,7 @@ export default function StaffAppraisalManagement() {
   const resetActivityForm = () => {
     setShowActivityForm(false);
     setSelectedStaffForActivity("");
-    setActivityDate(format(new Date(), "yyyy-MM-dd"));
+    setActivityDate(formatInputDateIST(getCurrentISTDate()));
     setShiftStartTime("");
     setShiftEndTime("");
     setAttendanceStatus("");
@@ -726,7 +726,7 @@ export default function StaffAppraisalManagement() {
                         {appraisal.staff?.full_name} ({appraisal.staff?.staff_code})
                       </CardTitle>
                       <CardDescription>
-                        {format(new Date(appraisal.appraisal_period_start), "MMM dd, yyyy")} - {format(new Date(appraisal.appraisal_period_end), "MMM dd, yyyy")}
+                        {formatDateIST(appraisal.appraisal_period_start)} - {formatDateIST(appraisal.appraisal_period_end)}
                       </CardDescription>
                     </div>
                     <Badge className={overallRatings.find(r => r.value === appraisal.overall_rating)?.color}>
@@ -961,7 +961,7 @@ export default function StaffAppraisalManagement() {
                   <div className="space-y-2 text-sm">
                     <div>
                       <span className="text-muted-foreground">Date:</span>
-                      <span className="ml-2">{format(new Date(warning.incident_date), "MMM dd, yyyy")}</span>
+                      <span className="ml-2">{formatDateIST(warning.incident_date)}</span>
                       {warning.incident_time && <span className="ml-2">at {warning.incident_time}</span>}
                     </div>
                     <div>
@@ -976,7 +976,7 @@ export default function StaffAppraisalManagement() {
                     )}
                     {warning.follow_up_required && (
                       <Badge variant="outline" className="mt-2">
-                        Follow-up: {warning.follow_up_date ? format(new Date(warning.follow_up_date), "MMM dd, yyyy") : "Required"}
+                        Follow-up: {warning.follow_up_date ? formatDateIST(warning.follow_up_date) : "Required"}
                       </Badge>
                     )}
                   </div>
@@ -1152,7 +1152,7 @@ export default function StaffAppraisalManagement() {
                         {activity.staff?.full_name} ({activity.staff?.staff_code})
                       </CardTitle>
                       <CardDescription>
-                        {format(new Date(activity.activity_date), "EEEE, MMM dd, yyyy")}
+                        {formatLongDateIST(activity.activity_date)}
                       </CardDescription>
                     </div>
                     <Badge className={attendanceStatuses.find(s => s.value === activity.attendance_status)?.color}>

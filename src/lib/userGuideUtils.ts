@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { formatInputDateIST, getCurrentISTDate, toISOStringIST } from "@/lib/dateUtils";
 
 // South Indian sample names for realistic examples
 export const sampleNames = {
@@ -38,7 +39,7 @@ export const roleBasedExamples = {
     sampleData: {
       patient_id: "PAT001",
       patient_name: sampleNames.patients[0],
-      visit_date: new Date().toISOString().split('T')[0],
+      visit_date: formatInputDateIST(getCurrentISTDate()),
       visit_payment: "500",
       visit_reason: "regular_checkup"
     }
@@ -48,7 +49,7 @@ export const roleBasedExamples = {
       task_title: "Update Patient Records",
       task_description: "Review and update patient medical records for the week",
       priority: "high",
-      due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      due_date: toISOStringIST(new Date(Date.now() + 7 * 24 * 60 * 60 * 1000))
     }
   }
 };

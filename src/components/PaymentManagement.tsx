@@ -30,7 +30,7 @@ import {
   Building2
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { format } from 'date-fns';
+import { formatDateIST, formatDateTimeIST, toISOStringIST, formatReportDateIST, formatFileTimestampIST } from '@/lib/dateUtils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ReportGeneration from './ReportGeneration';
 
@@ -527,7 +527,7 @@ const PaymentManagement = () => {
           updateData = {
             status: 'manager_approved',
             manager_approved_by: profile.id,
-            manager_approved_at: new Date().toISOString()
+            manager_approved_at: toISOStringIST()
           };
         } else if (userRole === 'admin') {
           const payment = payments.find(p => p.id === paymentId);
@@ -536,15 +536,15 @@ const PaymentManagement = () => {
             updateData = {
               status: 'admin_approved',
               manager_approved_by: profile.id,
-              manager_approved_at: new Date().toISOString(),
+              manager_approved_at: toISOStringIST(),
               admin_approved_by: profile.id,
-              admin_approved_at: new Date().toISOString()
+              admin_approved_at: toISOStringIST()
             };
           } else {
             updateData = {
               status: 'admin_approved',
               admin_approved_by: profile.id,
-              admin_approved_at: new Date().toISOString()
+              admin_approved_at: toISOStringIST()
             };
           }
         }
@@ -552,7 +552,7 @@ const PaymentManagement = () => {
         updateData = {
           status: 'rejected',
           rejected_by: profile.id,
-          rejected_at: new Date().toISOString(),
+          rejected_at: toISOStringIST(),
           rejection_reason: reason
         };
       }
@@ -596,7 +596,7 @@ const PaymentManagement = () => {
         is_suspect: isMarking,
         suspect_reason: isMarking ? reason : null,
         marked_suspect_by: isMarking ? profile.id : null,
-        marked_suspect_at: isMarking ? new Date().toISOString() : null
+        marked_suspect_at: isMarking ? toISOStringIST() : null
       };
 
       const { error } = await supabase
@@ -790,7 +790,7 @@ const PaymentManagement = () => {
       // Calculate totals
       const totalAmount = validPayments.reduce((sum, p) => sum + parseFloat(p.paid_amount || 0), 0);
       const recordCount = validPayments.length;
-      const today = format(new Date(), 'dd/MM/yyyy');
+      const today = formatReportDateIST();
 
       // Create workbook
       const wb = XLSX.utils.book_new();
@@ -837,7 +837,7 @@ const PaymentManagement = () => {
       XLSX.utils.book_append_sheet(wb, ws, 'Bank Upload');
 
       // Generate filename with timestamp
-      const timestamp = format(new Date(), 'yyyy-MM-dd_HH-mm-ss');
+      const timestamp = formatFileTimestampIST();
       const filename = `bank_advice_${timestamp}.xls`;
 
       // Save file
@@ -848,7 +848,7 @@ const PaymentManagement = () => {
         .from('payments')
         .update({
           bank_advice_generated: true,
-          bank_advice_generated_at: new Date().toISOString(),
+          bank_advice_generated_at: toISOStringIST(),
           bank_advice_generated_by: user?.id
         })
         .in('id', validPayments.map(p => p.id));
@@ -927,7 +927,7 @@ const PaymentManagement = () => {
               {payment.profiles?.full_name || payment.doctors?.profiles?.full_name || 'Unknown Doctor'}
             </CardTitle>
             <p className="text-sm text-muted-foreground">
-              {format(new Date(payment.period_start), 'MMM dd')} - {format(new Date(payment.period_end), 'MMM dd, yyyy')}
+              {formatDateIST(payment.period_start).split(',')[0].replace(' ', ' ')} - {formatDateIST(payment.period_end)}
             </p>
           </div>
           <div className="flex gap-2 items-center">
@@ -1155,7 +1155,7 @@ const PaymentManagement = () => {
                 <div>
                   <span className="text-muted-foreground">Processed Date:</span>
                   <span className="ml-2 font-medium">
-                    {format(new Date(payment.admin_approved_at), 'MMM dd, yyyy HH:mm')}
+                    {formatDateTimeIST(payment.admin_approved_at)}
                   </span>
                 </div>
               )}
@@ -1163,7 +1163,7 @@ const PaymentManagement = () => {
                 <div>
                   <span className="text-muted-foreground">Bank Advice Generated:</span>
                   <span className="ml-2 font-medium">
-                    {format(new Date(payment.bank_advice_generated_at), 'MMM dd, yyyy HH:mm')}
+                    {formatDateTimeIST(payment.bank_advice_generated_at)}
                   </span>
                 </div>
               )}
@@ -1224,8 +1224,8 @@ const PaymentManagement = () => {
   const paymentReportColumns = [
     { key: 'doctors.profiles.full_name', label: 'Doctor Name' },
     { key: 'doctors.doctor_code', label: 'Doctor Code' },
-    { key: 'period_start', label: 'Period Start Date', format: (value: string) => format(new Date(value), 'MMM dd, yyyy') },
-    { key: 'period_end', label: 'Period End Date', format: (value: string) => format(new Date(value), 'MMM dd, yyyy') },
+    { key: 'period_start', label: 'Period Start Date', format: (value: string) => formatDateIST(value) },
+    { key: 'period_end', label: 'Period End Date', format: (value: string) => formatDateIST(value) },
     { key: 'total_visits', label: 'Total Visits' },
     { key: 'total_amount', label: 'Total Amount', format: (value: number) => formatCurrency(value) },
     { key: 'paid_amount', label: 'Paid Amount', format: (value: number) => formatCurrency(value) },
@@ -1233,8 +1233,8 @@ const PaymentManagement = () => {
     { key: 'is_fully_paid', label: 'Fully Paid Status', format: (value: boolean) => value ? 'Yes' : 'No' },
     { key: 'status', label: 'Status', format: (value: string) => value.replace('_', ' ').toUpperCase() },
     { key: 'payment_notes', label: 'Payment Notes' },
-    { key: 'manager_approved_at', label: 'Manager Approved Date & Time', format: (value: string) => value ? format(new Date(value), 'MMM dd, yyyy HH:mm') : 'N/A' },
-    { key: 'admin_approved_at', label: 'Admin Approved Date & Time', format: (value: string) => value ? format(new Date(value), 'MMM dd, yyyy HH:mm') : 'N/A' }
+    { key: 'manager_approved_at', label: 'Manager Approved Date & Time', format: (value: string) => value ? formatDateTimeIST(value) : 'N/A' },
+    { key: 'admin_approved_at', label: 'Admin Approved Date & Time', format: (value: string) => value ? formatDateTimeIST(value) : 'N/A' }
   ];
 
   return (
@@ -1358,7 +1358,7 @@ const PaymentManagement = () => {
                             <div className="space-y-1">
                               <div className="flex justify-between items-start">
                                 <p className="font-medium text-sm">
-                                  {format(new Date(visit.visit_date), 'MMM dd, yyyy')}
+                                  {formatDateIST(visit.visit_date)}
                                 </p>
                                 <Badge variant="outline" className="text-xs">
                                   {visit.patient_count} {visit.patient_count === 1 ? 'Patient' : 'Patients'}
@@ -1527,7 +1527,7 @@ const PaymentManagement = () => {
                                     {payment.doctors?.profiles?.full_name || 'Unknown Doctor'}
                                   </CardTitle>
                                   <p className="text-sm text-muted-foreground">
-                                    {payment.doctors?.doctor_code || 'N/A'} | Period: {format(new Date(payment.period_start), 'MMM dd')} - {format(new Date(payment.period_end), 'MMM dd, yyyy')}
+                                    {payment.doctors?.doctor_code || 'N/A'} | Period: {formatDateIST(payment.period_start).split(',')[0].replace(' ', ' ')} - {formatDateIST(payment.period_end)}
                                   </p>
                                 </div>
                                 <div className="text-right">
@@ -1639,7 +1639,7 @@ const PaymentManagement = () => {
                     <p className="text-sm text-muted-foreground">Payment for:</p>
                     <p className="font-semibold">{selectedPayment.doctors?.profiles?.full_name}</p>
                     <p className="text-sm">
-                      Period: {format(new Date(selectedPayment.period_start), 'MMM dd')} - {format(new Date(selectedPayment.period_end), 'MMM dd, yyyy')}
+                      Period: {formatDateIST(selectedPayment.period_start).split(',')[0].replace(' ', ' ')} - {formatDateIST(selectedPayment.period_end)}
                     </p>
                     <p className="text-sm">
                       Remaining Amount: <span className="font-semibold text-primary">{formatCurrency(selectedPayment.remaining_amount)}</span>
@@ -1704,7 +1704,7 @@ const PaymentManagement = () => {
                 <div className="bg-muted p-4 rounded-lg">
                   <p className="font-semibold">{selectedPayment.doctors?.profiles?.full_name}</p>
                   <p className="text-sm text-muted-foreground">
-                    Period: {format(new Date(selectedPayment.period_start), 'MMM dd')} - {format(new Date(selectedPayment.period_end), 'MMM dd, yyyy')}
+                    Period: {formatDateIST(selectedPayment.period_start).split(',')[0].replace(' ', ' ')} - {formatDateIST(selectedPayment.period_end)}
                   </p>
                   <div className="grid grid-cols-3 gap-4 mt-2">
                     <div>
@@ -1733,7 +1733,7 @@ const PaymentManagement = () => {
                               <div>
                                 <p className="font-semibold text-primary">{formatCurrency(transaction.amount)}</p>
                                 <p className="text-sm text-muted-foreground">
-                                  {format(new Date(transaction.transaction_date), 'MMM dd, yyyy')}
+                                  {formatDateIST(transaction.transaction_date)}
                                 </p>
                                 {transaction.transaction_reference && (
                                   <p className="text-xs text-muted-foreground">
@@ -1742,7 +1742,7 @@ const PaymentManagement = () => {
                                 )}
                               </div>
                               <div className="text-right text-xs text-muted-foreground">
-                                <p>{format(new Date(transaction.created_at), 'MMM dd, yyyy HH:mm')}</p>
+                                <p>{formatDateTimeIST(transaction.created_at)}</p>
                               </div>
                             </div>
                             {transaction.notes && (

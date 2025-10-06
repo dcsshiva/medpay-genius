@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { toISOStringIST } from '@/lib/dateUtils';
 
 interface AuthContextType {
   user: User | null;
@@ -43,7 +44,7 @@ const createUserSession = async (sessionData: {
       role: sessionData.role,
       expires_at: expiresAt.toISOString(),
       idle_timeout_seconds: timeoutDuration,
-      last_activity_at: new Date().toISOString(),
+      last_activity_at: toISOStringIST(),
       is_active: true
     })
     .select()
@@ -65,7 +66,7 @@ const getActiveSession = async () => {
     .select('*')
     .eq('session_token', sessionToken)
     .eq('is_active', true)
-    .gt('expires_at', new Date().toISOString())
+    .gt('expires_at', toISOStringIST())
     .maybeSingle();
 
   if (error || !data) {
@@ -219,7 +220,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               email: `${username}@westmed.local`,
               app_metadata: {},
               aud: 'authenticated',
-              created_at: new Date().toISOString(),
+              created_at: toISOStringIST(),
               user_metadata: {
                 full_name: loginResult.full_name || username,
                 role: loginResult.role || 'staff',

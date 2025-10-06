@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Calendar, Users, Stethoscope, Search, Edit, Trash2, CheckCircle, Clock } from 'lucide-react';
-import { format } from 'date-fns';
+import { formatDateIST, formatDateTimeIST, formatInputDateIST, getCurrentISTDate } from '@/lib/dateUtils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ReportGeneration from './ReportGeneration';
 
@@ -56,7 +56,7 @@ const VisitManagement = () => {
   const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
-    visit_date: new Date().toISOString().split('T')[0],
+    visit_date: formatInputDateIST(getCurrentISTDate()),
     patient_count: 1,
     patient_id: '',
     patient_name: '',
@@ -215,7 +215,7 @@ const VisitManagement = () => {
 
   const resetForm = () => {
     setFormData({
-      visit_date: new Date().toISOString().split('T')[0],
+      visit_date: formatInputDateIST(getCurrentISTDate()),
       patient_count: 1,
       patient_id: '',
       patient_name: '',
@@ -506,7 +506,7 @@ const VisitManagement = () => {
             { 
               key: 'visit_date', 
               label: 'Visit Date',
-              format: (value) => format(new Date(value), 'MMM dd, yyyy')
+              format: (value) => formatDateIST(value)
             },
             { 
               key: 'doctors.profiles.full_name', 
@@ -599,7 +599,7 @@ const VisitManagement = () => {
                     <div>
                       <div className="flex items-center gap-2">
                         <CardTitle className="text-lg">
-                          {format(new Date(visit.visit_date), 'PPP')}
+                          {formatDateIST(visit.visit_date)}
                         </CardTitle>
                         <Badge variant="outline" className="text-xs">
                           Unprocessed
@@ -714,7 +714,7 @@ const VisitManagement = () => {
                     <div>
                       <div className="flex items-center gap-2">
                         <CardTitle className="text-lg">
-                          {format(new Date(visit.visit_date), 'PPP')}
+                          {formatDateIST(visit.visit_date)}
                         </CardTitle>
                         <Badge variant="default" className="text-xs bg-success">
                           Processed
@@ -731,7 +731,7 @@ const VisitManagement = () => {
                       )}
                       {visit.processed_at && (
                         <p className="text-xs text-muted-foreground">
-                          Processed: {format(new Date(visit.processed_at), 'MMM dd, yyyy HH:mm')}
+                          Processed: {formatDateTimeIST(visit.processed_at)}
                         </p>
                       )}
                     </div>
