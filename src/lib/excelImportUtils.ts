@@ -33,8 +33,42 @@ export const generateStaffTemplate = () => {
     { wch: 15 }  // password
   ];
   
+  // Add data validation for role column (dropdown)
+  const roleOptions = ['admin', 'manager', 'nurse', 'doctor', 'technician', 'receptionist', 'pharmacist', 'cleaner', 'security'];
+  worksheet['!dataValidation'] = {
+    F2: {
+      type: 'list',
+      allowBlank: false,
+      formulae: [`"${roleOptions.join(',')}"`],
+      showDropDown: true,
+      error: 'Please select a valid role from the dropdown',
+      errorTitle: 'Invalid Role'
+    }
+  };
+  
+  // Apply validation to multiple rows (F2:F1000)
+  for (let row = 2; row <= 1000; row++) {
+    const cellRef = `F${row}`;
+    if (!worksheet['!dataValidation']) worksheet['!dataValidation'] = {};
+    worksheet['!dataValidation'][cellRef] = {
+      type: 'list',
+      allowBlank: false,
+      formulae: [`"${roleOptions.join(',')}"`],
+      showDropDown: true,
+      error: 'Please select a valid role from the dropdown',
+      errorTitle: 'Invalid Role'
+    };
+  }
+  
   utils.book_append_sheet(workbook, worksheet, 'Staff Template');
-  writeFile(workbook, 'staff_import_template.xlsx');
+  
+  // Generate filename with current date (DDMM format)
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const filename = `staff_import_${day}${month}_westmed.xlsx`;
+  
+  writeFile(workbook, filename);
 };
 
 export const generateDoctorTemplate = () => {
