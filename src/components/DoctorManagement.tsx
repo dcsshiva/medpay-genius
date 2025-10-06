@@ -212,15 +212,6 @@ const DoctorManagement = () => {
         });
       } else {
         // Create new doctor
-        if (!formData.email.trim()) {
-          toast({
-            variant: "destructive",
-            title: "Validation Error",
-            description: "Email is required for new doctors"
-          });
-          return;
-        }
-
         if (!formData.password.trim()) {
           toast({
             variant: "destructive",
@@ -246,10 +237,13 @@ const DoctorManagement = () => {
           return;
         }
 
+        // Auto-generate email if not provided
+        const emailToUse = formData.email.trim() || `${formData.doctor_code}@gmail.com`;
+
         // Create auth user and doctor via edge function
         const { data: result, error: createUserError } = await supabase.functions.invoke('create-user', {
           body: {
-            email: formData.email,
+            email: emailToUse,
             password: formData.password,
             designation: 'doctor',
             userData: {
@@ -269,8 +263,14 @@ const DoctorManagement = () => {
           headers: getSessionAuthHeaders()
         });
 
+        console.log('Create user response:', result, createUserError);
+
         if (createUserError || !result?.success) {
-          throw new Error(result?.error || createUserError?.message || 'Failed to create user');
+          const errorMessage = result?.error || createUserError?.message || 'Failed to create user';
+          if (errorMessage.includes('email') && errorMessage.includes('exists')) {
+            throw new Error(`Email ${emailToUse} is already in use. Please use a different email or doctor code.`);
+          }
+          throw new Error(errorMessage);
         }
 
         toast({

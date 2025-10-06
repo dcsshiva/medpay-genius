@@ -103,7 +103,6 @@ export type Database = {
           ifsc_code: string | null
           is_active: boolean
           password_hash: string | null
-          profile_id: string
           specialization: string
           updated_at: string
           user_id: string | null
@@ -120,7 +119,6 @@ export type Database = {
           ifsc_code?: string | null
           is_active?: boolean
           password_hash?: string | null
-          profile_id: string
           specialization: string
           updated_at?: string
           user_id?: string | null
@@ -137,20 +135,11 @@ export type Database = {
           ifsc_code?: string | null
           is_active?: boolean
           password_hash?: string | null
-          profile_id?: string
           specialization?: string
           updated_at?: string
           user_id?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "doctors_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       messages: {
         Row: {
@@ -391,7 +380,6 @@ export type Database = {
           last_login: string | null
           password_hash: string
           phone: string | null
-          profile_id: string | null
           role: Database["public"]["Enums"]["staff_role"]
           staff_category_id: string | null
           staff_code: string
@@ -409,7 +397,6 @@ export type Database = {
           last_login?: string | null
           password_hash: string
           phone?: string | null
-          profile_id?: string | null
           role?: Database["public"]["Enums"]["staff_role"]
           staff_category_id?: string | null
           staff_code: string
@@ -427,7 +414,6 @@ export type Database = {
           last_login?: string | null
           password_hash?: string
           phone?: string | null
-          profile_id?: string | null
           role?: Database["public"]["Enums"]["staff_role"]
           staff_category_id?: string | null
           staff_code?: string
@@ -436,13 +422,6 @@ export type Database = {
           username?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "staff_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: true
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "staff_staff_category_id_fkey"
             columns: ["staff_category_id"]
