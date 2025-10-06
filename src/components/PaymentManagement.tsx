@@ -143,8 +143,7 @@ const PaymentManagement = () => {
 
   const [formData, setFormData] = useState({
     doctor_id: '',
-    period_start: '',
-    period_end: '',
+    payment_type_filter: 'all' as 'all' | 'cash' | 'insurance',
     payment_notes: ''
   });
 
@@ -363,10 +362,10 @@ const PaymentManagement = () => {
     }
   };
 
-  const fetchUnprocessedVisits = async (doctorId: string, startDate: string, endDate: string) => {
+  const fetchUnprocessedVisits = async (doctorId: string, paymentTypeFilter: 'all' | 'cash' | 'insurance') => {
     try {
-      // Fetch ALL visits in the date range (including processed ones)
-      const { data: allVisits, error: visitsError } = await supabase
+      // Build query for ALL unprocessed visits
+      let query = supabase
         .from('visits')
         .select(`
           *,
@@ -376,9 +375,17 @@ const PaymentManagement = () => {
           )
         `)
         .eq('doctor_id', doctorId)
-        .gte('visit_date', startDate)
-        .lte('visit_date', endDate)
+        .eq('is_processed', false)
         .order('visit_date', { ascending: true });
+
+      // Apply payment type filter
+      if (paymentTypeFilter === 'cash') {
+        query = query.eq('payment_type', 'cash');
+      } else if (paymentTypeFilter === 'insurance') {
+        query = query.eq('payment_type', 'insurance');
+      }
+
+      const { data: allVisits, error: visitsError } = await query;
 
       if (visitsError) throw visitsError;
 
@@ -387,9 +394,6 @@ const PaymentManagement = () => {
 
       // Filter out visits that fall within existing payment periods
       const availableVisits = (allVisits || []).filter(visit => {
-        // Check if visit is not processed
-        if (visit.is_processed) return false;
-
         // Check if visit falls within any existing payment period
         const isInExistingPayment = existingPayments.some(payment => {
           return visit.visit_date >= payment.period_start && 
@@ -430,31 +434,33 @@ const PaymentManagement = () => {
     setSubmitting(true);
 
     try {
-      if (!formData.doctor_id || !formData.period_start || !formData.period_end) {
-        throw new Error('Please fill in all required fields');
+      if (!formData.doctor_id) {
+        throw new Error('Please select a doctor');
       }
 
-      // Check for existing payments in this period FIRST
-      const existingPayments = await fetchExistingPayments(formData.doctor_id);
-      const hasOverlap = existingPayments.some(payment => {
-        // Check if the new period overlaps with existing payment periods
-        const newStart = new Date(formData.period_start);
-        const newEnd = new Date(formData.period_end);
-        const existingStart = new Date(payment.period_start);
-        const existingEnd = new Date(payment.period_end);
-        
-        return (newStart <= existingEnd && newEnd >= existingStart);
-      });
-
-      if (hasOverlap) {
-        throw new Error('Payment advice already exists for this period or overlapping dates. Please check existing payments.');
-      }
-
-      // Fetch available visits
-      await fetchUnprocessedVisits(formData.doctor_id, formData.period_start, formData.period_end);
+      // Fetch available visits for the selected doctor and payment type
+      await fetchUnprocessedVisits(formData.doctor_id, formData.payment_type_filter);
       
       if (visits.length === 0) {
-        throw new Error('No available visits found for the selected period. All visits in this period are already included in existing payment requests.');
+        throw new Error(`No available visits found for the selected payment type (${formData.payment_type_filter}). All visits are already included in existing payment requests.`);
+      }
+
+      // Calculate period dates from actual visits
+      const visitDates = visits.map(v => new Date(v.visit_date));
+      const period_start = new Date(Math.min(...visitDates.map(d => d.getTime()))).toISOString().split('T')[0];
+      const period_end = new Date(Math.max(...visitDates.map(d => d.getTime()))).toISOString().split('T')[0];
+
+      // Check for existing payments - verify if selected visits conflict
+      const existingPayments = await fetchExistingPayments(formData.doctor_id);
+      const conflictingVisits = visits.filter(visit => {
+        return existingPayments.some(payment => {
+          return visit.visit_date >= payment.period_start && 
+                 visit.visit_date <= payment.period_end;
+        });
+      });
+      
+      if (conflictingVisits.length > 0) {
+        throw new Error(`${conflictingVisits.length} visit(s) are already in existing payment requests`);
       }
 
       // Calculate total amount from visits
@@ -463,8 +469,8 @@ const PaymentManagement = () => {
 
       const paymentData = {
         doctor_id: formData.doctor_id,
-        period_start: formData.period_start,
-        period_end: formData.period_end,
+        period_start,
+        period_end,
         total_visits: totalVisits,
         total_amount: totalAmount,
         paid_amount: 0,
@@ -482,7 +488,7 @@ const PaymentManagement = () => {
 
       toast({
         title: "Success",
-        description: `Payment advice created successfully for ${totalVisits} visit(s)`
+        description: `Payment advice created successfully for ${totalVisits} visit(s) (${period_start} to ${period_end})`
       });
 
       setDialogOpen(false);
@@ -716,8 +722,7 @@ const PaymentManagement = () => {
 
     setFormData({
       doctor_id: payment.doctors ? '' : payment.doctors.profiles.full_name,
-      period_start: payment.period_start,
-      period_end: payment.period_end,
+      payment_type_filter: 'all',
       payment_notes: payment.payment_notes || ''
     });
     setEditingPayment(payment);
@@ -765,8 +770,7 @@ const PaymentManagement = () => {
   const resetForm = () => {
     setFormData({
       doctor_id: '',
-      period_start: '',
-      period_end: '',
+      payment_type_filter: 'all',
       payment_notes: ''
     });
     setEditingPayment(null);
@@ -1330,15 +1334,17 @@ const PaymentManagement = () => {
               </DialogHeader>
               
               <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="doctor_id">Doctor</Label>
                     <Select 
                       value={formData.doctor_id} 
                       onValueChange={(value) => {
                         setFormData({ ...formData, doctor_id: value });
-                        // Clear visits when doctor changes - user needs to set dates first
-                        setVisits([]);
+                        // Auto-fetch if payment type is already selected
+                        if (formData.payment_type_filter) {
+                          fetchUnprocessedVisits(value, formData.payment_type_filter);
+                        }
                       }}
                     >
                       <SelectTrigger>
@@ -1355,37 +1361,26 @@ const PaymentManagement = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="period_start">Period Start</Label>
-                    <Input
-                      id="period_start"
-                      type="date"
-                      value={formData.period_start}
-                      onChange={(e) => {
-                        setFormData({ ...formData, period_start: e.target.value });
-                        // Clear visits when start date changes
-                        setVisits([]);
-                      }}
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="period_end">Period End</Label>
-                    <Input
-                      id="period_end"
-                      type="date"
-                      value={formData.period_end}
-                      onChange={(e) => {
-                        const newEndDate = e.target.value;
-                        setFormData({ ...formData, period_end: newEndDate });
-                        
-                        // Only fetch visits when all three fields are filled and end date is set
-                        if (formData.doctor_id && formData.period_start && newEndDate) {
-                          fetchUnprocessedVisits(formData.doctor_id, formData.period_start, newEndDate);
+                    <Label htmlFor="payment_type_filter">Payment Type</Label>
+                    <Select 
+                      value={formData.payment_type_filter} 
+                      onValueChange={(value: 'all' | 'cash' | 'insurance') => {
+                        setFormData({ ...formData, payment_type_filter: value });
+                        // Auto-fetch visits when both doctor and payment type are selected
+                        if (formData.doctor_id) {
+                          fetchUnprocessedVisits(formData.doctor_id, value);
                         }
                       }}
-                      required
-                    />
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types (Cash + Insurance)</SelectItem>
+                        <SelectItem value="cash">Cash Only</SelectItem>
+                        <SelectItem value="insurance">Insurance Only</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
