@@ -10,8 +10,9 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Users, UserCheck, UserX, Search, Download, Upload, Loader2 } from 'lucide-react';
+import { Plus, Edit, Users, UserCheck, UserX, Search, Download, Upload, Loader2, Eye, EyeOff, ChevronUp, ChevronDown } from 'lucide-react';
 import { formatDateIST } from '@/lib/dateUtils';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
   generateStaffTemplate, 
   parseExcelFile, 
@@ -51,6 +52,8 @@ const StaffManagement = () => {
     staff: Staff | null;
     action: 'activate' | 'deactivate' | null;
   }>({ open: false, staff: null, action: null });
+  const [sortField, setSortField] = useState<'staff_code' | 'full_name' | 'role'>('staff_code');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [formData, setFormData] = useState({
     staff_code: '',
     username: '',
@@ -957,88 +960,135 @@ const StaffManagement = () => {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
         <Input
-          placeholder="Search by staff name..."
+          placeholder="Search by staff name, code, or username..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-10"
         />
       </div>
 
-      {/* Staff List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {staff
-          .filter((member) =>
-            member.full_name.toLowerCase().includes(searchQuery.toLowerCase())
-          )
-          .map((member) => (
-          <Card key={member.id}>
-            <CardHeader className="pb-3">
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-lg">{member.full_name}</CardTitle>
-                  <p className="text-sm text-muted-foreground">{member.staff_code}</p>
-                </div>
-                <Badge variant={getRoleBadgeVariant(member.role)}>
-                  {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Username:</span>
-                  <span className="text-sm font-medium">{member.username}</span>
-                </div>
-                {member.email && (
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Email:</span>
-                    <span className="text-sm font-medium">{member.email}</span>
-                  </div>
-                )}
-                {member.department && (
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Department:</span>
-                    <span className="text-sm font-medium">{member.department}</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Status:</span>
-                  <Badge variant={member.is_active ? 'default' : 'secondary'}>
-                    {member.is_active ? 'Active' : 'Inactive'}
-                  </Badge>
-                </div>
-                {member.last_login && (
-                  <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Last Login:</span>
-                    <span className="text-sm font-medium">
-                      {formatDateIST(member.last_login)}
-                    </span>
-                  </div>
-                )}
-              </div>
-              
-              <div className="mt-4 flex justify-between">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handleEdit(member)}
-                >
-                  <Edit className="h-4 w-4 mr-1" />
-                  Edit
-                </Button>
-                 <Button
-                   size="sm"
-                   variant={member.is_active ? "destructive" : "default"}
-                   onClick={() => handleStatusChange(member)}
-                   disabled={!member.is_active && userRole !== 'admin'}
-                 >
-                   {member.is_active ? 'Deactivate' : 'Activate'}
-                 </Button>
-              </div>
+      {/* Table View */}
+      {(() => {
+        const handleSort = (field: 'staff_code' | 'full_name' | 'role') => {
+          if (sortField === field) {
+            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+          } else {
+            setSortField(field);
+            setSortDirection('asc');
+          }
+        };
+
+        const SortIcon = ({ field }: { field: typeof sortField }) => {
+          if (sortField !== field) return null;
+          return sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 inline" /> : <ChevronDown className="h-4 w-4 inline" />;
+        };
+
+        const filteredAndSortedStaff = staff
+          .filter((member) => {
+            const searchLower = searchQuery.toLowerCase();
+            return (
+              member.full_name.toLowerCase().includes(searchLower) ||
+              member.staff_code.toLowerCase().includes(searchLower) ||
+              member.username.toLowerCase().includes(searchLower)
+            );
+          })
+          .sort((a, b) => {
+            const aVal = a[sortField];
+            const bVal = b[sortField];
+            if (typeof aVal === 'string' && typeof bVal === 'string') {
+              return sortDirection === 'asc' 
+                ? aVal.localeCompare(bVal)
+                : bVal.localeCompare(aVal);
+            }
+            return 0;
+          });
+
+        return filteredAndSortedStaff.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Users className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">No staff members found</h3>
+              <p className="text-muted-foreground text-center">
+                {searchQuery ? "No staff members match your search criteria." : "Get started by adding your first staff member."}
+              </p>
             </CardContent>
           </Card>
-        ))}
-       </div>
+        ) : (
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort('staff_code')}>
+                    Staff Code <SortIcon field="staff_code" />
+                  </TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort('full_name')}>
+                    Full Name <SortIcon field="full_name" />
+                  </TableHead>
+                  <TableHead>Username</TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort('role')}>
+                    Role <SortIcon field="role" />
+                  </TableHead>
+                  <TableHead>Department</TableHead>
+                  <TableHead>Contact</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredAndSortedStaff.map((member) => (
+                  <TableRow key={member.id}>
+                    <TableCell className="font-medium">{member.staff_code}</TableCell>
+                    <TableCell>{member.full_name}</TableCell>
+                    <TableCell className="font-mono text-sm">{member.username}</TableCell>
+                    <TableCell>
+                      <Badge variant={getRoleBadgeVariant(member.role)}>
+                        {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>{member.department || <span className="text-muted-foreground text-sm">N/A</span>}</TableCell>
+                    <TableCell>
+                      {member.email || member.phone ? (
+                        <div className="text-sm">
+                          {member.email && <div>{member.email}</div>}
+                          {member.phone && <div className="text-muted-foreground">{member.phone}</div>}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">N/A</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={member.is_active ? "default" : "secondary"}>
+                        {member.is_active ? <Eye className="h-3 w-3 mr-1" /> : <EyeOff className="h-3 w-3 mr-1" />}
+                        {member.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleEdit(member)}
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
+                        </Button>
+                        <Button 
+                          variant={member.is_active ? "destructive" : "default"}
+                          size="sm"
+                          onClick={() => handleStatusChange(member)}
+                          disabled={!member.is_active && userRole !== 'admin'}
+                        >
+                          {member.is_active ? 'Deactivate' : 'Activate'}
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        );
+      })()}
 
        {staff.length === 0 && (
          <Card>

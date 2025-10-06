@@ -10,7 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Users, Stethoscope, Search, Download, Upload, Loader2 } from 'lucide-react';
+import { Plus, Edit, Users, Stethoscope, Search, Download, Upload, Loader2, Eye, EyeOff, ChevronUp, ChevronDown } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
   generateDoctorTemplate, 
   parseExcelFile, 
@@ -52,6 +53,8 @@ const DoctorManagement = () => {
     doctor: Doctor | null;
     action: 'activate' | 'deactivate' | null;
   }>({ open: false, doctor: null, action: null });
+  const [sortField, setSortField] = useState<'doctor_code' | 'full_name' | 'specialization'>('doctor_code');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [formData, setFormData] = useState({
     full_name: '',
     doctor_code: '',
@@ -824,87 +827,139 @@ const DoctorManagement = () => {
       </div>
     </div>
 
-    {/* Search Input */}
+    {/* Search and Stats */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
         <Input
-          placeholder="Search by doctor name..."
+          placeholder="Search by doctor name, code, or specialization..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-10"
         />
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {doctors
-          .filter((doctor) =>
-            doctor.profiles?.full_name.toLowerCase().includes(searchQuery.toLowerCase())
-          )
-          .map((doctor) => (
-          <Card key={doctor.id}>
-            <CardHeader>
-              <div className="flex justify-between items-start">
-                <div className="flex items-center space-x-2">
-                  <div className="bg-primary/10 p-2 rounded-lg">
-                    <Stethoscope className="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg">{doctor.profiles?.full_name}</CardTitle>
-                    <p className="text-sm text-muted-foreground">{doctor.doctor_code}</p>
-                  </div>
-                </div>
-                <Badge variant={doctor.is_active ? "default" : "secondary"}>
-                  {doctor.is_active ? 'Active' : 'Inactive'}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-sm text-muted-foreground">Specialization:</span>
-                  <span className="text-sm font-medium">{doctor.specialization}</span>
-                </div>
-              </div>
-              
-              {(userRole === 'admin' || userRole === 'manager') && (
-                <div className="flex space-x-2 mt-4">
-                  <Button 
-                    variant="outline" 
-                    size="sm"
-                    onClick={() => handleEdit(doctor)}
-                  >
-                    <Edit className="h-4 w-4 mr-1" />
-                    Edit
-                  </Button>
-                   <Button 
-                     variant={doctor.is_active ? "destructive" : "default"}
-                     size="sm"
-                     onClick={() => handleStatusChange(doctor)}
-                     disabled={!doctor.is_active && userRole !== 'admin'}
-                   >
-                     {doctor.is_active ? 'Deactivate' : 'Activate'}
-                   </Button>
-                </div>
-              )}
+      {/* Table View */}
+      {(() => {
+        const handleSort = (field: 'doctor_code' | 'full_name' | 'specialization') => {
+          if (sortField === field) {
+            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+          } else {
+            setSortField(field);
+            setSortDirection('asc');
+          }
+        };
+
+        const SortIcon = ({ field }: { field: typeof sortField }) => {
+          if (sortField !== field) return null;
+          return sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 inline" /> : <ChevronDown className="h-4 w-4 inline" />;
+        };
+
+        const filteredAndSortedDoctors = doctors
+          .filter((doctor) => {
+            const searchLower = searchQuery.toLowerCase();
+            return (
+              doctor.profiles?.full_name.toLowerCase().includes(searchLower) ||
+              doctor.doctor_code.toLowerCase().includes(searchLower) ||
+              doctor.specialization.toLowerCase().includes(searchLower)
+            );
+          })
+          .sort((a, b) => {
+            let aVal = sortField === 'full_name' ? (a.profiles?.full_name || '') : a[sortField];
+            let bVal = sortField === 'full_name' ? (b.profiles?.full_name || '') : b[sortField];
+            if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+            if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+            if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+            if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+            return 0;
+          });
+
+        return filteredAndSortedDoctors.length === 0 ? (
+          <Card>
+            <CardContent className="flex flex-col items-center justify-center py-12">
+              <Users className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium mb-2">No doctors found</h3>
+              <p className="text-muted-foreground text-center mb-4">
+                {searchQuery ? "No doctors match your search criteria." : 
+                  (userRole === 'admin' || userRole === 'manager')
+                    ? "Get started by adding your first doctor to the system."
+                    : "No doctors are currently registered in the system."
+                }
+              </p>
             </CardContent>
           </Card>
-        ))}
-       </div>
-
-       {doctors.length === 0 && (
-         <Card>
-           <CardContent className="flex flex-col items-center justify-center py-12">
-             <Users className="h-12 w-12 text-muted-foreground mb-4" />
-             <h3 className="text-lg font-medium mb-2">No doctors found</h3>
-             <p className="text-muted-foreground text-center mb-4">
-               {(userRole === 'admin' || userRole === 'manager')
-                 ? "Get started by adding your first doctor to the system."
-                 : "No doctors are currently registered in the system."
-               }
-             </p>
-           </CardContent>
+        ) : (
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort('doctor_code')}>
+                    Doctor Code <SortIcon field="doctor_code" />
+                  </TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort('full_name')}>
+                    Full Name <SortIcon field="full_name" />
+                  </TableHead>
+                  <TableHead className="cursor-pointer" onClick={() => handleSort('specialization')}>
+                    Specialization <SortIcon field="specialization" />
+                  </TableHead>
+                  <TableHead>Bank Details</TableHead>
+                  <TableHead>Status</TableHead>
+                  {(userRole === 'admin' || userRole === 'manager') && (
+                    <TableHead className="text-right">Actions</TableHead>
+                  )}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredAndSortedDoctors.map((doctor) => (
+                  <TableRow key={doctor.id}>
+                    <TableCell className="font-medium">{doctor.doctor_code}</TableCell>
+                    <TableCell>{doctor.profiles?.full_name || 'N/A'}</TableCell>
+                    <TableCell>{doctor.specialization}</TableCell>
+                    <TableCell>
+                      {doctor.bank_account_number ? (
+                        <div className="text-sm">
+                          <div className="font-mono">{doctor.bank_account_number}</div>
+                          <div className="text-muted-foreground">{doctor.bank_name || 'N/A'}</div>
+                          <div className="text-xs text-muted-foreground">{doctor.ifsc_code || 'N/A'}</div>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">Not provided</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={doctor.is_active ? "default" : "secondary"}>
+                        {doctor.is_active ? <Eye className="h-3 w-3 mr-1" /> : <EyeOff className="h-3 w-3 mr-1" />}
+                        {doctor.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </TableCell>
+                    {(userRole === 'admin' || userRole === 'manager') && (
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleEdit(doctor)}
+                          >
+                            <Edit className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+                          <Button 
+                            variant={doctor.is_active ? "destructive" : "default"}
+                            size="sm"
+                            onClick={() => handleStatusChange(doctor)}
+                            disabled={!doctor.is_active && userRole !== 'admin'}
+                          >
+                            {doctor.is_active ? 'Deactivate' : 'Activate'}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    )}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </Card>
-        )}
+        );
+      })()}
 
        {/* Confirmation Dialog */}
        <AlertDialog open={confirmDialog.open} onOpenChange={(open) => 

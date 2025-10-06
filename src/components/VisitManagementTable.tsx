@@ -1,0 +1,139 @@
+import React from 'react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Edit, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
+import { formatDateIST } from '@/lib/dateUtils';
+
+interface Visit {
+  id: string;
+  visit_date: string;
+  patient_count: number;
+  patient_id?: string;
+  patient_name: string;
+  visit_payment?: number;
+  payment_type: string;
+  visit_reason: string;
+  notes?: string;
+  doctor_id: string;
+  is_processed: boolean;
+  processed_in_payment_id?: string;
+  processed_at?: string;
+  doctors: {
+    doctor_code: string;
+    profiles: {
+      full_name: string;
+    };
+  };
+}
+
+interface VisitManagementTableProps {
+  visits: Visit[];
+  onEdit?: (visit: Visit) => void;
+  onDelete?: (visitId: string) => void;
+  showActions?: boolean;
+  sortField: 'visit_date' | 'patient_name' | 'doctor_name';
+  sortDirection: 'asc' | 'desc';
+  onSort: (field: 'visit_date' | 'patient_name' | 'doctor_name') => void;
+}
+
+export const VisitManagementTable: React.FC<VisitManagementTableProps> = ({
+  visits,
+  onEdit,
+  onDelete,
+  showActions = true,
+  sortField,
+  sortDirection,
+  onSort
+}) => {
+  const SortIcon = ({ field }: { field: typeof sortField }) => {
+    if (sortField !== field) return null;
+    return sortDirection === 'asc' ? <ChevronUp className="h-4 w-4 inline" /> : <ChevronDown className="h-4 w-4 inline" />;
+  };
+
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className="cursor-pointer" onClick={() => onSort('visit_date')}>
+            Visit Date <SortIcon field="visit_date" />
+          </TableHead>
+          <TableHead className="cursor-pointer" onClick={() => onSort('doctor_name')}>
+            Doctor <SortIcon field="doctor_name" />
+          </TableHead>
+          <TableHead className="cursor-pointer" onClick={() => onSort('patient_name')}>
+            Patient <SortIcon field="patient_name" />
+          </TableHead>
+          <TableHead className="text-center">Patient Count</TableHead>
+          <TableHead>Payment Type</TableHead>
+          <TableHead className="text-right">Amount</TableHead>
+          <TableHead>Visit Reason</TableHead>
+          <TableHead>Status</TableHead>
+          {showActions && <TableHead className="text-right">Actions</TableHead>}
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {visits.map((visit) => (
+          <TableRow key={visit.id}>
+            <TableCell className="font-medium">{formatDateIST(visit.visit_date)}</TableCell>
+            <TableCell>
+              <div>
+                <div className="font-medium">{visit.doctors.profiles.full_name}</div>
+                <div className="text-xs text-muted-foreground">{visit.doctors.doctor_code}</div>
+              </div>
+            </TableCell>
+            <TableCell>
+              <div>
+                <div className="font-medium">{visit.patient_name}</div>
+                {visit.patient_id && <div className="text-xs text-muted-foreground">ID: {visit.patient_id}</div>}
+              </div>
+            </TableCell>
+            <TableCell className="text-center">
+              <Badge variant="outline">{visit.patient_count}</Badge>
+            </TableCell>
+            <TableCell>
+              <Badge variant={visit.payment_type === 'cash' ? 'default' : 'secondary'}>
+                {visit.payment_type === 'cash' ? 'Cash' : 'Insurance'}
+              </Badge>
+            </TableCell>
+            <TableCell className="text-right font-medium">
+              {visit.visit_payment ? `₹${visit.visit_payment.toFixed(2)}` : '-'}
+            </TableCell>
+            <TableCell className="capitalize text-sm">{visit.visit_reason.replace('_', ' ')}</TableCell>
+            <TableCell>
+              <Badge variant={visit.is_processed ? 'default' : 'secondary'}>
+                {visit.is_processed ? 'Processed' : 'Pending'}
+              </Badge>
+            </TableCell>
+            {showActions && (
+              <TableCell className="text-right">
+                <div className="flex justify-end gap-2">
+                  {onEdit && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => onEdit(visit)}
+                      disabled={visit.is_processed}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {onDelete && (
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={() => onDelete(visit.id)}
+                      disabled={visit.is_processed}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+              </TableCell>
+            )}
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  );
+};

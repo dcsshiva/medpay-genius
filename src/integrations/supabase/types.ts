@@ -242,9 +242,17 @@ export type Database = {
           bank_advice_generated: boolean
           bank_advice_generated_at: string | null
           bank_advice_generated_by: string | null
+          cash_approval_status: string | null
+          cash_approved_at: string | null
+          cash_approved_by: string | null
+          cash_rejection_reason: string | null
           created_at: string
           doctor_id: string
           id: string
+          insurance_approval_status: string | null
+          insurance_approved_at: string | null
+          insurance_approved_by: string | null
+          insurance_rejection_reason: string | null
           is_fully_paid: boolean | null
           is_suspect: boolean
           manager_approved_at: string | null
@@ -271,9 +279,17 @@ export type Database = {
           bank_advice_generated?: boolean
           bank_advice_generated_at?: string | null
           bank_advice_generated_by?: string | null
+          cash_approval_status?: string | null
+          cash_approved_at?: string | null
+          cash_approved_by?: string | null
+          cash_rejection_reason?: string | null
           created_at?: string
           doctor_id: string
           id?: string
+          insurance_approval_status?: string | null
+          insurance_approved_at?: string | null
+          insurance_approved_by?: string | null
+          insurance_rejection_reason?: string | null
           is_fully_paid?: boolean | null
           is_suspect?: boolean
           manager_approved_at?: string | null
@@ -300,9 +316,17 @@ export type Database = {
           bank_advice_generated?: boolean
           bank_advice_generated_at?: string | null
           bank_advice_generated_by?: string | null
+          cash_approval_status?: string | null
+          cash_approved_at?: string | null
+          cash_approved_by?: string | null
+          cash_rejection_reason?: string | null
           created_at?: string
           doctor_id?: string
           id?: string
+          insurance_approval_status?: string | null
+          insurance_approved_at?: string | null
+          insurance_approved_by?: string | null
+          insurance_rejection_reason?: string | null
           is_fully_paid?: boolean | null
           is_suspect?: boolean
           manager_approved_at?: string | null

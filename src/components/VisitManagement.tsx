@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Calendar, Users, Stethoscope, Search, Edit, Trash2, CheckCircle, Clock } from 'lucide-react';
+import { VisitManagementTable } from './VisitManagementTable';
 import { formatDateIST, formatDateTimeIST, formatInputDateIST, getCurrentISTDate } from '@/lib/dateUtils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ReportGeneration from './ReportGeneration';
@@ -55,6 +56,8 @@ const VisitManagement = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortField, setSortField] = useState<'visit_date' | 'patient_name' | 'doctor_name'>('visit_date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [formData, setFormData] = useState({
     visit_date: formatInputDateIST(getCurrentISTDate()),
     patient_count: 1,
