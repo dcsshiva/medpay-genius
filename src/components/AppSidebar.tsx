@@ -14,7 +14,8 @@ import {
   TrendingUp,
   History as HistoryIcon,
   Globe,
-  BookOpen
+  BookOpen,
+  ClipboardCheck
 } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
 import {
@@ -115,6 +116,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
         { id: 'doctors', label: 'Doctors', icon: Users },
         { id: 'payments', label: 'Payment Approvals', icon: CreditCard },
         { id: 'tasks', label: 'Task Management', icon: ClipboardList },
+        { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
         { id: 'complaints', label: 'Complaints', icon: MessageCircle },
         { id: 'chat', label: 'Team Chat', icon: MessageSquare },
       ];
@@ -128,6 +130,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
         { id: 'visits', label: 'Visit Management', icon: Calendar },
         { id: 'payments', label: 'Payment Management', icon: CreditCard },
         { id: 'tasks', label: 'Task Management', icon: ClipboardList },
+        { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
         { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
         { id: 'login-reports', label: 'Login Reports', icon: TrendingUp },
         { id: 'chat', label: 'Team Chat', icon: MessageSquare },
