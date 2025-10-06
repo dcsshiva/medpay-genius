@@ -66,6 +66,10 @@ interface Payment {
     };
   };
   doctor_id?: string;
+  cash_total?: number;
+  cash_visits?: number;
+  insurance_total?: number;
+  insurance_visits?: number;
 }
 
 interface PaymentTransaction {
@@ -129,6 +133,7 @@ const PaymentManagement = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPaymentsForBankAdvice, setSelectedPaymentsForBankAdvice] = useState<Set<string>>(new Set());
   const [generatingBankAdvice, setGeneratingBankAdvice] = useState(false);
+  const [paymentTypeFilter, setPaymentTypeFilter] = useState<'all' | 'cash' | 'insurance' | 'mixed'>('all');
 
   // Global payment statistics
   const [totalPaid, setTotalPaid] = useState(0);
@@ -185,6 +190,21 @@ const PaymentManagement = () => {
     }
   };
 
+  const fetchVisitsForPayment = async (paymentId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('visits')
+        .select('visit_payment, payment_type, patient_count')
+        .eq('processed_in_payment_id', paymentId);
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching visits for payment:', error);
+      return [];
+    }
+  };
+
   const fetchPayments = async () => {
     try {
       const userId = userRole === 'doctor' 
@@ -201,35 +221,53 @@ const PaymentManagement = () => {
         console.error('Error fetching payments:', error);
         setPayments([]);
       } else {
-        const transformedPayments = data?.map((payment: any) => ({
-          id: payment.id,
-          period_start: payment.period_start,
-          period_end: payment.period_end,
-          total_visits: payment.total_visits,
-          total_amount: payment.total_amount,
-          paid_amount: payment.paid_amount,
-          remaining_amount: payment.remaining_amount,
-          is_fully_paid: payment.is_fully_paid,
-          payment_notes: payment.payment_notes,
-          status: payment.status,
-          manager_approved_by: payment.manager_approved_by,
-          manager_approved_at: payment.manager_approved_at,
-          admin_approved_by: payment.admin_approved_by,
-          admin_approved_at: payment.admin_approved_at,
-          rejected_by: payment.rejected_by,
-          rejected_at: payment.rejected_at,
-          rejection_reason: payment.rejection_reason,
-          bank_advice_generated: payment.bank_advice_generated,
-          bank_advice_generated_at: payment.bank_advice_generated_at,
-          bank_advice_generated_by: payment.bank_advice_generated_by,
-          doctor_id: payment.doctor_id,
-          doctors: {
-            doctor_code: payment.doctor_code,
-            profiles: {
-              full_name: payment.doctor_name
-            }
-          }
-        })) || [];
+        const transformedPayments = await Promise.all((data || []).map(async (payment: any) => {
+          // Fetch visits for this payment to calculate payment type breakdown
+          const visits = await fetchVisitsForPayment(payment.id);
+          
+          const cashVisits = visits.filter(v => v.payment_type === 'cash');
+          const insuranceVisits = visits.filter(v => v.payment_type === 'insurance');
+          
+          const cash_total = cashVisits.reduce((sum, v) => sum + (v.visit_payment || 0), 0);
+          const cash_visits = cashVisits.reduce((sum, v) => sum + v.patient_count, 0);
+          const insurance_total = insuranceVisits.reduce((sum, v) => sum + (v.visit_payment || 0), 0);
+          const insurance_visits = insuranceVisits.reduce((sum, v) => sum + v.patient_count, 0);
+
+          return {
+            id: payment.id,
+            period_start: payment.period_start,
+            period_end: payment.period_end,
+            total_visits: payment.total_visits,
+            total_amount: payment.total_amount,
+            paid_amount: payment.paid_amount,
+            remaining_amount: payment.remaining_amount,
+            is_fully_paid: payment.is_fully_paid,
+            payment_notes: payment.payment_notes,
+            status: payment.status,
+            manager_approved_by: payment.manager_approved_by,
+            manager_approved_at: payment.manager_approved_at,
+            admin_approved_by: payment.admin_approved_by,
+            admin_approved_at: payment.admin_approved_at,
+            rejected_by: payment.rejected_by,
+            rejected_at: payment.rejected_at,
+            rejection_reason: payment.rejection_reason,
+            bank_advice_generated: payment.bank_advice_generated,
+            bank_advice_generated_at: payment.bank_advice_generated_at,
+            bank_advice_generated_by: payment.bank_advice_generated_by,
+            doctor_id: payment.doctor_id,
+            doctors: {
+              doctor_code: payment.doctor_code,
+              profiles: {
+                full_name: payment.doctor_name
+              }
+            },
+            cash_total,
+            cash_visits,
+            insurance_total,
+            insurance_visits
+          };
+        }));
+        
         setPayments(transformedPayments);
 
         // Calculate pending total from current payments
@@ -932,6 +970,43 @@ const PaymentManagement = () => {
           </div>
         </div>
 
+        {/* Payment Type Breakdown */}
+        {(payment.cash_total !== undefined || payment.insurance_total !== undefined) && (
+          <div className="border-t pt-4 mb-4">
+            <h4 className="text-sm font-semibold mb-3">Payment Type Breakdown</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Cash Payments</p>
+                  <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
+                    {formatCurrency(payment.cash_total || 0)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {payment.cash_visits || 0} visit{payment.cash_visits !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
+                  Cash
+                </Badge>
+              </div>
+              <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Insurance Payments</p>
+                  <p className="text-lg font-bold text-blue-700 dark:text-blue-400">
+                    {formatCurrency(payment.insurance_total || 0)}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {payment.insurance_visits || 0} visit{payment.insurance_visits !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                  Insurance
+                </Badge>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Action Buttons */}
         <div className="border-t pt-4 mt-4">
           <div className="flex flex-wrap gap-2">
@@ -1124,11 +1199,26 @@ const PaymentManagement = () => {
     </Card>
   );
 
+  // Filter payments by payment type
+  const filterPaymentsByType = (paymentList: Payment[]) => {
+    if (paymentTypeFilter === 'all') return paymentList;
+    
+    return paymentList.filter(payment => {
+      const hasCash = (payment.cash_total || 0) > 0;
+      const hasInsurance = (payment.insurance_total || 0) > 0;
+      
+      if (paymentTypeFilter === 'cash') return hasCash && !hasInsurance;
+      if (paymentTypeFilter === 'insurance') return hasInsurance && !hasCash;
+      if (paymentTypeFilter === 'mixed') return hasCash && hasInsurance;
+      return true;
+    });
+  };
+
   // Filter payments for tabs - not fully paid means pending or approved
-  const waitingForApprovalPayments = payments.filter(p => 
+  const waitingForApprovalPayments = filterPaymentsByType(payments.filter(p => 
     (p.status === 'pending' || p.status === 'manager_approved' || p.status === 'admin_approved') && !p.is_fully_paid
-  );
-  const fullyPaidPayments = payments.filter(p => p.is_fully_paid);
+  ));
+  const fullyPaidPayments = filterPaymentsByType(payments.filter(p => p.is_fully_paid));
 
   // Report generation configuration
   const paymentReportColumns = [
@@ -1308,16 +1398,34 @@ const PaymentManagement = () => {
        </div>
 
         <Tabs defaultValue="waiting" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="waiting">Waiting for Approval ({waitingForApprovalPayments.length})</TabsTrigger>
-            <TabsTrigger value="paid">Fully Paid ({fullyPaidPayments.length})</TabsTrigger>
-            {(userRole === 'admin' || userRole === 'manager') && (
-              <TabsTrigger value="bankadvice">
-                <Building2 className="h-4 w-4 mr-1" />
-                Bank Advice ({payments.filter(p => p.is_fully_paid && !p.bank_advice_generated).length})
-              </TabsTrigger>
-            )}
-          </TabsList>
+          <div className="flex justify-between items-center mb-4">
+            <TabsList className="grid w-full max-w-md grid-cols-3">
+              <TabsTrigger value="waiting">Waiting for Approval ({waitingForApprovalPayments.length})</TabsTrigger>
+              <TabsTrigger value="paid">Fully Paid ({fullyPaidPayments.length})</TabsTrigger>
+              {(userRole === 'admin' || userRole === 'manager') && (
+                <TabsTrigger value="bankadvice">
+                  <Building2 className="h-4 w-4 mr-1" />
+                  Bank Advice ({payments.filter(p => p.is_fully_paid && !p.bank_advice_generated).length})
+                </TabsTrigger>
+              )}
+            </TabsList>
+            
+            {/* Payment Type Filter */}
+            <div className="flex items-center gap-2">
+              <Label className="text-sm text-muted-foreground">Filter by Type:</Label>
+              <Select value={paymentTypeFilter} onValueChange={(value: any) => setPaymentTypeFilter(value)}>
+                <SelectTrigger className="w-[150px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  <SelectItem value="cash">Cash Only</SelectItem>
+                  <SelectItem value="insurance">Insurance Only</SelectItem>
+                  <SelectItem value="mixed">Mixed (Both)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
           <TabsContent value="waiting" className="space-y-4">
             <div className="flex justify-between items-center mb-4">
