@@ -932,6 +932,9 @@ export type Database = {
         Returns: {
           admin_approved_at: string
           admin_approved_by: string
+          bank_advice_generated: boolean
+          bank_advice_generated_at: string
+          bank_advice_generated_by: string
           doctor_code: string
           doctor_id: string
           doctor_name: string
