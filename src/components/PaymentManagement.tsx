@@ -1130,14 +1130,6 @@ const PaymentManagement = () => {
   );
   const fullyPaidPayments = payments.filter(p => p.is_fully_paid);
 
-  // Fetch doctor details when we have doctor_id in payments
-  useEffect(() => {
-    const paymentDoctorIds = payments.map(p => p.doctor_id).filter(Boolean);
-    if (paymentDoctorIds.length > 0 && doctors.length === 0 && (userRole === 'admin' || userRole === 'manager')) {
-      fetchDoctors();
-    }
-  }, [payments, doctors.length, userRole]);
-
   // Report generation configuration
   const paymentReportColumns = [
     { key: 'doctors.profiles.full_name', label: 'Doctor Name' },
