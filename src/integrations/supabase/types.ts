@@ -1297,6 +1297,7 @@ export type Database = {
           payment_type: string
           processed_at: string
           processed_in_payment_id: string
+          visit_code: string
           visit_date: string
           visit_payment: number
           visit_reason: string

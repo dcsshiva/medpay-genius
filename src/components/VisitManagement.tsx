@@ -18,6 +18,7 @@ import ReportGeneration from './ReportGeneration';
 
 interface Visit {
   id: string;
+  visit_code?: string;
   visit_date: string;
   patient_count: number;
   patient_id?: string;
@@ -96,6 +97,7 @@ const VisitManagement = () => {
         // Transform the RPC response to match the expected format
         const transformedVisits = data?.map((visit: any) => ({
           id: visit.id,
+          visit_code: visit.visit_code,
           visit_date: visit.visit_date,
           patient_count: visit.patient_count,
           patient_id: visit.patient_id,
@@ -500,12 +502,17 @@ const VisitManagement = () => {
           data={visits.filter((visit) => {
             const query = searchQuery.toLowerCase();
             return (
+              (visit.visit_code && visit.visit_code.toLowerCase().includes(query)) ||
               visit.doctors?.profiles?.full_name.toLowerCase().includes(query) ||
               visit.patient_name.toLowerCase().includes(query) ||
               (visit.patient_id && visit.patient_id.toLowerCase().includes(query))
             );
           })}
           columns={[
+            { 
+              key: 'visit_code', 
+              label: 'Visit Code' 
+            },
             { 
               key: 'visit_date', 
               label: 'Visit Date',
@@ -576,7 +583,7 @@ const VisitManagement = () => {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
-              placeholder="Search unprocessed visits by doctor name, patient name, or patient ID..."
+              placeholder="Search unprocessed visits by visit code, doctor name, patient name, or patient ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -590,6 +597,7 @@ const VisitManagement = () => {
               .filter((visit) => {
                 const query = searchQuery.toLowerCase();
                 return (
+                  (visit.visit_code && visit.visit_code.toLowerCase().includes(query)) ||
                   visit.doctors?.profiles?.full_name.toLowerCase().includes(query) ||
                   visit.patient_name.toLowerCase().includes(query) ||
                   (visit.patient_id && visit.patient_id.toLowerCase().includes(query))
@@ -600,6 +608,13 @@ const VisitManagement = () => {
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div>
+                      {visit.visit_code && (
+                        <div className="mb-2">
+                          <Badge variant="outline" className="font-mono text-xs">
+                            {visit.visit_code}
+                          </Badge>
+                        </div>
+                      )}
                       <div className="flex items-center gap-2">
                         <CardTitle className="text-lg">
                           {formatDateIST(visit.visit_date)}
@@ -691,7 +706,7 @@ const VisitManagement = () => {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
-              placeholder="Search processed visits by doctor name, patient name, or patient ID..."
+              placeholder="Search processed visits by visit code, doctor name, patient name, or patient ID..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -705,6 +720,7 @@ const VisitManagement = () => {
               .filter((visit) => {
                 const query = searchQuery.toLowerCase();
                 return (
+                  (visit.visit_code && visit.visit_code.toLowerCase().includes(query)) ||
                   visit.doctors?.profiles?.full_name.toLowerCase().includes(query) ||
                   visit.patient_name.toLowerCase().includes(query) ||
                   (visit.patient_id && visit.patient_id.toLowerCase().includes(query))
@@ -715,6 +731,13 @@ const VisitManagement = () => {
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div>
+                      {visit.visit_code && (
+                        <div className="mb-2">
+                          <Badge variant="outline" className="font-mono text-xs">
+                            {visit.visit_code}
+                          </Badge>
+                        </div>
+                      )}
                       <div className="flex items-center gap-2">
                         <CardTitle className="text-lg">
                           {formatDateIST(visit.visit_date)}
