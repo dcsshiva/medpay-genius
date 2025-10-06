@@ -201,13 +201,23 @@ const PaymentManagement = () => {
 
   const fetchVisitsForPayment = async (paymentId: string) => {
     try {
+      // Use junction table to get exact visits in this payment
       const { data, error } = await supabase
-        .from('visits')
-        .select('visit_payment, payment_type, patient_count')
-        .eq('processed_in_payment_id', paymentId);
+        .from('payment_visits')
+        .select(`
+          visit_id,
+          visits (
+            visit_payment,
+            payment_type,
+            patient_count
+          )
+        `)
+        .eq('payment_id', paymentId);
 
       if (error) throw error;
-      return data || [];
+      
+      // Flatten the nested structure
+      return (data || []).map(item => item.visits).filter(Boolean);
     } catch (error) {
       console.error('Error fetching visits for payment:', error);
       return [];
@@ -517,11 +527,30 @@ const PaymentManagement = () => {
         paymentData.insurance_approval_status = 'pending';
       }
 
-      const { error } = await supabase
+      const { data: paymentResult, error } = await supabase
         .from('payments')
-        .insert([paymentData]);
+        .insert([paymentData])
+        .select()
+        .single();
 
       if (error) throw error;
+
+      // Insert payment-visit relationships into junction table
+      if (paymentResult) {
+        const visitLinks = filteredVisits.map(visit => ({
+          payment_id: paymentResult.id,
+          visit_id: visit.id
+        }));
+
+        const { error: linkError } = await supabase
+          .from('payment_visits')
+          .insert(visitLinks);
+
+        if (linkError) {
+          console.error('Error linking visits to payment:', linkError);
+          throw new Error('Failed to link visits to payment');
+        }
+      }
 
       toast({
         title: "Success",

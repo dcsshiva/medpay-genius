@@ -235,6 +235,42 @@ export type Database = {
           },
         ]
       }
+      payment_visits: {
+        Row: {
+          created_at: string
+          id: string
+          payment_id: string
+          visit_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          payment_id: string
+          visit_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          payment_id?: string
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_visits_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_visits_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payments: {
         Row: {
           admin_approved_at: string | null
