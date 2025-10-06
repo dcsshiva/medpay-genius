@@ -97,6 +97,52 @@ const ComplaintManagement = () => {
     fetchActiveStaff();
   }, [userRole]);
 
+  // Real-time subscription for complaints
+  useEffect(() => {
+    const channel = supabase
+      .channel('complaints-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'complaints'
+        },
+        (payload) => {
+          console.log('Complaint change detected:', payload);
+          fetchComplaints(); // Re-fetch to get latest data with all relations
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Real-time subscription for staff list
+  useEffect(() => {
+    const channel = supabase
+      .channel('staff-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'staff'
+        },
+        (payload) => {
+          console.log('Staff change detected:', payload);
+          fetchActiveStaff(); // Re-fetch staff list when changes occur
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   const fetchActiveStaff = async () => {
     try {
       const { data, error } = await supabase
