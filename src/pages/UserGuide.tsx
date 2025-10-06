@@ -255,16 +255,18 @@ export default function UserGuide() {
               </div>
 
               {/* Sample Data Examples */}
-              <div className="mt-6">
-                <h3 className="font-semibold mb-3">Sample Data Format</h3>
-                <Card className="bg-muted">
-                  <CardContent className="pt-4">
-                    <pre className="text-xs overflow-x-auto">
-                      {JSON.stringify(roleBasedExamples[activeRole as keyof typeof roleBasedExamples].sampleData, null, 2)}
-                    </pre>
-                  </CardContent>
-                </Card>
-              </div>
+              {roleBasedExamples[activeRole as keyof typeof roleBasedExamples] && (
+                <div className="mt-6">
+                  <h3 className="font-semibold mb-3">Sample Data Format</h3>
+                  <Card className="bg-muted">
+                    <CardContent className="pt-4">
+                      <pre className="text-xs overflow-x-auto">
+                        {JSON.stringify(roleBasedExamples[activeRole as keyof typeof roleBasedExamples]?.sampleData || {}, null, 2)}
+                      </pre>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
             </CardContent>
           </Card>
 
