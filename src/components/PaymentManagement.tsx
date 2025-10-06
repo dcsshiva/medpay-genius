@@ -60,6 +60,15 @@ interface Payment {
   bank_advice_generated?: boolean;
   bank_advice_generated_at?: string;
   bank_advice_generated_by?: string;
+  // Separate cash/insurance approval fields
+  cash_approval_status?: string;
+  cash_approved_by?: string;
+  cash_approved_at?: string;
+  cash_rejection_reason?: string;
+  insurance_approval_status?: string;
+  insurance_approved_by?: string;
+  insurance_approved_at?: string;
+  insurance_rejection_reason?: string;
   doctors: {
     doctor_code: string;
     profiles: {
@@ -254,6 +263,14 @@ const PaymentManagement = () => {
             bank_advice_generated: payment.bank_advice_generated,
             bank_advice_generated_at: payment.bank_advice_generated_at,
             bank_advice_generated_by: payment.bank_advice_generated_by,
+            cash_approval_status: payment.cash_approval_status,
+            cash_approved_by: payment.cash_approved_by,
+            cash_approved_at: payment.cash_approved_at,
+            cash_rejection_reason: payment.cash_rejection_reason,
+            insurance_approval_status: payment.insurance_approval_status,
+            insurance_approved_by: payment.insurance_approved_by,
+            insurance_approved_at: payment.insurance_approved_at,
+            insurance_rejection_reason: payment.insurance_rejection_reason,
             doctor_id: payment.doctor_id,
             doctors: {
               doctor_code: payment.doctor_code,
@@ -467,7 +484,8 @@ const PaymentManagement = () => {
       const totalAmount = visits.reduce((sum, visit) => sum + (visit.visit_payment || 0), 0);
       const totalVisits = visits.reduce((sum, visit) => sum + visit.patient_count, 0);
 
-      const paymentData = {
+      // Initialize approval status based on payment type filter
+      const paymentData: any = {
         doctor_id: formData.doctor_id,
         period_start,
         period_end,
@@ -479,6 +497,17 @@ const PaymentManagement = () => {
         payment_notes: formData.payment_notes || null,
         status: 'pending' as const
       };
+
+      // Set approval status based on payment type
+      if (formData.payment_type_filter === 'cash') {
+        paymentData.cash_approval_status = 'pending';
+      } else if (formData.payment_type_filter === 'insurance') {
+        paymentData.insurance_approval_status = 'pending';
+      } else {
+        // Both types
+        paymentData.cash_approval_status = 'pending';
+        paymentData.insurance_approval_status = 'pending';
+      }
 
       const { error } = await supabase
         .from('payments')
@@ -644,6 +673,136 @@ const PaymentManagement = () => {
         variant: "destructive",
         title: "Error",
         description: error.message || `Failed to ${action} payment`
+      });
+    }
+  };
+
+  const handleCashApproval = async (paymentId: string, action: 'approve' | 'reject', reason?: string) => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+
+      if (!profile) throw new Error('Profile not found');
+
+      let updateData: any = {};
+
+      if (action === 'approve') {
+        if (userRole === 'manager') {
+          updateData = {
+            cash_approval_status: 'manager_approved',
+            cash_approved_by: profile.id,
+            cash_approved_at: toISOStringIST()
+          };
+        } else if (userRole === 'admin') {
+          const payment = payments.find(p => p.id === paymentId);
+          if (payment?.cash_approval_status === 'pending') {
+            // Skip manager approval and go directly to admin approval
+            updateData = {
+              cash_approval_status: 'admin_approved',
+              cash_approved_by: profile.id,
+              cash_approved_at: toISOStringIST()
+            };
+          } else {
+            updateData = {
+              cash_approval_status: 'admin_approved',
+              cash_approved_by: profile.id,
+              cash_approved_at: toISOStringIST()
+            };
+          }
+        }
+      } else {
+        updateData = {
+          cash_approval_status: 'rejected',
+          cash_rejection_reason: reason
+        };
+      }
+
+      const { error } = await supabase
+        .from('payments')
+        .update(updateData)
+        .eq('id', paymentId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Cash payment ${action === 'approve' ? 'approved' : 'rejected'} successfully`
+      });
+
+      fetchPayments();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || `Failed to ${action} cash payment`
+      });
+    }
+  };
+
+  const handleInsuranceApproval = async (paymentId: string, action: 'approve' | 'reject', reason?: string) => {
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user!.id)
+        .maybeSingle();
+
+      if (!profile) throw new Error('Profile not found');
+
+      let updateData: any = {};
+
+      if (action === 'approve') {
+        if (userRole === 'manager') {
+          updateData = {
+            insurance_approval_status: 'manager_approved',
+            insurance_approved_by: profile.id,
+            insurance_approved_at: toISOStringIST()
+          };
+        } else if (userRole === 'admin') {
+          const payment = payments.find(p => p.id === paymentId);
+          if (payment?.insurance_approval_status === 'pending') {
+            // Skip manager approval and go directly to admin approval
+            updateData = {
+              insurance_approval_status: 'admin_approved',
+              insurance_approved_by: profile.id,
+              insurance_approved_at: toISOStringIST()
+            };
+          } else {
+            updateData = {
+              insurance_approval_status: 'admin_approved',
+              insurance_approved_by: profile.id,
+              insurance_approved_at: toISOStringIST()
+            };
+          }
+        }
+      } else {
+        updateData = {
+          insurance_approval_status: 'rejected',
+          insurance_rejection_reason: reason
+        };
+      }
+
+      const { error } = await supabase
+        .from('payments')
+        .update(updateData)
+        .eq('id', paymentId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: `Insurance payment ${action === 'approve' ? 'approved' : 'rejected'} successfully`
+      });
+
+      fetchPayments();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || `Failed to ${action} insurance payment`
       });
     }
   };
@@ -1042,34 +1201,85 @@ const PaymentManagement = () => {
           <div className="border-t pt-4 mb-4">
             <h4 className="text-sm font-semibold mb-3">Payment Type Breakdown</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center justify-between p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Cash Payments</p>
-                  <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
-                    {formatCurrency(payment.cash_total || 0)}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {payment.cash_visits || 0} visit{payment.cash_visits !== 1 ? 's' : ''}
-                  </p>
+              {/* Cash Payment Section */}
+              {(payment.cash_total || 0) > 0 && (
+                <div className="flex flex-col p-3 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Cash Payments</p>
+                      <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400">
+                        {formatCurrency(payment.cash_total || 0)}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {payment.cash_visits || 0} visit{payment.cash_visits !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
+                        Cash
+                      </Badge>
+                      {payment.cash_approval_status && (
+                        <Badge 
+                          variant={
+                            payment.cash_approval_status === 'pending' ? 'secondary' :
+                            payment.cash_approval_status === 'manager_approved' ? 'outline' :
+                            payment.cash_approval_status === 'admin_approved' ? 'default' :
+                            'destructive'
+                          }
+                          className="text-xs"
+                        >
+                          {payment.cash_approval_status.replace('_', ' ').toUpperCase()}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  {payment.cash_rejection_reason && (
+                    <div className="mt-2 p-2 bg-destructive/10 rounded text-xs text-destructive">
+                      <strong>Rejection:</strong> {payment.cash_rejection_reason}
+                    </div>
+                  )}
                 </div>
-                <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
-                  Cash
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
-                <div>
-                  <p className="text-xs text-muted-foreground mb-1">Insurance Payments</p>
-                  <p className="text-lg font-bold text-blue-700 dark:text-blue-400">
-                    {formatCurrency(payment.insurance_total || 0)}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {payment.insurance_visits || 0} visit{payment.insurance_visits !== 1 ? 's' : ''}
-                  </p>
+              )}
+              
+              {/* Insurance Payment Section */}
+              {(payment.insurance_total || 0) > 0 && (
+                <div className="flex flex-col p-3 rounded-lg bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <div>
+                      <p className="text-xs text-muted-foreground mb-1">Insurance Payments</p>
+                      <p className="text-lg font-bold text-blue-700 dark:text-blue-400">
+                        {formatCurrency(payment.insurance_total || 0)}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {payment.insurance_visits || 0} visit{payment.insurance_visits !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                        Insurance
+                      </Badge>
+                      {payment.insurance_approval_status && (
+                        <Badge 
+                          variant={
+                            payment.insurance_approval_status === 'pending' ? 'secondary' :
+                            payment.insurance_approval_status === 'manager_approved' ? 'outline' :
+                            payment.insurance_approval_status === 'admin_approved' ? 'default' :
+                            'destructive'
+                          }
+                          className="text-xs"
+                        >
+                          {payment.insurance_approval_status.replace('_', ' ').toUpperCase()}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  {payment.insurance_rejection_reason && (
+                    <div className="mt-2 p-2 bg-destructive/10 rounded text-xs text-destructive">
+                      <strong>Rejection:</strong> {payment.insurance_rejection_reason}
+                    </div>
+                  )}
                 </div>
-                <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
-                  Insurance
-                </Badge>
-              </div>
+              )}
             </div>
           </div>
         )}
@@ -1094,53 +1304,117 @@ const PaymentManagement = () => {
             {/* Manager/Admin Actions */}
             {(userRole === 'manager' || userRole === 'admin') && (
               <>
-                {/* Approval buttons for pending payments */}
-                {payment.status === 'pending' && (
+                {/* Cash Approval Section */}
+                {(payment.cash_total || 0) > 0 && payment.cash_approval_status && (
                   <>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => handleApproval(payment.id, 'approve')}
-                    >
-                      <CheckCircle className="h-4 w-4 mr-1" />
-                      Approve
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => {
-                        const reason = prompt('Enter rejection reason:');
-                        if (reason) handleApproval(payment.id, 'reject', reason);
-                      }}
-                    >
-                      <X className="h-4 w-4 mr-1" />
-                      Reject
-                    </Button>
+                    {payment.cash_approval_status === 'pending' && (
+                      <>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="bg-emerald-600 hover:bg-emerald-700"
+                          onClick={() => handleCashApproval(payment.id, 'approve')}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Approve Cash
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-emerald-600 text-emerald-600"
+                          onClick={() => {
+                            const reason = prompt('Enter cash rejection reason:');
+                            if (reason) handleCashApproval(payment.id, 'reject', reason);
+                          }}
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          Reject Cash
+                        </Button>
+                      </>
+                    )}
+                    
+                    {userRole === 'admin' && payment.cash_approval_status === 'manager_approved' && (
+                      <>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="bg-emerald-600 hover:bg-emerald-700"
+                          onClick={() => handleCashApproval(payment.id, 'approve')}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Final Approve Cash
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-emerald-600 text-emerald-600"
+                          onClick={() => {
+                            const reason = prompt('Enter cash rejection reason:');
+                            if (reason) handleCashApproval(payment.id, 'reject', reason);
+                          }}
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          Reject Cash
+                        </Button>
+                      </>
+                    )}
                   </>
                 )}
 
-                {/* Admin approval for manager approved payments */}
-                {userRole === 'admin' && payment.status === 'manager_approved' && (
+                {/* Insurance Approval Section */}
+                {(payment.insurance_total || 0) > 0 && payment.insurance_approval_status && (
                   <>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={() => handleApproval(payment.id, 'approve')}
-                    >
-                      <CheckCircle className="h-4 w-4 mr-1" />
-                      Final Approve
-                    </Button>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => {
-                        const reason = prompt('Enter rejection reason:');
-                        if (reason) handleApproval(payment.id, 'reject', reason);
-                      }}
-                    >
-                      <X className="h-4 w-4 mr-1" />
-                      Reject
-                    </Button>
+                    {payment.insurance_approval_status === 'pending' && (
+                      <>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="bg-blue-600 hover:bg-blue-700"
+                          onClick={() => handleInsuranceApproval(payment.id, 'approve')}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Approve Insurance
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-blue-600 text-blue-600"
+                          onClick={() => {
+                            const reason = prompt('Enter insurance rejection reason:');
+                            if (reason) handleInsuranceApproval(payment.id, 'reject', reason);
+                          }}
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          Reject Insurance
+                        </Button>
+                      </>
+                    )}
+                    
+                    {userRole === 'admin' && payment.insurance_approval_status === 'manager_approved' && (
+                      <>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="bg-blue-600 hover:bg-blue-700"
+                          onClick={() => handleInsuranceApproval(payment.id, 'approve')}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-1" />
+                          Final Approve Insurance
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-blue-600 text-blue-600"
+                          onClick={() => {
+                            const reason = prompt('Enter insurance rejection reason:');
+                            if (reason) handleInsuranceApproval(payment.id, 'reject', reason);
+                          }}
+                        >
+                          <X className="h-4 w-4 mr-1" />
+                          Reject Insurance
+                        </Button>
+                      </>
+                    )}
                   </>
                 )}
 
@@ -1281,10 +1555,15 @@ const PaymentManagement = () => {
     });
   };
 
-  // Filter payments for tabs - not fully paid means pending or approved
-  const waitingForApprovalPayments = filterPaymentsByType(payments.filter(p => 
-    (p.status === 'pending' || p.status === 'manager_approved' || p.status === 'admin_approved') && !p.is_fully_paid
-  ));
+  // Filter payments for tabs - include if either cash or insurance needs approval
+  const waitingForApprovalPayments = filterPaymentsByType(payments.filter(p => {
+    const cashNeedsApproval = p.cash_approval_status && 
+      (p.cash_approval_status === 'pending' || p.cash_approval_status === 'manager_approved');
+    const insuranceNeedsApproval = p.insurance_approval_status && 
+      (p.insurance_approval_status === 'pending' || p.insurance_approval_status === 'manager_approved');
+    
+    return (cashNeedsApproval || insuranceNeedsApproval) && !p.is_fully_paid;
+  }));
   const fullyPaidPayments = filterPaymentsByType(payments.filter(p => p.is_fully_paid));
 
   // Report generation configuration
