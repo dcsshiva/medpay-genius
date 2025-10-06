@@ -5,10 +5,10 @@ import { utils, write, read, writeFile } from 'xlsx';
 export const generateStaffTemplate = () => {
   const workbook = utils.book_new();
   
-  // Sample data with headers and examples
+  // Sample data - first row only (locked/reference)
   const sampleData = [
     {
-      staff_code: 'ADM001',
+      staff_code: '⚠️ SAMPLE ROW - DO NOT MODIFY - Add your data in rows below',
       username: 'john.smith',
       full_name: 'John Smith',
       email: 'john.smith@hospital.com',
@@ -16,26 +16,6 @@ export const generateStaffTemplate = () => {
       role: 'admin',
       department: 'Administration',
       password: 'SecurePass123'
-    },
-    {
-      staff_code: '',
-      username: 'jane.doe',
-      full_name: 'Jane Doe',
-      email: 'jane.doe@hospital.com',
-      phone: '+1234567891',
-      role: 'nurse',
-      department: 'Emergency',
-      password: 'SecurePass456'
-    },
-    {
-      staff_code: '',
-      username: 'bob.wilson',
-      full_name: 'Bob Wilson',
-      email: '',
-      phone: '',
-      role: 'receptionist',
-      department: 'Front Desk',
-      password: 'SecurePass789'
     }
   ];
   
@@ -43,7 +23,7 @@ export const generateStaffTemplate = () => {
   
   // Set column widths
   worksheet['!cols'] = [
-    { wch: 15 }, // staff_code
+    { wch: 40 }, // staff_code (wider for warning message)
     { wch: 15 }, // username
     { wch: 20 }, // full_name
     { wch: 25 }, // email
@@ -60,9 +40,10 @@ export const generateStaffTemplate = () => {
 export const generateDoctorTemplate = () => {
   const workbook = utils.book_new();
   
+  // Sample data - first row only (locked/reference)
   const sampleData = [
     {
-      doctor_code: 'DOC001',
+      doctor_code: '⚠️ SAMPLE ROW - DO NOT MODIFY - Add your data in rows below',
       full_name: 'Dr. Sarah Wilson',
       email: 'sarah.wilson@hospital.com',
       specialization: 'Cardiology',
@@ -72,18 +53,6 @@ export const generateDoctorTemplate = () => {
       bank_name: 'National Bank',
       branch_name: 'Main Branch',
       ifsc_code: 'NBNK0001234'
-    },
-    {
-      doctor_code: 'DOC002',
-      full_name: 'Dr. Michael Chen',
-      email: 'michael.chen@hospital.com',
-      specialization: 'Neurology',
-      password: 'SecurePass321',
-      bank_account_number: '9876543210',
-      account_holder_name: 'Dr. Michael Chen',
-      bank_name: 'City Bank',
-      branch_name: 'Downtown Branch',
-      ifsc_code: 'CBNK0005678'
     }
   ];
   
@@ -91,13 +60,13 @@ export const generateDoctorTemplate = () => {
   
   // Set column widths
   worksheet['!cols'] = [
-    { wch: 15 }, // doctor_code
-    { wch: 20 }, // full_name
-    { wch: 25 }, // email
+    { wch: 40 }, // doctor_code (wider for warning message)
+    { wch: 25 }, // full_name
+    { wch: 30 }, // email
     { wch: 20 }, // specialization
     { wch: 15 }, // password
     { wch: 20 }, // bank_account_number
-    { wch: 20 }, // account_holder_name
+    { wch: 25 }, // account_holder_name
     { wch: 20 }, // bank_name
     { wch: 20 }, // branch_name
     { wch: 15 }  // ifsc_code

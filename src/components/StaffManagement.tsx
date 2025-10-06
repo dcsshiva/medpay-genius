@@ -550,11 +550,15 @@ const StaffManagement = () => {
     
     try {
       const rows = await parseExcelFile(file);
+      
+      // Skip the first row (sample data)
+      const dataRows = rows.slice(1);
+      
       const { data: existingStaff } = await supabase.from('staff').select('*');
       
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const rowNumber = i + 2;
+      for (let i = 0; i < dataRows.length; i++) {
+        const row = dataRows[i];
+        const rowNumber = i + 3; // Excel row (1=header, 2=sample, 3+=data)
         
         try {
           if (!row.username || !row.full_name || !row.role) {
