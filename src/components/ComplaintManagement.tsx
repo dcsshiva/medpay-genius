@@ -475,14 +475,13 @@ const ComplaintManagement = () => {
               <div className="space-y-2">
                 <Label htmlFor="complaint_against">Staff Member (Optional)</Label>
                 <Select 
-                  value={formData.complaint_against} 
-                  onValueChange={(value) => setFormData({ ...formData, complaint_against: value })}
+                  value={formData.complaint_against || undefined} 
+                  onValueChange={(value) => setFormData({ ...formData, complaint_against: value || '' })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select staff member (if applicable)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None - General Complaint</SelectItem>
                     {staffList.map((staff) => (
                       <SelectItem key={staff.id} value={staff.id}>
                         {staff.full_name} ({staff.staff_code}) - {staff.role}
