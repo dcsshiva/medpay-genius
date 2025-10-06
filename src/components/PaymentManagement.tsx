@@ -33,6 +33,7 @@ import * as XLSX from 'xlsx';
 import { formatDateIST, formatDateTimeIST, toISOStringIST, formatReportDateIST, formatFileTimestampIST } from '@/lib/dateUtils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ReportGeneration from './ReportGeneration';
+import PaymentManagementTable from './PaymentManagementTable';
 
 interface Payment {
   id: string;
@@ -345,9 +346,27 @@ const PaymentManagement = () => {
     }
   };
 
-  const fetchUnprocessedVisits = async (doctorId: string, startDate: string, endDate: string) => {
+  const fetchExistingPayments = async (doctorId: string): Promise<any[]> => {
     try {
       const { data, error } = await supabase
+        .from('payments')
+        .select('id, period_start, period_end, status')
+        .eq('doctor_id', doctorId)
+        .in('status', ['pending', 'manager_approved', 'admin_approved'])
+        .order('period_start');
+      
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching existing payments:', error);
+      return [];
+    }
+  };
+
+  const fetchUnprocessedVisits = async (doctorId: string, startDate: string, endDate: string) => {
+    try {
+      // Fetch ALL visits in the date range (including processed ones)
+      const { data: allVisits, error: visitsError } = await supabase
         .from('visits')
         .select(`
           *,
@@ -357,20 +376,48 @@ const PaymentManagement = () => {
           )
         `)
         .eq('doctor_id', doctorId)
-        .eq('is_processed', false)
         .gte('visit_date', startDate)
         .lte('visit_date', endDate)
         .order('visit_date', { ascending: true });
 
-      if (error) throw error;
+      if (visitsError) throw visitsError;
+
+      // Fetch existing non-rejected payments for this doctor
+      const existingPayments = await fetchExistingPayments(doctorId);
+
+      // Filter out visits that fall within existing payment periods
+      const availableVisits = (allVisits || []).filter(visit => {
+        // Check if visit is not processed
+        if (visit.is_processed) return false;
+
+        // Check if visit falls within any existing payment period
+        const isInExistingPayment = existingPayments.some(payment => {
+          return visit.visit_date >= payment.period_start && 
+                 visit.visit_date <= payment.period_end;
+        });
+
+        return !isInExistingPayment;
+      });
+
+      // Show notification if some visits were excluded
+      const excludedCount = (allVisits?.length || 0) - availableVisits.length;
+      if (excludedCount > 0) {
+        toast({
+          title: "Info",
+          description: `${excludedCount} visit(s) excluded - already included in existing payment requests`,
+          variant: "default"
+        });
+      }
+
       // Transform to match expected structure
-      const transformedData = (data || []).map(visit => ({
+      const transformedData = availableVisits.map(visit => ({
         ...visit,
         doctors: {
           doctor_code: visit.doctors.doctor_code,
           profiles: { full_name: visit.doctors.full_name }
         }
       }));
+      
       setVisits(transformedData);
     } catch (error) {
       console.error('Error fetching visits:', error);
@@ -387,11 +434,27 @@ const PaymentManagement = () => {
         throw new Error('Please fill in all required fields');
       }
 
-      // Fetch unprocessed visits for validation
+      // Check for existing payments in this period FIRST
+      const existingPayments = await fetchExistingPayments(formData.doctor_id);
+      const hasOverlap = existingPayments.some(payment => {
+        // Check if the new period overlaps with existing payment periods
+        const newStart = new Date(formData.period_start);
+        const newEnd = new Date(formData.period_end);
+        const existingStart = new Date(payment.period_start);
+        const existingEnd = new Date(payment.period_end);
+        
+        return (newStart <= existingEnd && newEnd >= existingStart);
+      });
+
+      if (hasOverlap) {
+        throw new Error('Payment advice already exists for this period or overlapping dates. Please check existing payments.');
+      }
+
+      // Fetch available visits
       await fetchUnprocessedVisits(formData.doctor_id, formData.period_start, formData.period_end);
       
       if (visits.length === 0) {
-        throw new Error('No unprocessed visits found for the selected period');
+        throw new Error('No available visits found for the selected period. All visits in this period are already included in existing payment requests.');
       }
 
       // Calculate total amount from visits
@@ -419,7 +482,7 @@ const PaymentManagement = () => {
 
       toast({
         title: "Success",
-        description: "Payment advice created successfully"
+        description: `Payment advice created successfully for ${totalVisits} visit(s)`
       });
 
       setDialogOpen(false);
@@ -1439,20 +1502,35 @@ const PaymentManagement = () => {
                 />
               )}
             </div>
-            <div className="grid grid-cols-1 gap-4">
-              {waitingForApprovalPayments.map((payment) => (
-                <PaymentCard key={payment.id} payment={payment} />
-              ))}
-              {waitingForApprovalPayments.length === 0 && (
-                <Card>
-                  <CardContent className="p-8 text-center">
-                    <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">No Payments Waiting for Approval</h3>
-                    <p className="text-muted-foreground">All payments have been processed or no payments exist yet.</p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+            <PaymentManagementTable
+              payments={waitingForApprovalPayments}
+              userRole={userRole}
+              onApprove={(paymentId) => handleApproval(paymentId, 'approve')}
+              onReject={(paymentId) => {
+                const reason = prompt('Enter rejection reason:');
+                if (reason) handleApproval(paymentId, 'reject', reason);
+              }}
+              onEdit={handleEditPayment}
+              onDelete={handleDeletePayment}
+              onMarkSuspect={(payment) => {
+                if (!payment.is_suspect) {
+                  setSelectedPayment(payment);
+                  setSuspectDialog(true);
+                } else {
+                  handleSuspectToggle(payment.id);
+                }
+              }}
+              onRecordPayment={(payment) => {
+                setSelectedPayment(payment);
+                setPaymentFormData({ amount: payment.remaining_amount, transaction_reference: '', notes: '' });
+                setPaymentDialog(true);
+              }}
+              onViewTransactions={(payment) => {
+                setSelectedPayment(payment);
+                fetchTransactions(payment.id);
+                setTransactionsDialog(true);
+              }}
+            />
           </TabsContent>
 
           <TabsContent value="paid" className="space-y-4">
@@ -1467,20 +1545,20 @@ const PaymentManagement = () => {
                 />
               )}
             </div>
-            <div className="grid grid-cols-1 gap-4">
-              {fullyPaidPayments.map((payment) => (
-                <PaymentCard key={payment.id} payment={payment} />
-              ))}
-              {fullyPaidPayments.length === 0 && (
-                <Card>
-                  <CardContent className="p-8 text-center">
-                    <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                    <h3 className="text-lg font-semibold mb-2">No Fully Paid Payments</h3>
-                    <p className="text-muted-foreground">No payments have been fully processed yet.</p>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
+            <PaymentManagementTable
+              payments={fullyPaidPayments}
+              userRole={userRole}
+              onApprove={(paymentId) => handleApproval(paymentId, 'approve')}
+              onReject={(paymentId) => {
+                const reason = prompt('Enter rejection reason:');
+                if (reason) handleApproval(paymentId, 'reject', reason);
+              }}
+              onViewTransactions={(payment) => {
+                setSelectedPayment(payment);
+                fetchTransactions(payment.id);
+                setTransactionsDialog(true);
+              }}
+            />
           </TabsContent>
 
           {/* Bank Advice Tab */}
@@ -1490,7 +1568,7 @@ const PaymentManagement = () => {
                 <div>
                   <h3 className="text-lg font-semibold">Bank Advice Generation</h3>
                   <p className="text-sm text-muted-foreground">
-                    Select payments to generate bank upload Excel file
+                    Select payments to generate bank upload Excel file. Only showing fully paid payments without bank advice.
                   </p>
                 </div>
                 <Button
@@ -1501,91 +1579,35 @@ const PaymentManagement = () => {
                   {generatingBankAdvice ? 'Generating...' : `Generate Excel (${selectedPaymentsForBankAdvice.size})`}
                 </Button>
               </div>
-
-              <div className="grid grid-cols-1 gap-4">
-                {payments
-                  .filter(p => p.is_fully_paid && !p.bank_advice_generated)
-                  .map((payment) => {
-                    const doctor = doctors.find(d => d.id === payment.doctor_id);
-                    const hasCompleteBankDetails = doctor?.ifsc_code && doctor?.bank_account_number && doctor?.account_holder_name;
-                    
-                    return (
-                      <Card key={payment.id} className={`w-full ${!hasCompleteBankDetails ? 'border-destructive' : ''}`}>
-                        <CardHeader className="pb-3">
-                          <div className="flex items-start gap-4">
-                            <input
-                              type="checkbox"
-                              className="mt-1 h-5 w-5 rounded border-gray-300"
-                              checked={selectedPaymentsForBankAdvice.has(payment.id)}
-                              onChange={(e) => handleSelectPaymentForBankAdvice(payment.id, e.target.checked)}
-                              disabled={!hasCompleteBankDetails}
-                            />
-                            <div className="flex-1">
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <CardTitle className="text-lg">
-                                    {payment.doctors?.profiles?.full_name || 'Unknown Doctor'}
-                                  </CardTitle>
-                                  <p className="text-sm text-muted-foreground">
-                                    {payment.doctors?.doctor_code || 'N/A'} | Period: {formatDateIST(payment.period_start).split(',')[0].replace(' ', ' ')} - {formatDateIST(payment.period_end)}
-                                  </p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="text-sm text-muted-foreground">Paid Amount</p>
-                                  <p className="text-xl font-semibold text-success">{formatCurrency(payment.paid_amount)}</p>
-                                </div>
-                              </div>
-                              
-                              {!hasCompleteBankDetails && (
-                                <div className="mt-2 p-2 bg-destructive/10 border border-destructive rounded-md">
-                                  <p className="text-sm text-destructive flex items-center gap-2">
-                                    <AlertTriangle className="h-4 w-4" />
-                                    Incomplete bank details - cannot generate advice
-                                  </p>
-                                </div>
-                              )}
-                              
-                              {hasCompleteBankDetails && doctor && (
-                                <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-muted/50 rounded-md">
-                                  <div>
-                                    <p className="text-xs text-muted-foreground">IFSC Code</p>
-                                    <p className="text-sm font-medium">{doctor.ifsc_code}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-muted-foreground">Account Number</p>
-                                    <p className="text-sm font-medium">{doctor.bank_account_number}</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-xs text-muted-foreground">Account Holder</p>
-                                    <p className="text-sm font-medium">{doctor.account_holder_name}</p>
-                                  </div>
-                                  {doctor.bank_name && (
-                                    <div className="md:col-span-3">
-                                      <p className="text-xs text-muted-foreground">Bank Name</p>
-                                      <p className="text-sm font-medium">{doctor.bank_name}</p>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </CardHeader>
-                      </Card>
-                    );
-                  })}
-                
-                {payments.filter(p => p.is_fully_paid && !p.bank_advice_generated).length === 0 && (
-                  <Card>
-                    <CardContent className="p-8 text-center">
-                      <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                      <h3 className="text-lg font-semibold mb-2">No Payments Pending Bank Advice</h3>
-                      <p className="text-muted-foreground">
-                        All fully paid payments have been processed for bank advice.
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
+              <PaymentManagementTable
+                payments={payments.filter(p => p.is_fully_paid && !p.bank_advice_generated)}
+                userRole={userRole}
+                onApprove={(paymentId) => handleApproval(paymentId, 'approve')}
+                onReject={(paymentId) => {
+                  const reason = prompt('Enter rejection reason:');
+                  if (reason) handleApproval(paymentId, 'reject', reason);
+                }}
+                onViewTransactions={(payment) => {
+                  setSelectedPayment(payment);
+                  fetchTransactions(payment.id);
+                  setTransactionsDialog(true);
+                }}
+                showBankAdviceCheckbox={true}
+                selectedPayments={selectedPaymentsForBankAdvice}
+                onSelectPayment={handleSelectPaymentForBankAdvice}
+              />
+              
+              {payments.filter(p => p.is_fully_paid && !p.bank_advice_generated).length === 0 && (
+                <Card>
+                  <CardContent className="p-8 text-center">
+                    <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <h3 className="text-lg font-semibold mb-2">No Payments Pending Bank Advice</h3>
+                    <p className="text-muted-foreground">
+                      All fully paid payments have been processed for bank advice.
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
             </TabsContent>
           )}
         </Tabs>
