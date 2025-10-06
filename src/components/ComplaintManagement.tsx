@@ -48,6 +48,18 @@ interface Complaint {
     staff_code: string;
     full_name: string;
   };
+  complaint_against_staff?: {
+    staff_code: string;
+    full_name: string;
+    role: string;
+  };
+}
+
+interface StaffMember {
+  id: string;
+  staff_code: string;
+  full_name: string;
+  role: string;
 }
 
 const ComplaintManagement = () => {
@@ -61,11 +73,13 @@ const ComplaintManagement = () => {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [adminResponse, setAdminResponse] = useState('');
+  const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [formData, setFormData] = useState({
     complaint_title: '',
     complaint_description: '',
     category: 'general',
-    priority: 'medium'
+    priority: 'medium',
+    complaint_against: ''
   });
 
   const categories = [
@@ -80,7 +94,23 @@ const ComplaintManagement = () => {
 
   useEffect(() => {
     fetchComplaints();
+    fetchActiveStaff();
   }, [userRole]);
+
+  const fetchActiveStaff = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('staff')
+        .select('id, staff_code, full_name, role')
+        .eq('is_active', true)
+        .order('full_name');
+
+      if (error) throw error;
+      setStaffList(data || []);
+    } catch (error) {
+      console.error('Error fetching staff:', error);
+    }
+  };
 
   const fetchComplaints = async () => {
     try {
@@ -111,6 +141,11 @@ const ComplaintManagement = () => {
           taken_care_by_staff:taken_care_by (
             staff_code,
             full_name
+          ),
+          complaint_against_staff:complaint_against (
+            staff_code,
+            full_name,
+            role
           )
         `)
         .order('created_at', { ascending: false });
@@ -169,6 +204,7 @@ const ComplaintManagement = () => {
           category: formData.category as any,
           priority: formData.priority as any,
           raised_by: currentStaff.id,
+          complaint_against: formData.complaint_against || null,
           status: 'open'
         });
 
@@ -320,7 +356,8 @@ const ComplaintManagement = () => {
       complaint_title: '',
       complaint_description: '',
       category: 'general',
-      priority: 'medium'
+      priority: 'medium',
+      complaint_against: ''
     });
   };
 
@@ -433,6 +470,26 @@ const ComplaintManagement = () => {
                   rows={4}
                   required
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="complaint_against">Staff Member (Optional)</Label>
+                <Select 
+                  value={formData.complaint_against} 
+                  onValueChange={(value) => setFormData({ ...formData, complaint_against: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select staff member (if applicable)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">None - General Complaint</SelectItem>
+                    {staffList.map((staff) => (
+                      <SelectItem key={staff.id} value={staff.id}>
+                        {staff.full_name} ({staff.staff_code}) - {staff.role}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -577,6 +634,8 @@ const ComplaintManagement = () => {
             { key: 'raised_by_staff.full_name', label: 'Raised By' },
             { key: 'raised_by_staff.staff_code', label: 'Staff Code' },
             { key: 'raised_by_staff.role', label: 'Role' },
+            { key: 'complaint_against_staff.full_name', label: 'Complaint Against' },
+            { key: 'complaint_against_staff.staff_code', label: 'Against Staff Code' },
             { key: 'category', label: 'Category', format: (value: string) => value.charAt(0).toUpperCase() + value.slice(1) },
             { key: 'priority', label: 'Priority', format: (value: string) => value.charAt(0).toUpperCase() + value.slice(1) },
             { key: 'status', label: 'Status', format: (value: string) => value.replace('_', ' ').charAt(0).toUpperCase() + value.replace('_', ' ').slice(1) },
@@ -646,6 +705,16 @@ const ComplaintManagement = () => {
                     {complaint.raised_by_staff.full_name} ({complaint.raised_by_staff.staff_code})
                   </span>
                 </div>
+
+                {complaint.complaint_against_staff && (
+                  <div className="p-2 bg-amber-50 border border-amber-200 rounded-sm">
+                    <p className="text-xs text-amber-700 font-medium mb-1">Complaint Against:</p>
+                    <p className="text-sm">
+                      {complaint.complaint_against_staff.full_name} ({complaint.complaint_against_staff.staff_code})
+                    </p>
+                    <p className="text-xs text-muted-foreground">{complaint.complaint_against_staff.role}</p>
+                  </div>
+                )}
                 
                 <div className="flex items-center justify-between">
                   <Badge variant="outline" className="text-xs">

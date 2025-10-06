@@ -19,6 +19,7 @@ export type Database = {
           action_notes: string | null
           admin_response: string | null
           category: string
+          complaint_against: string | null
           complaint_description: string
           complaint_title: string
           created_at: string
@@ -36,6 +37,7 @@ export type Database = {
           action_notes?: string | null
           admin_response?: string | null
           category?: string
+          complaint_against?: string | null
           complaint_description: string
           complaint_title: string
           created_at?: string
@@ -53,6 +55,7 @@ export type Database = {
           action_notes?: string | null
           admin_response?: string | null
           category?: string
+          complaint_against?: string | null
           complaint_description?: string
           complaint_title?: string
           created_at?: string
@@ -67,6 +70,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "complaints_complaint_against_fkey"
+            columns: ["complaint_against"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "complaints_raised_by_fkey"
             columns: ["raised_by"]
