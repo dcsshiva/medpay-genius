@@ -484,15 +484,20 @@ const PaymentManagement = () => {
       const period_start = new Date(Math.min(...visitDates.map(d => d.getTime()))).toISOString().split('T')[0];
       const period_end = new Date(Math.max(...visitDates.map(d => d.getTime()))).toISOString().split('T')[0];
 
-      // Check for existing payments - verify if selected visits conflict
-      const existingPayments = await fetchExistingPayments(formData.doctor_id);
-      const conflictingVisits = filteredVisits.filter(visit => {
-        return existingPayments.some(payment => {
-          return visit.visit_date >= payment.period_start && 
-                 visit.visit_date <= payment.period_end;
-        });
-      });
-      
+      // Check if any selected visits are already linked in payment_visits for non-rejected payments
+      const { data: linkedVisits, error: linkedError } = await supabase
+        .from('payment_visits')
+        .select('visit_id, payments!inner(status, doctor_id)')
+        .eq('payments.doctor_id', formData.doctor_id)
+        .in('payments.status', ['pending', 'manager_approved', 'admin_approved']);
+
+      if (linkedError) throw linkedError;
+
+      const linkedVisitIds = new Set(linkedVisits?.map(v => v.visit_id) || []);
+
+      // Check if any of the filtered visits are already linked
+      const conflictingVisits = filteredVisits.filter(visit => linkedVisitIds.has(visit.id));
+
       if (conflictingVisits.length > 0) {
         throw new Error(`${conflictingVisits.length} visit(s) are already in existing payment requests`);
       }
