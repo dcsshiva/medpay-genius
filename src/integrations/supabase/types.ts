@@ -1019,6 +1019,7 @@ export type Database = {
           processed_at: string | null
           processed_in_payment_id: string | null
           updated_at: string
+          visit_code: string | null
           visit_date: string
           visit_payment: number | null
           visit_reason: string
@@ -1036,6 +1037,7 @@ export type Database = {
           processed_at?: string | null
           processed_in_payment_id?: string | null
           updated_at?: string
+          visit_code?: string | null
           visit_date?: string
           visit_payment?: number | null
           visit_reason?: string
@@ -1053,6 +1055,7 @@ export type Database = {
           processed_at?: string | null
           processed_in_payment_id?: string | null
           updated_at?: string
+          visit_code?: string | null
           visit_date?: string
           visit_payment?: number | null
           visit_reason?: string
@@ -1173,6 +1176,10 @@ export type Database = {
       cleanup_expired_user_sessions: {
         Args: Record<PropertyKey, never>
         Returns: number
+      }
+      get_financial_year_start: {
+        Args: { visit_date: string }
+        Returns: string
       }
       get_staff_appraisal_summary: {
         Args: { _staff_id: string }

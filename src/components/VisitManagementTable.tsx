@@ -7,6 +7,7 @@ import { formatDateIST } from '@/lib/dateUtils';
 
 interface Visit {
   id: string;
+  visit_code?: string;
   visit_date: string;
   patient_count: number;
   patient_id?: string;
@@ -55,6 +56,7 @@ export const VisitManagementTable: React.FC<VisitManagementTableProps> = ({
     <Table>
       <TableHeader>
         <TableRow>
+          <TableHead>Visit Code</TableHead>
           <TableHead className="cursor-pointer" onClick={() => onSort('visit_date')}>
             Visit Date <SortIcon field="visit_date" />
           </TableHead>
@@ -75,6 +77,7 @@ export const VisitManagementTable: React.FC<VisitManagementTableProps> = ({
       <TableBody>
         {visits.map((visit) => (
           <TableRow key={visit.id}>
+            <TableCell className="font-mono text-sm font-semibold">{visit.visit_code || '-'}</TableCell>
             <TableCell className="font-medium">{formatDateIST(visit.visit_date)}</TableCell>
             <TableCell>
               <div>
