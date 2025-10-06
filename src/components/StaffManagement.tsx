@@ -34,7 +34,7 @@ interface Staff {
   is_active: boolean;
   last_login?: string;
   created_at: string;
-  profile_id?: string;
+  user_id?: string;
 }
 
 const StaffManagement = () => {
@@ -216,39 +216,34 @@ const StaffManagement = () => {
           throw staffError;
         }
 
-        // Update profile name if staff has profile_id
-        if (editingStaff.profile_id) {
-          const { data: profileData } = await supabase
+        // Update profile name and password if staff has user_id
+        if (editingStaff.user_id) {
+          const { error: profileError } = await supabase
             .from('profiles')
-            .select('user_id')
-            .eq('id', editingStaff.profile_id)
-            .single();
+            .update({
+              full_name: formData.full_name.trim(),
+              role: ((['admin','manager','doctor'] as const).includes(formData.role as any) ? formData.role : 'staff') as any
+            })
+            .eq('user_id', editingStaff.user_id);
 
-          if (profileData) {
-            const { error: profileError } = await supabase
-              .from('profiles')
-              .update({
-                full_name: formData.full_name.trim(),
-                role: ((['admin','manager','doctor'] as const).includes(formData.role as any) ? formData.role : 'staff') as any
-              })
-              .eq('id', editingStaff.profile_id);
+          if (profileError) {
+            console.error('Failed to update profile:', profileError);
+            // Don't throw error - continue with other updates
+          }
 
-            if (profileError) throw profileError;
+          // Update auth user password if provided
+          if (formData.password.trim()) {
+            const { error: credUpdateError } = await supabase.functions.invoke('update-user-credentials', {
+              body: {
+                userId: editingStaff.user_id,
+                password: formData.password.trim()
+              },
+              headers: getSessionAuthHeaders()
+            });
 
-            // Update auth user password if provided
-            if (formData.password.trim()) {
-              const { error: credUpdateError } = await supabase.functions.invoke('update-user-credentials', {
-                body: {
-                  userId: profileData.user_id,
-                  password: formData.password.trim()
-                },
-                headers: getSessionAuthHeaders()
-              });
-
-              if (credUpdateError) {
-                console.error('Failed to update password:', credUpdateError);
-                // Don't throw error - continue with other updates
-              }
+            if (credUpdateError) {
+              console.error('Failed to update password:', credUpdateError);
+              // Don't throw error - continue with other updates
             }
           }
         }
@@ -385,11 +380,11 @@ const StaffManagement = () => {
         profileData = newProfile;
       }
 
-      // Create staff record with proper profile relationship
+      // Create staff record with user_id link
       const { error } = await supabase
         .from('staff')
         .insert({
-          profile_id: profileData.id, // Secure link to profile
+          user_id: createdUser.id, // Link directly to auth user
           staff_code: staffCode,
           username: formData.username.trim(),
           password_hash: 'managed_by_supabase_auth', // Placeholder since auth is handled by Supabase
@@ -612,28 +607,20 @@ const StaffManagement = () => {
             
             if (error) throw error;
             
-            if (decision.existingRecord?.profile_id) {
+            if (decision.existingRecord?.user_id) {
               await supabase
                 .from('profiles')
                 .update({ full_name: row.full_name })
-                .eq('id', decision.existingRecord.profile_id);
+                .eq('user_id', decision.existingRecord.user_id);
                 
               if (row.password) {
-                const { data: profile } = await supabase
-                  .from('profiles')
-                  .select('user_id')
-                  .eq('id', decision.existingRecord.profile_id)
-                  .single();
-                
-                if (profile?.user_id) {
-                  await supabase.functions.invoke('update-user-credentials', {
-                    body: {
-                      userId: profile.user_id,
-                      password: row.password
-                    },
-                    headers: getSessionAuthHeaders()
-                  });
-                }
+                await supabase.functions.invoke('update-user-credentials', {
+                  body: {
+                    userId: decision.existingRecord.user_id,
+                    password: row.password
+                  },
+                  headers: getSessionAuthHeaders()
+                });
               }
             }
             
@@ -668,16 +655,10 @@ const StaffManagement = () => {
               throw new Error(authResult?.error || 'Failed to create user');
             }
             
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('id')
-              .eq('user_id', authResult.user.id)
-              .single();
-            
             const { error: staffError } = await supabase
               .from('staff')
               .insert({
-                profile_id: profile.id,
+                user_id: authResult.user.id, // Link directly to auth user
                 staff_code: staffCode,
                 username: row.username,
                 password_hash: 'managed_by_supabase_auth',
