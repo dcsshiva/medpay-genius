@@ -716,7 +716,7 @@ const DoctorManagement = () => {
                     id="full_name"
                     value={formData.full_name}
                     onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                    placeholder="Dr. John Doe"
+                    placeholder="Dr. Ravi Kumar"
                     required
                   />
                 </div>
@@ -749,7 +749,7 @@ const DoctorManagement = () => {
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="doctor@hospital.com"
+                    placeholder="ravi.kumar@hospital.com"
                     required={!editingDoctor}
                   />
                   {editingDoctor && (
@@ -786,7 +786,7 @@ const DoctorManagement = () => {
                       id="account_holder_name"
                       value={formData.account_holder_name}
                       onChange={(e) => setFormData({ ...formData, account_holder_name: e.target.value })}
-                      placeholder="Dr. John Doe"
+                      placeholder="Dr. Ravi Kumar"
                     />
                   </div>
                   
@@ -796,7 +796,7 @@ const DoctorManagement = () => {
                       id="bank_account_number"
                       value={formData.bank_account_number}
                       onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value })}
-                      placeholder="1234567890"
+                      placeholder="12345678901234"
                     />
                   </div>
                   
@@ -816,7 +816,7 @@ const DoctorManagement = () => {
                       id="branch_name"
                       value={formData.branch_name}
                       onChange={(e) => setFormData({ ...formData, branch_name: e.target.value })}
-                      placeholder="Main Branch"
+                      placeholder="Chennai Main Branch"
                     />
                   </div>
                   
@@ -826,7 +826,7 @@ const DoctorManagement = () => {
                       id="ifsc_code"
                       value={formData.ifsc_code}
                       onChange={(e) => setFormData({ ...formData, ifsc_code: e.target.value })}
-                      placeholder="SBIN0000123"
+                      placeholder="SBIN0001234"
                     />
                   </div>
                 </div>

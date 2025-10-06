@@ -823,7 +823,7 @@ const StaffManagement = () => {
                     id="username"
                     value={formData.username}
                     onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                    placeholder="Login username"
+                    placeholder="anand.kumar"
                     required
                   />
                 </div>
@@ -853,7 +853,7 @@ const StaffManagement = () => {
                     id="full_name"
                     value={formData.full_name}
                     onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                    placeholder="John Doe"
+                    placeholder="Anand Kumar"
                     required
                   />
                 </div>
@@ -867,7 +867,7 @@ const StaffManagement = () => {
                     type="email"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="john@hospital.com"
+                    placeholder="anand.kumar@hospital.com"
                   />
                 </div>
                 
@@ -877,7 +877,7 @@ const StaffManagement = () => {
                     id="phone"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+1234567890"
+                    placeholder="+91 98765 43210"
                   />
                 </div>
               </div>
@@ -908,7 +908,7 @@ const StaffManagement = () => {
                     id="department"
                     value={formData.department}
                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    placeholder="Emergency, ICU, OPD, etc."
+                    placeholder="Emergency, ICU, Cardiology, etc."
                   />
                 </div>
               </div>
