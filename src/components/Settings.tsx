@@ -211,18 +211,18 @@ const Settings = () => {
                     Are you absolutely sure?
                   </AlertDialogTitle>
                   <AlertDialogDescription className="space-y-3">
-                    <p className="font-semibold text-foreground">
+                    <div className="font-semibold text-foreground">
                       This action cannot be undone. This will permanently delete:
-                    </p>
+                    </div>
                     <ul className="list-disc list-inside space-y-1 text-sm">
                       <li>All visit records</li>
                       <li>All payment records</li>
                       <li>All payment-visit links</li>
                       <li>All payment transactions</li>
                     </ul>
-                    <p className="text-destructive font-medium">
+                    <div className="text-destructive font-medium">
                       All doctors and staff records will remain intact.
-                    </p>
+                    </div>
                     <div className="space-y-2 pt-2">
                       <Label htmlFor="confirm-text" className="text-foreground">
                         Type <span className="font-mono font-bold">DELETE ALL</span> to confirm:
