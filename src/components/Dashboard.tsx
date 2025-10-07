@@ -31,6 +31,10 @@ interface DashboardStats {
   completedTasks?: number;
   pendingCashApprovals?: number;
   pendingInsuranceApprovals?: number;
+  pendingCashTotal?: number;
+  pendingInsuranceTotal?: number;
+  approvedCashTotal?: number;
+  approvedInsuranceTotal?: number;
 }
 
 interface DashboardProps {
@@ -51,7 +55,7 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
   const fetchDashboardStats = async () => {
     try {
       if (userRole === 'admin') {
-        const [doctorsRes, visitsRes, paymentsRes, pendingRes, unprocessedVisitsRes, pendingTasksRes, completedTasksRes, cashApprovalsRes, insuranceApprovalsRes] = await Promise.all([
+        const [doctorsRes, visitsRes, paymentsRes, pendingRes, unprocessedVisitsRes, pendingTasksRes, completedTasksRes, cashApprovalsRes, insuranceApprovalsRes, approvalTotalsRes] = await Promise.all([
           supabase.from('doctors').select('id', { count: 'exact' }),
           supabase.from('visits').select('id', { count: 'exact' }),
           supabase.from('payments').select('total_amount'),
@@ -60,11 +64,19 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
           supabase.from('tasks').select('id', { count: 'exact' }).in('status', ['pending', 'in_progress']),
           supabase.from('tasks').select('id', { count: 'exact' }).eq('status', 'completed'),
           supabase.from('payments').select('id', { count: 'exact' }).or('cash_approval_status.eq.pending,cash_approval_status.eq.manager_approved').not('cash_approval_status', 'is', null),
-          supabase.from('payments').select('id', { count: 'exact' }).or('insurance_approval_status.eq.pending,insurance_approval_status.eq.manager_approved').not('insurance_approval_status', 'is', null)
+          supabase.from('payments').select('id', { count: 'exact' }).or('insurance_approval_status.eq.pending,insurance_approval_status.eq.manager_approved').not('insurance_approval_status', 'is', null),
+          supabase.rpc('get_payment_approval_totals')
         ]);
 
         const totalPaymentAmount = paymentsRes.data?.reduce((sum, payment) => sum + Number(payment.total_amount), 0) || 0;
         const totalPendingPaymentAmount = unprocessedVisitsRes.data?.reduce((sum, visit) => sum + Number(visit.visit_payment || 0), 0) || 0;
+        
+        const approvalTotals = approvalTotalsRes.data?.[0] || {
+          pending_cash: 0,
+          pending_insurance: 0,
+          approved_cash: 0,
+          approved_insurance: 0
+        };
 
         setStats({
           totalDoctors: doctorsRes.count || 0,
@@ -77,6 +89,10 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
           completedTasks: completedTasksRes.count || 0,
           pendingCashApprovals: cashApprovalsRes.count || 0,
           pendingInsuranceApprovals: insuranceApprovalsRes.count || 0,
+          pendingCashTotal: Number(approvalTotals.pending_cash) || 0,
+          pendingInsuranceTotal: Number(approvalTotals.pending_insurance) || 0,
+          approvedCashTotal: Number(approvalTotals.approved_cash) || 0,
+          approvedInsuranceTotal: Number(approvalTotals.approved_insurance) || 0,
         });
       } else if (userRole === 'manager') {
         const [doctorsRes, pendingRes, pendingTasksRes, completedTasksRes, cashApprovalsRes, insuranceApprovalsRes] = await Promise.all([
@@ -308,6 +324,62 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
         <CardContent>
           <div className="text-2xl font-bold text-blue-600">{stats.pendingInsuranceApprovals || 0}</div>
           <p className="text-xs text-muted-foreground">Insurance payments awaiting approval</p>
+        </CardContent>
+      </Card>
+
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-emerald-500/50"
+        onClick={() => onTabChange?.('payments')}
+      >
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Pending Cash Total</CardTitle>
+          <Banknote className="h-4 w-4 text-emerald-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-emerald-600">{formatCurrency(stats.pendingCashTotal || 0)}</div>
+          <p className="text-xs text-muted-foreground">Total pending cash amount</p>
+        </CardContent>
+      </Card>
+
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-blue-500/50"
+        onClick={() => onTabChange?.('payments')}
+      >
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Pending Insurance Total</CardTitle>
+          <FileText className="h-4 w-4 text-blue-600" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-blue-600">{formatCurrency(stats.pendingInsuranceTotal || 0)}</div>
+          <p className="text-xs text-muted-foreground">Total pending insurance amount</p>
+        </CardContent>
+      </Card>
+
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-emerald-500/50"
+        onClick={() => onTabChange?.('payments')}
+      >
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Approved Cash Total</CardTitle>
+          <Banknote className="h-4 w-4 text-success" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-success">{formatCurrency(stats.approvedCashTotal || 0)}</div>
+          <p className="text-xs text-muted-foreground">Total approved cash amount</p>
+        </CardContent>
+      </Card>
+
+      <Card 
+        className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-blue-500/50"
+        onClick={() => onTabChange?.('payments')}
+      >
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-sm font-medium">Approved Insurance Total</CardTitle>
+          <FileText className="h-4 w-4 text-success" />
+        </CardHeader>
+        <CardContent>
+          <div className="text-2xl font-bold text-success">{formatCurrency(stats.approvedInsuranceTotal || 0)}</div>
+          <p className="text-xs text-muted-foreground">Total approved insurance amount</p>
         </CardContent>
       </Card>
     </div>

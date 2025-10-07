@@ -1193,6 +1193,15 @@ export type Database = {
         Args: { visit_date: string }
         Returns: string
       }
+      get_payment_approval_totals: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          approved_cash: number
+          approved_insurance: number
+          pending_cash: number
+          pending_insurance: number
+        }[]
+      }
       get_staff_appraisal_summary: {
         Args: { _staff_id: string }
         Returns: {

@@ -112,7 +112,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               full_name: sessionData.full_name,
               role: sessionData.role,
               user_type: sessionData.user_type,
-              original_id: sessionData.original_id
+              original_id: sessionData.original_id,
+              auth_user_id: sessionData.user_id // Store auth_user_id for RPC calls
             }
           } as User;
 
@@ -162,6 +163,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           error?: string;
           user_type?: string; 
           id?: string; 
+          user_id?: string;
           full_name?: string; 
           role?: string; 
         };
@@ -188,7 +190,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 full_name: sessionData.full_name,
                 role: sessionData.role,
                 user_type: sessionData.user_type,
-                original_id: sessionData.original_id
+                original_id: sessionData.original_id,
+                auth_user_id: loginResult.user_id // Store auth_user_id for RPC calls
               }
             } as User;
 
@@ -225,7 +228,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 full_name: loginResult.full_name || username,
                 role: loginResult.role || 'staff',
                 user_type: loginResult.user_type,
-                original_id: loginResult.id
+                original_id: loginResult.id,
+                auth_user_id: loginResult.user_id // Store auth_user_id for RPC calls
               }
             } as User;
 
