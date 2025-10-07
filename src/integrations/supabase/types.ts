@@ -1189,6 +1189,10 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: number
       }
+      erase_all_transactions: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       get_financial_year_start: {
         Args: { visit_date: string }
         Returns: string
