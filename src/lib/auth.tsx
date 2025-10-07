@@ -20,6 +20,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const createUserSession = async (sessionData: {
   user_type: string;
   original_id: string;
+  user_id: string;  // Added: auth user id
   username: string;
   full_name: string;
   role: string;
@@ -31,10 +32,11 @@ const createUserSession = async (sessionData: {
   // Set timeout duration based on role
   const timeoutDuration = ['admin', 'manager'].includes(sessionData.role) ? 300 : 180;
 
+  // Store user_id (auth user id) instead of original_id to match RLS policies
   const { data, error } = await supabase
     .from('user_sessions')
     .insert({
-      user_id: sessionData.original_id,
+      user_id: sessionData.user_id,  // Changed: Use auth user_id from verify_user_login
       user_type: sessionData.user_type,
       original_id: sessionData.original_id,
       session_token: sessionToken,
@@ -174,6 +176,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const sessionData = await createUserSession({
               user_type: loginResult.user_type,
               original_id: loginResult.id,
+              user_id: loginResult.user_id || loginResult.id,  // Changed: Pass auth user_id
               username: username,
               full_name: loginResult.full_name || username,
               role: loginResult.role || 'staff'
@@ -280,6 +283,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             await createUserSession({
               user_type: 'supabase_auth',
               original_id: authData.user.id,
+              user_id: authData.user.id,  // Changed: Pass auth user_id
               username: emailData,
               full_name: profile.full_name || emailData,
               role: profile.role || 'staff'
@@ -339,6 +343,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             await createUserSession({
               user_type: 'supabase_auth',
               original_id: data.user.id,
+              user_id: data.user.id,  // Changed: Pass auth user_id
               username: email,
               full_name: profile.full_name || email,
               role: profile.role || 'staff'

@@ -80,8 +80,9 @@ const VisitManagement = () => {
 
   const fetchVisits = async () => {
     try {
+      // Use auth_user_id for doctor to match RLS policies
       const userId = userRole === 'doctor' 
-        ? user?.user_metadata?.original_id || user?.id
+        ? user?.user_metadata?.auth_user_id || user?.id
         : user?.id;
 
       const { data, error } = await supabase.rpc('get_user_visits', {
