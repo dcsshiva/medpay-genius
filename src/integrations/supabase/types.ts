@@ -1197,6 +1197,13 @@ export type Database = {
         Args: { visit_date: string }
         Returns: string
       }
+      get_payment_approval_counts: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          pending_cash_count: number
+          pending_insurance_count: number
+        }[]
+      }
       get_payment_approval_totals: {
         Args: Record<PropertyKey, never>
         Returns: {

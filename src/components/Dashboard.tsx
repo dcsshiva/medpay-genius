@@ -61,7 +61,7 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
   const fetchDashboardStats = async () => {
     try {
       if (userRole === 'admin') {
-        const [doctorsRes, visitsRes, paymentsRes, pendingRes, unprocessedVisitsRes, pendingTasksRes, completedTasksRes, cashApprovalsRes, insuranceApprovalsRes, approvalTotalsRes] = await Promise.all([
+        const [doctorsRes, visitsRes, paymentsRes, pendingRes, unprocessedVisitsRes, pendingTasksRes, completedTasksRes, approvalCountsRes, approvalTotalsRes] = await Promise.all([
           supabase.from('doctors').select('id', { count: 'exact' }),
           supabase.from('visits').select('id', { count: 'exact' }),
           supabase.from('payments').select('total_amount'),
@@ -69,13 +69,17 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
           supabase.from('visits').select('visit_payment', { count: 'exact' }).eq('is_processed', false),
           supabase.from('tasks').select('id', { count: 'exact' }).in('status', ['pending', 'in_progress']),
           supabase.from('tasks').select('id', { count: 'exact' }).eq('status', 'completed'),
-          supabase.from('payments').select('id', { count: 'exact' }).or('cash_approval_status.eq.pending,cash_approval_status.eq.manager_approved').not('cash_approval_status', 'is', null),
-          supabase.from('payments').select('id', { count: 'exact' }).or('insurance_approval_status.eq.pending,insurance_approval_status.eq.manager_approved').not('insurance_approval_status', 'is', null),
+          supabase.rpc('get_payment_approval_counts'),
           supabase.rpc('get_payment_approval_totals')
         ]);
 
         const totalPaymentAmount = paymentsRes.data?.reduce((sum, payment) => sum + Number(payment.total_amount), 0) || 0;
         const totalPendingPaymentAmount = unprocessedVisitsRes.data?.reduce((sum, visit) => sum + Number(visit.visit_payment || 0), 0) || 0;
+        
+        const approvalCounts = approvalCountsRes.data?.[0] || {
+          pending_cash_count: 0,
+          pending_insurance_count: 0
+        };
         
         const approvalTotals = approvalTotalsRes.data?.[0] || {
           pending_cash: 0,
@@ -93,30 +97,34 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
           totalPendingPayment: totalPendingPaymentAmount,
           pendingTasks: pendingTasksRes.count || 0,
           completedTasks: completedTasksRes.count || 0,
-          pendingCashApprovals: cashApprovalsRes.count || 0,
-          pendingInsuranceApprovals: insuranceApprovalsRes.count || 0,
+          pendingCashApprovals: Number(approvalCounts.pending_cash_count) || 0,
+          pendingInsuranceApprovals: Number(approvalCounts.pending_insurance_count) || 0,
           pendingCashTotal: Number(approvalTotals.pending_cash) || 0,
           pendingInsuranceTotal: Number(approvalTotals.pending_insurance) || 0,
           approvedCashTotal: Number(approvalTotals.approved_cash) || 0,
           approvedInsuranceTotal: Number(approvalTotals.approved_insurance) || 0,
         });
       } else if (userRole === 'manager') {
-        const [doctorsRes, pendingRes, pendingTasksRes, completedTasksRes, cashApprovalsRes, insuranceApprovalsRes] = await Promise.all([
+        const [doctorsRes, pendingRes, pendingTasksRes, completedTasksRes, approvalCountsRes] = await Promise.all([
           supabase.from('doctors').select('id', { count: 'exact' }),
           supabase.from('payments').select('id', { count: 'exact' }).eq('status', 'pending'),
           supabase.from('tasks').select('id', { count: 'exact' }).in('status', ['pending', 'in_progress']),
           supabase.from('tasks').select('id', { count: 'exact' }).eq('status', 'completed'),
-          supabase.from('payments').select('id', { count: 'exact' }).or('cash_approval_status.eq.pending,cash_approval_status.eq.manager_approved').not('cash_approval_status', 'is', null),
-          supabase.from('payments').select('id', { count: 'exact' }).or('insurance_approval_status.eq.pending,insurance_approval_status.eq.manager_approved').not('insurance_approval_status', 'is', null)
+          supabase.rpc('get_payment_approval_counts')
         ]);
+
+        const approvalCounts = approvalCountsRes.data?.[0] || {
+          pending_cash_count: 0,
+          pending_insurance_count: 0
+        };
 
         setStats({
           totalDoctors: doctorsRes.count || 0,
           pendingApprovals: pendingRes.count || 0,
           pendingTasks: pendingTasksRes.count || 0,
           completedTasks: completedTasksRes.count || 0,
-          pendingCashApprovals: cashApprovalsRes.count || 0,
-          pendingInsuranceApprovals: insuranceApprovalsRes.count || 0,
+          pendingCashApprovals: Number(approvalCounts.pending_cash_count) || 0,
+          pendingInsuranceApprovals: Number(approvalCounts.pending_insurance_count) || 0,
         });
       } else if (userRole === 'doctor') {
         // Support both custom-auth doctors and Supabase-auth doctors
