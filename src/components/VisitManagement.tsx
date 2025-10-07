@@ -47,7 +47,11 @@ interface Doctor {
   };
 }
 
-const VisitManagement = () => {
+interface VisitManagementProps {
+  initialSubTab?: string;
+}
+
+const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
   const { userRole, user } = useAuth();
   const { toast } = useToast();
   const [visits, setVisits] = useState<Visit[]>([]);
@@ -59,6 +63,7 @@ const VisitManagement = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<'visit_date' | 'patient_name' | 'doctor_name'>('visit_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [activeSubTab, setActiveSubTab] = useState('unprocessed');
   const [formData, setFormData] = useState({
     visit_date: formatInputDateIST(getCurrentISTDate()),
     patient_count: 1,
@@ -77,6 +82,12 @@ const VisitManagement = () => {
       fetchDoctors();
     }
   }, [userRole]);
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveSubTab(initialSubTab);
+    }
+  }, [initialSubTab]);
 
   const fetchVisits = async () => {
     try {
@@ -567,7 +578,7 @@ const VisitManagement = () => {
       </div>
 
       {/* Visits Dashboard with Tabs */}
-      <Tabs defaultValue="unprocessed" className="space-y-6">
+      <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="space-y-6">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="unprocessed" className="flex items-center gap-2">
             <Clock className="h-4 w-4" />

@@ -37,8 +37,14 @@ interface DashboardStats {
   approvedInsuranceTotal?: number;
 }
 
+type NavigationParams = {
+  tab: string;
+  subTab?: string;
+  paymentTypeFilter?: 'all' | 'cash' | 'insurance' | 'mixed';
+}
+
 interface DashboardProps {
-  onTabChange?: (tab: string) => void;
+  onTabChange?: (params: string | NavigationParams) => void;
 }
 
 const Dashboard = ({ onTabChange }: DashboardProps) => {
@@ -273,7 +279,7 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
 
       <Card 
         className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
-        onClick={() => onTabChange?.('visits')}
+        onClick={() => onTabChange?.({ tab: 'visits', subTab: 'unprocessed' })}
       >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Unprocessed Visits</CardTitle>
@@ -287,7 +293,7 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
 
       <Card 
         className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
-        onClick={() => onTabChange?.('payments')}
+        onClick={() => onTabChange?.({ tab: 'visits', subTab: 'unprocessed' })}
       >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Pending Payment Value</CardTitle>
@@ -301,7 +307,7 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
 
       <Card 
         className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-emerald-500/50"
-        onClick={() => onTabChange?.('payments')}
+        onClick={() => onTabChange?.({ tab: 'payments', subTab: 'waiting', paymentTypeFilter: 'cash' })}
       >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Pending Cash Approvals</CardTitle>
@@ -315,7 +321,7 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
 
       <Card 
         className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-blue-500/50"
-        onClick={() => onTabChange?.('payments')}
+        onClick={() => onTabChange?.({ tab: 'payments', subTab: 'waiting', paymentTypeFilter: 'insurance' })}
       >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Pending Insurance Approvals</CardTitle>
@@ -329,7 +335,7 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
 
       <Card 
         className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-emerald-500/50"
-        onClick={() => onTabChange?.('payments')}
+        onClick={() => onTabChange?.({ tab: 'payments', subTab: 'waiting', paymentTypeFilter: 'cash' })}
       >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Pending Cash Total</CardTitle>
@@ -343,7 +349,7 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
 
       <Card 
         className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-blue-500/50"
-        onClick={() => onTabChange?.('payments')}
+        onClick={() => onTabChange?.({ tab: 'payments', subTab: 'waiting', paymentTypeFilter: 'insurance' })}
       >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Pending Insurance Total</CardTitle>
@@ -357,7 +363,7 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
 
       <Card 
         className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-emerald-500/50"
-        onClick={() => onTabChange?.('payments')}
+        onClick={() => onTabChange?.({ tab: 'payments', subTab: 'paid', paymentTypeFilter: 'cash' })}
       >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Approved Cash Total</CardTitle>
@@ -371,7 +377,7 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
 
       <Card 
         className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-blue-500/50"
-        onClick={() => onTabChange?.('payments')}
+        onClick={() => onTabChange?.({ tab: 'payments', subTab: 'paid', paymentTypeFilter: 'insurance' })}
       >
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Approved Insurance Total</CardTitle>

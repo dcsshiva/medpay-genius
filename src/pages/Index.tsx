@@ -21,6 +21,8 @@ const Index = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeSubTab, setActiveSubTab] = useState<string | undefined>(undefined);
+  const [paymentTypeFilter, setPaymentTypeFilter] = useState<'all' | 'cash' | 'insurance' | 'mixed'>('all');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -32,6 +34,18 @@ const Index = () => {
       }
     }
   }, [user, loading, navigate]);
+
+  const handleTabChange = (params: string | { tab: string; subTab?: string; paymentTypeFilter?: 'all' | 'cash' | 'insurance' | 'mixed' }) => {
+    if (typeof params === 'string') {
+      setActiveTab(params);
+      setActiveSubTab(undefined);
+      setPaymentTypeFilter('all');
+    } else {
+      setActiveTab(params.tab);
+      setActiveSubTab(params.subTab);
+      setPaymentTypeFilter(params.paymentTypeFilter || 'all');
+    }
+  };
 
   if (loading) {
     return (
@@ -51,15 +65,15 @@ const Index = () => {
   const renderContent = () => {
     switch (activeTab) {
       case 'dashboard':
-        return <Dashboard onTabChange={setActiveTab} />;
+        return <Dashboard onTabChange={handleTabChange} />;
       case 'staff':
         return <StaffManagement />;
       case 'doctors':
         return <DoctorManagement />;
       case 'visits':
-        return <VisitManagement />;
+        return <VisitManagement initialSubTab={activeSubTab} />;
       case 'payments':
-        return <PaymentManagement />;
+        return <PaymentManagement initialSubTab={activeSubTab} initialPaymentTypeFilter={paymentTypeFilter} />;
       case 'tasks':
         return <TaskManagement />;
       case 'appraisals':
@@ -79,12 +93,12 @@ const Index = () => {
       case 'settings':
         return <Settings />;
       default:
-        return <Dashboard />;
+        return <Dashboard onTabChange={handleTabChange} />;
     }
   };
 
   return (
-    <Layout activeTab={activeTab} onTabChange={setActiveTab}>
+    <Layout activeTab={activeTab} onTabChange={handleTabChange}>
       {renderContent()}
     </Layout>
   );

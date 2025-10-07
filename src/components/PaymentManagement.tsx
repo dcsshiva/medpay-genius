@@ -126,7 +126,12 @@ interface Visit {
   };
 }
 
-const PaymentManagement = () => {
+interface PaymentManagementProps {
+  initialSubTab?: string;
+  initialPaymentTypeFilter?: 'all' | 'cash' | 'insurance' | 'mixed';
+}
+
+const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter }: PaymentManagementProps = {}) => {
   const { userRole, user } = useAuth();
   const { toast } = useToast();
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -145,6 +150,7 @@ const PaymentManagement = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPaymentsForBankAdvice, setSelectedPaymentsForBankAdvice] = useState<Set<string>>(new Set());
   const [generatingBankAdvice, setGeneratingBankAdvice] = useState(false);
+  const [activeSubTab, setActiveSubTab] = useState('waiting');
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<'all' | 'cash' | 'insurance' | 'mixed'>('all');
   
   const [showBankAdviceReviewDialog, setShowBankAdviceReviewDialog] = useState(false);
@@ -182,6 +188,15 @@ const PaymentManagement = () => {
       fetchDoctors();
     }
   }, [userRole]);
+
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveSubTab(initialSubTab);
+    }
+    if (initialPaymentTypeFilter) {
+      setPaymentTypeFilter(initialPaymentTypeFilter);
+    }
+  }, [initialSubTab, initialPaymentTypeFilter]);
 
   const fetchGlobalTotals = async () => {
     try {
@@ -2045,24 +2060,24 @@ const PaymentManagement = () => {
          )}
        </div>
 
-        <Tabs defaultValue="waiting" className="w-full">
-          <div className="flex justify-between items-center mb-4">
-            <TabsList className="grid w-full max-w-4xl grid-cols-4">
-              <TabsTrigger value="waiting">Waiting for Approval ({waitingForApprovalPayments.length})</TabsTrigger>
-              <TabsTrigger value="paid">Fully Paid ({fullyPaidPayments.length})</TabsTrigger>
-              {(userRole === 'admin' || userRole === 'manager') && (
-                <TabsTrigger value="bankadvice">
-                  <Building2 className="h-4 w-4 mr-1" />
-                  Bank Advice ({payments.filter(p => p.is_fully_paid && !p.bank_advice_generated).length})
-                </TabsTrigger>
-              )}
-              {(userRole === 'admin' || userRole === 'manager') && (
-                <TabsTrigger value="history">
-                  <History className="h-4 w-4 mr-1" />
-                  Bank Advice History
-                </TabsTrigger>
-              )}
-            </TabsList>
+      <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full">
+        <div className="flex justify-between items-center mb-4">
+          <TabsList className="grid w-full max-w-4xl grid-cols-4">
+            <TabsTrigger value="waiting">Waiting for Approval ({waitingForApprovalPayments.length})</TabsTrigger>
+            <TabsTrigger value="paid">Fully Paid ({fullyPaidPayments.length})</TabsTrigger>
+            {(userRole === 'admin' || userRole === 'manager') && (
+              <TabsTrigger value="bankadvice">
+                <Building2 className="h-4 w-4 mr-1" />
+                Bank Advice ({payments.filter(p => p.is_fully_paid && !p.bank_advice_generated).length})
+              </TabsTrigger>
+            )}
+            {(userRole === 'admin' || userRole === 'manager') && (
+              <TabsTrigger value="history">
+                <History className="h-4 w-4 mr-1" />
+                Bank Advice History
+              </TabsTrigger>
+            )}
+          </TabsList>
             
             {/* Payment Type Filter */}
             <div className="flex items-center gap-2">
