@@ -161,7 +161,7 @@ const PaymentManagement = () => {
 
   const [formData, setFormData] = useState({
     doctor_id: '',
-    payment_type_filter: 'all' as 'all' | 'cash' | 'insurance',
+    payment_type_filter: 'cash' as 'cash' | 'insurance',
     payment_notes: ''
   });
 
@@ -938,7 +938,7 @@ const PaymentManagement = () => {
 
     setFormData({
       doctor_id: payment.doctors ? '' : payment.doctors.profiles.full_name,
-      payment_type_filter: 'all',
+      payment_type_filter: 'cash',
       payment_notes: payment.payment_notes || ''
     });
     setEditingPayment(payment);
@@ -986,7 +986,7 @@ const PaymentManagement = () => {
   const resetForm = () => {
     setFormData({
       doctor_id: '',
-      payment_type_filter: 'all',
+      payment_type_filter: 'cash',
       payment_notes: ''
     });
     setEditingPayment(null);
@@ -1944,7 +1944,7 @@ const PaymentManagement = () => {
                     <Label htmlFor="payment_type_filter">Payment Type</Label>
                     <Select 
                       value={formData.payment_type_filter} 
-                      onValueChange={(value: 'all' | 'cash' | 'insurance') => {
+                      onValueChange={(value: 'cash' | 'insurance') => {
                         setFormData({ ...formData, payment_type_filter: value });
                         // Auto-fetch visits when both doctor and payment type are selected
                         if (formData.doctor_id) {
@@ -1956,7 +1956,6 @@ const PaymentManagement = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Types (Cash + Insurance)</SelectItem>
                         <SelectItem value="cash">Cash Only</SelectItem>
                         <SelectItem value="insurance">Insurance Only</SelectItem>
                       </SelectContent>
