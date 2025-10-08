@@ -759,6 +759,9 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter }: PaymentM
 
       if (!profile) throw new Error('Profile not found');
 
+      const payment = payments.find(p => p.id === paymentId);
+      if (!payment) throw new Error('Payment not found');
+
       let updateData: any = {};
 
       if (action === 'approve') {
@@ -766,29 +769,41 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter }: PaymentM
           updateData = {
             cash_approval_status: 'manager_approved',
             cash_approved_by: profile.id,
-            cash_approved_at: toISOStringIST()
+            cash_approved_at: toISOStringIST(),
+            status: 'manager_approved',
+            manager_approved_by: profile.id,
+            manager_approved_at: toISOStringIST()
           };
         } else if (userRole === 'admin') {
-          const payment = payments.find(p => p.id === paymentId);
           if (payment?.cash_approval_status === 'pending') {
             // Skip manager approval and go directly to admin approval
             updateData = {
               cash_approval_status: 'admin_approved',
               cash_approved_by: profile.id,
-              cash_approved_at: toISOStringIST()
+              cash_approved_at: toISOStringIST(),
+              status: 'admin_approved',
+              admin_approved_by: profile.id,
+              admin_approved_at: toISOStringIST()
             };
           } else {
             updateData = {
               cash_approval_status: 'admin_approved',
               cash_approved_by: profile.id,
-              cash_approved_at: toISOStringIST()
+              cash_approved_at: toISOStringIST(),
+              status: 'admin_approved',
+              admin_approved_by: profile.id,
+              admin_approved_at: toISOStringIST()
             };
           }
         }
       } else {
         updateData = {
           cash_approval_status: 'rejected',
-          cash_rejection_reason: reason
+          cash_rejection_reason: reason,
+          status: 'rejected',
+          rejected_by: profile.id,
+          rejected_at: toISOStringIST(),
+          rejection_reason: reason
         };
       }
 
@@ -824,6 +839,9 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter }: PaymentM
 
       if (!profile) throw new Error('Profile not found');
 
+      const payment = payments.find(p => p.id === paymentId);
+      if (!payment) throw new Error('Payment not found');
+
       let updateData: any = {};
 
       if (action === 'approve') {
@@ -831,29 +849,41 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter }: PaymentM
           updateData = {
             insurance_approval_status: 'manager_approved',
             insurance_approved_by: profile.id,
-            insurance_approved_at: toISOStringIST()
+            insurance_approved_at: toISOStringIST(),
+            status: 'manager_approved',
+            manager_approved_by: profile.id,
+            manager_approved_at: toISOStringIST()
           };
         } else if (userRole === 'admin') {
-          const payment = payments.find(p => p.id === paymentId);
           if (payment?.insurance_approval_status === 'pending') {
             // Skip manager approval and go directly to admin approval
             updateData = {
               insurance_approval_status: 'admin_approved',
               insurance_approved_by: profile.id,
-              insurance_approved_at: toISOStringIST()
+              insurance_approved_at: toISOStringIST(),
+              status: 'admin_approved',
+              admin_approved_by: profile.id,
+              admin_approved_at: toISOStringIST()
             };
           } else {
             updateData = {
               insurance_approval_status: 'admin_approved',
               insurance_approved_by: profile.id,
-              insurance_approved_at: toISOStringIST()
+              insurance_approved_at: toISOStringIST(),
+              status: 'admin_approved',
+              admin_approved_by: profile.id,
+              admin_approved_at: toISOStringIST()
             };
           }
         }
       } else {
         updateData = {
           insurance_approval_status: 'rejected',
-          insurance_rejection_reason: reason
+          insurance_rejection_reason: reason,
+          status: 'rejected',
+          rejected_by: profile.id,
+          rejected_at: toISOStringIST(),
+          rejection_reason: reason
         };
       }
 
