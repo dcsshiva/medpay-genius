@@ -649,13 +649,35 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter }: PaymentM
       const newRemainingAmount = selectedPayment.total_amount - newPaidAmount;
       const isFullyPaid = newRemainingAmount <= 0;
 
+      // Prepare update data
+      const paymentUpdateData: any = {
+        paid_amount: newPaidAmount,
+        remaining_amount: newRemainingAmount,
+        is_fully_paid: isFullyPaid
+      };
+
+      // Auto-approve cash/insurance if payment becomes fully paid and already approved by manager/admin
+      if (isFullyPaid && (selectedPayment.status === 'manager_approved' || selectedPayment.status === 'admin_approved')) {
+        // Fetch visits for this payment to determine which types need approval
+        const visits = await fetchVisitsForPayment(selectedPayment.id);
+        const hasCash = visits.some(v => v.payment_type === 'cash');
+        const hasInsurance = visits.some(v => v.payment_type === 'insurance');
+
+        if (hasCash && selectedPayment.cash_approval_status === 'pending') {
+          paymentUpdateData.cash_approval_status = 'approved';
+          paymentUpdateData.cash_approved_at = toISOStringIST();
+          paymentUpdateData.cash_approved_by = profile.id;
+        }
+        if (hasInsurance && selectedPayment.insurance_approval_status === 'pending') {
+          paymentUpdateData.insurance_approval_status = 'approved';
+          paymentUpdateData.insurance_approved_at = toISOStringIST();
+          paymentUpdateData.insurance_approved_by = profile.id;
+        }
+      }
+
       const { error: paymentError } = await supabase
         .from('payments')
-        .update({
-          paid_amount: newPaidAmount,
-          remaining_amount: newRemainingAmount,
-          is_fully_paid: isFullyPaid
-        })
+        .update(paymentUpdateData)
         .eq('id', selectedPayment.id);
 
       if (paymentError) throw paymentError;
@@ -767,7 +789,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter }: PaymentM
       if (action === 'approve') {
         if (userRole === 'manager') {
           updateData = {
-            cash_approval_status: 'manager_approved',
+            cash_approval_status: 'approved', // Fixed: Use 'approved' instead of 'manager_approved'
             cash_approved_by: profile.id,
             cash_approved_at: toISOStringIST(),
             status: 'manager_approved',
@@ -778,7 +800,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter }: PaymentM
           if (payment?.cash_approval_status === 'pending') {
             // Skip manager approval and go directly to admin approval
             updateData = {
-              cash_approval_status: 'admin_approved',
+              cash_approval_status: 'approved', // Fixed: Use 'approved' instead of 'admin_approved'
               cash_approved_by: profile.id,
               cash_approved_at: toISOStringIST(),
               status: 'admin_approved',
@@ -787,7 +809,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter }: PaymentM
             };
           } else {
             updateData = {
-              cash_approval_status: 'admin_approved',
+              cash_approval_status: 'approved', // Fixed: Use 'approved' instead of 'admin_approved'
               cash_approved_by: profile.id,
               cash_approved_at: toISOStringIST(),
               status: 'admin_approved',
@@ -847,7 +869,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter }: PaymentM
       if (action === 'approve') {
         if (userRole === 'manager') {
           updateData = {
-            insurance_approval_status: 'manager_approved',
+            insurance_approval_status: 'approved', // Fixed: Use 'approved' instead of 'manager_approved'
             insurance_approved_by: profile.id,
             insurance_approved_at: toISOStringIST(),
             status: 'manager_approved',
@@ -858,7 +880,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter }: PaymentM
           if (payment?.insurance_approval_status === 'pending') {
             // Skip manager approval and go directly to admin approval
             updateData = {
-              insurance_approval_status: 'admin_approved',
+              insurance_approval_status: 'approved', // Fixed: Use 'approved' instead of 'admin_approved'
               insurance_approved_by: profile.id,
               insurance_approved_at: toISOStringIST(),
               status: 'admin_approved',
@@ -867,7 +889,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter }: PaymentM
             };
           } else {
             updateData = {
-              insurance_approval_status: 'admin_approved',
+              insurance_approval_status: 'approved', // Fixed: Use 'approved' instead of 'admin_approved'
               insurance_approved_by: profile.id,
               insurance_approved_at: toISOStringIST(),
               status: 'admin_approved',
