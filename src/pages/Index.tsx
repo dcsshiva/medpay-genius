@@ -5,6 +5,8 @@ import Layout from '@/components/Layout';
 import Dashboard from '@/components/Dashboard';
 import DoctorManagement from '@/components/DoctorManagement';
 import VisitManagement from '@/components/VisitManagement';
+import CashPaymentManagement from '@/components/CashPaymentManagement';
+import InsurancePaymentManagement from '@/components/InsurancePaymentManagement';
 import PaymentManagement from '@/components/PaymentManagement';
 import StaffManagement from '@/components/StaffManagement';
 import TaskManagement from '@/components/TaskManagement';
@@ -72,6 +74,10 @@ const Index = () => {
         return <DoctorManagement />;
       case 'visits':
         return <VisitManagement initialSubTab={activeSubTab} />;
+      case 'cash-payments':
+        return <CashPaymentManagement />;
+      case 'insurance-payments':
+        return <InsurancePaymentManagement />;
       case 'payments':
         return <PaymentManagement initialSubTab={activeSubTab} initialPaymentTypeFilter={paymentTypeFilter} />;
       case 'tasks':

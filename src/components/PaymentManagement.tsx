@@ -129,9 +129,10 @@ interface Visit {
 interface PaymentManagementProps {
   initialSubTab?: string;
   initialPaymentTypeFilter?: 'all' | 'cash' | 'insurance' | 'mixed';
+  paymentTypeOnly?: 'cash' | 'insurance'; // Force showing only one payment type
 }
 
-const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter }: PaymentManagementProps = {}) => {
+const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTypeOnly }: PaymentManagementProps = {}) => {
   const { userRole, user } = useAuth();
   const { toast } = useToast();
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -167,7 +168,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter }: PaymentM
 
   const [formData, setFormData] = useState({
     doctor_id: '',
-    payment_type_filter: 'cash' as 'cash' | 'insurance',
+    payment_type_filter: (paymentTypeOnly || 'cash') as 'cash' | 'insurance',
     payment_notes: ''
   });
 
@@ -1910,15 +1911,18 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter }: PaymentM
 
   // Filter payments by payment type
   const filterPaymentsByType = (paymentList: Payment[]) => {
-    if (paymentTypeFilter === 'all') return paymentList;
+    // If paymentTypeOnly is set, always filter by that type regardless of paymentTypeFilter
+    const effectiveFilter = paymentTypeOnly || paymentTypeFilter;
+    
+    if (effectiveFilter === 'all') return paymentList;
     
     return paymentList.filter(payment => {
       const hasCash = (payment.cash_total || 0) > 0;
       const hasInsurance = (payment.insurance_total || 0) > 0;
       
-      if (paymentTypeFilter === 'cash') return hasCash && !hasInsurance;
-      if (paymentTypeFilter === 'insurance') return hasInsurance && !hasCash;
-      if (paymentTypeFilter === 'mixed') return hasCash && hasInsurance;
+      if (effectiveFilter === 'cash') return hasCash && !hasInsurance;
+      if (effectiveFilter === 'insurance') return hasInsurance && !hasCash;
+      if (effectiveFilter === 'mixed') return hasCash && hasInsurance;
       return true;
     });
   };
@@ -1955,8 +1959,16 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter }: PaymentM
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Payment Management</h1>
-          <p className="text-muted-foreground">Manage doctor payment advice and transactions</p>
+          <h1 className="text-3xl font-bold text-foreground">
+            {paymentTypeOnly === 'cash' ? 'Cash Payment Management' : 
+             paymentTypeOnly === 'insurance' ? 'Insurance Payment Management' : 
+             'Payment Management'}
+          </h1>
+          <p className="text-muted-foreground">
+            {paymentTypeOnly === 'cash' ? 'Manage cash payment advice and transactions' :
+             paymentTypeOnly === 'insurance' ? 'Manage insurance payment advice and transactions' :
+             'Manage doctor payment advice and transactions'}
+          </p>
         </div>
         
         {(userRole === 'admin' || userRole === 'manager') && (
@@ -2018,6 +2030,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter }: PaymentM
                           fetchUnprocessedVisits(formData.doctor_id, value);
                         }
                       }}
+                      disabled={!!paymentTypeOnly}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -2027,6 +2040,11 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter }: PaymentM
                         <SelectItem value="insurance">Insurance Only</SelectItem>
                       </SelectContent>
                     </Select>
+                    {paymentTypeOnly && (
+                      <p className="text-xs text-muted-foreground">
+                        This component is restricted to {paymentTypeOnly} payments only
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -2131,21 +2149,23 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter }: PaymentM
             )}
           </TabsList>
             
-            {/* Payment Type Filter */}
-            <div className="flex items-center gap-2">
-              <Label className="text-sm text-muted-foreground">Filter by Type:</Label>
-              <Select value={paymentTypeFilter} onValueChange={(value: any) => setPaymentTypeFilter(value)}>
-                <SelectTrigger className="w-[150px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="cash">Cash Only</SelectItem>
-                  <SelectItem value="insurance">Insurance Only</SelectItem>
-                  <SelectItem value="mixed">Mixed (Both)</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Payment Type Filter - Only show if not restricted to a specific type */}
+            {!paymentTypeOnly && (
+              <div className="flex items-center gap-2">
+                <Label className="text-sm text-muted-foreground">Filter by Type:</Label>
+                <Select value={paymentTypeFilter} onValueChange={(value: any) => setPaymentTypeFilter(value)}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Types</SelectItem>
+                    <SelectItem value="cash">Cash Only</SelectItem>
+                    <SelectItem value="insurance">Insurance Only</SelectItem>
+                    <SelectItem value="mixed">Mixed (Both)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
 
           <TabsContent value="waiting" className="space-y-4">
