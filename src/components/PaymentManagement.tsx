@@ -2329,16 +2329,16 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                 Create Payment Advice
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-4">
               <DialogHeader>
                 <DialogTitle>
                   {editingPayment ? 'Edit Payment Advice' : 'Create Payment Advice'}
                 </DialogTitle>
               </DialogHeader>
               
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
+              <form onSubmit={handleSubmit} className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
                     <Label htmlFor="doctor_id">Doctor</Label>
                     <Select 
                       value={formData.doctor_id} 
@@ -2363,7 +2363,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                     </Select>
                   </div>
 
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label htmlFor="payment_type_filter">Payment Type</Label>
                     <Select 
                       value={formData.payment_type_filter} 
@@ -2392,13 +2392,14 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                   </div>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="payment_notes">Payment Notes (Optional)</Label>
                   <Textarea
                     id="payment_notes"
                     value={formData.payment_notes}
                     onChange={(e) => setFormData({ ...formData, payment_notes: e.target.value })}
-                    rows={3}
+                    rows={2}
+                    className="resize-none"
                   />
                 </div>
 
@@ -2975,14 +2976,14 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
 
         {/* Payment Recording Dialog */}
         <Dialog open={paymentDialog} onOpenChange={setPaymentDialog}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-md p-4">
             <DialogHeader>
               <DialogTitle>Record Payment</DialogTitle>
             </DialogHeader>
             <form onSubmit={handlePaymentSubmit}>
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {selectedPayment && (
-                  <div className="bg-muted p-4 rounded-lg">
+                  <div className="bg-muted p-3 rounded-lg">
                     <p className="text-sm text-muted-foreground">Payment for:</p>
                     <p className="font-semibold">{selectedPayment.doctors?.profiles?.full_name}</p>
                     <p className="text-sm">
@@ -2994,7 +2995,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                   </div>
                 )}
                 
-                <div>
+                <div className="space-y-1.5">
                   <Label htmlFor="amount">Payment Amount</Label>
                   <Input
                     id="amount"
@@ -3008,7 +3009,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                   />
                 </div>
                 
-                <div>
+                <div className="space-y-1.5">
                   <Label htmlFor="transaction_reference">Transaction Reference (Optional)</Label>
                   <Input
                     id="transaction_reference"
@@ -3018,13 +3019,15 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                   />
                 </div>
                 
-                <div>
+                <div className="space-y-1.5">
                   <Label htmlFor="payment_notes">Notes (Optional)</Label>
                   <Textarea
                     id="payment_notes"
                     value={paymentFormData.notes}
                     onChange={(e) => setPaymentFormData({ ...paymentFormData, notes: e.target.value })}
                     placeholder="Enter payment notes..."
+                    rows={2}
+                    className="resize-none"
                   />
                 </div>
               </div>

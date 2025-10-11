@@ -438,15 +438,15 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
       {/* Record Visit Dialog */}
       {(userRole === 'admin' || userRole === 'manager' || userRole === 'doctor') && (
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-4">
             <DialogHeader>
               <DialogTitle className="text-2xl font-bold">
                 {editingVisit ? 'Edit Visit' : 'Record New Visit'}
               </DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3">
                 {(userRole === 'admin' || userRole === 'manager') && (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label htmlFor="doctor_id">Doctor</Label>
                     <Select value={formData.doctor_id} onValueChange={(value) => setFormData({ ...formData, doctor_id: value })}>
                       <SelectTrigger>
@@ -463,8 +463,8 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
                     <Label htmlFor="visit_date">Discharge Date</Label>
                     <Input
                       id="visit_date"
@@ -474,7 +474,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                       required
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label htmlFor="patient_count">Patient Count</Label>
                     <Input
                       id="patient_count"
@@ -487,8 +487,8 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
                     <Label htmlFor="patient_name">Patient Name</Label>
                     <Input
                       id="patient_name"
@@ -497,7 +497,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                       required
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label htmlFor="patient_id">Patient ID (Optional)</Label>
                     <Input
                       id="patient_id"
@@ -507,8 +507,8 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
                     <Label htmlFor="visit_payment">Payment Amount (Optional)</Label>
                     <Input
                       id="visit_payment"
@@ -519,7 +519,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                       onChange={(e) => setFormData({ ...formData, visit_payment: e.target.value })}
                     />
                   </div>
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label htmlFor="payment_type">Payment Type</Label>
                     <Select 
                       value={formData.payment_type} 
@@ -541,7 +541,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                 </div>
 
                 {formData.payment_type === 'insurance' && (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <Label htmlFor="insurance_company">Insurance Company *</Label>
                     <Select 
                       value={formData.insurance_company_id} 
@@ -562,7 +562,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                   </div>
                 )}
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="visit_reason">Visit Reason</Label>
                   <Select value={formData.visit_reason} onValueChange={(value) => setFormData({ ...formData, visit_reason: value })}>
                     <SelectTrigger>
@@ -578,13 +578,14 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                   </Select>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   <Label htmlFor="notes">Notes (Optional)</Label>
                   <Textarea
                     id="notes"
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    rows={3}
+                    rows={2}
+                    className="resize-none"
                   />
                 </div>
 
