@@ -299,7 +299,21 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
           Generate Report
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+      <DialogContent 
+        className="max-w-4xl max-h-[80vh] overflow-y-auto"
+        onPointerDownOutside={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.closest('.dialog-content-inner')) {
+            e.preventDefault();
+          }
+        }}
+        onInteractOutside={(e) => {
+          const target = e.target as HTMLElement;
+          if (target.closest('input, button, .dialog-content-inner')) {
+            e.preventDefault();
+          }
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <FileText className="h-5 w-5 mr-2" />
@@ -310,14 +324,25 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-4">
+        <div className="space-y-4 dialog-content-inner">
           {/* Doctor Search */}
-          <div className="relative">
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search by doctor name..."
               value={doctorSearch}
               onChange={(e) => setDoctorSearch(e.target.value)}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                (e.target as HTMLInputElement).focus();
+              }}
+              onFocus={(e) => {
+                e.stopPropagation();
+              }}
+              onMouseDown={(e) => {
+                e.stopPropagation();
+              }}
               className="pl-10"
             />
           </div>
@@ -330,6 +355,8 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
                 checked={selectAll}
                 onCheckedChange={handleSelectAll}
                 disabled={filteredData.length === 0}
+                onClick={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
               />
               <label 
                 htmlFor="select-all" 
@@ -367,6 +394,8 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
                     onCheckedChange={(checked) => 
                       handleSelectRecord(record.id, checked as boolean)
                     }
+                    onClick={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
                   />
                   <div className="flex-1 min-w-0">
                     {renderRecordPreview(record, columns)}
