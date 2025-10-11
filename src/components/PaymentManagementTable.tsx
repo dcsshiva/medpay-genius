@@ -153,9 +153,9 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
               className="cursor-pointer hover:bg-muted/50"
               onClick={() => handleSort('period_start')}
             >
-              Period
+              Visit Date
             </TableHead>
-            <TableHead className="text-center">Visits</TableHead>
+            <TableHead className="text-center">Patient Count</TableHead>
             <TableHead className="text-center">Payment Types</TableHead>
             <TableHead 
               className="text-right cursor-pointer hover:bg-muted/50"
@@ -201,16 +201,14 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="text-sm">
-                    {formatDateIST(payment.period_start).split(',')[0]}
-                    <br />
-                    <span className="text-muted-foreground">to</span>
-                    <br />
-                    {formatDateIST(payment.period_end).split(',')[0]}
+                  <div className="text-sm font-medium">
+                    {formatDateIST(payment.period_start)} - {formatDateIST(payment.period_end)}
                   </div>
                 </TableCell>
-                <TableCell className="text-center font-medium">
-                  {payment.total_visits}
+                <TableCell className="text-center">
+                  <Badge variant="outline" className="font-medium">
+                    {payment.total_visits}
+                  </Badge>
                 </TableCell>
                 <TableCell>
                   <div className="space-y-1">
