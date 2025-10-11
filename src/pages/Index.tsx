@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import Layout from '@/components/Layout';
 import Dashboard from '@/components/Dashboard';
+import MasterDataManagement from '@/components/MasterDataManagement';
 import DoctorManagement from '@/components/DoctorManagement';
 import VisitManagement from '@/components/VisitManagement';
 import CashPaymentManagement from '@/components/CashPaymentManagement';
@@ -70,6 +71,8 @@ const Index = () => {
         return <Dashboard onTabChange={handleTabChange} />;
       case 'staff':
         return <StaffManagement />;
+      case 'masters':
+        return <MasterDataManagement />;
       case 'doctors':
         return <DoctorManagement />;
       case 'visits':

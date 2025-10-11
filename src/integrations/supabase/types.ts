@@ -14,6 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      appraisal_reasons: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          reason_code: string
+          reason_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          reason_code: string
+          reason_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          reason_code?: string
+          reason_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      complaint_categories: {
+        Row: {
+          category_code: string
+          category_name: string
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          category_code: string
+          category_name: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          category_code?: string
+          category_name?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       complaints: {
         Row: {
           action_notes: string | null
@@ -148,6 +214,42 @@ export type Database = {
           specialization?: string
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      insurance_companies: {
+        Row: {
+          company_code: string | null
+          company_name: string
+          contact_number: string | null
+          created_at: string
+          display_order: number
+          email: string | null
+          id: string
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          company_code?: string | null
+          company_name: string
+          contact_number?: string | null
+          created_at?: string
+          display_order?: number
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          company_code?: string | null
+          company_name?: string
+          contact_number?: string | null
+          created_at?: string
+          display_order?: number
+          email?: string | null
+          id?: string
+          is_active?: boolean
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1002,6 +1104,39 @@ export type Database = {
           release_date?: string
           updated_at?: string
           version?: string
+        }
+        Relationships: []
+      }
+      visit_reasons: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          reason_code: string
+          reason_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          reason_code: string
+          reason_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          reason_code?: string
+          reason_name?: string
+          updated_at?: string
         }
         Relationships: []
       }

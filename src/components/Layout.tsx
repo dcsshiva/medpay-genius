@@ -24,7 +24,8 @@ import {
   MessageSquare,
   History as HistoryIcon,
   BookOpen,
-  ClipboardCheck
+  ClipboardCheck,
+  Database
 } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
 
@@ -65,11 +66,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
       ];
     }
 
-    if (userRole === 'admin') {
-      return [
-        ...baseItems,
-        { id: 'staff', label: 'Staff Management', icon: UserCog },
-        { id: 'doctors', label: 'Doctor Management', icon: Users },
+  if (userRole === 'admin') {
+    return [
+      ...baseItems,
+      { id: 'staff', label: 'Staff Management', icon: UserCog },
+      { id: 'masters', label: 'Masters', icon: Database },
+      { id: 'doctors', label: 'Doctor Management', icon: Users },
         { id: 'visits', label: 'Visit Management', icon: Calendar },
         { id: 'payments', label: 'Payment Management', icon: CreditCard },
         { id: 'tasks', label: 'Task Management', icon: ClipboardList },

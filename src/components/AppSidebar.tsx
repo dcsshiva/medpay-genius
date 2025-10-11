@@ -15,7 +15,8 @@ import {
   History as HistoryIcon,
   Globe,
   BookOpen,
-  ClipboardCheck
+  ClipboardCheck,
+  Database
 } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
 import {
@@ -124,12 +125,13 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
       ];
     }
 
-    if (userRole === 'admin') {
-      return [
-        ...baseItems,
-        { id: 'staff', label: 'Staff Management', icon: UserCog },
-        { id: 'doctors', label: 'Doctor Management', icon: Users },
-        { id: 'visits', label: 'Visit Management', icon: Calendar },
+  if (userRole === 'admin') {
+    return [
+      ...baseItems,
+      { id: 'staff', label: 'Staff Management', icon: UserCog },
+      { id: 'masters', label: 'Masters', icon: Database },
+      { id: 'doctors', label: 'Doctor Management', icon: Users },
+      { id: 'visits', label: 'Visit Management', icon: Calendar },
         { id: 'cash-payments', label: 'Cash Payments', icon: CreditCard },
         { id: 'insurance-payments', label: 'Insurance Payments', icon: CreditCard },
         { id: 'tasks', label: 'Task Management', icon: ClipboardList },
