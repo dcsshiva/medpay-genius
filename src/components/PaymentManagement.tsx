@@ -2734,14 +2734,6 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
               icon={Clock}
               variant="info"
             />
-            
-            <StatsCard
-              title="Payment Rate"
-              value={`${totalPending > 0 ? ((totalPaid / totalPending) * 100).toFixed(1) : 0}%`}
-              subtitle="Completion rate"
-              icon={Activity}
-              variant="default"
-            />
           </div>
 
           <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full">
