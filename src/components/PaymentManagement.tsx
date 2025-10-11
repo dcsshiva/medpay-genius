@@ -172,6 +172,10 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
     payment_notes: ''
   });
 
+  // State for existing pending payments selection
+  const [existingPendingPayments, setExistingPendingPayments] = useState<Payment[]>([]);
+  const [targetPaymentChoice, setTargetPaymentChoice] = useState<'new' | string>('new');
+
   const [suspectFormData, setSuspectFormData] = useState({
     suspect_reason: ''
   });
@@ -415,8 +419,76 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
     }
   };
 
+  const fetchExistingPendingPayments = async (doctorId: string, paymentTypeFilter: 'cash' | 'insurance') => {
+    try {
+      const { data: pendingPayments, error } = await supabase
+        .from('payments')
+        .select(`
+          *,
+          doctors!inner (
+            doctor_code,
+            profiles!inner (
+              full_name
+            )
+          )
+        `)
+        .eq('doctor_id', doctorId)
+        .eq('status', 'pending');
+
+      if (error) throw error;
+
+      // For each payment, fetch its visits to calculate type breakdown
+      const paymentsWithBreakdown = await Promise.all((pendingPayments || []).map(async (payment: any) => {
+        const visits = await fetchVisitsForPayment(payment.id);
+        
+        const cashVisits = visits.filter(v => v.payment_type === 'cash');
+        const insuranceVisits = visits.filter(v => v.payment_type === 'insurance');
+        
+        const cash_total = cashVisits.reduce((sum, v) => sum + (v.visit_payment || 0), 0);
+        const cash_visits = cashVisits.reduce((sum, v) => sum + v.patient_count, 0);
+        const insurance_total = insuranceVisits.reduce((sum, v) => sum + (v.visit_payment || 0), 0);
+        const insurance_visits = insuranceVisits.reduce((sum, v) => sum + v.patient_count, 0);
+
+        return {
+          ...payment,
+          doctors: {
+            doctor_code: payment.doctors.doctor_code,
+            profiles: {
+              full_name: Array.isArray(payment.doctors.profiles) 
+                ? payment.doctors.profiles[0]?.full_name || ''
+                : payment.doctors.profiles?.full_name || ''
+            }
+          },
+          cash_total,
+          cash_visits,
+          insurance_total,
+          insurance_visits
+        };
+      }));
+
+      // Filter to show only payments that match the payment type or are empty
+      const relevantPayments = paymentsWithBreakdown.filter(payment => {
+        if (paymentTypeFilter === 'cash') {
+          return payment.cash_total > 0 || (payment.cash_total === 0 && payment.insurance_total === 0);
+        } else {
+          return payment.insurance_total > 0 || (payment.cash_total === 0 && payment.insurance_total === 0);
+        }
+      });
+
+      setExistingPendingPayments(relevantPayments);
+    } catch (error) {
+      console.error('Error fetching existing pending payments:', error);
+      setExistingPendingPayments([]);
+    }
+  };
+
   const fetchUnprocessedVisits = async (doctorId: string, paymentTypeFilter: 'all' | 'cash' | 'insurance') => {
     try {
+      // Also fetch existing pending payments for the target payment selector
+      if (paymentTypeFilter === 'cash' || paymentTypeFilter === 'insurance') {
+        await fetchExistingPendingPayments(doctorId, paymentTypeFilter);
+      }
+
       // Build query for ALL unprocessed visits
       let query = supabase
         .from('visits')
@@ -502,7 +574,13 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
       const filteredVisits = await fetchUnprocessedVisits(formData.doctor_id, formData.payment_type_filter);
       
       if (filteredVisits.length === 0) {
-        throw new Error(`No available visits found for the selected payment type (${formData.payment_type_filter}). All visits are already included in existing payment requests.`);
+        toast({
+          variant: "destructive",
+          title: "No Visits Available",
+          description: `No available visits found for the selected payment type (${formData.payment_type_filter}). All visits are already included in existing payment requests.`
+        });
+        setSubmitting(false);
+        return;
       }
 
       // Calculate period dates from actual visits
@@ -541,7 +619,89 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
         .filter(v => v.payment_type === 'insurance')
         .reduce((sum, v) => sum + (v.visit_payment || 0), 0);
 
-      // Initialize payment data
+      // Check if attaching to existing payment or creating new
+      if (targetPaymentChoice !== 'new') {
+        // Attaching to existing payment
+        const existingPayment = existingPendingPayments.find(p => p.id === targetPaymentChoice);
+        if (!existingPayment) {
+          throw new Error('Selected payment not found');
+        }
+
+        // Verify payment is still pending
+        const { data: currentPayment, error: checkError } = await supabase
+          .from('payments')
+          .select('status')
+          .eq('id', targetPaymentChoice)
+          .single();
+
+        if (checkError || currentPayment?.status !== 'pending') {
+          throw new Error('Selected payment is no longer pending. Please refresh and try again.');
+        }
+
+        // Insert payment_visits links
+        const paymentVisitsData = filteredVisits.map(visit => ({
+          payment_id: targetPaymentChoice,
+          visit_id: visit.id
+        }));
+
+        const { error: pvError } = await supabase
+          .from('payment_visits')
+          .insert(paymentVisitsData);
+
+        if (pvError) throw pvError;
+
+        // Update the existing payment with new totals and extended period
+        const newTotalAmount = existingPayment.total_amount + totalAmount;
+        const newTotalVisits = existingPayment.total_visits + totalVisits;
+        const newRemainingAmount = existingPayment.remaining_amount + totalAmount;
+        
+        const extendedPeriodStart = new Date(Math.min(
+          new Date(existingPayment.period_start).getTime(),
+          new Date(period_start).getTime()
+        )).toISOString().split('T')[0];
+        
+        const extendedPeriodEnd = new Date(Math.max(
+          new Date(existingPayment.period_end).getTime(),
+          new Date(period_end).getTime()
+        )).toISOString().split('T')[0];
+
+        const paymentUpdateData: any = {
+          total_amount: newTotalAmount,
+          total_visits: newTotalVisits,
+          remaining_amount: newRemainingAmount,
+          is_fully_paid: existingPayment.paid_amount >= newTotalAmount,
+          period_start: extendedPeriodStart,
+          period_end: extendedPeriodEnd
+        };
+
+        // Ensure approval status exists for the payment type being added
+        if (formData.payment_type_filter === 'cash' && !existingPayment.cash_approval_status) {
+          paymentUpdateData.cash_approval_status = 'pending';
+        } else if (formData.payment_type_filter === 'insurance' && !existingPayment.insurance_approval_status) {
+          paymentUpdateData.insurance_approval_status = 'pending';
+        }
+
+        const { error: updateError } = await supabase
+          .from('payments')
+          .update(paymentUpdateData)
+          .eq('id', targetPaymentChoice);
+
+        if (updateError) throw updateError;
+
+        toast({
+          title: "Success",
+          description: `Added ${filteredVisits.length} visit(s) to existing ${formData.payment_type_filter} payment (${formatDateIST(extendedPeriodStart)} → ${formatDateIST(extendedPeriodEnd)})`
+        });
+
+        setDialogOpen(false);
+        resetForm();
+        fetchPayments();
+        fetchGlobalTotals();
+        setSubmitting(false);
+        return;
+      }
+
+      // Creating new payment - original logic
       const paymentData: any = {
         doctor_id: formData.doctor_id,
         period_start,
@@ -1004,9 +1164,17 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
       return;
     }
 
+    // Determine payment type from paymentTypeOnly or payment data
+    let derivedPaymentType: 'cash' | 'insurance' = 'cash';
+    if (paymentTypeOnly) {
+      derivedPaymentType = paymentTypeOnly;
+    } else if (payment.insurance_total && payment.insurance_total > 0 && (!payment.cash_total || payment.cash_total === 0)) {
+      derivedPaymentType = 'insurance';
+    }
+
     setFormData({
       doctor_id: payment.doctors ? '' : payment.doctors.profiles.full_name,
-      payment_type_filter: 'cash',
+      payment_type_filter: derivedPaymentType,
       payment_notes: payment.payment_notes || ''
     });
     setEditingPayment(payment);
@@ -1054,11 +1222,13 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
   const resetForm = () => {
     setFormData({
       doctor_id: '',
-      payment_type_filter: 'cash',
+      payment_type_filter: paymentTypeOnly || 'cash',
       payment_notes: ''
     });
     setEditingPayment(null);
     setVisits([]);
+    setExistingPendingPayments([]);
+    setTargetPaymentChoice('new');
   };
 
   // Transaction Type Constants
@@ -2058,6 +2228,50 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                   />
                 </div>
 
+                {/* Target Payment Selector - only show when there are existing pending payments */}
+                {existingPendingPayments.length > 0 && visits.length > 0 && (
+                  <div className="space-y-2 border rounded-lg p-4 bg-muted/30">
+                    <Label htmlFor="target_payment">Target Payment</Label>
+                    <Select 
+                      value={targetPaymentChoice} 
+                      onValueChange={setTargetPaymentChoice}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select target payment" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="new">
+                          <div className="flex items-center gap-2">
+                            <Plus className="h-4 w-4" />
+                            <span>Create New {formData.payment_type_filter === 'cash' ? 'Cash' : 'Insurance'} Payment Advice</span>
+                          </div>
+                        </SelectItem>
+                        {existingPendingPayments.map((payment) => {
+                          const typeAmount = formData.payment_type_filter === 'cash' ? payment.cash_total : payment.insurance_total;
+                          const typeVisits = formData.payment_type_filter === 'cash' ? payment.cash_visits : payment.insurance_visits;
+                          return (
+                            <SelectItem key={payment.id} value={payment.id}>
+                              <div className="flex flex-col">
+                                <span className="font-medium">
+                                  Period: {formatDateIST(payment.period_start)} → {formatDateIST(payment.period_end)}
+                                </span>
+                                <span className="text-xs text-muted-foreground">
+                                  {formData.payment_type_filter === 'cash' ? 'Cash' : 'Insurance'}: {formatCurrency(typeAmount || 0)} ({typeVisits || 0} {typeVisits === 1 ? 'visit' : 'visits'})
+                                </span>
+                              </div>
+                            </SelectItem>
+                          );
+                        })}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {targetPaymentChoice === 'new' 
+                        ? 'A new payment advice will be created with the visits below'
+                        : 'The visits below will be added to the selected existing payment'}
+                    </p>
+                  </div>
+                )}
+
                 {visits.length > 0 && (
                   <div className="border rounded-lg p-4 bg-muted/50">
                     <div className="flex items-center justify-between mb-4">
@@ -2116,14 +2330,17 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                    </div>
                  )}
 
-                 <DialogFooter>
-                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                     Cancel
-                   </Button>
-                   <Button type="submit" disabled={loading || visits.length === 0}>
-                     {loading ? 'Creating...' : 'Create Payment Advice'}
-                   </Button>
-                 </DialogFooter>
+                  <DialogFooter>
+                    <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={submitting || visits.length === 0}>
+                      {submitting 
+                        ? (targetPaymentChoice === 'new' ? 'Creating...' : 'Adding...') 
+                        : (targetPaymentChoice === 'new' ? 'Create Payment Advice' : 'Add to Existing Payment')
+                      }
+                    </Button>
+                  </DialogFooter>
                </form>
              </DialogContent>
            </Dialog>
