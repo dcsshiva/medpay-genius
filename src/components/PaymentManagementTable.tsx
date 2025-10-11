@@ -29,6 +29,7 @@ interface Payment {
   id: string;
   period_start: string;
   period_end: string;
+  discharge_date?: string;
   total_visits: number;
   total_amount: number;
   paid_amount: number;
@@ -129,6 +130,11 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
         bValue = b.doctors?.profiles?.full_name || '';
       }
 
+      if (sortConfig.key === 'discharge_date') {
+        aValue = a.discharge_date ? new Date(a.discharge_date).getTime() : 0;
+        bValue = b.discharge_date ? new Date(b.discharge_date).getTime() : 0;
+      }
+
       if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1;
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1;
       return 0;
@@ -151,9 +157,9 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             </TableHead>
             <TableHead 
               className="cursor-pointer hover:bg-muted/50"
-              onClick={() => handleSort('period_start')}
+              onClick={() => handleSort('discharge_date')}
             >
-              Visit Date
+              Discharge Date
             </TableHead>
             <TableHead className="text-center">Patient Count</TableHead>
             <TableHead className="text-center">Payment Types</TableHead>
@@ -201,9 +207,13 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                   </div>
                 </TableCell>
                 <TableCell>
-                  <div className="text-sm font-medium">
-                    {formatDateIST(payment.period_start)} - {formatDateIST(payment.period_end)}
-                  </div>
+                  {payment.discharge_date ? (
+                    <div className="text-sm font-medium">
+                      {formatDateIST(payment.discharge_date)}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-muted-foreground">-</div>
+                  )}
                 </TableCell>
                 <TableCell className="text-center">
                   <Badge variant="outline" className="font-medium">

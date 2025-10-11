@@ -41,6 +41,7 @@ interface Payment {
   id: string;
   period_start: string;
   period_end: string;
+  discharge_date?: string;
   total_visits: number;
   total_amount: number;
   paid_amount: number;
@@ -245,7 +246,8 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
           visits (
             visit_payment,
             payment_type,
-            patient_count
+            patient_count,
+            visit_date
           )
         `)
         .eq('payment_id', paymentId);
@@ -316,6 +318,15 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
           // Fetch visits for this payment to calculate payment type breakdown
           const visits = await fetchVisitsForPayment(payment.id);
           
+          // Calculate latest discharge date from all visits
+          const discharge_date = visits.length > 0
+            ? visits.reduce((latest, visit) => {
+                return new Date(visit.visit_date) > new Date(latest) 
+                  ? visit.visit_date 
+                  : latest;
+              }, visits[0].visit_date)
+            : null;
+          
           const cashVisits = visits.filter(v => v.payment_type === 'cash');
           const insuranceVisits = visits.filter(v => v.payment_type === 'insurance');
           
@@ -328,6 +339,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
             id: payment.id,
             period_start: payment.period_start,
             period_end: payment.period_end,
+            discharge_date,
             total_visits: payment.total_visits,
             total_amount: payment.total_amount,
             paid_amount: payment.paid_amount,
