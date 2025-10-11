@@ -222,8 +222,26 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
       doc.text(`Total Records: ${selectedData.length}`, 14, 38);
       
       // Prepare table data
-      const exportData = formatDataForExport(selectedData);
-      const netTotals = calculateNetTotals(selectedData);
+    // Replace rupee symbol with Rs. for PDF compatibility
+    const replaceCurrencySymbol = (data: any[]) => {
+      return data.map(record => {
+        const cleaned: any = {};
+        Object.keys(record).forEach(key => {
+          const value = record[key];
+          if (typeof value === 'string' && value.includes('₹')) {
+            // Replace ₹ with Rs. for PDF font compatibility
+            cleaned[key] = value.replace(/₹/g, 'Rs. ');
+          } else {
+            cleaned[key] = value;
+          }
+        });
+        return cleaned;
+      });
+    };
+
+    const exportData = replaceCurrencySymbol(formatDataForExport(selectedData));
+    const netTotalsData = calculateNetTotals(selectedData);
+    const netTotals = replaceCurrencySymbol([netTotalsData])[0];
       
       const tableHeaders = columns.map(col => col.label);
       const tableData = exportData.map(record => 
