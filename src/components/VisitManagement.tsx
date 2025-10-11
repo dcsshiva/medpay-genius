@@ -72,6 +72,11 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
   const [visits, setVisits] = useState<Visit[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [insuranceCompanies, setInsuranceCompanies] = useState<InsuranceCompany[]>([]);
+  const [visitReasons, setVisitReasons] = useState<Array<{
+    id: string;
+    reason_code: string;
+    reason_name: string;
+  }>>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -88,7 +93,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
     patient_name: '',
     visit_payment: '',
     payment_type: 'cash',
-    visit_reason: 'regular_checkup',
+    visit_reason: '',
     notes: '',
     doctor_id: '',
     insurance_company_id: ''
@@ -97,6 +102,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
   useEffect(() => {
     fetchVisits();
     fetchInsuranceCompanies();
+    fetchVisitReasons();
     if (userRole === 'admin' || userRole === 'manager') {
       fetchDoctors();
     }
@@ -210,6 +216,44 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
     }
   };
 
+  const fetchVisitReasons = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('visit_reasons')
+        .select('id, reason_code, reason_name')
+        .eq('is_active', true)
+        .order('display_order');
+
+      if (error) throw error;
+      setVisitReasons(data || []);
+    } catch (error) {
+      console.error('Error fetching visit reasons:', error);
+    }
+  };
+
+  // Real-time subscription for visit reasons
+  useEffect(() => {
+    const channel = supabase
+      .channel('visit-reasons-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'visit_reasons'
+        },
+        (payload) => {
+          console.log('Visit reason change detected:', payload);
+          fetchVisitReasons();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -292,7 +336,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
       patient_name: '',
       visit_payment: '',
       payment_type: 'cash',
-      visit_reason: 'regular_checkup',
+      visit_reason: '',
       notes: '',
       doctor_id: '',
       insurance_company_id: ''
@@ -566,14 +610,14 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                   <Label htmlFor="visit_reason">Visit Reason</Label>
                   <Select value={formData.visit_reason} onValueChange={(value) => setFormData({ ...formData, visit_reason: value })}>
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Select visit reason" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="regular_checkup">Regular Checkup</SelectItem>
-                      <SelectItem value="follow_up">Follow Up</SelectItem>
-                      <SelectItem value="emergency">Emergency</SelectItem>
-                      <SelectItem value="consultation">Consultation</SelectItem>
-                      <SelectItem value="treatment">Treatment</SelectItem>
+                      {visitReasons.map((reason) => (
+                        <SelectItem key={reason.id} value={reason.reason_code}>
+                          {reason.reason_name}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
