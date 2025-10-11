@@ -2,6 +2,7 @@ import React from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Edit, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { formatDateIST } from '@/lib/dateUtils';
 
@@ -35,6 +36,7 @@ interface VisitManagementTableProps {
   visits: Visit[];
   onEdit?: (visit: Visit) => void;
   onDelete?: (visitId: string) => void;
+  onPaymentTypeClick?: (paymentType: 'cash' | 'insurance') => void;
   showActions?: boolean;
   sortField: 'visit_date' | 'patient_name' | 'doctor_name';
   sortDirection: 'asc' | 'desc';
@@ -45,6 +47,7 @@ export const VisitManagementTable: React.FC<VisitManagementTableProps> = ({
   visits,
   onEdit,
   onDelete,
+  onPaymentTypeClick,
   showActions = true,
   sortField,
   sortDirection,
@@ -99,9 +102,20 @@ export const VisitManagementTable: React.FC<VisitManagementTableProps> = ({
               <Badge variant="outline">{visit.patient_count}</Badge>
             </TableCell>
             <TableCell>
-              <Badge variant={visit.payment_type === 'cash' ? 'default' : 'secondary'}>
-                {visit.payment_type === 'cash' ? 'Cash' : 'Insurance'}
-              </Badge>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge 
+                    variant={visit.payment_type === 'cash' ? 'default' : 'secondary'}
+                    className="cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => onPaymentTypeClick?.(visit.payment_type as 'cash' | 'insurance')}
+                  >
+                    {visit.payment_type === 'cash' ? 'Cash' : 'Insurance'}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Click to go to {visit.payment_type === 'cash' ? 'Cash' : 'Insurance'} Payment Management</p>
+                </TooltipContent>
+              </Tooltip>
             </TableCell>
             <TableCell>
               {visit.payment_type === 'insurance' && visit.insurance_company_name ? (

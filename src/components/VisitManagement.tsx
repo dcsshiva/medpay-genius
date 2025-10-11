@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Plus, Calendar, Users, Stethoscope, Search, Edit, Trash2, CheckCircle, Clock, TrendingUp, Activity, FileText } from 'lucide-react';
@@ -67,6 +68,7 @@ interface VisitManagementProps {
 const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
   const { userRole, user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [visits, setVisits] = useState<Visit[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [insuranceCompanies, setInsuranceCompanies] = useState<InsuranceCompany[]>([]);
@@ -354,6 +356,19 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
 
   const getInsuranceVisits = () => {
     return visits.filter(v => v.payment_type === 'insurance').length;
+  };
+
+  const handlePaymentTypeNavigation = (paymentType: 'cash' | 'insurance') => {
+    if (paymentType === 'cash') {
+      navigate('/dashboard', { state: { activeTab: 'cash-payments' } });
+    } else {
+      navigate('/dashboard', { state: { activeTab: 'insurance-payments' } });
+    }
+    
+    toast({
+      title: "Navigation",
+      description: `Opening ${paymentType === 'cash' ? 'Cash' : 'Insurance'} Payment Management`,
+    });
   };
 
   if (loading) {
@@ -702,6 +717,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
               })}
               onEdit={(userRole === 'admin' || userRole === 'manager') ? handleEdit : undefined}
               onDelete={(userRole === 'admin' || userRole === 'manager') ? handleDelete : undefined}
+              onPaymentTypeClick={handlePaymentTypeNavigation}
               showActions={userRole === 'admin' || userRole === 'manager'}
               sortField={sortField}
               sortDirection={sortDirection}
@@ -765,6 +781,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
               })}
               onEdit={undefined}
               onDelete={undefined}
+              onPaymentTypeClick={handlePaymentTypeNavigation}
               showActions={false}
               sortField={sortField}
               sortDirection={sortDirection}
