@@ -52,6 +52,8 @@ interface Payment {
   insurance_visits?: number;
   cash_approval_status?: string;
   insurance_approval_status?: string;
+  patient_names?: string[]; // Array of all patient names in this payment
+  insurance_company_names?: string[]; // Array of unique insurance company names
 }
 
 interface PaymentManagementTableProps {
@@ -161,7 +163,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             >
               Discharge Date
             </TableHead>
-            <TableHead className="text-center">Patient Count</TableHead>
+            <TableHead>Patient Names</TableHead>
             <TableHead className="text-center">Payment Types</TableHead>
             <TableHead 
               className="text-right cursor-pointer hover:bg-muted/50"
@@ -187,7 +189,8 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             </TableRow>
           ) : (
             sortedPayments.map((payment) => (
-              <TableRow key={payment.id} className={payment.is_suspect ? 'bg-destructive/5' : ''}>
+              <React.Fragment key={payment.id}>
+                <TableRow className={payment.is_suspect ? 'bg-destructive/5' : ''}>
                 {showBankAdviceCheckbox && onSelectPayment && (
                   <TableCell>
                     <Checkbox
@@ -215,10 +218,25 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                     <div className="text-sm text-muted-foreground">-</div>
                   )}
                 </TableCell>
-                <TableCell className="text-center">
-                  <Badge variant="outline" className="font-medium">
-                    {payment.total_visits}
-                  </Badge>
+                <TableCell>
+                  <div className="space-y-1 max-w-[200px]">
+                    {payment.patient_names && payment.patient_names.length > 0 ? (
+                      <>
+                        {payment.patient_names.slice(0, 2).map((name, idx) => (
+                          <div key={idx} className="text-sm truncate" title={name}>
+                            {name}
+                          </div>
+                        ))}
+                        {payment.patient_names.length > 2 && (
+                          <Badge variant="secondary" className="text-xs">
+                            +{payment.patient_names.length - 2} more
+                          </Badge>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">No patients</span>
+                    )}
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="space-y-1">
@@ -344,8 +362,32 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                       </Button>
                     )}
                   </div>
-                </TableCell>
-              </TableRow>
+                  </TableCell>
+                </TableRow>
+                {/* Show detailed breakdown for insurance payments */}
+                {(payment.insurance_total ?? 0) > 0 && (
+                  <TableRow className="bg-blue-50/50 dark:bg-blue-950/20 border-t-0">
+                    <TableCell colSpan={showBankAdviceCheckbox ? 10 : 9} className="py-2">
+                      <div className="text-xs space-y-1 pl-4">
+                        <div className="font-medium text-blue-700 dark:text-blue-400 flex items-center gap-2">
+                          <Building2 className="h-3 w-3" />
+                          Insurance Payment Details:
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground">
+                          <span><strong>Doctor:</strong> {payment.doctors?.profiles?.full_name} ({payment.doctors?.doctor_code})</span>
+                          <span><strong>Discharge Date:</strong> {payment.discharge_date ? formatDateIST(payment.discharge_date) : 'N/A'}</span>
+                          <span><strong>Patients:</strong> {payment.patient_names?.join(', ') || 'N/A'}</span>
+                          <span><strong>Payment Type:</strong> Insurance</span>
+                          {payment.insurance_company_names && payment.insurance_company_names.length > 0 && (
+                            <span><strong>Insurance Companies:</strong> {payment.insurance_company_names.join(', ')}</span>
+                          )}
+                          <span><strong>Total Amount:</strong> {formatCurrency(payment.insurance_total || 0)}</span>
+                        </div>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </React.Fragment>
             ))
           )}
         </TableBody>

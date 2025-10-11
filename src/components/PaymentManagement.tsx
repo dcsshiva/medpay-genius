@@ -83,6 +83,8 @@ interface Payment {
   cash_visits?: number;
   insurance_total?: number;
   insurance_visits?: number;
+  patient_names?: string[]; // Array of all patient names in this payment
+  insurance_company_names?: string[]; // Array of unique insurance company names
 }
 
 interface PaymentTransaction {
@@ -171,6 +173,10 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
   const [totalPaid, setTotalPaid] = useState(0);
   const [totalPending, setTotalPending] = useState(0);
   const [pendingTotal, setPendingTotal] = useState(0);
+
+  // Search functionality
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchFilter, setSearchFilter] = useState<'all' | 'doctor_name' | 'doctor_code' | 'patient_name' | 'insurance_name'>('all');
 
   const [formData, setFormData] = useState({
     doctor_id: '',
@@ -276,6 +282,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
             visit_payment,
             payment_type,
             patient_count,
+            patient_name,
             visit_date,
             insurance_company_id,
             insurance_companies (
@@ -369,6 +376,19 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
           const insurance_total = insuranceVisits.reduce((sum, v) => sum + (v.visit_payment || 0), 0);
           const insurance_visits = insuranceVisits.reduce((sum, v) => sum + v.patient_count, 0);
 
+          // Extract all patient names and insurance companies
+          const patient_names = visits
+            .map(v => v.patient_name)
+            .filter(Boolean);
+
+          const insurance_company_names = Array.from(
+            new Set(
+              visits
+                .filter(v => v.insurance_companies?.company_name)
+                .map(v => v.insurance_companies.company_name)
+            )
+          );
+
           return {
             id: payment.id,
             period_start: payment.period_start,
@@ -409,7 +429,9 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
             cash_total,
             cash_visits,
             insurance_total,
-            insurance_visits
+            insurance_visits,
+            patient_names,
+            insurance_company_names
           };
         }));
         
@@ -2191,6 +2213,43 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
   );
 
   // Filter payments by payment type
+  // Search filter function
+  const filterPayments = (paymentList: Payment[], term: string, filter: string) => {
+    if (!term.trim()) return paymentList;
+    
+    const lowerTerm = term.toLowerCase().trim();
+    
+    return paymentList.filter(payment => {
+      switch (filter) {
+        case 'doctor_name':
+          return payment.doctors?.profiles?.full_name?.toLowerCase().includes(lowerTerm);
+        
+        case 'doctor_code':
+          return payment.doctors?.doctor_code?.toLowerCase().includes(lowerTerm);
+        
+        case 'patient_name':
+          return payment.patient_names?.some(name => 
+            name.toLowerCase().includes(lowerTerm)
+          );
+        
+        case 'insurance_name':
+          return payment.insurance_company_names?.some(company => 
+            company.toLowerCase().includes(lowerTerm)
+          );
+        
+        case 'all':
+        default:
+          // Search across all fields
+          return (
+            payment.doctors?.profiles?.full_name?.toLowerCase().includes(lowerTerm) ||
+            payment.doctors?.doctor_code?.toLowerCase().includes(lowerTerm) ||
+            payment.patient_names?.some(name => name.toLowerCase().includes(lowerTerm)) ||
+            payment.insurance_company_names?.some(company => company.toLowerCase().includes(lowerTerm))
+          );
+      }
+    });
+  };
+
   const filterPaymentsByType = (paymentList: Payment[]) => {
     // If paymentTypeOnly is set, always filter by that type regardless of paymentTypeFilter
     const effectiveFilter = paymentTypeOnly || paymentTypeFilter;
@@ -2562,9 +2621,64 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
       )}
 
       {!loading && (
-        <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full">
-        <div className="flex justify-between items-center mb-4">
-          <TabsList className="grid w-full max-w-4xl grid-cols-4">
+        <>
+          {/* Search Section */}
+          <Card className="mb-4">
+            <CardContent className="pt-6">
+              <div className="flex flex-col md:flex-row gap-3">
+                {/* Search Input */}
+                <div className="flex-1 relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Search payments..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                
+                {/* Search Filter Select */}
+                <Select value={searchFilter} onValueChange={(value: any) => setSearchFilter(value)}>
+                  <SelectTrigger className="w-full md:w-[200px]">
+                    <SelectValue placeholder="Search by..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Fields</SelectItem>
+                    <SelectItem value="doctor_name">Doctor Name</SelectItem>
+                    <SelectItem value="doctor_code">Doctor Code</SelectItem>
+                    <SelectItem value="patient_name">Patient Name</SelectItem>
+                    <SelectItem value="insurance_name">Insurance Company</SelectItem>
+                  </SelectContent>
+                </Select>
+                
+                {/* Clear Button */}
+                {searchTerm && (
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSearchTerm('');
+                      setSearchFilter('all');
+                    }}
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Clear
+                  </Button>
+                )}
+              </div>
+              
+              {/* Search Results Count */}
+              {searchTerm && (
+                <div className="mt-2 text-sm text-muted-foreground">
+                  Found {filterPayments(filterPaymentsByType(payments), searchTerm, searchFilter).length} result{filterPayments(filterPaymentsByType(payments), searchTerm, searchFilter).length !== 1 ? 's' : ''}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full">
+          <div className="flex justify-between items-center mb-4">
+            <TabsList className="grid w-full max-w-4xl grid-cols-4">
             <TabsTrigger value="waiting">Waiting for Approval ({waitingForApprovalPayments.length})</TabsTrigger>
             <TabsTrigger value="paid">Fully Paid ({fullyPaidPayments.length})</TabsTrigger>
             {(userRole === 'admin' || userRole === 'manager') && (
@@ -2613,7 +2727,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
               )}
             </div>
             <PaymentManagementTable
-              payments={waitingForApprovalPayments}
+              payments={filterPayments(waitingForApprovalPayments, searchTerm, searchFilter)}
               userRole={userRole}
               onApprove={(paymentId) => handleApproval(paymentId, 'approve')}
               onReject={(paymentId) => {
@@ -2675,7 +2789,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
               )}
             </div>
             <PaymentManagementTable
-              payments={fullyPaidPayments}
+              payments={filterPayments(fullyPaidPayments, searchTerm, searchFilter)}
               userRole={userRole}
               onApprove={(paymentId) => handleApproval(paymentId, 'approve')}
               onReject={(paymentId) => {
@@ -2723,7 +2837,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                 </Button>
               </div>
               <PaymentManagementTable
-                payments={payments.filter(p => p.is_fully_paid && !p.bank_advice_generated)}
+                payments={filterPayments(payments.filter(p => p.is_fully_paid && !p.bank_advice_generated), searchTerm, searchFilter)}
                 userRole={userRole}
                 onApprove={(paymentId) => handleApproval(paymentId, 'approve')}
                 onReject={(paymentId) => {
@@ -2761,6 +2875,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
             </TabsContent>
           )}
         </Tabs>
+        </>
       )}
 
       {/* Suspect Dialog */}
