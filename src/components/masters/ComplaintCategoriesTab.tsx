@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Edit, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface ComplaintCategory {
   id: string;
@@ -26,7 +26,6 @@ const ComplaintCategoriesTab = () => {
   const [categories, setCategories] = useState<ComplaintCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<ComplaintCategory | null>(null);
   const [formData, setFormData] = useState({
     category_name: '',
@@ -120,23 +119,6 @@ const ComplaintCategoriesTab = () => {
     }
   };
 
-  const handleDelete = async () => {
-    if (!selectedCategory) return;
-    
-    try {
-      const { error } = await supabase
-        .from('complaint_categories')
-        .delete()
-        .eq('id', selectedCategory.id);
-
-      if (error) throw error;
-      toast.success('Complaint category deleted successfully');
-      setDeleteDialogOpen(false);
-      fetchCategories();
-    } catch (error: any) {
-      toast.error('Failed to delete: ' + error.message);
-    }
-  };
 
   const handleToggleActive = async (category: ComplaintCategory) => {
     try {
@@ -247,16 +229,6 @@ const ComplaintCategoriesTab = () => {
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedCategory(category);
-                          setDeleteDialogOpen(true);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
                       <Switch
                         checked={category.is_active}
                         onCheckedChange={() => handleToggleActive(category)}
@@ -322,21 +294,6 @@ const ComplaintCategoriesTab = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete the complaint category "{selectedCategory?.category_name}". This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 };

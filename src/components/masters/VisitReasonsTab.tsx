@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Edit, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface VisitReason {
   id: string;
@@ -26,7 +26,6 @@ const VisitReasonsTab = () => {
   const [visitReasons, setVisitReasons] = useState<VisitReason[]>([]);
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedReason, setSelectedReason] = useState<VisitReason | null>(null);
   const [formData, setFormData] = useState({
     reason_name: '',
@@ -122,23 +121,6 @@ const VisitReasonsTab = () => {
     }
   };
 
-  const handleDelete = async () => {
-    if (!selectedReason) return;
-    
-    try {
-      const { error } = await supabase
-        .from('visit_reasons')
-        .delete()
-        .eq('id', selectedReason.id);
-
-      if (error) throw error;
-      toast.success('Visit reason deleted successfully');
-      setDeleteDialogOpen(false);
-      fetchVisitReasons();
-    } catch (error: any) {
-      toast.error('Failed to delete: ' + error.message);
-    }
-  };
 
   const handleToggleActive = async (reason: VisitReason) => {
     try {
@@ -249,16 +231,6 @@ const VisitReasonsTab = () => {
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedReason(reason);
-                          setDeleteDialogOpen(true);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
                       <Switch
                         checked={reason.is_active}
                         onCheckedChange={() => handleToggleActive(reason)}
@@ -324,21 +296,6 @@ const VisitReasonsTab = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete the visit reason "{selectedReason?.reason_name}". This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 };

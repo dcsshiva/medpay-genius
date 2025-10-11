@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Plus, Edit, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { Plus, Edit, ArrowUp, ArrowDown } from 'lucide-react';
 
 interface AppraisalReason {
   id: string;
@@ -26,7 +26,6 @@ const AppraisalReasonsTab = () => {
   const [reasons, setReasons] = useState<AppraisalReason[]>([]);
   const [loading, setLoading] = useState(true);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedReason, setSelectedReason] = useState<AppraisalReason | null>(null);
   const [formData, setFormData] = useState({
     reason_name: '',
@@ -120,23 +119,6 @@ const AppraisalReasonsTab = () => {
     }
   };
 
-  const handleDelete = async () => {
-    if (!selectedReason) return;
-    
-    try {
-      const { error } = await supabase
-        .from('appraisal_reasons')
-        .delete()
-        .eq('id', selectedReason.id);
-
-      if (error) throw error;
-      toast.success('Appraisal reason deleted successfully');
-      setDeleteDialogOpen(false);
-      fetchReasons();
-    } catch (error: any) {
-      toast.error('Failed to delete: ' + error.message);
-    }
-  };
 
   const handleToggleActive = async (reason: AppraisalReason) => {
     try {
@@ -247,16 +229,6 @@ const AppraisalReasonsTab = () => {
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedReason(reason);
-                          setDeleteDialogOpen(true);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
                       <Switch
                         checked={reason.is_active}
                         onCheckedChange={() => handleToggleActive(reason)}
@@ -322,21 +294,6 @@ const AppraisalReasonsTab = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete the appraisal reason "{selectedReason?.reason_name}". This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </>
   );
 };
