@@ -38,9 +38,21 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
   const filteredData = useMemo(() => {
     if (!doctorSearch.trim()) return data;
     
+    const searchTerm = doctorSearch.toLowerCase().trim();
+    
     return data.filter(record => {
-      const doctorName = getNestedValue(record, 'doctor_name') || '';
-      return doctorName.toLowerCase().includes(doctorSearch.toLowerCase().trim());
+      // Try multiple possible doctor name fields
+      const doctorName = getNestedValue(record, 'doctor_name') || 
+                         getNestedValue(record, 'doctors.profiles.full_name') || 
+                         getNestedValue(record, 'profiles.full_name') || '';
+      
+      // Also check doctor code
+      const doctorCode = getNestedValue(record, 'doctor_code') || 
+                         getNestedValue(record, 'doctors.doctor_code') || '';
+      
+      // Match against either name or code
+      return doctorName.toLowerCase().includes(searchTerm) ||
+             doctorCode.toLowerCase().includes(searchTerm);
     });
   }, [data, doctorSearch]);
 
