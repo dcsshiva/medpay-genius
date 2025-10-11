@@ -243,6 +243,31 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
       });
       tableData.push(totalsRow);
       
+      // Calculate column widths based on content
+      const calculateColumnWidths = () => {
+        const widths: { [key: number]: number } = {};
+        
+        columns.forEach((col, colIndex) => {
+          // Start with header length
+          let maxWidth = col.label.length;
+          
+          // Check all data rows for this column
+          tableData.forEach(row => {
+            const cellValue = String(row[colIndex] || '');
+            maxWidth = Math.max(maxWidth, cellValue.length);
+          });
+          
+          // Convert character length to approximate mm width
+          // Average character width is ~2.5mm at fontSize 8
+          const mmWidth = Math.min(Math.max(maxWidth * 2.5, 20), 60);
+          widths[colIndex] = mmWidth;
+        });
+        
+        return widths;
+      };
+
+      const columnWidths = calculateColumnWidths();
+      
       // Add table using autoTable plugin
       autoTable(doc, {
         head: [tableHeaders],
@@ -269,15 +294,17 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
           }
         },
         margin: { left: 14, right: 14 },
-        tableWidth: 'auto',
+        tableWidth: 'wrap',
         theme: 'striped',
         alternateRowStyles: {
           fillColor: [245, 245, 245]
         },
-        columnStyles: {
-          // Allow text wrapping for longer content
-          0: { cellWidth: 'auto' }
-        }
+        columnStyles: Object.fromEntries(
+          Object.entries(columnWidths).map(([index, width]) => [
+            index,
+            { cellWidth: width }
+          ])
+        )
       });
       
       const timestamp = formatFileTimestampIST();
