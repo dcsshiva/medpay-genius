@@ -141,8 +141,20 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
       const ws = XLSX.utils.json_to_sheet(dataWithTotals);
       const wb = XLSX.utils.book_new();
       
-      // Auto-size columns
-      const colWidths = columns.map(col => ({ wch: Math.max(col.label.length, 20) }));
+      // Auto-size columns based on content
+      const colWidths = columns.map((col, colIndex) => {
+        // Start with header length
+        let maxWidth = col.label.length;
+        
+        // Check all data rows for this column
+        dataWithTotals.forEach(row => {
+          const cellValue = String(row[col.label] || '');
+          maxWidth = Math.max(maxWidth, cellValue.length);
+        });
+        
+        // Add some padding and set reasonable min/max
+        return { wch: Math.min(Math.max(maxWidth + 2, 10), 50) };
+      });
       ws['!cols'] = colWidths;
       
       // Style the totals row (last row)
@@ -163,7 +175,9 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
         }
       });
       
-      XLSX.utils.book_append_sheet(wb, ws, title);
+      // Excel sheet names must be 31 characters or less
+      const sheetName = title.length > 31 ? title.substring(0, 31) : title;
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
       
       const timestamp = formatFileTimestampIST();
       XLSX.writeFile(wb, `${filename}_${timestamp}.xlsx`);
