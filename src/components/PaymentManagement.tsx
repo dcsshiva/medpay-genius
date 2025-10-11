@@ -2625,9 +2625,9 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
           {/* Search Section */}
           <Card className="mb-4">
             <CardContent className="pt-6">
-              <div className="flex flex-col md:flex-row gap-3">
+              <div className="flex flex-col gap-4">
                 {/* Search Input */}
-                <div className="flex-1 relative">
+                <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
                     type="text"
@@ -2638,41 +2638,69 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                   />
                 </div>
                 
-                {/* Search Filter Select */}
-                <Select value={searchFilter} onValueChange={(value: any) => setSearchFilter(value)}>
-                  <SelectTrigger className="w-full md:w-[200px]">
-                    <SelectValue placeholder="Search by..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Fields</SelectItem>
-                    <SelectItem value="doctor_name">Doctor Name</SelectItem>
-                    <SelectItem value="doctor_code">Doctor Code</SelectItem>
-                    <SelectItem value="patient_name">Patient Name</SelectItem>
-                    <SelectItem value="insurance_name">Insurance Company</SelectItem>
-                  </SelectContent>
-                </Select>
-                
-                {/* Clear Button */}
-                {searchTerm && (
+                {/* Search Filter Buttons */}
+                <div className="flex flex-wrap gap-2 items-center">
+                  <span className="text-sm text-muted-foreground mr-2">Filter by:</span>
                   <Button
-                    variant="outline"
-                    onClick={() => {
-                      setSearchTerm('');
-                      setSearchFilter('all');
-                    }}
+                    variant={searchFilter === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSearchFilter('all')}
                   >
-                    <X className="h-4 w-4 mr-1" />
-                    Clear
+                    All Fields
                   </Button>
+                  <Button
+                    variant={searchFilter === 'doctor_name' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSearchFilter('doctor_name')}
+                  >
+                    Doctor Name
+                  </Button>
+                  <Button
+                    variant={searchFilter === 'doctor_code' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSearchFilter('doctor_code')}
+                  >
+                    Doctor Code
+                  </Button>
+                  <Button
+                    variant={searchFilter === 'patient_name' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSearchFilter('patient_name')}
+                  >
+                    Patient Name
+                  </Button>
+                  <Button
+                    variant={searchFilter === 'insurance_name' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSearchFilter('insurance_name')}
+                  >
+                    Insurance Company
+                  </Button>
+                  
+                  {/* Clear Button */}
+                  {searchTerm && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSearchTerm('');
+                        setSearchFilter('all');
+                      }}
+                      className="ml-auto"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              
+                {/* Search Results Count */}
+                {searchTerm && (
+                  <div className="text-sm text-muted-foreground">
+                    Found {filterPayments(filterPaymentsByType(payments), searchTerm, searchFilter).length} result{filterPayments(filterPaymentsByType(payments), searchTerm, searchFilter).length !== 1 ? 's' : ''}
+                  </div>
                 )}
               </div>
-              
-              {/* Search Results Count */}
-              {searchTerm && (
-                <div className="mt-2 text-sm text-muted-foreground">
-                  Found {filterPayments(filterPaymentsByType(payments), searchTerm, searchFilter).length} result{filterPayments(filterPaymentsByType(payments), searchTerm, searchFilter).length !== 1 ? 's' : ''}
-                </div>
-              )}
             </CardContent>
           </Card>
 
