@@ -104,7 +104,8 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
       return [
         ...baseItems,
         { id: 'visits', label: 'My Visits', icon: Calendar },
-        { id: 'payments', label: 'My Payments', icon: CreditCard },
+        { id: 'cash-payments', label: 'Cash Payments', icon: CreditCard },
+        { id: 'insurance-payments', label: 'Insurance Payments', icon: CreditCard },
         { id: 'tasks', label: 'My Tasks', icon: ClipboardList },
         { id: 'complaints', label: 'Complaints', icon: MessageCircle },
       ];

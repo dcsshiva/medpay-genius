@@ -2033,7 +2033,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                       disabled={!!paymentTypeOnly}
                     >
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder={formData.payment_type_filter === 'cash' ? 'Cash Only' : 'Insurance Only'} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="cash">Cash Only</SelectItem>
