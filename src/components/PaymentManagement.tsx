@@ -181,6 +181,9 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
   // State for existing pending payments selection
   const [existingPendingPayments, setExistingPendingPayments] = useState<Payment[]>([]);
   const [targetPaymentChoice, setTargetPaymentChoice] = useState<'new' | string>('new');
+  
+  // State for manual visit selection
+  const [selectedVisitIds, setSelectedVisitIds] = useState<Set<string>>(new Set());
 
   const [suspectFormData, setSuspectFormData] = useState({
     suspect_reason: ''
@@ -191,6 +194,27 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
     transaction_reference: '',
     notes: ''
   });
+
+  // Visit selection handlers
+  const handleToggleVisit = (visitId: string) => {
+    setSelectedVisitIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(visitId)) {
+        newSet.delete(visitId);
+      } else {
+        newSet.add(visitId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAllVisits = () => {
+    setSelectedVisitIds(new Set(visits.map(v => v.id)));
+  };
+
+  const handleClearAllVisits = () => {
+    setSelectedVisitIds(new Set());
+  };
 
   useEffect(() => {
     // Guard: Only fetch if user and userRole are loaded
@@ -624,6 +648,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
       }));
       
       setVisits(transformedData);
+      setSelectedVisitIds(new Set()); // Clear selections when new visits are fetched
       return transformedData;
     } catch (error) {
       console.error('Error fetching visits:', error);
@@ -642,9 +667,23 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
       }
 
       // Fetch available visits for the selected doctor and payment type
-      const filteredVisits = await fetchUnprocessedVisits(formData.doctor_id, formData.payment_type_filter);
+      const allVisits = await fetchUnprocessedVisits(formData.doctor_id, formData.payment_type_filter);
       
+      // Filter to only selected visits
+      const filteredVisits = allVisits.filter(visit => selectedVisitIds.has(visit.id));
+
+      // Validate selection
       if (filteredVisits.length === 0) {
+        toast({
+          variant: "destructive",
+          title: "No Visits Selected",
+          description: "Please select at least one visit to create a payment advice."
+        });
+        setSubmitting(false);
+        return;
+      }
+      
+      if (allVisits.length === 0) {
         toast({
           variant: "destructive",
           title: "No Visits Available",
@@ -1298,6 +1337,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
     });
     setEditingPayment(null);
     setVisits([]);
+    setSelectedVisitIds(new Set()); // Clear visit selections
     setExistingPendingPayments([]);
     setTargetPaymentChoice('new');
   };
@@ -2347,70 +2387,161 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
 
                 {visits.length > 0 && (
                   <div className="border rounded-lg p-4 bg-muted/50">
+                    {/* Header with Selection Controls */}
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-semibold flex items-center gap-2">
-                        <CheckCircle className="h-5 w-5 text-success" />
-                        Unprocessed Visits Found ({visits.length})
-                      </h3>
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-lg font-semibold flex items-center gap-2">
+                          <CheckCircle className="h-5 w-5 text-success" />
+                          Unprocessed Visits Found ({visits.length})
+                        </h3>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleSelectAllVisits}
+                            disabled={selectedVisitIds.size === visits.length}
+                          >
+                            Select All
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={handleClearAllVisits}
+                            disabled={selectedVisitIds.size === 0}
+                          >
+                            Clear All
+                          </Button>
+                        </div>
+                      </div>
                       <div className="text-right">
+                        <p className="text-sm text-muted-foreground">
+                          Selected: {selectedVisitIds.size} of {visits.length}
+                        </p>
                         <p className="text-sm text-muted-foreground">Total Amount</p>
                         <p className="text-xl font-bold text-primary">
-                          {formatCurrency(visits.reduce((sum, visit) => sum + (visit.visit_payment || 0), 0))}
+                          {formatCurrency(
+                            visits
+                              .filter(v => selectedVisitIds.has(v.id))
+                              .reduce((sum, visit) => sum + (visit.visit_payment || 0), 0)
+                          )}
                         </p>
                       </div>
                     </div>
                     
+                    {/* Visit Cards with Checkboxes */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 max-h-60 overflow-y-auto">
-                      {visits.map((visit) => (
-                        <Card key={visit.id} className="bg-background">
-                          <CardContent className="p-3">
-                            <div className="space-y-1">
-                              <div className="flex justify-between items-start">
-                                <p className="font-medium text-sm">
-                                  {formatDateIST(visit.visit_date)}
+                      {visits.map((visit) => {
+                        const isSelected = selectedVisitIds.has(visit.id);
+                        return (
+                          <Card 
+                            key={visit.id} 
+                            className={`bg-background cursor-pointer transition-all ${
+                              isSelected 
+                                ? 'ring-2 ring-primary border-primary' 
+                                : 'hover:border-primary/50'
+                            }`}
+                            onClick={() => handleToggleVisit(visit.id)}
+                          >
+                            <CardContent className="p-3">
+                              <div className="space-y-1">
+                                {/* Checkbox */}
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <div 
+                                      className={`h-5 w-5 rounded border-2 flex items-center justify-center ${
+                                        isSelected 
+                                          ? 'bg-primary border-primary' 
+                                          : 'border-muted-foreground'
+                                      }`}
+                                    >
+                                      {isSelected && (
+                                        <CheckCircle className="h-4 w-4 text-primary-foreground" />
+                                      )}
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-1.5">
+                                    <Badge variant="outline" className="text-xs">
+                                      {visit.patient_count} {visit.patient_count === 1 ? 'Patient' : 'Patients'}
+                                    </Badge>
+                                    <Badge 
+                                      className={`text-xs ${
+                                        visit.payment_type === 'cash' 
+                                          ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' 
+                                          : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                                      }`}
+                                    >
+                                      {visit.payment_type === 'cash' ? 'Cash' : 'Insurance'}
+                                    </Badge>
+                                  </div>
+                                </div>
+                                
+                                {/* Visit Details */}
+                                <div className="flex justify-between items-start">
+                                  <p className="font-medium text-sm">
+                                    {formatDateIST(visit.visit_date)}
+                                  </p>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  {visit.patient_name}
                                 </p>
-                                <div className="flex gap-1.5">
-                                  <Badge variant="outline" className="text-xs">
-                                    {visit.patient_count} {visit.patient_count === 1 ? 'Patient' : 'Patients'}
-                                  </Badge>
-                                  <Badge 
-                                    className={`text-xs ${
-                                      visit.payment_type === 'cash' 
-                                        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' 
-                                        : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-                                    }`}
-                                  >
-                                    {visit.payment_type === 'cash' ? 'Cash' : 'Insurance'}
-                                  </Badge>
+                                {visit.insurance_companies && (
+                                  <p className="text-xs text-blue-600 dark:text-blue-400">
+                                    {visit.insurance_companies.company_name}
+                                  </p>
+                                )}
+                                <div className="flex justify-between items-center">
+                                  <span className="text-xs capitalize">{visit.visit_reason.replace('_', ' ')}</span>
+                                  {visit.visit_payment && (
+                                    <span className="text-sm font-semibold text-primary">
+                                      ₹{visit.visit_payment}
+                                    </span>
+                                  )}
                                 </div>
                               </div>
-                              <p className="text-xs text-muted-foreground">
-                                {visit.patient_name}
-                              </p>
-                              <div className="flex justify-between items-center">
-                                <span className="text-xs capitalize">{visit.visit_reason.replace('_', ' ')}</span>
-                                 {visit.visit_payment && (
-                                   <span className="text-sm font-semibold text-primary">
-                                     ₹{visit.visit_payment}
-                                   </span>
-                                 )}
-                               </div>
-                             </div>
-                           </CardContent>
-                         </Card>
-                       ))}
-                     </div>
-                   </div>
-                 )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* Warning if no visits selected */}
+                    {selectedVisitIds.size === 0 && (
+                      <div className="mt-3 p-3 bg-warning/10 border border-warning/30 rounded-lg flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-warning" />
+                        <p className="text-sm text-warning-foreground">
+                          Please select at least one visit to create a payment advice
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* No visits message */}
+                {visits.length === 0 && formData.doctor_id && formData.payment_type_filter && (
+                  <div className="border rounded-lg p-6 bg-muted/30 text-center">
+                    <AlertCircle className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">
+                      No unprocessed {formData.payment_type_filter} visits found for this doctor.
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      All visits may already be included in existing payment requests.
+                    </p>
+                  </div>
+                )}
 
                   <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={submitting || visits.length === 0}>
+                    <Button type="submit" disabled={submitting || visits.length === 0 || selectedVisitIds.size === 0}>
                       {submitting 
                         ? (targetPaymentChoice === 'new' ? 'Creating...' : 'Adding...') 
-                        : (targetPaymentChoice === 'new' ? 'Create Payment Advice' : 'Add to Existing Payment')
+                        : (targetPaymentChoice === 'new' 
+                            ? `Create Payment Advice (${selectedVisitIds.size} visit${selectedVisitIds.size !== 1 ? 's' : ''})` 
+                            : `Add to Existing Payment (${selectedVisitIds.size} visit${selectedVisitIds.size !== 1 ? 's' : ''})`
+                          )
                       }
                     </Button>
                   </DialogFooter>
