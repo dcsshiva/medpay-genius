@@ -10,11 +10,15 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Calendar, Users, Stethoscope, Search, Edit, Trash2, CheckCircle, Clock } from 'lucide-react';
+import { Plus, Calendar, Users, Stethoscope, Search, Edit, Trash2, CheckCircle, Clock, TrendingUp, Activity, FileText } from 'lucide-react';
 import { VisitManagementTable } from './VisitManagementTable';
 import { formatDateIST, formatDateTimeIST, formatInputDateIST, getCurrentISTDate } from '@/lib/dateUtils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ReportGeneration from './ReportGeneration';
+import { StatsCard } from '@/components/ui/stats-card';
+import { LoadingScreen } from '@/components/ui/loading-skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FilterChips } from '@/components/ui/filter-chip';
 
 interface Visit {
   id: string;
@@ -340,25 +344,20 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
     return visits.reduce((total, visit) => total + visit.patient_count, 0);
   };
 
+  const getProcessedCount = () => {
+    return visits.filter(v => v.is_processed).length;
+  };
+
+  const getCashVisits = () => {
+    return visits.filter(v => v.payment_type === 'cash').length;
+  };
+
+  const getInsuranceVisits = () => {
+    return visits.filter(v => v.payment_type === 'insurance').length;
+  };
+
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold text-foreground">Visit Management</h1>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => (
-            <Card key={i}>
-              <CardContent className="p-6">
-                <div className="animate-pulse">
-                  <div className="h-4 bg-muted rounded w-1/2 mb-2"></div>
-                  <div className="h-6 bg-muted rounded w-3/4 mb-2"></div>
-                  <div className="h-4 bg-muted rounded w-1/3"></div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Loading visit data..." />;
   }
 
   return (
@@ -547,42 +546,39 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
         )}
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Visits</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{visits.length}</div>
-            <p className="text-xs text-muted-foreground">Recorded visits</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Patients</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{getTotalPatients()}</div>
-            <p className="text-xs text-muted-foreground">Patients seen</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Average per Visit</CardTitle>
-            <Stethoscope className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {visits.length > 0 ? (getTotalPatients() / visits.length).toFixed(1) : '0'}
-            </div>
-            <p className="text-xs text-muted-foreground">Patients per visit</p>
-          </CardContent>
-        </Card>
+      {/* Enhanced Summary Cards with Gradients and Animation */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in">
+        <StatsCard
+          title="Total Visits"
+          value={visits.length}
+          subtitle="Recorded visits"
+          icon={Calendar}
+          variant="default"
+        />
+        
+        <StatsCard
+          title="Total Patients"
+          value={getTotalPatients()}
+          subtitle="Patients seen"
+          icon={Users}
+          variant="success"
+        />
+        
+        <StatsCard
+          title="Processed Visits"
+          value={`${getProcessedCount()}/${visits.length}`}
+          subtitle={`${visits.length > 0 ? ((getProcessedCount() / visits.length) * 100).toFixed(0) : 0}% completed`}
+          icon={CheckCircle}
+          variant="info"
+        />
+        
+        <StatsCard
+          title="Payment Split"
+          value={`${getCashVisits()}C / ${getInsuranceVisits()}I`}
+          subtitle="Cash vs Insurance"
+          icon={Activity}
+          variant="warning"
+        />
       </div>
 
       {/* Report Generation */}
@@ -788,15 +784,15 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
 
           {/* Empty State for Unprocessed */}
           {visits.filter(v => !v.is_processed).length === 0 && (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <Clock className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">No unprocessed visits</h3>
-                <p className="text-muted-foreground text-center mb-4">
-                  All visits have been processed in payment advice.
-                </p>
-              </CardContent>
-            </Card>
+            <EmptyState
+              icon={Clock}
+              title="No Unprocessed Visits"
+              description="All visits have been processed in payment advice. New visits will appear here when they're added."
+              action={(userRole === 'admin' || userRole === 'manager') ? {
+                label: 'Record Visit',
+                onClick: () => setDialogOpen(true)
+              } : undefined}
+            />
           )}
         </TabsContent>
 

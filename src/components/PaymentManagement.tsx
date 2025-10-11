@@ -27,7 +27,10 @@ import {
   AlertTriangle,
   FileText,
   Download,
-  Building2
+  Building2,
+  IndianRupee,
+  Activity,
+  Target
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { formatDateIST, formatDateTimeIST, toISOStringIST, formatReportDateIST, formatFileTimestampIST } from '@/lib/dateUtils';
@@ -36,6 +39,11 @@ import ReportGeneration from './ReportGeneration';
 import PaymentManagementTable from './PaymentManagementTable';
 import BankAdviceReports from './BankAdviceReports';
 import { useWebsiteSettings } from '@/hooks/useWebsiteSettings';
+import { StatsCard } from '@/components/ui/stats-card';
+import { LoadingScreen } from '@/components/ui/loading-skeleton';
+import { EmptyState } from '@/components/ui/empty-state';
+import { FilterChips } from '@/components/ui/filter-chip';
+import { ProgressBar } from '@/components/ui/progress-bar';
 
 interface Payment {
   id: string;
@@ -1795,24 +1803,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
   };
 
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <h1 className="text-3xl font-bold text-foreground">Payment Management</h1>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i}>
-              <CardContent className="p-6">
-                <div className="animate-pulse">
-                  <div className="h-4 bg-muted rounded w-1/2 mb-2"></div>
-                  <div className="h-6 bg-muted rounded w-3/4 mb-2"></div>
-                  <div className="h-4 bg-muted rounded w-1/3"></div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
+    return <LoadingScreen message="Loading payment data..." />;
   }
 
   // PaymentCard component
@@ -1866,6 +1857,17 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
             <p className="text-sm text-muted-foreground">Remaining</p>
             <p className="text-xl font-semibold text-warning">{formatCurrency(payment.remaining_amount)}</p>
           </div>
+        </div>
+
+        {/* Payment Progress Bar */}
+        <div className="mb-4">
+          <ProgressBar
+            value={payment.paid_amount}
+            max={payment.total_amount}
+            variant={payment.is_fully_paid ? 'success' : 'default'}
+            showLabel={true}
+            size="md"
+          />
         </div>
 
         {/* Payment Type Breakdown */}
@@ -2704,6 +2706,41 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
             </CardContent>
           </Card>
 
+          {/* Enhanced Payment Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in">
+            <StatsCard
+              title="Total Pending"
+              value={formatCurrency(totalPending)}
+              subtitle="Across all visits"
+              icon={IndianRupee}
+              variant="warning"
+            />
+            
+            <StatsCard
+              title="Total Paid"
+              value={formatCurrency(totalPaid)}
+              subtitle="All transactions"
+              icon={CheckCircle}
+              variant="success"
+            />
+            
+            <StatsCard
+              title="Awaiting Approval"
+              value={waitingForApprovalPayments.length}
+              subtitle={`${formatCurrency(waitingForApprovalPayments.reduce((sum, p) => sum + p.remaining_amount, 0))} pending`}
+              icon={Clock}
+              variant="info"
+            />
+            
+            <StatsCard
+              title="Payment Rate"
+              value={`${totalPending > 0 ? ((totalPaid / totalPending) * 100).toFixed(1) : 0}%`}
+              subtitle="Completion rate"
+              icon={Activity}
+              variant="default"
+            />
+          </div>
+
           <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full">
           <div className="flex justify-between items-center mb-4">
             <TabsList className="grid w-full max-w-4xl grid-cols-4">
@@ -2785,22 +2822,21 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
             />
             
             {waitingForApprovalPayments.length === 0 && !loading && (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold mb-2">No Payments Waiting</h3>
-                  <p className="text-muted-foreground">
-                    {userRole === 'doctor' 
-                      ? `No ${paymentTypeOnly ? paymentTypeOnly : ''} payments are currently waiting for approval.`
-                      : 'Create a payment advice to get started.'}
-                  </p>
-                  {userRole === 'doctor' && (
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Your payments will appear here once they are created by the admin or manager.
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
+              <EmptyState
+                icon={Clock}
+                title="No Payments Waiting"
+                description={
+                  userRole === 'doctor' 
+                    ? `No ${paymentTypeOnly ? paymentTypeOnly : ''} payments are currently waiting for approval. Your payments will appear here once they are created by the admin or manager.`
+                    : 'Create a payment advice to get started. All pending payments will appear here for approval.'
+                }
+                action={
+                  (userRole === 'admin' || userRole === 'manager') ? {
+                    label: 'Create Payment Advice',
+                    onClick: () => setDialogOpen(true)
+                  } : undefined
+                }
+              />
             )}
           </TabsContent>
 

@@ -2,6 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Enhanced animations for UI improvements */
+@layer utilities {
+  .hover-lift {
+    @apply transition-all duration-300 hover:shadow-lg hover:-translate-y-1;
+  }
+  
+  .hover-glow {
+    @apply transition-all duration-300 hover:shadow-[0_0_20px_rgba(var(--primary),0.3)];
+  }
+  
+  .gradient-border {
+    @apply border border-transparent bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 bg-clip-border;
+  }
+  
+  .shimmer {
+    @apply relative overflow-hidden before:absolute before:inset-0 before:-translate-x-full before:animate-[shimmer_2s_infinite] before:bg-gradient-to-r before:from-transparent before:via-white/10 before:to-transparent;
+  }
+
+  @keyframes shimmer {
+    100% {
+      transform: translateX(100%);
+    }
+  }
+}
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */
