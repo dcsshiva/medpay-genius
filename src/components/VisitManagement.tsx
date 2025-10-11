@@ -716,13 +716,16 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
         </div>
 
         <TabsContent value="unprocessed" className="space-y-4">
-          {/* Search Input for Unprocessed */}
-          <Card>
-            <CardContent className="pt-6">
+          {/* Enhanced Search Box with Gradient Border */}
+          <Card className="relative overflow-hidden">
+            {/* Gradient border effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 rounded-lg blur-sm" />
+            
+            <CardContent className="pt-6 relative bg-card">
               <div className="flex flex-col gap-4">
-                {/* Search Input */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                {/* Enhanced Search Input */}
+                <div className="relative group">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors duration-300" />
                   <Input
                     type="text"
                     placeholder={
@@ -732,8 +735,19 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     }
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
+                    className="h-12 pl-11 pr-10 text-base border-2 bg-background/50 backdrop-blur-sm focus-visible:ring-primary focus-visible:border-primary transition-all duration-300"
                   />
+                  {searchQuery && (
+                    <button
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSearchFilter('all');
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
                 
                 {/* Filter Buttons */}
@@ -743,6 +757,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     variant={searchFilter === 'all' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSearchFilter('all')}
+                    className="transition-all duration-200"
                   >
                     All Fields
                   </Button>
@@ -750,6 +765,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     variant={searchFilter === 'doctor_name' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSearchFilter('doctor_name')}
+                    className="transition-all duration-200"
                   >
                     Doctor Name
                   </Button>
@@ -757,6 +773,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     variant={searchFilter === 'doctor_code' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSearchFilter('doctor_code')}
+                    className="transition-all duration-200"
                   >
                     Doctor Code
                   </Button>
@@ -764,6 +781,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     variant={searchFilter === 'patient_name' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSearchFilter('patient_name')}
+                    className="transition-all duration-200"
                   >
                     Patient Name
                   </Button>
@@ -771,73 +789,131 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     variant={searchFilter === 'insurance_company' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSearchFilter('insurance_company')}
+                    className="transition-all duration-200"
                   >
                     Insurance Company
                   </Button>
-                  
-                  {/* Clear Button */}
-                  {searchQuery && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setSearchQuery('');
-                        setSearchFilter('all');
-                      }}
-                      className="ml-auto"
-                    >
-                      <X className="h-4 w-4 mr-1" />
-                      Clear
-                    </Button>
-                  )}
                 </div>
               
-                {/* Search Results Count */}
+                {/* Animated Search Results Count */}
                 {searchQuery && (
-                  <div className="text-sm text-muted-foreground">
-                    Found {filterVisits(visits.filter(v => !v.is_processed), searchQuery, searchFilter).length} result
-                    {filterVisits(visits.filter(v => !v.is_processed), searchQuery, searchFilter).length !== 1 ? 's' : ''}
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                    <span className="text-muted-foreground">
+                      Found <span className="font-semibold text-foreground">{filterVisits(visits.filter(v => !v.is_processed), searchQuery, searchFilter).length}</span> result
+                      {filterVisits(visits.filter(v => !v.is_processed), searchQuery, searchFilter).length !== 1 ? 's' : ''}
+                    </span>
                   </div>
                 )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Modern Table */}
+          {/* Modern Table or No Results */}
           {(() => {
             const unprocessedVisits = visits.filter(v => !v.is_processed);
             const filteredVisits = filterVisits(unprocessedVisits, searchQuery, searchFilter);
             
-            return filteredVisits.length > 0 ? (
-              <VisitManagementTable
-                visits={filteredVisits}
-                onEdit={(userRole === 'admin' || userRole === 'manager') ? handleEdit : undefined}
-                onDelete={(userRole === 'admin' || userRole === 'manager') ? handleDelete : undefined}
-                onPaymentTypeClick={handlePaymentTypeNavigation}
-                showActions={userRole === 'admin' || userRole === 'manager'}
-                sortField={sortField}
-                sortDirection={sortDirection}
-                onSort={(field) => {
-                  if (sortField === field) {
-                    setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-                  } else {
-                    setSortField(field);
-                    setSortDirection('desc');
-                  }
-                }}
-              />
-            ) : (
+            if (filteredVisits.length > 0) {
+              return (
+                <VisitManagementTable
+                  visits={filteredVisits}
+                  onEdit={(userRole === 'admin' || userRole === 'manager') ? handleEdit : undefined}
+                  onDelete={(userRole === 'admin' || userRole === 'manager') ? handleDelete : undefined}
+                  onPaymentTypeClick={handlePaymentTypeNavigation}
+                  showActions={userRole === 'admin' || userRole === 'manager'}
+                  sortField={sortField}
+                  sortDirection={sortDirection}
+                  onSort={(field) => {
+                    if (sortField === field) {
+                      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                    } else {
+                      setSortField(field);
+                      setSortDirection('desc');
+                    }
+                  }}
+                />
+              );
+            }
+            
+            // Show enhanced "No matching records" when search is active
+            if (searchQuery) {
+              return (
+                <Card className="mt-4">
+                  <CardContent className="py-16">
+                    <div className="flex flex-col items-center justify-center text-center max-w-md mx-auto">
+                      {/* Animated Search Icon */}
+                      <div className="relative mb-6">
+                        <div className="absolute inset-0 bg-primary/10 blur-2xl rounded-full animate-pulse" />
+                        <div className="relative bg-gradient-to-br from-primary/10 to-accent/10 rounded-full p-6">
+                          <Search className="h-12 w-12 text-muted-foreground" strokeWidth={1.5} />
+                        </div>
+                      </div>
+                      
+                      {/* Title */}
+                      <h3 className="text-xl font-semibold text-foreground mb-2">
+                        No Matching Records Found
+                      </h3>
+                      
+                      {/* Search Details */}
+                      <p className="text-muted-foreground mb-1">
+                        No unprocessed visits found for:
+                      </p>
+                      <p className="text-sm font-mono bg-muted px-3 py-1 rounded-md mb-4">
+                        "{searchQuery}" 
+                        {searchFilter !== 'all' && (
+                          <span className="text-muted-foreground"> in {searchFilter.replace('_', ' ')}</span>
+                        )}
+                      </p>
+                      
+                      {/* Action Buttons */}
+                      <div className="flex gap-3 mb-6">
+                        <Button 
+                          variant="outline" 
+                          onClick={() => {
+                            setSearchQuery('');
+                            setSearchFilter('all');
+                          }}
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Clear Search
+                        </Button>
+                        {searchFilter !== 'all' && (
+                          <Button 
+                            variant="default"
+                            onClick={() => setSearchFilter('all')}
+                          >
+                            <Search className="h-4 w-4 mr-2" />
+                            Search All Fields
+                          </Button>
+                        )}
+                      </div>
+                      
+                      {/* Search Tips */}
+                      <div className="text-left w-full bg-muted/50 rounded-lg p-4">
+                        <p className="text-sm font-medium text-foreground mb-2">Try these tips:</p>
+                        <ul className="text-sm text-muted-foreground space-y-1">
+                          <li>• Check your spelling</li>
+                          <li>• Try different keywords</li>
+                          <li>• Use "All Fields" filter for broader search</li>
+                          <li>• Remove filters to see all visits</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            }
+            
+            // Default empty state
+            return (
               <EmptyState
                 icon={FileText}
                 title="No Unprocessed Visits"
-                description={
-                  searchQuery 
-                    ? `No unprocessed visits match your search "${searchQuery}"`
-                    : "All visits have been processed or no visits recorded yet."
-                }
+                description="All visits have been processed or no visits recorded yet."
                 action={(userRole === 'admin' || userRole === 'manager' || userRole === 'doctor') ? {
-                  label: searchQuery ? 'Clear Search' : 'Record New Visit',
-                  onClick: () => searchQuery ? setSearchQuery('') : setDialogOpen(true)
+                  label: 'Record New Visit',
+                  onClick: () => setDialogOpen(true)
                 } : undefined}
               />
             );
@@ -845,13 +921,16 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
         </TabsContent>
 
         <TabsContent value="processed" className="space-y-4">
-          {/* Search Input for Processed */}
-          <Card>
-            <CardContent className="pt-6">
+          {/* Enhanced Search Box with Gradient Border */}
+          <Card className="relative overflow-hidden">
+            {/* Gradient border effect */}
+            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 rounded-lg blur-sm" />
+            
+            <CardContent className="pt-6 relative bg-card">
               <div className="flex flex-col gap-4">
-                {/* Search Input */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                {/* Enhanced Search Input */}
+                <div className="relative group">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors duration-300" />
                   <Input
                     type="text"
                     placeholder={
@@ -861,8 +940,19 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     }
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9"
+                    className="h-12 pl-11 pr-10 text-base border-2 bg-background/50 backdrop-blur-sm focus-visible:ring-primary focus-visible:border-primary transition-all duration-300"
                   />
+                  {searchQuery && (
+                    <button
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSearchFilter('all');
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
                 </div>
                 
                 {/* Filter Buttons */}
@@ -872,6 +962,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     variant={searchFilter === 'all' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSearchFilter('all')}
+                    className="transition-all duration-200"
                   >
                     All Fields
                   </Button>
@@ -879,6 +970,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     variant={searchFilter === 'doctor_name' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSearchFilter('doctor_name')}
+                    className="transition-all duration-200"
                   >
                     Doctor Name
                   </Button>
@@ -886,6 +978,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     variant={searchFilter === 'doctor_code' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSearchFilter('doctor_code')}
+                    className="transition-all duration-200"
                   >
                     Doctor Code
                   </Button>
@@ -893,6 +986,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     variant={searchFilter === 'patient_name' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSearchFilter('patient_name')}
+                    className="transition-all duration-200"
                   >
                     Patient Name
                   </Button>
@@ -900,74 +994,128 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     variant={searchFilter === 'insurance_company' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSearchFilter('insurance_company')}
+                    className="transition-all duration-200"
                   >
                     Insurance Company
                   </Button>
-                  
-                  {/* Clear Button */}
-                  {searchQuery && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setSearchQuery('');
-                        setSearchFilter('all');
-                      }}
-                      className="ml-auto"
-                    >
-                      <X className="h-4 w-4 mr-1" />
-                      Clear
-                    </Button>
-                  )}
                 </div>
               
-                {/* Search Results Count */}
+                {/* Animated Search Results Count */}
                 {searchQuery && (
-                  <div className="text-sm text-muted-foreground">
-                    Found {filterVisits(visits.filter(v => v.is_processed), searchQuery, searchFilter).length} result
-                    {filterVisits(visits.filter(v => v.is_processed), searchQuery, searchFilter).length !== 1 ? 's' : ''}
+                  <div className="flex items-center gap-2 text-sm">
+                    <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
+                    <span className="text-muted-foreground">
+                      Found <span className="font-semibold text-foreground">{filterVisits(visits.filter(v => v.is_processed), searchQuery, searchFilter).length}</span> result
+                      {filterVisits(visits.filter(v => v.is_processed), searchQuery, searchFilter).length !== 1 ? 's' : ''}
+                    </span>
                   </div>
                 )}
               </div>
             </CardContent>
           </Card>
 
-          {/* Modern Table */}
+          {/* Modern Table or No Results */}
           {(() => {
             const processedVisits = visits.filter(v => v.is_processed);
             const filteredVisits = filterVisits(processedVisits, searchQuery, searchFilter);
             
-            return filteredVisits.length > 0 ? (
-              <VisitManagementTable
-                visits={filteredVisits}
-                onEdit={undefined}
-                onDelete={undefined}
-                onPaymentTypeClick={handlePaymentTypeNavigation}
-                showActions={false}
-                sortField={sortField}
-                sortDirection={sortDirection}
-                onSort={(field) => {
-                  if (sortField === field) {
-                    setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-                  } else {
-                    setSortField(field);
-                    setSortDirection('desc');
-                  }
-                }}
-              />
-            ) : (
+            if (filteredVisits.length > 0) {
+              return (
+                <VisitManagementTable
+                  visits={filteredVisits}
+                  onEdit={undefined}
+                  onDelete={undefined}
+                  onPaymentTypeClick={handlePaymentTypeNavigation}
+                  showActions={false}
+                  sortField={sortField}
+                  sortDirection={sortDirection}
+                  onSort={(field) => {
+                    if (sortField === field) {
+                      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                    } else {
+                      setSortField(field);
+                      setSortDirection('desc');
+                    }
+                  }}
+                />
+              );
+            }
+            
+            // Show enhanced "No matching records" when search is active
+            if (searchQuery) {
+              return (
+                <Card className="mt-4">
+                  <CardContent className="py-16">
+                    <div className="flex flex-col items-center justify-center text-center max-w-md mx-auto">
+                      {/* Animated Search Icon */}
+                      <div className="relative mb-6">
+                        <div className="absolute inset-0 bg-primary/10 blur-2xl rounded-full animate-pulse" />
+                        <div className="relative bg-gradient-to-br from-primary/10 to-accent/10 rounded-full p-6">
+                          <Search className="h-12 w-12 text-muted-foreground" strokeWidth={1.5} />
+                        </div>
+                      </div>
+                      
+                      {/* Title */}
+                      <h3 className="text-xl font-semibold text-foreground mb-2">
+                        No Matching Records Found
+                      </h3>
+                      
+                      {/* Search Details */}
+                      <p className="text-muted-foreground mb-1">
+                        No processed visits found for:
+                      </p>
+                      <p className="text-sm font-mono bg-muted px-3 py-1 rounded-md mb-4">
+                        "{searchQuery}" 
+                        {searchFilter !== 'all' && (
+                          <span className="text-muted-foreground"> in {searchFilter.replace('_', ' ')}</span>
+                        )}
+                      </p>
+                      
+                      {/* Action Buttons */}
+                      <div className="flex gap-3 mb-6">
+                        <Button 
+                          variant="outline" 
+                          onClick={() => {
+                            setSearchQuery('');
+                            setSearchFilter('all');
+                          }}
+                        >
+                          <X className="h-4 w-4 mr-2" />
+                          Clear Search
+                        </Button>
+                        {searchFilter !== 'all' && (
+                          <Button 
+                            variant="default"
+                            onClick={() => setSearchFilter('all')}
+                          >
+                            <Search className="h-4 w-4 mr-2" />
+                            Search All Fields
+                          </Button>
+                        )}
+                      </div>
+                      
+                      {/* Search Tips */}
+                      <div className="text-left w-full bg-muted/50 rounded-lg p-4">
+                        <p className="text-sm font-medium text-foreground mb-2">Try these tips:</p>
+                        <ul className="text-sm text-muted-foreground space-y-1">
+                          <li>• Check your spelling</li>
+                          <li>• Try different keywords</li>
+                          <li>• Use "All Fields" filter for broader search</li>
+                          <li>• Remove filters to see all visits</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            }
+            
+            // Default empty state
+            return (
               <EmptyState
                 icon={CheckCircle}
                 title="No Processed Visits"
-                description={
-                  searchQuery 
-                    ? `No processed visits match your search "${searchQuery}"`
-                    : "No visits have been processed yet."
-                }
-                action={searchQuery ? {
-                  label: 'Clear Search',
-                  onClick: () => setSearchQuery('')
-                } : undefined}
+                description="No visits have been processed yet."
               />
             );
           })()}
