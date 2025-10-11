@@ -108,10 +108,6 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
     return totals;
   };
 
-  const getNestedValue = (obj: any, path: string) => {
-    return path.split('.').reduce((current, key) => current?.[key], obj);
-  };
-
   const exportToExcel = () => {
     const selectedData = getSelectedData();
     if (selectedData.length === 0) {
