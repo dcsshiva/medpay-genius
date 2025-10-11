@@ -964,16 +964,16 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
         const hasCash = visits.some(v => v.payment_type === 'cash');
         const hasInsurance = visits.some(v => v.payment_type === 'insurance');
 
-        if (hasCash && selectedPayment.cash_approval_status === 'pending') {
-          paymentUpdateData.cash_approval_status = 'approved';
-          paymentUpdateData.cash_approved_at = toISOStringIST();
-          paymentUpdateData.cash_approved_by = profile.id;
-        }
-        if (hasInsurance && selectedPayment.insurance_approval_status === 'pending') {
-          paymentUpdateData.insurance_approval_status = 'approved';
-          paymentUpdateData.insurance_approved_at = toISOStringIST();
-          paymentUpdateData.insurance_approved_by = profile.id;
-        }
+      if (hasCash && selectedPayment.cash_approval_status === 'pending') {
+        paymentUpdateData.cash_approval_status = 'approved';
+        paymentUpdateData.cash_approved_at = toISOStringIST();
+        paymentUpdateData.cash_approved_by = user!.id;
+      }
+      if (hasInsurance && selectedPayment.insurance_approval_status === 'pending') {
+        paymentUpdateData.insurance_approval_status = 'approved';
+        paymentUpdateData.insurance_approved_at = toISOStringIST();
+        paymentUpdateData.insurance_approved_by = user!.id;
+      }
       }
 
       const { error: paymentError } = await supabase
@@ -1091,7 +1091,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
         if (userRole === 'manager') {
           updateData = {
             cash_approval_status: 'approved', // Fixed: Use 'approved' instead of 'manager_approved'
-            cash_approved_by: profile.id,
+            cash_approved_by: user!.id,
             cash_approved_at: toISOStringIST(),
             status: 'manager_approved',
             manager_approved_by: profile.id,
@@ -1102,7 +1102,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
             // Skip manager approval and go directly to admin approval
             updateData = {
               cash_approval_status: 'approved', // Fixed: Use 'approved' instead of 'admin_approved'
-              cash_approved_by: profile.id,
+              cash_approved_by: user!.id,
               cash_approved_at: toISOStringIST(),
               status: 'admin_approved',
               admin_approved_by: profile.id,
@@ -1111,7 +1111,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
           } else {
             updateData = {
               cash_approval_status: 'approved', // Fixed: Use 'approved' instead of 'admin_approved'
-              cash_approved_by: profile.id,
+              cash_approved_by: user!.id,
               cash_approved_at: toISOStringIST(),
               status: 'admin_approved',
               admin_approved_by: profile.id,
@@ -1171,7 +1171,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
         if (userRole === 'manager') {
           updateData = {
             insurance_approval_status: 'approved', // Fixed: Use 'approved' instead of 'manager_approved'
-            insurance_approved_by: profile.id,
+            insurance_approved_by: user!.id,
             insurance_approved_at: toISOStringIST(),
             status: 'manager_approved',
             manager_approved_by: profile.id,
@@ -1182,7 +1182,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
             // Skip manager approval and go directly to admin approval
             updateData = {
               insurance_approval_status: 'approved', // Fixed: Use 'approved' instead of 'admin_approved'
-              insurance_approved_by: profile.id,
+              insurance_approved_by: user!.id,
               insurance_approved_at: toISOStringIST(),
               status: 'admin_approved',
               admin_approved_by: profile.id,
@@ -1191,7 +1191,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
           } else {
             updateData = {
               insurance_approval_status: 'approved', // Fixed: Use 'approved' instead of 'admin_approved'
-              insurance_approved_by: profile.id,
+              insurance_approved_by: user!.id,
               insurance_approved_at: toISOStringIST(),
               status: 'admin_approved',
               admin_approved_by: profile.id,
