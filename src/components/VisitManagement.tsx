@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/auth';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Calendar, Users, Stethoscope, Search, Edit, Trash2, CheckCircle, Clock, TrendingUp, Activity, FileText } from 'lucide-react';
+import { Plus, Calendar, Users, Stethoscope, Search, Edit, Trash2, CheckCircle, Clock, TrendingUp, Activity, FileText, X } from 'lucide-react';
 import { VisitManagementTable } from './VisitManagementTable';
 import { formatDateIST, formatDateTimeIST, formatInputDateIST, getCurrentISTDate } from '@/lib/dateUtils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -77,6 +77,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchFilter, setSearchFilter] = useState<'all' | 'doctor_name' | 'doctor_code' | 'patient_name' | 'insurance_company'>('all');
   const [sortField, setSortField] = useState<'visit_date' | 'patient_name' | 'doctor_name'>('visit_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [activeSubTab, setActiveSubTab] = useState('unprocessed');
@@ -340,6 +341,41 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
         description: error.message || "Failed to delete visit"
       });
     }
+  };
+
+  // Filter visits by search term and filter type
+  const filterVisits = (visitList: Visit[], term: string, filter: typeof searchFilter) => {
+    if (!term.trim()) return visitList;
+    
+    const lowerTerm = term.toLowerCase().trim();
+    
+    return visitList.filter(visit => {
+      switch (filter) {
+        case 'doctor_name':
+          return visit.doctors?.profiles?.full_name?.toLowerCase().includes(lowerTerm);
+        
+        case 'doctor_code':
+          return visit.doctors?.doctor_code?.toLowerCase().includes(lowerTerm);
+        
+        case 'patient_name':
+          return visit.patient_name?.toLowerCase().includes(lowerTerm);
+        
+        case 'insurance_company':
+          return visit.insurance_company_name?.toLowerCase().includes(lowerTerm);
+        
+        case 'all':
+        default:
+          // Search across all fields
+          return (
+            (visit.visit_code && visit.visit_code.toLowerCase().includes(lowerTerm)) ||
+            visit.doctors?.profiles?.full_name?.toLowerCase().includes(lowerTerm) ||
+            visit.doctors?.doctor_code?.toLowerCase().includes(lowerTerm) ||
+            visit.patient_name?.toLowerCase().includes(lowerTerm) ||
+            (visit.patient_id && visit.patient_id.toLowerCase().includes(lowerTerm)) ||
+            (visit.insurance_company_name && visit.insurance_company_name.toLowerCase().includes(lowerTerm))
+          );
+      }
+    });
   };
 
   const getTotalPatients = () => {
@@ -683,124 +719,258 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
           {/* Search Input for Unprocessed */}
           <Card>
             <CardContent className="pt-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Search unprocessed visits by visit code, doctor name, patient name, or patient ID..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+              <div className="flex flex-col gap-4">
+                {/* Search Input */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder={
+                      searchFilter === 'all' 
+                        ? "Search all fields..." 
+                        : `Search by ${searchFilter.replace('_', ' ')}...`
+                    }
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                
+                {/* Filter Buttons */}
+                <div className="flex flex-wrap gap-2 items-center">
+                  <span className="text-sm text-muted-foreground mr-2">Filter by:</span>
+                  <Button
+                    variant={searchFilter === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSearchFilter('all')}
+                  >
+                    All Fields
+                  </Button>
+                  <Button
+                    variant={searchFilter === 'doctor_name' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSearchFilter('doctor_name')}
+                  >
+                    Doctor Name
+                  </Button>
+                  <Button
+                    variant={searchFilter === 'doctor_code' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSearchFilter('doctor_code')}
+                  >
+                    Doctor Code
+                  </Button>
+                  <Button
+                    variant={searchFilter === 'patient_name' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSearchFilter('patient_name')}
+                  >
+                    Patient Name
+                  </Button>
+                  <Button
+                    variant={searchFilter === 'insurance_company' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSearchFilter('insurance_company')}
+                  >
+                    Insurance Company
+                  </Button>
+                  
+                  {/* Clear Button */}
+                  {searchQuery && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSearchFilter('all');
+                      }}
+                      className="ml-auto"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              
+                {/* Search Results Count */}
+                {searchQuery && (
+                  <div className="text-sm text-muted-foreground">
+                    Found {filterVisits(visits.filter(v => !v.is_processed), searchQuery, searchFilter).length} result
+                    {filterVisits(visits.filter(v => !v.is_processed), searchQuery, searchFilter).length !== 1 ? 's' : ''}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
 
           {/* Modern Table */}
-          {visits.filter(v => !v.is_processed).filter((visit) => {
-            const query = searchQuery.toLowerCase();
-            return (
-              (visit.visit_code && visit.visit_code.toLowerCase().includes(query)) ||
-              visit.doctors?.profiles?.full_name.toLowerCase().includes(query) ||
-              visit.patient_name.toLowerCase().includes(query) ||
-              (visit.patient_id && visit.patient_id.toLowerCase().includes(query))
-            );
-          }).length > 0 ? (
-            <VisitManagementTable
-              visits={visits.filter(v => !v.is_processed).filter((visit) => {
-                const query = searchQuery.toLowerCase();
-                return (
-                  (visit.visit_code && visit.visit_code.toLowerCase().includes(query)) ||
-                  visit.doctors?.profiles?.full_name.toLowerCase().includes(query) ||
-                  visit.patient_name.toLowerCase().includes(query) ||
-                  (visit.patient_id && visit.patient_id.toLowerCase().includes(query))
-                );
-              })}
-              onEdit={(userRole === 'admin' || userRole === 'manager') ? handleEdit : undefined}
-              onDelete={(userRole === 'admin' || userRole === 'manager') ? handleDelete : undefined}
-              onPaymentTypeClick={handlePaymentTypeNavigation}
-              showActions={userRole === 'admin' || userRole === 'manager'}
-              sortField={sortField}
-              sortDirection={sortDirection}
-              onSort={(field) => {
-                if (sortField === field) {
-                  setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-                } else {
-                  setSortField(field);
-                  setSortDirection('desc');
+          {(() => {
+            const unprocessedVisits = visits.filter(v => !v.is_processed);
+            const filteredVisits = filterVisits(unprocessedVisits, searchQuery, searchFilter);
+            
+            return filteredVisits.length > 0 ? (
+              <VisitManagementTable
+                visits={filteredVisits}
+                onEdit={(userRole === 'admin' || userRole === 'manager') ? handleEdit : undefined}
+                onDelete={(userRole === 'admin' || userRole === 'manager') ? handleDelete : undefined}
+                onPaymentTypeClick={handlePaymentTypeNavigation}
+                showActions={userRole === 'admin' || userRole === 'manager'}
+                sortField={sortField}
+                sortDirection={sortDirection}
+                onSort={(field) => {
+                  if (sortField === field) {
+                    setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                  } else {
+                    setSortField(field);
+                    setSortDirection('desc');
+                  }
+                }}
+              />
+            ) : (
+              <EmptyState
+                icon={FileText}
+                title="No Unprocessed Visits"
+                description={
+                  searchQuery 
+                    ? `No unprocessed visits match your search "${searchQuery}"`
+                    : "All visits have been processed or no visits recorded yet."
                 }
-              }}
-            />
-          ) : (
-            <EmptyState
-              icon={FileText}
-              title="No Unprocessed Visits"
-              description="All visits have been processed or no visits recorded yet."
-              action={(userRole === 'admin' || userRole === 'manager' || userRole === 'doctor') ? {
-                label: 'Record New Visit',
-                onClick: () => setDialogOpen(true)
-              } : undefined}
-            />
-          )}
+                action={(userRole === 'admin' || userRole === 'manager' || userRole === 'doctor') ? {
+                  label: searchQuery ? 'Clear Search' : 'Record New Visit',
+                  onClick: () => searchQuery ? setSearchQuery('') : setDialogOpen(true)
+                } : undefined}
+              />
+            );
+          })()}
         </TabsContent>
 
         <TabsContent value="processed" className="space-y-4">
           {/* Search Input for Processed */}
           <Card>
             <CardContent className="pt-6">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-                <Input
-                  placeholder="Search processed visits by visit code, doctor name, patient name, or patient ID..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10"
-                />
+              <div className="flex flex-col gap-4">
+                {/* Search Input */}
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder={
+                      searchFilter === 'all' 
+                        ? "Search all fields..." 
+                        : `Search by ${searchFilter.replace('_', ' ')}...`
+                    }
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+                
+                {/* Filter Buttons */}
+                <div className="flex flex-wrap gap-2 items-center">
+                  <span className="text-sm text-muted-foreground mr-2">Filter by:</span>
+                  <Button
+                    variant={searchFilter === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSearchFilter('all')}
+                  >
+                    All Fields
+                  </Button>
+                  <Button
+                    variant={searchFilter === 'doctor_name' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSearchFilter('doctor_name')}
+                  >
+                    Doctor Name
+                  </Button>
+                  <Button
+                    variant={searchFilter === 'doctor_code' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSearchFilter('doctor_code')}
+                  >
+                    Doctor Code
+                  </Button>
+                  <Button
+                    variant={searchFilter === 'patient_name' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSearchFilter('patient_name')}
+                  >
+                    Patient Name
+                  </Button>
+                  <Button
+                    variant={searchFilter === 'insurance_company' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSearchFilter('insurance_company')}
+                  >
+                    Insurance Company
+                  </Button>
+                  
+                  {/* Clear Button */}
+                  {searchQuery && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSearchFilter('all');
+                      }}
+                      className="ml-auto"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              
+                {/* Search Results Count */}
+                {searchQuery && (
+                  <div className="text-sm text-muted-foreground">
+                    Found {filterVisits(visits.filter(v => v.is_processed), searchQuery, searchFilter).length} result
+                    {filterVisits(visits.filter(v => v.is_processed), searchQuery, searchFilter).length !== 1 ? 's' : ''}
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
 
           {/* Modern Table */}
-          {visits.filter(v => v.is_processed).filter((visit) => {
-            const query = searchQuery.toLowerCase();
-            return (
-              (visit.visit_code && visit.visit_code.toLowerCase().includes(query)) ||
-              visit.doctors?.profiles?.full_name.toLowerCase().includes(query) ||
-              visit.patient_name.toLowerCase().includes(query) ||
-              (visit.patient_id && visit.patient_id.toLowerCase().includes(query))
-            );
-          }).length > 0 ? (
-            <VisitManagementTable
-              visits={visits.filter(v => v.is_processed).filter((visit) => {
-                const query = searchQuery.toLowerCase();
-                return (
-                  (visit.visit_code && visit.visit_code.toLowerCase().includes(query)) ||
-                  visit.doctors?.profiles?.full_name.toLowerCase().includes(query) ||
-                  visit.patient_name.toLowerCase().includes(query) ||
-                  (visit.patient_id && visit.patient_id.toLowerCase().includes(query))
-                );
-              })}
-              onEdit={undefined}
-              onDelete={undefined}
-              onPaymentTypeClick={handlePaymentTypeNavigation}
-              showActions={false}
-              sortField={sortField}
-              sortDirection={sortDirection}
-              onSort={(field) => {
-                if (sortField === field) {
-                  setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-                } else {
-                  setSortField(field);
-                  setSortDirection('desc');
+          {(() => {
+            const processedVisits = visits.filter(v => v.is_processed);
+            const filteredVisits = filterVisits(processedVisits, searchQuery, searchFilter);
+            
+            return filteredVisits.length > 0 ? (
+              <VisitManagementTable
+                visits={filteredVisits}
+                onEdit={undefined}
+                onDelete={undefined}
+                onPaymentTypeClick={handlePaymentTypeNavigation}
+                showActions={false}
+                sortField={sortField}
+                sortDirection={sortDirection}
+                onSort={(field) => {
+                  if (sortField === field) {
+                    setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                  } else {
+                    setSortField(field);
+                    setSortDirection('desc');
+                  }
+                }}
+              />
+            ) : (
+              <EmptyState
+                icon={CheckCircle}
+                title="No Processed Visits"
+                description={
+                  searchQuery 
+                    ? `No processed visits match your search "${searchQuery}"`
+                    : "No visits have been processed yet."
                 }
-              }}
-            />
-          ) : (
-            <EmptyState
-              icon={CheckCircle}
-              title="No Processed Visits"
-              description="Processed visits will appear here after payment advice is generated and approved."
-            />
-          )}
+                action={searchQuery ? {
+                  label: 'Clear Search',
+                  onClick: () => setSearchQuery('')
+                } : undefined}
+              />
+            );
+          })()}
         </TabsContent>
       </Tabs>
     </div>
