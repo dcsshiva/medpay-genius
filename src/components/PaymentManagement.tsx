@@ -187,12 +187,19 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
   });
 
   useEffect(() => {
+    // Guard: Only fetch if user and userRole are loaded
+    if (!user || !userRole) {
+      console.log('Waiting for auth to load...', { user: !!user, userRole });
+      return;
+    }
+    
+    console.log('Auth loaded, fetching payments for:', { userRole, userId: user.id });
     fetchPayments();
     fetchGlobalTotals();
     if (userRole === 'admin' || userRole === 'manager') {
       fetchDoctors();
     }
-  }, [userRole]);
+  }, [user, userRole]); // Added user to dependencies
 
   useEffect(() => {
     if (initialSubTab) {
@@ -255,10 +262,37 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
 
   const fetchPayments = async () => {
     try {
+      console.log('=== fetchPayments START ===');
+      console.log('Current auth state:', { 
+        userRole, 
+        userId: user?.id, 
+        userMetadata: user?.user_metadata 
+      });
+      
       // Use auth_user_id for doctor to match RLS policies
       const userId = userRole === 'doctor' 
         ? user?.user_metadata?.auth_user_id || user?.id
         : user?.id;
+
+      console.log('Resolved userId for RPC call:', userId);
+
+      if (!userId) {
+        console.error('❌ Cannot fetch payments: userId is undefined');
+        toast({
+          variant: "destructive",
+          title: "Authentication Error",
+          description: "Unable to identify user. Please try logging out and back in."
+        });
+        setPayments([]);
+        setLoading(false);
+        return;
+      }
+
+      console.log('Calling get_user_payments RPC with:', {
+        _user_type: userRole === 'doctor' ? 'doctor' : 'staff',
+        _user_id: userId,
+        _user_role: userRole || 'staff'
+      });
 
       const { data, error } = await supabase.rpc('get_user_payments', {
         _user_type: userRole === 'doctor' ? 'doctor' : 'staff',
@@ -267,9 +301,17 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
       });
 
       if (error) {
-        console.error('Error fetching payments:', error);
+        console.error('❌ RPC Error:', error);
+        toast({
+          variant: "destructive",
+          title: "Error Loading Payments",
+          description: error.message || "Failed to load payment data"
+        });
         setPayments([]);
       } else {
+        console.log('✅ RPC Success - Raw data received:', data?.length || 0, 'payments');
+        console.log('Sample payment:', data?.[0]);
+        
         const transformedPayments = await Promise.all((data || []).map(async (payment: any) => {
           // Fetch visits for this payment to calculate payment type breakdown
           const visits = await fetchVisitsForPayment(payment.id);
@@ -325,6 +367,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
           };
         }));
         
+        console.log('✅ Transformed payments:', transformedPayments.length);
         setPayments(transformedPayments);
 
         // Calculate pending total from current payments
@@ -334,10 +377,16 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
         setPendingTotal(currentPendingTotal);
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('❌ Unexpected error in fetchPayments:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "An unexpected error occurred while loading payments"
+      });
       setPayments([]);
     } finally {
       setLoading(false);
+      console.log('=== fetchPayments END ===');
     }
   };
 
@@ -2090,8 +2139,10 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
       const hasCash = (payment.cash_total || 0) > 0;
       const hasInsurance = (payment.insurance_total || 0) > 0;
       
-      if (effectiveFilter === 'cash') return hasCash && !hasInsurance;
-      if (effectiveFilter === 'insurance') return hasInsurance && !hasCash;
+      // More flexible: show payment if it contains the selected type
+      // This handles both pure and mixed payments gracefully
+      if (effectiveFilter === 'cash') return hasCash;
+      if (effectiveFilter === 'insurance') return hasInsurance;
       if (effectiveFilter === 'mixed') return hasCash && hasInsurance;
       return true;
     });
@@ -2347,7 +2398,18 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
          )}
        </div>
 
-      <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full">
+      {loading && (
+        <div className="flex flex-col items-center justify-center py-12 space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <div className="text-center">
+            <p className="text-lg font-medium">Loading payments...</p>
+            <p className="text-sm text-muted-foreground">Please wait while we fetch your data</p>
+          </div>
+        </div>
+      )}
+
+      {!loading && (
+        <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full">
         <div className="flex justify-between items-center mb-4">
           <TabsList className="grid w-full max-w-4xl grid-cols-4">
             <TabsTrigger value="waiting">Waiting for Approval ({waitingForApprovalPayments.length})</TabsTrigger>
@@ -2426,6 +2488,25 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                 setTransactionsDialog(true);
               }}
             />
+            
+            {waitingForApprovalPayments.length === 0 && !loading && (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold mb-2">No Payments Waiting</h3>
+                  <p className="text-muted-foreground">
+                    {userRole === 'doctor' 
+                      ? `No ${paymentTypeOnly ? paymentTypeOnly : ''} payments are currently waiting for approval.`
+                      : 'Create a payment advice to get started.'}
+                  </p>
+                  {userRole === 'doctor' && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Your payments will appear here once they are created by the admin or manager.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           <TabsContent value="paid" className="space-y-4">
@@ -2454,6 +2535,20 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                 setTransactionsDialog(true);
               }}
             />
+            
+            {fullyPaidPayments.length === 0 && !loading && (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <CheckCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold mb-2">No Paid Payments</h3>
+                  <p className="text-muted-foreground">
+                    {userRole === 'doctor' 
+                      ? `No fully paid ${paymentTypeOnly ? paymentTypeOnly : ''} payments yet.`
+                      : 'Paid payments will appear here.'}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </TabsContent>
 
           {/* Bank Advice Tab */}
@@ -2513,8 +2608,9 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
             </TabsContent>
           )}
         </Tabs>
+      )}
 
-        {/* Suspect Dialog */}
+      {/* Suspect Dialog */}
         <Dialog open={suspectDialog} onOpenChange={setSuspectDialog}>
           <DialogContent>
             <DialogHeader>
