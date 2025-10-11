@@ -10,6 +10,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { 
   Clock, 
   CheckCircle, 
@@ -144,8 +150,9 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   }, [payments, sortConfig]);
 
   return (
-    <div className="rounded-md border">
-      <Table>
+    <TooltipProvider>
+      <div className="rounded-md border">
+        <Table>
         <TableHeader>
           <TableRow>
             {showBankAdviceCheckbox && (
@@ -287,79 +294,128 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                         {(userRole === 'manager' && payment.status === 'pending') || 
                          (userRole === 'admin' && (payment.status === 'pending' || payment.status === 'manager_approved')) ? (
                           <>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => onApprove(payment.id)}
-                              className="h-8 px-2"
-                            >
-                              <CheckCircle className="h-4 w-4 text-success" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => onReject(payment.id)}
-                              className="h-8 px-2"
-                            >
-                              <X className="h-4 w-4 text-destructive" />
-                            </Button>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => onApprove(payment.id)}
+                                  className="h-8 px-2"
+                                >
+                                  <CheckCircle className="h-4 w-4 text-success" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Approve payment for {payment.doctors?.profiles?.full_name}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => onReject(payment.id)}
+                                  className="h-8 px-2"
+                                >
+                                  <X className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Reject payment request</p>
+                              </TooltipContent>
+                            </Tooltip>
                           </>
                         ) : null}
                         {userRole === 'admin' && payment.status === 'pending' && (
                           <>
                             {onEdit && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => onEdit(payment)}
-                                className="h-8 px-2"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => onEdit(payment)}
+                                    className="h-8 px-2"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Edit payment details</p>
+                                </TooltipContent>
+                              </Tooltip>
                             )}
                             {onDelete && (
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => onDelete(payment.id)}
-                                className="h-8 px-2"
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => onDelete(payment.id)}
+                                    className="h-8 px-2"
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Delete payment record</p>
+                                </TooltipContent>
+                              </Tooltip>
                             )}
                           </>
                         )}
                         {onMarkSuspect && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => onMarkSuspect(payment)}
-                            className="h-8 px-2"
-                          >
-                            <AlertTriangle className={`h-4 w-4 ${payment.is_suspect ? 'text-warning' : ''}`} />
-                          </Button>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => onMarkSuspect(payment)}
+                                className="h-8 px-2"
+                              >
+                                <AlertTriangle className={`h-4 w-4 ${payment.is_suspect ? 'text-warning' : ''}`} />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{payment.is_suspect ? 'Remove suspect flag' : 'Mark as suspect payment'}</p>
+                            </TooltipContent>
+                          </Tooltip>
                         )}
                       </>
                     )}
                     {payment.status === 'admin_approved' && onRecordPayment && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => onRecordPayment(payment)}
-                        className="h-8 px-2"
-                      >
-                        <CreditCard className="h-4 w-4" />
-                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => onRecordPayment(payment)}
+                            className="h-8 px-2"
+                          >
+                            <CreditCard className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Record payment transaction - {formatCurrency(payment.remaining_amount)} remaining</p>
+                        </TooltipContent>
+                      </Tooltip>
                     )}
                     {onViewTransactions && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => onViewTransactions(payment)}
-                        className="h-8 px-2"
-                      >
-                        <History className="h-4 w-4" />
-                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => onViewTransactions(payment)}
+                            className="h-8 px-2"
+                          >
+                            <History className="h-4 w-4" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>View payment history and transactions</p>
+                        </TooltipContent>
+                      </Tooltip>
                     )}
                   </div>
                   </TableCell>
@@ -391,8 +447,9 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             ))
           )}
         </TableBody>
-      </Table>
-    </div>
+        </Table>
+      </div>
+    </TooltipProvider>
   );
 };
 
