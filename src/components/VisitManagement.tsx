@@ -362,33 +362,38 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      {/* Header Section */}
+      <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Visit Management</h1>
-          <p className="text-muted-foreground">Record and manage patient visits</p>
+          <p className="text-muted-foreground mt-1">Record and manage patient visits</p>
         </div>
         
-        {(userRole === 'admin' || userRole === 'manager') && (
-          <Dialog open={dialogOpen} onOpenChange={(open) => {
-            if (open) {
+        {(userRole === 'admin' || userRole === 'manager' || userRole === 'doctor') && (
+          <Button 
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            onClick={() => {
               resetForm();
               setEditingVisit(null);
-            }
-            setDialogOpen(open);
-          }}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Record Visit
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingVisit ? 'Edit Visit' : 'Record New Visit'}
-                </DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
+              setDialogOpen(true);
+            }}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Record Visit
+          </Button>
+        )}
+      </div>
+
+      {/* Record Visit Dialog */}
+      {(userRole === 'admin' || userRole === 'manager' || userRole === 'doctor') && (
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold">
+                {editingVisit ? 'Edit Visit' : 'Record New Visit'}
+              </DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
                 {(userRole === 'admin' || userRole === 'manager') && (
                   <div className="space-y-2">
                     <Label htmlFor="doctor_id">Doctor</Label>
@@ -544,10 +549,9 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
             </DialogContent>
           </Dialog>
         )}
-      </div>
 
       {/* Enhanced Summary Cards with Gradients and Animation */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6 animate-fade-in">
         <StatsCard
           title="Total Visits"
           value={visits.length}
@@ -581,11 +585,103 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
         />
       </div>
 
-      {/* Report Generation */}
-      <div className="flex justify-end mb-6">
-        <ReportGeneration
-          title="Visit Management Report"
-          data={visits.filter((visit) => {
+      {/* Visits Dashboard with Tabs */}
+      <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="space-y-6">
+        <div className="flex justify-between items-center mb-4">
+          <TabsList className="grid w-full max-w-2xl grid-cols-2">
+            <TabsTrigger value="unprocessed" className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              Unprocessed Visits ({visits.filter(v => !v.is_processed).length})
+            </TabsTrigger>
+            <TabsTrigger value="processed" className="flex items-center gap-2">
+              <CheckCircle className="h-4 w-4" />
+              Processed Visits ({visits.filter(v => v.is_processed).length})
+            </TabsTrigger>
+          </TabsList>
+          
+          {/* Generate Report button aligned to right */}
+          <ReportGeneration
+            title="Visit Management Report"
+            data={visits}
+            columns={[
+              { 
+                key: 'visit_code', 
+                label: 'Visit Code' 
+              },
+              { 
+                key: 'visit_date', 
+                label: 'Visit Date',
+                format: (value) => formatDateIST(value)
+              },
+              { 
+                key: 'doctors.profiles.full_name', 
+                label: 'Doctor Name' 
+              },
+              { 
+                key: 'doctors.doctor_code', 
+                label: 'Doctor Code' 
+              },
+              { 
+                key: 'patient_name', 
+                label: 'Patient Name' 
+              },
+              { 
+                key: 'patient_id', 
+                label: 'Patient ID' 
+              },
+              { 
+                key: 'patient_count', 
+                label: 'Patient Count' 
+              },
+              { 
+                key: 'visit_payment', 
+                label: 'Payment',
+                format: (value) => value ? `₹${value}` : 'N/A'
+              },
+              { 
+                key: 'payment_type', 
+                label: 'Payment Type' 
+              },
+              { 
+                key: 'insurance_company_name', 
+                label: 'Insurance Company'
+              },
+              { 
+                key: 'visit_reason', 
+                label: 'Visit Reason' 
+              },
+              { 
+                key: 'notes', 
+                label: 'Notes' 
+              },
+              { 
+                key: 'is_processed', 
+                label: 'Status',
+                format: (value) => value ? 'Processed' : 'Unprocessed'
+              }
+            ]}
+            filename="visit_management_report"
+          />
+        </div>
+
+        <TabsContent value="unprocessed" className="space-y-4">
+          {/* Search Input for Unprocessed */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Search unprocessed visits by visit code, doctor name, patient name, or patient ID..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Modern Table */}
+          {visits.filter(v => !v.is_processed).filter((visit) => {
             const query = searchQuery.toLowerCase();
             return (
               (visit.visit_code && visit.visit_code.toLowerCase().includes(query)) ||
@@ -593,98 +689,9 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
               visit.patient_name.toLowerCase().includes(query) ||
               (visit.patient_id && visit.patient_id.toLowerCase().includes(query))
             );
-          })}
-          columns={[
-            { 
-              key: 'visit_code', 
-              label: 'Visit Code' 
-            },
-            { 
-              key: 'visit_date', 
-              label: 'Visit Date',
-              format: (value) => formatDateIST(value)
-            },
-            { 
-              key: 'doctors.profiles.full_name', 
-              label: 'Doctor Name' 
-            },
-            { 
-              key: 'doctors.doctor_code', 
-              label: 'Doctor Code' 
-            },
-            { 
-              key: 'patient_name', 
-              label: 'Patient Name' 
-            },
-            { 
-              key: 'patient_id', 
-              label: 'Patient ID' 
-            },
-            { 
-              key: 'patient_count', 
-              label: 'Patient Count' 
-            },
-            { 
-              key: 'visit_payment', 
-              label: 'Payment',
-              format: (value) => value ? `₹${value}` : 'N/A'
-            },
-            { 
-              key: 'payment_type', 
-              label: 'Payment Type' 
-            },
-            { 
-              key: 'insurance_company_name', 
-              label: 'Insurance Company'
-            },
-            { 
-              key: 'visit_reason', 
-              label: 'Visit Reason' 
-            },
-            { 
-              key: 'notes', 
-              label: 'Notes' 
-            },
-            { 
-              key: 'is_processed', 
-              label: 'Status',
-              format: (value) => value ? 'Processed' : 'Unprocessed'
-            }
-          ]}
-          filename="visit_management_report"
-        />
-      </div>
-
-      {/* Visits Dashboard with Tabs */}
-      <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="unprocessed" className="flex items-center gap-2">
-            <Clock className="h-4 w-4" />
-            Unprocessed Visits ({visits.filter(v => !v.is_processed).length})
-          </TabsTrigger>
-          <TabsTrigger value="processed" className="flex items-center gap-2">
-            <CheckCircle className="h-4 w-4" />
-            Processed Visits ({visits.filter(v => v.is_processed).length})
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="unprocessed" className="space-y-6">
-          {/* Search Input for Unprocessed */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Search unprocessed visits by visit code, doctor name, patient name, or patient ID..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-
-          {/* Unprocessed Visits List */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {visits
-              .filter((visit) => !visit.is_processed)
-              .filter((visit) => {
+          }).length > 0 ? (
+            <VisitManagementTable
+              visits={visits.filter(v => !v.is_processed).filter((visit) => {
                 const query = searchQuery.toLowerCase();
                 return (
                   (visit.visit_code && visit.visit_code.toLowerCase().includes(query)) ||
@@ -692,127 +699,62 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                   visit.patient_name.toLowerCase().includes(query) ||
                   (visit.patient_id && visit.patient_id.toLowerCase().includes(query))
                 );
-              })
-               .map((visit) => (
-              <Card key={visit.id}>
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      {visit.visit_code && (
-                        <div className="mb-2">
-                          <Badge variant="outline" className="font-mono text-xs">
-                            {visit.visit_code}
-                          </Badge>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-lg">
-                          {formatDateIST(visit.visit_date)}
-                        </CardTitle>
-                        <Badge variant="outline" className="text-xs">
-                          Unprocessed
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {visit.doctors?.profiles?.full_name} ({visit.doctors?.doctor_code})
-                      </p>
-                      {visit.patient_name && (
-                        <p className="text-sm font-medium">
-                          Patient: {visit.patient_name}
-                          {visit.patient_id && ` (${visit.patient_id})`}
-                        </p>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <Badge variant="secondary">
-                        {visit.patient_count} {visit.patient_count === 1 ? 'Patient' : 'Patients'}
-                      </Badge>
-                      {visit.visit_payment && (
-                        <div className="mt-1 flex flex-col gap-1">
-                          <Badge variant="outline">₹{visit.visit_payment}</Badge>
-                          <Badge variant={visit.payment_type === 'cash' ? 'default' : 'secondary'} className="text-xs">
-                            {visit.payment_type === 'cash' ? 'Cash' : 'Insurance'}
-                          </Badge>
-                          {visit.payment_type === 'insurance' && visit.insurance_company_name && (
-                            <span className="text-xs text-muted-foreground">
-                              {visit.insurance_company_name}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Reason:</span>
-                      <span className="font-medium capitalize">{visit.visit_reason.replace('_', ' ')}</span>
-                    </div>
-                    {visit.notes && (
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Notes:</span>
-                        <p className="mt-1 text-sm bg-muted p-2 rounded">{visit.notes}</p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {(userRole === 'admin' || userRole === 'manager') && (
-                    <div className="flex space-x-2 mt-4">
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => handleEdit(visit)}
-                      >
-                        <Edit className="h-4 w-4 mr-1" />
-                        Edit
-                      </Button>
-                      <Button 
-                        variant="destructive" 
-                        size="sm"
-                        onClick={() => handleDelete(visit.id)}
-                      >
-                        <Trash2 className="h-4 w-4 mr-1" />
-                        Delete
-                      </Button>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* Empty State for Unprocessed */}
-          {visits.filter(v => !v.is_processed).length === 0 && (
+              })}
+              onEdit={(userRole === 'admin' || userRole === 'manager') ? handleEdit : undefined}
+              onDelete={(userRole === 'admin' || userRole === 'manager') ? handleDelete : undefined}
+              showActions={userRole === 'admin' || userRole === 'manager'}
+              sortField={sortField}
+              sortDirection={sortDirection}
+              onSort={(field) => {
+                if (sortField === field) {
+                  setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                } else {
+                  setSortField(field);
+                  setSortDirection('desc');
+                }
+              }}
+            />
+          ) : (
             <EmptyState
-              icon={Clock}
+              icon={FileText}
               title="No Unprocessed Visits"
-              description="All visits have been processed in payment advice. New visits will appear here when they're added."
-              action={(userRole === 'admin' || userRole === 'manager') ? {
-                label: 'Record Visit',
+              description="All visits have been processed or no visits recorded yet."
+              action={(userRole === 'admin' || userRole === 'manager' || userRole === 'doctor') ? {
+                label: 'Record New Visit',
                 onClick: () => setDialogOpen(true)
               } : undefined}
             />
           )}
         </TabsContent>
 
-        <TabsContent value="processed" className="space-y-6">
+        <TabsContent value="processed" className="space-y-4">
           {/* Search Input for Processed */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Search processed visits by visit code, doctor name, patient name, or patient ID..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
-            />
-          </div>
+          <Card>
+            <CardContent className="pt-6">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Search processed visits by visit code, doctor name, patient name, or patient ID..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            </CardContent>
+          </Card>
 
-          {/* Processed Visits List */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {visits
-              .filter((visit) => visit.is_processed)
-              .filter((visit) => {
+          {/* Modern Table */}
+          {visits.filter(v => v.is_processed).filter((visit) => {
+            const query = searchQuery.toLowerCase();
+            return (
+              (visit.visit_code && visit.visit_code.toLowerCase().includes(query)) ||
+              visit.doctors?.profiles?.full_name.toLowerCase().includes(query) ||
+              visit.patient_name.toLowerCase().includes(query) ||
+              (visit.patient_id && visit.patient_id.toLowerCase().includes(query))
+            );
+          }).length > 0 ? (
+            <VisitManagementTable
+              visits={visits.filter(v => v.is_processed).filter((visit) => {
                 const query = searchQuery.toLowerCase();
                 return (
                   (visit.visit_code && visit.visit_code.toLowerCase().includes(query)) ||
@@ -820,91 +762,27 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                   visit.patient_name.toLowerCase().includes(query) ||
                   (visit.patient_id && visit.patient_id.toLowerCase().includes(query))
                 );
-              })
-               .map((visit) => (
-              <Card key={visit.id} className="opacity-80 border-success/20">
-                <CardHeader>
-                  <div className="flex justify-between items-start">
-                    <div>
-                      {visit.visit_code && (
-                        <div className="mb-2">
-                          <Badge variant="outline" className="font-mono text-xs">
-                            {visit.visit_code}
-                          </Badge>
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2">
-                        <CardTitle className="text-lg">
-                          {formatDateIST(visit.visit_date)}
-                        </CardTitle>
-                        <Badge variant="default" className="text-xs bg-success">
-                          Processed
-                        </Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground">
-                        {visit.doctors?.profiles?.full_name} ({visit.doctors?.doctor_code})
-                      </p>
-                      {visit.patient_name && (
-                        <p className="text-sm font-medium">
-                          Patient: {visit.patient_name}
-                          {visit.patient_id && ` (${visit.patient_id})`}
-                        </p>
-                      )}
-                      {visit.processed_at && (
-                        <p className="text-xs text-muted-foreground">
-                          Processed: {formatDateTimeIST(visit.processed_at)}
-                        </p>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <Badge variant="secondary">
-                        {visit.patient_count} {visit.patient_count === 1 ? 'Patient' : 'Patients'}
-                      </Badge>
-                      {visit.visit_payment && (
-                        <div className="mt-1 flex flex-col gap-1">
-                          <Badge variant="outline">₹{visit.visit_payment}</Badge>
-                          <Badge variant={visit.payment_type === 'cash' ? 'default' : 'secondary'} className="text-xs">
-                            {visit.payment_type === 'cash' ? 'Cash' : 'Insurance'}
-                          </Badge>
-                          {visit.payment_type === 'insurance' && visit.insurance_company_name && (
-                            <span className="text-xs text-muted-foreground">
-                              {visit.insurance_company_name}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Reason:</span>
-                      <span className="font-medium capitalize">{visit.visit_reason.replace('_', ' ')}</span>
-                    </div>
-                    {visit.notes && (
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Notes:</span>
-                        <p className="mt-1 text-sm bg-muted p-2 rounded">{visit.notes}</p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* Empty State for Processed */}
-          {visits.filter(v => v.is_processed).length === 0 && (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <CheckCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="text-lg font-medium mb-2">No processed visits</h3>
-                <p className="text-muted-foreground text-center mb-4">
-                  No visits have been processed in payment advice yet.
-                </p>
-              </CardContent>
-            </Card>
+              })}
+              onEdit={undefined}
+              onDelete={undefined}
+              showActions={false}
+              sortField={sortField}
+              sortDirection={sortDirection}
+              onSort={(field) => {
+                if (sortField === field) {
+                  setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                } else {
+                  setSortField(field);
+                  setSortDirection('desc');
+                }
+              }}
+            />
+          ) : (
+            <EmptyState
+              icon={CheckCircle}
+              title="No Processed Visits"
+              description="Processed visits will appear here after payment advice is generated and approved."
+            />
           )}
         </TabsContent>
       </Tabs>

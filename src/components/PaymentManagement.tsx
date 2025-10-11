@@ -2671,13 +2671,16 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                   >
                     Patient Name
                   </Button>
-                  <Button
-                    variant={searchFilter === 'insurance_name' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSearchFilter('insurance_name')}
-                  >
-                    Insurance Company
-                  </Button>
+                  {/* Only show Insurance Company filter for insurance payments */}
+                  {paymentTypeOnly !== 'cash' && (
+                    <Button
+                      variant={searchFilter === 'insurance_name' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setSearchFilter('insurance_name')}
+                    >
+                      Insurance Company
+                    </Button>
+                  )}
                   
                   {/* Clear Button */}
                   {searchTerm && (
