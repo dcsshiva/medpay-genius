@@ -119,6 +119,11 @@ interface Visit {
   notes?: string;
   is_processed: boolean;
   doctor_id: string;
+  insurance_company_id?: string;
+  insurance_companies?: {
+    company_name: string;
+    company_code?: string;
+  };
   doctors: {
     doctor_code: string;
     profiles: {
@@ -247,7 +252,12 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
             visit_payment,
             payment_type,
             patient_count,
-            visit_date
+            visit_date,
+            insurance_company_id,
+            insurance_companies (
+              company_name,
+              company_code
+            )
           )
         `)
         .eq('payment_id', paymentId);

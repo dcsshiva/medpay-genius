@@ -31,12 +31,21 @@ interface Visit {
   is_processed: boolean;
   processed_in_payment_id?: string;
   processed_at?: string;
+  insurance_company_id?: string;
+  insurance_company_name?: string;
+  insurance_company_code?: string;
   doctors: {
     doctor_code: string;
     profiles: {
       full_name: string;
     };
   };
+}
+
+interface InsuranceCompany {
+  id: string;
+  company_name: string;
+  company_code?: string;
 }
 
 interface Doctor {
@@ -56,6 +65,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
   const { toast } = useToast();
   const [visits, setVisits] = useState<Visit[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
+  const [insuranceCompanies, setInsuranceCompanies] = useState<InsuranceCompany[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -73,11 +83,13 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
     payment_type: 'cash',
     visit_reason: 'regular_checkup',
     notes: '',
-    doctor_id: ''
+    doctor_id: '',
+    insurance_company_id: ''
   });
 
   useEffect(() => {
     fetchVisits();
+    fetchInsuranceCompanies();
     if (userRole === 'admin' || userRole === 'manager') {
       fetchDoctors();
     }
@@ -122,6 +134,9 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
           is_processed: visit.is_processed,
           processed_in_payment_id: visit.processed_in_payment_id,
           processed_at: visit.processed_at,
+          insurance_company_id: visit.insurance_company_id,
+          insurance_company_name: visit.insurance_company_name,
+          insurance_company_code: visit.insurance_company_code,
           doctors: {
             doctor_code: visit.doctor_code,
             profiles: {
@@ -168,8 +183,39 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
     }
   };
 
+  const fetchInsuranceCompanies = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('insurance_companies')
+        .select('id, company_name, company_code')
+        .eq('is_active', true)
+        .order('display_order');
+
+      if (error) throw error;
+      setInsuranceCompanies(data || []);
+    } catch (error) {
+      console.error('Error fetching insurance companies:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch insurance companies"
+      });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validation: insurance company required when payment type is insurance
+    if (formData.payment_type === 'insurance' && !formData.insurance_company_id) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Please select an insurance company for insurance payment type"
+      });
+      return;
+    }
+    
     setSubmitting(true);
 
     try {
@@ -186,7 +232,8 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
         payment_type: formData.payment_type,
         visit_reason: formData.visit_reason,
         notes: formData.notes || null,
-        doctor_id: doctorId
+        doctor_id: doctorId,
+        insurance_company_id: formData.payment_type === 'insurance' ? formData.insurance_company_id : null
       };
 
       if (editingVisit) {
@@ -240,7 +287,8 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
       payment_type: 'cash',
       visit_reason: 'regular_checkup',
       notes: '',
-      doctor_id: ''
+      doctor_id: '',
+      insurance_company_id: ''
     });
     setEditingVisit(null);
   };
@@ -255,7 +303,8 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
       payment_type: visit.payment_type,
       visit_reason: visit.visit_reason,
       notes: visit.notes || '',
-      doctor_id: visit.doctor_id
+      doctor_id: visit.doctor_id,
+      insurance_company_id: visit.insurance_company_id || ''
     });
     setEditingVisit(visit);
     setDialogOpen(true);
@@ -417,7 +466,14 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="payment_type">Payment Type</Label>
-                    <Select value={formData.payment_type} onValueChange={(value) => setFormData({ ...formData, payment_type: value })}>
+                    <Select 
+                      value={formData.payment_type} 
+                      onValueChange={(value) => setFormData({ 
+                        ...formData, 
+                        payment_type: value,
+                        insurance_company_id: value === 'cash' ? '' : formData.insurance_company_id
+                      })}
+                    >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
@@ -428,6 +484,28 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     </Select>
                   </div>
                 </div>
+
+                {formData.payment_type === 'insurance' && (
+                  <div className="space-y-2">
+                    <Label htmlFor="insurance_company">Insurance Company *</Label>
+                    <Select 
+                      value={formData.insurance_company_id} 
+                      onValueChange={(value) => setFormData({ ...formData, insurance_company_id: value })}
+                      required
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select insurance company" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {insuranceCompanies.map((company) => (
+                          <SelectItem key={company.id} value={company.id}>
+                            {company.company_name} {company.company_code && `(${company.company_code})`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="visit_reason">Visit Reason</Label>
@@ -560,6 +638,10 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
               label: 'Payment Type' 
             },
             { 
+              key: 'insurance_company_name', 
+              label: 'Insurance Company'
+            },
+            { 
               key: 'visit_reason', 
               label: 'Visit Reason' 
             },
@@ -655,6 +737,11 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                           <Badge variant={visit.payment_type === 'cash' ? 'default' : 'secondary'} className="text-xs">
                             {visit.payment_type === 'cash' ? 'Cash' : 'Insurance'}
                           </Badge>
+                          {visit.payment_type === 'insurance' && visit.insurance_company_name && (
+                            <span className="text-xs text-muted-foreground">
+                              {visit.insurance_company_name}
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>
@@ -783,6 +870,11 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                           <Badge variant={visit.payment_type === 'cash' ? 'default' : 'secondary'} className="text-xs">
                             {visit.payment_type === 'cash' ? 'Cash' : 'Insurance'}
                           </Badge>
+                          {visit.payment_type === 'insurance' && visit.insurance_company_name && (
+                            <span className="text-xs text-muted-foreground">
+                              {visit.insurance_company_name}
+                            </span>
+                          )}
                         </div>
                       )}
                     </div>

@@ -20,6 +20,9 @@ interface Visit {
   is_processed: boolean;
   processed_in_payment_id?: string;
   processed_at?: string;
+  insurance_company_id?: string;
+  insurance_company_name?: string;
+  insurance_company_code?: string;
   doctors: {
     doctor_code: string;
     profiles: {
@@ -68,6 +71,7 @@ export const VisitManagementTable: React.FC<VisitManagementTableProps> = ({
           </TableHead>
           <TableHead className="text-center">Patient Count</TableHead>
           <TableHead>Payment Type</TableHead>
+          <TableHead>Insurance Company</TableHead>
           <TableHead className="text-right">Amount</TableHead>
           <TableHead>Visit Reason</TableHead>
           <TableHead>Status</TableHead>
@@ -98,6 +102,18 @@ export const VisitManagementTable: React.FC<VisitManagementTableProps> = ({
               <Badge variant={visit.payment_type === 'cash' ? 'default' : 'secondary'}>
                 {visit.payment_type === 'cash' ? 'Cash' : 'Insurance'}
               </Badge>
+            </TableCell>
+            <TableCell>
+              {visit.payment_type === 'insurance' && visit.insurance_company_name ? (
+                <div>
+                  <div className="font-medium">{visit.insurance_company_name}</div>
+                  {visit.insurance_company_code && (
+                    <div className="text-xs text-muted-foreground">{visit.insurance_company_code}</div>
+                  )}
+                </div>
+              ) : (
+                <span className="text-muted-foreground">-</span>
+              )}
             </TableCell>
             <TableCell className="text-right font-medium">
               {visit.visit_payment ? `₹${visit.visit_payment.toFixed(2)}` : '-'}

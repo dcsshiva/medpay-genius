@@ -1145,6 +1145,7 @@ export type Database = {
           created_at: string
           doctor_id: string
           id: string
+          insurance_company_id: string | null
           is_processed: boolean
           notes: string | null
           patient_count: number
@@ -1163,6 +1164,7 @@ export type Database = {
           created_at?: string
           doctor_id: string
           id?: string
+          insurance_company_id?: string | null
           is_processed?: boolean
           notes?: string | null
           patient_count?: number
@@ -1181,6 +1183,7 @@ export type Database = {
           created_at?: string
           doctor_id?: string
           id?: string
+          insurance_company_id?: string | null
           is_processed?: boolean
           notes?: string | null
           patient_count?: number
@@ -1201,6 +1204,13 @@ export type Database = {
             columns: ["doctor_id"]
             isOneToOne: false
             referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "visits_insurance_company_id_fkey"
+            columns: ["insurance_company_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_companies"
             referencedColumns: ["id"]
           },
           {
@@ -1456,6 +1466,9 @@ export type Database = {
           doctor_id: string
           doctor_name: string
           id: string
+          insurance_company_code: string
+          insurance_company_id: string
+          insurance_company_name: string
           is_processed: boolean
           notes: string
           patient_count: number
