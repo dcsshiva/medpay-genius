@@ -74,27 +74,23 @@ const ComplaintManagement = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [adminResponse, setAdminResponse] = useState('');
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
+  const [complaintCategories, setComplaintCategories] = useState<Array<{
+    id: string;
+    category_code: string;
+    category_name: string;
+  }>>([]);
   const [formData, setFormData] = useState({
     complaint_title: '',
     complaint_description: '',
-    category: 'general',
+    category: '',
     priority: 'medium',
     complaint_against: ''
   });
 
-  const categories = [
-    { value: 'general', label: 'General' },
-    { value: 'equipment', label: 'Equipment' },
-    { value: 'facility', label: 'Facility' },
-    { value: 'workload', label: 'Workload' },
-    { value: 'policy', label: 'Policy' },
-    { value: 'safety', label: 'Safety' },
-    { value: 'other', label: 'Other' }
-  ];
-
   useEffect(() => {
     fetchComplaints();
     fetchActiveStaff();
+    fetchComplaintCategories();
   }, [userRole]);
 
   // Real-time subscription for complaints
@@ -143,6 +139,29 @@ const ComplaintManagement = () => {
     };
   }, []);
 
+  // Real-time subscription for complaint categories
+  useEffect(() => {
+    const channel = supabase
+      .channel('complaint-categories-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'complaint_categories'
+        },
+        (payload) => {
+          console.log('Complaint category change detected:', payload);
+          fetchComplaintCategories();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   const fetchActiveStaff = async () => {
     try {
       const { data, error } = await supabase
@@ -155,6 +174,21 @@ const ComplaintManagement = () => {
       setStaffList(data || []);
     } catch (error) {
       console.error('Error fetching staff:', error);
+    }
+  };
+
+  const fetchComplaintCategories = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('complaint_categories')
+        .select('id, category_code, category_name')
+        .eq('is_active', true)
+        .order('display_order');
+
+      if (error) throw error;
+      setComplaintCategories(data || []);
+    } catch (error) {
+      console.error('Error fetching complaint categories:', error);
     }
   };
 
@@ -401,7 +435,7 @@ const ComplaintManagement = () => {
     setFormData({
       complaint_title: '',
       complaint_description: '',
-      category: 'general',
+      category: '',
       priority: 'medium',
       complaint_against: ''
     });
@@ -528,11 +562,13 @@ const ComplaintManagement = () => {
                     <SelectValue placeholder="Select staff member (if applicable)" />
                   </SelectTrigger>
                   <SelectContent>
-                    {staffList.map((staff) => (
-                      <SelectItem key={staff.id} value={staff.id}>
-                        {staff.full_name} ({staff.staff_code}) - {staff.role}
-                      </SelectItem>
-                    ))}
+                    {staffList
+                      .filter(staff => staff.role !== 'admin')
+                      .map((staff) => (
+                        <SelectItem key={staff.id} value={staff.id}>
+                          {staff.full_name} ({staff.staff_code}) - {staff.role}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -548,9 +584,9 @@ const ComplaintManagement = () => {
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((category) => (
-                        <SelectItem key={category.value} value={category.value}>
-                          {category.label}
+                      {complaintCategories.map((category) => (
+                        <SelectItem key={category.id} value={category.category_code}>
+                          {category.category_name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -717,9 +753,9 @@ const ComplaintManagement = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Categories</SelectItem>
-            {categories.map((category) => (
-              <SelectItem key={category.value} value={category.value}>
-                {category.label}
+            {complaintCategories.map((category) => (
+              <SelectItem key={category.id} value={category.category_code}>
+                {category.category_name}
               </SelectItem>
             ))}
           </SelectContent>
