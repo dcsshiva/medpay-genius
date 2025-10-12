@@ -164,9 +164,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
     <Sidebar className="border-r">
       <SidebarHeader className="border-b p-4">
         <div className="flex items-center space-x-3">
-          <div className="bg-white p-2 rounded-lg shadow-sm">
-            <img src={westmedLogo} alt="WestMed Hospital" className="h-8 w-8" />
-          </div>
+          <img src={westmedLogo} alt="WestMed Hospital" className="h-8 w-8" />
           {!isCollapsed && (
             <div>
               <h1 className="text-lg font-bold">WestMed</h1>

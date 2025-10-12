@@ -153,9 +153,7 @@ const Auth = () => {
         
         <div className="text-center mb-8">
           <div className="flex justify-center mb-4">
-            <div className="bg-white p-4 rounded-full shadow-lg">
-              <img src={westmedLogo} alt="WestMed Hospital Logo" className="h-16 w-16" />
-            </div>
+            <img src={westmedLogo} alt="WestMed Hospital Logo" className="h-16 w-16" />
           </div>
           <h1 className="text-3xl font-bold text-white drop-shadow-lg">WestMed Hospital</h1>
           <p className="text-white/90 drop-shadow-md">Hospital Management System</p>
