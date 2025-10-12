@@ -88,7 +88,6 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
   const [activeSubTab, setActiveSubTab] = useState('unprocessed');
   const [formData, setFormData] = useState({
     visit_date: formatInputDateIST(getCurrentISTDate()),
-    patient_count: 1,
     patient_id: '',
     patient_name: '',
     visit_payment: '',
@@ -254,6 +253,22 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
     };
   }, []);
 
+  const isFormValid = () => {
+    // Basic required fields
+    if (!formData.patient_name.trim()) return false;
+    if (!formData.visit_payment || parseFloat(formData.visit_payment) <= 0) return false;
+    if (!formData.payment_type) return false;
+    if (!formData.visit_reason) return false;
+    
+    // Doctor required for admin/manager
+    if ((userRole === 'admin' || userRole === 'manager') && !formData.doctor_id) return false;
+    
+    // Insurance company required when payment type is insurance
+    if (formData.payment_type === 'insurance' && !formData.insurance_company_id) return false;
+    
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -261,8 +276,8 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
     if (formData.payment_type === 'insurance' && !formData.insurance_company_id) {
       toast({
         variant: "destructive",
-        title: "Validation Error",
-        description: "Please select an insurance company for insurance payment type"
+        title: "Insurance Company Required",
+        description: "Please select an insurance company before recording this visit"
       });
       return;
     }
@@ -276,10 +291,10 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
 
       const visitData = {
         visit_date: formData.visit_date,
-        patient_count: parseInt(formData.patient_count.toString()),
+        patient_count: 1,
         patient_id: formData.patient_id || null,
         patient_name: formData.patient_name,
-        visit_payment: formData.visit_payment ? parseFloat(formData.visit_payment) : null,
+        visit_payment: parseFloat(formData.visit_payment),
         payment_type: formData.payment_type,
         visit_reason: formData.visit_reason,
         notes: formData.notes || null,
@@ -331,7 +346,6 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
   const resetForm = () => {
     setFormData({
       visit_date: formatInputDateIST(getCurrentISTDate()),
-      patient_count: 1,
       patient_id: '',
       patient_name: '',
       visit_payment: '',
@@ -347,7 +361,6 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
   const handleEdit = (visit: Visit) => {
     setFormData({
       visit_date: visit.visit_date,
-      patient_count: visit.patient_count,
       patient_id: visit.patient_id || '',
       patient_name: visit.patient_name,
       visit_payment: visit.visit_payment?.toString() || '',
@@ -489,9 +502,10 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
               </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-3">
+                {/* 1. Doctor (admin/manager only) */}
                 {(userRole === 'admin' || userRole === 'manager') && (
                   <div className="space-y-1.5">
-                    <Label htmlFor="doctor_id">Doctor</Label>
+                    <Label htmlFor="doctor_id">Doctor *</Label>
                     <Select value={formData.doctor_id} onValueChange={(value) => setFormData({ ...formData, doctor_id: value })}>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a doctor" />
@@ -507,90 +521,81 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="visit_date">Discharge Date</Label>
-                    <Input
-                      id="visit_date"
-                      type="date"
-                      value={formData.visit_date}
-                      onChange={(e) => setFormData({ ...formData, visit_date: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="patient_count">Patient Count</Label>
-                    <Input
-                      id="patient_count"
-                      type="number"
-                      min="1"
-                      value={formData.patient_count}
-                      onChange={(e) => setFormData({ ...formData, patient_count: parseInt(e.target.value) || 1 })}
-                      required
-                    />
-                  </div>
+                {/* 2. Discharge Date */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="visit_date">Discharge Date *</Label>
+                  <Input
+                    id="visit_date"
+                    type="date"
+                    value={formData.visit_date}
+                    onChange={(e) => setFormData({ ...formData, visit_date: e.target.value })}
+                    required
+                  />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="patient_name">Patient Name</Label>
-                    <Input
-                      id="patient_name"
-                      value={formData.patient_name}
-                      onChange={(e) => setFormData({ ...formData, patient_name: e.target.value })}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="patient_id">Patient ID (Optional)</Label>
-                    <Input
-                      id="patient_id"
-                      value={formData.patient_id}
-                      onChange={(e) => setFormData({ ...formData, patient_id: e.target.value })}
-                    />
-                  </div>
+                {/* 3. Patient Name */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="patient_name">Patient Name *</Label>
+                  <Input
+                    id="patient_name"
+                    value={formData.patient_name}
+                    onChange={(e) => setFormData({ ...formData, patient_name: e.target.value })}
+                    required
+                  />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="visit_payment">Payment Amount (Optional)</Label>
-                    <Input
-                      id="visit_payment"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.visit_payment}
-                      onChange={(e) => setFormData({ ...formData, visit_payment: e.target.value })}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="payment_type">Payment Type</Label>
-                    <Select 
-                      value={formData.payment_type} 
-                      onValueChange={(value) => setFormData({ 
-                        ...formData, 
-                        payment_type: value,
-                        insurance_company_id: value === 'cash' ? '' : formData.insurance_company_id
-                      })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="cash">Cash</SelectItem>
-                        <SelectItem value="insurance">Insurance</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                {/* 4. Patient ID (Optional) */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="patient_id">Patient ID (Optional)</Label>
+                  <Input
+                    id="patient_id"
+                    value={formData.patient_id}
+                    onChange={(e) => setFormData({ ...formData, patient_id: e.target.value })}
+                  />
                 </div>
 
+                {/* 5. Payment (Required) */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="visit_payment">Payment *</Label>
+                  <Input
+                    id="visit_payment"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.visit_payment}
+                    onChange={(e) => setFormData({ ...formData, visit_payment: e.target.value })}
+                    required
+                  />
+                </div>
+
+                {/* 6. Payment Type (Required) */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="payment_type">Payment Type *</Label>
+                  <Select 
+                    value={formData.payment_type} 
+                    onValueChange={(value) => setFormData({ 
+                      ...formData, 
+                      payment_type: value,
+                      insurance_company_id: value === 'cash' ? '' : formData.insurance_company_id
+                    })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="insurance">Insurance</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* 7. Insurance Company (conditionally required) */}
                 {formData.payment_type === 'insurance' && (
                   <div className="space-y-1.5">
                     <Label htmlFor="insurance_company">Insurance Company *</Label>
                     <Select 
                       value={formData.insurance_company_id} 
                       onValueChange={(value) => setFormData({ ...formData, insurance_company_id: value })}
-                      required
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select insurance company" />
@@ -606,8 +611,9 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                   </div>
                 )}
 
+                {/* 8. Visit Reason (Required) */}
                 <div className="space-y-1.5">
-                  <Label htmlFor="visit_reason">Visit Reason</Label>
+                  <Label htmlFor="visit_reason">Visit Reason *</Label>
                   <Select value={formData.visit_reason} onValueChange={(value) => setFormData({ ...formData, visit_reason: value })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select visit reason" />
@@ -622,6 +628,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                   </Select>
                 </div>
 
+                {/* 9. Notes (Optional) */}
                 <div className="space-y-1.5">
                   <Label htmlFor="notes">Notes (Optional)</Label>
                   <Textarea
@@ -637,7 +644,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={submitting}>
+                  <Button type="submit" disabled={submitting || !isFormValid()}>
                     {submitting ? (editingVisit ? 'Updating...' : 'Recording...') : (editingVisit ? 'Update Visit' : 'Record Visit')}
                   </Button>
                 </div>
