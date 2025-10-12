@@ -163,7 +163,7 @@ const Auth = () => {
 
         <Card>
           <CardContent className="pt-6">
-            <Tabs defaultValue="staff" className="w-full">
+            <Tabs defaultValue="doctor" className="w-full">
               <TabsList className="grid w-full grid-cols-3">
                 <TabsTrigger value="staff" className="flex items-center gap-2">
                   <LogIn className="h-4 w-4" />
