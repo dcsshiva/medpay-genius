@@ -359,8 +359,10 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
         console.log('Sample payment:', data?.[0]);
         
         const transformedPayments = await Promise.all((data || []).map(async (payment: any) => {
+          console.log('🔍 Fetching visits for payment:', payment.id);
           // Fetch visits for this payment to calculate payment type breakdown
           const visits = await fetchVisitsForPayment(payment.id);
+          console.log('✅ Visits fetched:', visits.length, visits);
           
           // Calculate latest discharge date from all visits
           const discharge_date = visits.length > 0
@@ -378,6 +380,13 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
           const cash_visits = cashVisits.reduce((sum, v) => sum + v.patient_count, 0);
           const insurance_total = insuranceVisits.reduce((sum, v) => sum + (v.visit_payment || 0), 0);
           const insurance_visits = insuranceVisits.reduce((sum, v) => sum + v.patient_count, 0);
+          
+          console.log('💰 Payment totals for', payment.id, ':', { 
+            cash_total, 
+            insurance_total,
+            cashVisits: cashVisits.length,
+            insuranceVisits: insuranceVisits.length 
+          });
 
           // Extract all patient names and insurance companies
           const patient_names = visits
@@ -438,7 +447,10 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
           };
         }));
         
-        console.log('✅ Transformed payments:', transformedPayments.length);
+        console.log('📊 Final transformed payments:', transformedPayments.length);
+        transformedPayments.forEach(p => {
+          console.log(`  - Payment ${p.id}: cash=₹${p.cash_total}, insurance=₹${p.insurance_total}`);
+        });
         setPayments(transformedPayments);
 
         // Calculate pending total from current payments
