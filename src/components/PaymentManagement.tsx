@@ -2280,7 +2280,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
     
     return (cashNeedsApproval || insuranceNeedsApproval) && !p.is_fully_paid;
   }));
-  const fullyPaidPayments = filterPaymentsByType(payments.filter(p => p.is_fully_paid));
+  const fullyPaidPayments = filterPaymentsByType(payments.filter(p => p.is_fully_paid && !p.bank_advice_generated));
 
   // Report generation configuration
   const paymentReportColumns = [
@@ -2741,7 +2741,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
           <div className="flex justify-between items-center mb-4">
             <TabsList className="grid w-full max-w-4xl grid-cols-4">
             <TabsTrigger value="waiting">Waiting for Approval ({waitingForApprovalPayments.length})</TabsTrigger>
-            <TabsTrigger value="paid">Fully Paid ({fullyPaidPayments.length})</TabsTrigger>
+            <TabsTrigger value="paid">Waiting for bank approval ({fullyPaidPayments.length})</TabsTrigger>
             {(userRole === 'admin' || userRole === 'manager') && (
               <TabsTrigger value="bankadvice">
                 <Building2 className="h-4 w-4 mr-1" />
@@ -2838,13 +2838,13 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
 
           <TabsContent value="paid" className="space-y-4">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Fully Paid Payments</h3>
+              <h3 className="text-lg font-semibold">Waiting for Bank Approval</h3>
               {fullyPaidPayments.length > 0 && (userRole === 'admin' || userRole === 'manager') && (
                 <ReportGeneration
-                  title="Fully Paid Payments Report"
+                  title="Waiting for Bank Approval Report"
                   data={fullyPaidPayments}
                   columns={paymentReportColumns}
-                  filename="payment_fully_paid_report"
+                  filename="payment_waiting_bank_approval_report"
                 />
               )}
             </div>
@@ -2866,12 +2866,12 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
             {fullyPaidPayments.length === 0 && !loading && (
               <Card>
                 <CardContent className="py-12 text-center">
-                  <CheckCircle className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                  <h3 className="text-lg font-semibold mb-2">No Paid Payments</h3>
+                  <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                  <h3 className="text-lg font-semibold mb-2">No Payments Awaiting Bank Approval</h3>
                   <p className="text-muted-foreground">
                     {userRole === 'doctor' 
-                      ? `No fully paid ${paymentTypeOnly ? paymentTypeOnly : ''} payments yet.`
-                      : 'Paid payments will appear here.'}
+                      ? `No ${paymentTypeOnly ? paymentTypeOnly : ''} payments waiting for bank approval.`
+                      : 'Payments awaiting bank approval will appear here.'}
                   </p>
                 </CardContent>
               </Card>
