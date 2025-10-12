@@ -283,30 +283,23 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
 
   const fetchVisitsForPayment = async (paymentId: string) => {
     try {
-      // Use junction table to get exact visits in this payment
-      const { data, error } = await supabase
-        .from('payment_visits')
-        .select(`
-          visit_id,
-          visits (
-            visit_payment,
-            payment_type,
-            patient_count,
-            patient_name,
-            visit_date,
-            insurance_company_id,
-            insurance_companies (
-              company_name,
-              company_code
-            )
-          )
-        `)
-        .eq('payment_id', paymentId);
+      if (!user?.id) {
+        console.error('No user ID for fetching payment visits');
+        return [];
+      }
 
-      if (error) throw error;
-      
-      // Flatten the nested structure
-      return (data || []).map(item => item.visits).filter(Boolean);
+      // Use RPC function with SECURITY DEFINER to bypass RLS
+      const { data, error } = await supabase.rpc('get_payment_visits', {
+        _payment_id: paymentId,
+        _user_id: user.id
+      });
+
+      if (error) {
+        console.error('Error fetching visits for payment:', error);
+        return [];
+      }
+
+      return data || [];
     } catch (error) {
       console.error('Error fetching visits for payment:', error);
       return [];
@@ -394,8 +387,8 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
           const insurance_company_names = Array.from(
             new Set(
               visits
-                .filter(v => v.insurance_companies?.company_name)
-                .map(v => v.insurance_companies.company_name)
+                .filter(v => v.company_name)
+                .map(v => v.company_name)
             )
           );
 

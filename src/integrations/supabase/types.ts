@@ -1358,6 +1358,19 @@ export type Database = {
           pending_insurance: number
         }[]
       }
+      get_payment_visits: {
+        Args: { _payment_id: string; _user_id: string }
+        Returns: {
+          company_code: string
+          company_name: string
+          insurance_company_id: string
+          patient_count: number
+          patient_name: string
+          payment_type: string
+          visit_date: string
+          visit_payment: number
+        }[]
+      }
       get_staff_appraisal_summary: {
         Args: { _staff_id: string }
         Returns: {
