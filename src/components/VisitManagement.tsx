@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
@@ -20,6 +21,8 @@ import { StatsCard } from '@/components/ui/stats-card';
 import { LoadingScreen } from '@/components/ui/loading-skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FilterChips } from '@/components/ui/filter-chip';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { cn } from '@/lib/utils';
 
 interface Visit {
   id: string;
@@ -69,6 +72,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
   const { userRole, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [visits, setVisits] = useState<Visit[]>([]);
   const [doctors, setDoctors] = useState<Doctor[]>([]);
   const [insuranceCompanies, setInsuranceCompanies] = useState<InsuranceCompany[]>([]);
@@ -492,166 +496,342 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
         )}
       </div>
 
-      {/* Record Visit Dialog */}
+      {/* Record Visit Dialog/Sheet */}
       {(userRole === 'admin' || userRole === 'manager' || userRole === 'doctor') && (
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-4">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-bold">
-                {editingVisit ? 'Edit Visit' : 'Record New Visit'}
-              </DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-3">
-                {/* 1. Doctor (admin/manager only) */}
-                {(userRole === 'admin' || userRole === 'manager') && (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="doctor_id">Doctor *</Label>
-                    <Select value={formData.doctor_id} onValueChange={(value) => setFormData({ ...formData, doctor_id: value })}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a doctor" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {doctors.map((doctor) => (
-                          <SelectItem key={doctor.id} value={doctor.id}>
-                            {doctor.profiles.full_name} ({doctor.doctor_code})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {/* 2. Discharge Date */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="visit_date">Discharge Date *</Label>
-                  <Input
-                    id="visit_date"
-                    type="date"
-                    value={formData.visit_date}
-                    onChange={(e) => setFormData({ ...formData, visit_date: e.target.value })}
-                    required
-                  />
+        <>
+          {isMobile ? (
+            <Sheet open={dialogOpen} onOpenChange={setDialogOpen}>
+              <SheetContent side="bottom" className="h-[95vh] flex flex-col p-0">
+                <div className="flex-shrink-0 p-4 border-b">
+                  <h2 className="text-xl font-bold">
+                    {editingVisit ? 'Edit Visit' : 'Record New Visit'}
+                  </h2>
                 </div>
+                <div className="flex-1 overflow-y-auto px-4">
+                  <form onSubmit={handleSubmit} className="space-y-2 py-4">
+                    {/* 1. Doctor (admin/manager only) */}
+                    {(userRole === 'admin' || userRole === 'manager') && (
+                      <div className="space-y-1">
+                        <Label htmlFor="doctor_id" className="text-sm">Doctor *</Label>
+                        <Select value={formData.doctor_id} onValueChange={(value) => setFormData({ ...formData, doctor_id: value })}>
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Select a doctor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {doctors.map((doctor) => (
+                              <SelectItem key={doctor.id} value={doctor.id}>
+                                {doctor.profiles.full_name} ({doctor.doctor_code})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
 
-                {/* 3. Patient Name */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="patient_name">Patient Name *</Label>
-                  <Input
-                    id="patient_name"
-                    value={formData.patient_name}
-                    onChange={(e) => setFormData({ ...formData, patient_name: e.target.value })}
-                    required
-                  />
+                    {/* 2. Discharge Date */}
+                    <div className="space-y-1">
+                      <Label htmlFor="visit_date" className="text-sm">Discharge Date *</Label>
+                      <Input
+                        id="visit_date"
+                        type="date"
+                        value={formData.visit_date}
+                        onChange={(e) => setFormData({ ...formData, visit_date: e.target.value })}
+                        required
+                        className="h-9"
+                      />
+                    </div>
+
+                    {/* 3. Patient Name */}
+                    <div className="space-y-1">
+                      <Label htmlFor="patient_name" className="text-sm">Patient Name *</Label>
+                      <Input
+                        id="patient_name"
+                        value={formData.patient_name}
+                        onChange={(e) => setFormData({ ...formData, patient_name: e.target.value })}
+                        required
+                        className="h-9"
+                      />
+                    </div>
+
+                    {/* 4. Patient ID (Optional) */}
+                    <div className="space-y-1">
+                      <Label htmlFor="patient_id" className="text-sm">Patient ID (Optional)</Label>
+                      <Input
+                        id="patient_id"
+                        value={formData.patient_id}
+                        onChange={(e) => setFormData({ ...formData, patient_id: e.target.value })}
+                        className="h-9"
+                      />
+                    </div>
+
+                    {/* 5. Payment (Required) */}
+                    <div className="space-y-1">
+                      <Label htmlFor="visit_payment" className="text-sm">Payment *</Label>
+                      <Input
+                        id="visit_payment"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.visit_payment}
+                        onChange={(e) => setFormData({ ...formData, visit_payment: e.target.value })}
+                        required
+                        className="h-9"
+                      />
+                    </div>
+
+                    {/* 6. Payment Type (Required) */}
+                    <div className="space-y-1">
+                      <Label htmlFor="payment_type" className="text-sm">Payment Type *</Label>
+                      <Select 
+                        value={formData.payment_type} 
+                        onValueChange={(value) => setFormData({ 
+                          ...formData, 
+                          payment_type: value,
+                          insurance_company_id: value === 'cash' ? '' : formData.insurance_company_id
+                        })}
+                      >
+                        <SelectTrigger className="h-9">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cash">Cash</SelectItem>
+                          <SelectItem value="insurance">Insurance</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* 7. Insurance Company (conditionally required) */}
+                    {formData.payment_type === 'insurance' && (
+                      <div className="space-y-1">
+                        <Label htmlFor="insurance_company" className="text-sm">Insurance Company *</Label>
+                        <Select 
+                          value={formData.insurance_company_id} 
+                          onValueChange={(value) => setFormData({ ...formData, insurance_company_id: value })}
+                        >
+                          <SelectTrigger className="h-9">
+                            <SelectValue placeholder="Select insurance company" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {insuranceCompanies.map((company) => (
+                              <SelectItem key={company.id} value={company.id}>
+                                {company.company_name} {company.company_code && `(${company.company_code})`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {/* 8. Visit Reason (Required) */}
+                    <div className="space-y-1">
+                      <Label htmlFor="visit_reason" className="text-sm">Visit Reason *</Label>
+                      <Select value={formData.visit_reason} onValueChange={(value) => setFormData({ ...formData, visit_reason: value })}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select visit reason" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {visitReasons.map((reason) => (
+                            <SelectItem key={reason.id} value={reason.reason_code}>
+                              {reason.reason_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* 9. Notes (Optional) */}
+                    <div className="space-y-1">
+                      <Label htmlFor="notes" className="text-sm">Notes (Optional)</Label>
+                      <Textarea
+                        id="notes"
+                        value={formData.notes}
+                        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                        rows={2}
+                        className="resize-none text-sm"
+                      />
+                    </div>
+
+                    {/* Sticky Footer Buttons */}
+                    <div className="sticky bottom-0 left-0 right-0 bg-background border-t pt-3 pb-2 -mx-4 px-4 mt-4">
+                      <div className="flex justify-end space-x-2">
+                        <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button type="submit" disabled={submitting || !isFormValid()}>
+                          {submitting ? (editingVisit ? 'Updating...' : 'Recording...') : (editingVisit ? 'Update Visit' : 'Record Visit')}
+                        </Button>
+                      </div>
+                    </div>
+                  </form>
                 </div>
+              </SheetContent>
+            </Sheet>
+          ) : (
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+                <DialogHeader className="flex-shrink-0">
+                  <DialogTitle className="text-2xl font-bold">
+                    {editingVisit ? 'Edit Visit' : 'Record New Visit'}
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="flex-1 overflow-y-auto px-1">
+                  <form onSubmit={handleSubmit} className="space-y-3">
+                    {/* 1. Doctor (admin/manager only) */}
+                    {(userRole === 'admin' || userRole === 'manager') && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="doctor_id">Doctor *</Label>
+                        <Select value={formData.doctor_id} onValueChange={(value) => setFormData({ ...formData, doctor_id: value })}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a doctor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {doctors.map((doctor) => (
+                              <SelectItem key={doctor.id} value={doctor.id}>
+                                {doctor.profiles.full_name} ({doctor.doctor_code})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
 
-                {/* 4. Patient ID (Optional) */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="patient_id">Patient ID (Optional)</Label>
-                  <Input
-                    id="patient_id"
-                    value={formData.patient_id}
-                    onChange={(e) => setFormData({ ...formData, patient_id: e.target.value })}
-                  />
+                    {/* 2. Discharge Date */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="visit_date">Discharge Date *</Label>
+                      <Input
+                        id="visit_date"
+                        type="date"
+                        value={formData.visit_date}
+                        onChange={(e) => setFormData({ ...formData, visit_date: e.target.value })}
+                        required
+                      />
+                    </div>
+
+                    {/* 3. Patient Name */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="patient_name">Patient Name *</Label>
+                      <Input
+                        id="patient_name"
+                        value={formData.patient_name}
+                        onChange={(e) => setFormData({ ...formData, patient_name: e.target.value })}
+                        required
+                      />
+                    </div>
+
+                    {/* 4. Patient ID (Optional) */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="patient_id">Patient ID (Optional)</Label>
+                      <Input
+                        id="patient_id"
+                        value={formData.patient_id}
+                        onChange={(e) => setFormData({ ...formData, patient_id: e.target.value })}
+                      />
+                    </div>
+
+                    {/* 5. Payment (Required) */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="visit_payment">Payment *</Label>
+                      <Input
+                        id="visit_payment"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.visit_payment}
+                        onChange={(e) => setFormData({ ...formData, visit_payment: e.target.value })}
+                        required
+                      />
+                    </div>
+
+                    {/* 6. Payment Type (Required) */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="payment_type">Payment Type *</Label>
+                      <Select 
+                        value={formData.payment_type} 
+                        onValueChange={(value) => setFormData({ 
+                          ...formData, 
+                          payment_type: value,
+                          insurance_company_id: value === 'cash' ? '' : formData.insurance_company_id
+                        })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cash">Cash</SelectItem>
+                          <SelectItem value="insurance">Insurance</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* 7. Insurance Company (conditionally required) */}
+                    {formData.payment_type === 'insurance' && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="insurance_company">Insurance Company *</Label>
+                        <Select 
+                          value={formData.insurance_company_id} 
+                          onValueChange={(value) => setFormData({ ...formData, insurance_company_id: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select insurance company" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {insuranceCompanies.map((company) => (
+                              <SelectItem key={company.id} value={company.id}>
+                                {company.company_name} {company.company_code && `(${company.company_code})`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {/* 8. Visit Reason (Required) */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="visit_reason">Visit Reason *</Label>
+                      <Select value={formData.visit_reason} onValueChange={(value) => setFormData({ ...formData, visit_reason: value })}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select visit reason" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {visitReasons.map((reason) => (
+                            <SelectItem key={reason.id} value={reason.reason_code}>
+                              {reason.reason_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* 9. Notes (Optional) */}
+                    <div className="space-y-1.5">
+                      <Label htmlFor="notes">Notes (Optional)</Label>
+                      <Textarea
+                        id="notes"
+                        value={formData.notes}
+                        onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                        rows={2}
+                        className="resize-none"
+                      />
+                    </div>
+
+                    {/* Sticky Footer Buttons */}
+                    <div className="sticky bottom-0 left-0 right-0 bg-background border-t pt-3 pb-2 -mx-1 px-1 mt-4">
+                      <div className="flex justify-end space-x-2">
+                        <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button type="submit" disabled={submitting || !isFormValid()}>
+                          {submitting ? (editingVisit ? 'Updating...' : 'Recording...') : (editingVisit ? 'Update Visit' : 'Record Visit')}
+                        </Button>
+                      </div>
+                    </div>
+                  </form>
                 </div>
-
-                {/* 5. Payment (Required) */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="visit_payment">Payment *</Label>
-                  <Input
-                    id="visit_payment"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.visit_payment}
-                    onChange={(e) => setFormData({ ...formData, visit_payment: e.target.value })}
-                    required
-                  />
-                </div>
-
-                {/* 6. Payment Type (Required) */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="payment_type">Payment Type *</Label>
-                  <Select 
-                    value={formData.payment_type} 
-                    onValueChange={(value) => setFormData({ 
-                      ...formData, 
-                      payment_type: value,
-                      insurance_company_id: value === 'cash' ? '' : formData.insurance_company_id
-                    })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cash">Cash</SelectItem>
-                      <SelectItem value="insurance">Insurance</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* 7. Insurance Company (conditionally required) */}
-                {formData.payment_type === 'insurance' && (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="insurance_company">Insurance Company *</Label>
-                    <Select 
-                      value={formData.insurance_company_id} 
-                      onValueChange={(value) => setFormData({ ...formData, insurance_company_id: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select insurance company" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {insuranceCompanies.map((company) => (
-                          <SelectItem key={company.id} value={company.id}>
-                            {company.company_name} {company.company_code && `(${company.company_code})`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {/* 8. Visit Reason (Required) */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="visit_reason">Visit Reason *</Label>
-                  <Select value={formData.visit_reason} onValueChange={(value) => setFormData({ ...formData, visit_reason: value })}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select visit reason" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {visitReasons.map((reason) => (
-                        <SelectItem key={reason.id} value={reason.reason_code}>
-                          {reason.reason_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* 9. Notes (Optional) */}
-                <div className="space-y-1.5">
-                  <Label htmlFor="notes">Notes (Optional)</Label>
-                  <Textarea
-                    id="notes"
-                    value={formData.notes}
-                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                    rows={2}
-                    className="resize-none"
-                  />
-                </div>
-
-                <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={submitting || !isFormValid()}>
-                    {submitting ? (editingVisit ? 'Updating...' : 'Recording...') : (editingVisit ? 'Update Visit' : 'Record Visit')}
-                  </Button>
-                </div>
-              </form>
-            </DialogContent>
-          </Dialog>
-        )}
+              </DialogContent>
+            </Dialog>
+          )}
+        </>
+      )}
 
       {/* Enhanced Summary Cards with Gradients and Animation */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6 animate-fade-in">
