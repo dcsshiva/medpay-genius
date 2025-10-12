@@ -283,15 +283,22 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
 
   const fetchVisitsForPayment = async (paymentId: string) => {
     try {
-      if (!user?.id) {
+      // Determine correct user ID based on role - doctors need their auth.users ID
+      const userId = userRole === 'doctor' 
+        ? (user?.user_metadata?.auth_user_id || user?.id)
+        : user?.id;
+
+      if (!userId) {
         console.error('No user ID for fetching payment visits');
         return [];
       }
 
+      console.log('🔐 Fetching visits with userId:', userId, 'for payment:', paymentId);
+
       // Use RPC function with SECURITY DEFINER to bypass RLS
       const { data, error } = await supabase.rpc('get_payment_visits', {
         _payment_id: paymentId,
-        _user_id: user.id
+        _user_id: userId
       });
 
       if (error) {
