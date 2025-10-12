@@ -264,6 +264,13 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
     if (!formData.payment_type) return false;
     if (!formData.visit_reason) return false;
     
+    // Date validation: discharge date cannot be in the future
+    const today = getCurrentISTDate();
+    const selectedDate = new Date(formData.visit_date);
+    today.setHours(0, 0, 0, 0);
+    selectedDate.setHours(0, 0, 0, 0);
+    if (selectedDate > today) return false;
+    
     // Doctor required for admin/manager
     if ((userRole === 'admin' || userRole === 'manager') && !formData.doctor_id) return false;
     
@@ -288,8 +295,24 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
     
     setSubmitting(true);
 
+    // Validation: discharge date cannot be in the future
+    const today = getCurrentISTDate();
+    const selectedDate = new Date(formData.visit_date);
+    today.setHours(0, 0, 0, 0);
+    selectedDate.setHours(0, 0, 0, 0);
+
+    if (selectedDate > today) {
+      toast({
+        variant: "destructive",
+        title: "Invalid Discharge Date",
+        description: "Discharge date cannot be a future date. Please select today or a past date."
+      });
+      setSubmitting(false);
+      return;
+    }
+
     try {
-      const doctorId = (userRole === 'admin' || userRole === 'manager') 
+      const doctorId = (userRole === 'admin' || userRole === 'manager')
         ? formData.doctor_id 
         : (user?.user_metadata?.original_id || user?.id);
 
@@ -531,14 +554,15 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     {/* 2. Discharge Date */}
                     <div className="space-y-1">
                       <Label htmlFor="visit_date" className="text-sm">Discharge Date *</Label>
-                      <Input
-                        id="visit_date"
-                        type="date"
-                        value={formData.visit_date}
-                        onChange={(e) => setFormData({ ...formData, visit_date: e.target.value })}
-                        required
-                        className="h-9"
-                      />
+                    <Input
+                      id="visit_date"
+                      type="date"
+                      value={formData.visit_date}
+                      onChange={(e) => setFormData({ ...formData, visit_date: e.target.value })}
+                      max={formatInputDateIST(getCurrentISTDate())}
+                      required
+                      className="h-9"
+                    />
                     </div>
 
                     {/* 3. Patient Name */}
@@ -698,13 +722,14 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     {/* 2. Discharge Date */}
                     <div className="space-y-1.5">
                       <Label htmlFor="visit_date">Discharge Date *</Label>
-                      <Input
-                        id="visit_date"
-                        type="date"
-                        value={formData.visit_date}
-                        onChange={(e) => setFormData({ ...formData, visit_date: e.target.value })}
-                        required
-                      />
+                  <Input
+                    id="visit_date"
+                    type="date"
+                    value={formData.visit_date}
+                    onChange={(e) => setFormData({ ...formData, visit_date: e.target.value })}
+                    max={formatInputDateIST(getCurrentISTDate())}
+                    required
+                  />
                     </div>
 
                     {/* 3. Patient Name */}
