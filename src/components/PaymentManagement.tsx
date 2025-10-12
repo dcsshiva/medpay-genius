@@ -2297,6 +2297,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
     return (cashNeedsApproval || insuranceNeedsApproval) && !p.is_fully_paid;
   }));
   const fullyPaidPayments = filterPaymentsByType(payments.filter(p => p.is_fully_paid && !p.bank_advice_generated));
+  const processedPayments = filterPaymentsByType(payments.filter(p => p.bank_advice_generated === true));
 
   // Report generation configuration
   const paymentReportColumns = [
@@ -2755,9 +2756,15 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
 
           <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full">
           <div className="flex justify-between items-center mb-4">
-            <TabsList className="grid w-full max-w-4xl grid-cols-4">
+            <TabsList className={`grid w-full max-w-4xl ${userRole === 'doctor' ? 'grid-cols-3' : 'grid-cols-4'}`}>
             <TabsTrigger value="waiting">Waiting for Approval ({waitingForApprovalPayments.length})</TabsTrigger>
             <TabsTrigger value="paid">Waiting for bank approval ({fullyPaidPayments.length})</TabsTrigger>
+            {userRole === 'doctor' && (
+              <TabsTrigger value="processed">
+                <CheckCircle className="h-4 w-4 mr-1" />
+                Processed Payment ({processedPayments.length})
+              </TabsTrigger>
+            )}
             {(userRole === 'admin' || userRole === 'manager') && (
               <TabsTrigger value="bankadvice">
                 <Building2 className="h-4 w-4 mr-1" />
@@ -2893,6 +2900,52 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
               </Card>
             )}
           </TabsContent>
+
+          {/* Processed Payment Tab - Doctor Only */}
+          {userRole === 'doctor' && (
+            <TabsContent value="processed" className="space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold">Processed Payments (Bank Approved)</h3>
+                {processedPayments.length > 0 && (
+                  <ReportGeneration
+                    title="Processed Payments Report"
+                    data={processedPayments}
+                    columns={paymentReportColumns}
+                    filename="payment_processed_report"
+                  />
+                )}
+              </div>
+              
+              <PaymentManagementTable
+                payments={filterPayments(processedPayments, searchTerm, searchFilter)}
+                userRole={userRole}
+                onApprove={(paymentId) => handleApproval(paymentId, 'approve')}
+                onReject={(paymentId) => {
+                  const reason = prompt('Enter rejection reason:');
+                  if (reason) handleApproval(paymentId, 'reject', reason);
+                }}
+                onViewTransactions={(payment) => {
+                  setSelectedPayment(payment);
+                  fetchTransactions(payment.id);
+                  setTransactionsDialog(true);
+                }}
+              />
+              
+              {processedPayments.length === 0 && !loading && (
+                <Card>
+                  <CardContent className="py-12 text-center">
+                    <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                    <h3 className="text-lg font-semibold mb-2">No Processed Payments Yet</h3>
+                    <p className="text-muted-foreground">
+                      {paymentTypeOnly 
+                        ? `Your ${paymentTypeOnly} payments that have been bank approved will appear here.`
+                        : 'Your payments that have been bank approved will appear here.'}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+          )}
 
           {/* Bank Advice Tab */}
           {(userRole === 'admin' || userRole === 'manager') && (
