@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/currency';
+import { cn } from '@/lib/utils';
 import { 
   Plus, 
   CreditCard, 
@@ -176,6 +177,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
   const [transactionTypeSelections, setTransactionTypeSelections] = useState<Map<string, string>>(new Map());
   const [bulkTransactionType, setBulkTransactionType] = useState<string>('NEFT TRANSFER');
   const [selectedPaymentsForReview, setSelectedPaymentsForReview] = useState<any[]>([]);
+  const [paymentAmountError, setPaymentAmountError] = useState<string>('');
 
   // Global payment statistics
   const [totalPaid, setTotalPaid] = useState(0);
@@ -906,6 +908,19 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const validatePaymentAmount = (amount: number, remainingAmount: number): string => {
+    if (!amount || amount === 0) {
+      return "Payment amount is required";
+    }
+    if (amount < 0) {
+      return "Payment amount cannot be negative";
+    }
+    if (amount > remainingAmount) {
+      return `Payment amount cannot exceed ${formatCurrency(remainingAmount)}`;
+    }
+    return '';
   };
 
   const handlePaymentSubmit = async (e: React.FormEvent) => {
@@ -2141,6 +2156,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                 onClick={() => {
                   setSelectedPayment(payment);
                   setPaymentFormData({ amount: payment.remaining_amount, transaction_reference: '', notes: '' });
+                  setPaymentAmountError('');
                   setPaymentDialog(true);
                 }}
               >
@@ -3004,9 +3020,21 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                     min="0.01"
                     max={selectedPayment?.remaining_amount || 0}
                     value={paymentFormData.amount}
-                    onChange={(e) => setPaymentFormData({ ...paymentFormData, amount: parseFloat(e.target.value) || 0 })}
+                    onChange={(e) => {
+                      const newAmount = parseFloat(e.target.value) || 0;
+                      setPaymentFormData({ ...paymentFormData, amount: newAmount });
+                      
+                      if (selectedPayment) {
+                        const error = validatePaymentAmount(newAmount, selectedPayment.remaining_amount);
+                        setPaymentAmountError(error);
+                      }
+                    }}
                     required
+                    className={cn(paymentAmountError && "border-destructive focus-visible:ring-destructive")}
                   />
+                  {paymentAmountError && (
+                    <p className="text-sm text-destructive mt-1">{paymentAmountError}</p>
+                  )}
                 </div>
                 
                 <div className="space-y-1.5">
@@ -3035,7 +3063,16 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                 <Button type="button" variant="outline" onClick={() => setPaymentDialog(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={processingPayment}>
+                <Button 
+                  type="submit" 
+                  disabled={
+                    processingPayment || 
+                    !paymentFormData.amount || 
+                    paymentFormData.amount === 0 ||
+                    !!paymentAmountError ||
+                    (selectedPayment && paymentFormData.amount > selectedPayment.remaining_amount)
+                  }
+                >
                   {processingPayment ? 'Recording...' : 'Record Payment'}
                 </Button>
               </DialogFooter>
