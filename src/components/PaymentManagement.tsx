@@ -34,6 +34,7 @@ import {
   Target
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { format } from 'date-fns';
 import { formatDateIST, formatDateTimeIST, toISOStringIST, formatReportDateIST, formatFileTimestampIST } from '@/lib/dateUtils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ReportGeneration from './ReportGeneration';
@@ -1609,13 +1610,35 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
       // Footer line
       fileContent += `F~${selectedPaymentsForReview.length}~${totalAmount.toFixed(2)}`;
 
+      // Generate filename with new format: DDMMYY-X.txt
+      const filenameDateStr = format(new Date(), 'ddMMyy');
+      const paymentCount = selectedPaymentsForReview.length;
+      const filename = `${filenameDateStr}-${paymentCount}.txt`;
+      
+      // Store bank advice generation in history
+      const { error: historyError } = await supabase
+        .from('bank_advice_history')
+        .insert({
+          filename: filename,
+          generation_date: new Date().toISOString().split('T')[0],
+          payment_count: paymentCount,
+          total_amount: totalAmount,
+          payment_ids: selectedPaymentsForReview.map(p => p.id),
+          generated_by: user?.id,
+          file_content: fileContent
+        });
+      
+      if (historyError) {
+        console.error('Error saving bank advice history:', historyError);
+        // Continue with download even if history save fails
+      }
+
       // Create and download file
       const blob = new Blob([fileContent], { type: 'text/plain' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const timestamp = `${String(today.getDate()).padStart(2, '0')}${String(today.getMonth() + 1).padStart(2, '0')}${today.getFullYear()}_${String(today.getHours()).padStart(2, '0')}${String(today.getMinutes()).padStart(2, '0')}${String(today.getSeconds()).padStart(2, '0')}`;
-      a.download = `bank_advice_${timestamp}.txt`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

@@ -47,6 +47,45 @@ export type Database = {
         }
         Relationships: []
       }
+      bank_advice_history: {
+        Row: {
+          created_at: string
+          file_content: string | null
+          filename: string
+          generated_by: string | null
+          generation_date: string
+          id: string
+          payment_count: number
+          payment_ids: Json
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          file_content?: string | null
+          filename: string
+          generated_by?: string | null
+          generation_date?: string
+          id?: string
+          payment_count: number
+          payment_ids?: Json
+          total_amount: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          file_content?: string | null
+          filename?: string
+          generated_by?: string | null
+          generation_date?: string
+          id?: string
+          payment_count?: number
+          payment_ids?: Json
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       complaint_categories: {
         Row: {
           category_code: string
