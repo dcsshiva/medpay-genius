@@ -26,21 +26,15 @@ import { formatCurrency } from '@/lib/currency';
 
 interface BankAdviceHistory {
   id: string;
-  doctor_id: string;
-  doctor_code: string;
-  doctor_name: string;
-  period_start: string;
-  period_end: string;
+  filename: string;
+  generation_date: string;
+  payment_count: number;
   total_amount: number;
-  paid_amount: number;
-  bank_advice_generated_at: string;
-  bank_advice_generated_by: string;
-  generator_name: string;
-  account_number: string;
-  ifsc_code: string;
-  account_holder_name: string;
-  bank_name: string;
-  total_visits: number;
+  payment_ids: string[];
+  generated_by: string;
+  file_content: string;
+  created_at: string;
+  generator_name?: string;
 }
 
 const BankAdviceReports = () => {
@@ -53,8 +47,7 @@ const BankAdviceReports = () => {
   const [filters, setFilters] = useState({
     dateFrom: '',
     dateTo: '',
-    doctorSearch: '',
-    generatedBy: 'all'
+    doctorSearch: ''
   });
 
   // Quick date filters
@@ -81,65 +74,41 @@ const BankAdviceReports = () => {
 
     try {
       let query = supabase
-        .from('payments')
-        .select(`
-          *,
-          doctors (
-            doctor_code,
-            full_name,
-            bank_account_number,
-            ifsc_code,
-            account_holder_name,
-            bank_name
-          )
-        `)
-        .eq('bank_advice_generated', true)
-        .order('bank_advice_generated_at', { ascending: false });
+        .from('bank_advice_history')
+        .select('*')
+        .order('created_at', { ascending: false });
 
       // Apply date filters
       if (filters.dateFrom) {
-        query = query.gte('bank_advice_generated_at', filters.dateFrom + 'T00:00:00');
+        query = query.gte('generation_date', filters.dateFrom);
       }
       if (filters.dateTo) {
-        query = query.lte('bank_advice_generated_at', filters.dateTo + 'T23:59:59');
+        query = query.lte('generation_date', filters.dateTo);
       }
 
-      const { data: payments, error } = await query;
+      const { data: history, error } = await query;
 
       if (error) throw error;
 
-      // Fetch generator names for each payment
+      // Fetch generator names
       const recordsWithGenerators = await Promise.all(
-        (payments || []).map(async (payment: any) => {
+        (history || []).map(async (record: any) => {
           let generatorName = 'Unknown';
           
-          if (payment.bank_advice_generated_by) {
+          if (record.generated_by) {
             const { data: profile } = await supabase
               .from('profiles')
               .select('full_name')
-              .eq('user_id', payment.bank_advice_generated_by)
+              .eq('user_id', record.generated_by)
               .single();
             
             if (profile) generatorName = profile.full_name;
           }
 
           return {
-            id: payment.id,
-            doctor_id: payment.doctor_id,
-            doctor_code: payment.doctors?.doctor_code || 'N/A',
-            doctor_name: payment.doctors?.full_name || 'Unknown Doctor',
-            period_start: payment.period_start,
-            period_end: payment.period_end,
-            total_amount: payment.total_amount,
-            paid_amount: payment.paid_amount,
-            bank_advice_generated_at: payment.bank_advice_generated_at,
-            bank_advice_generated_by: payment.bank_advice_generated_by,
+            ...record,
             generator_name: generatorName,
-            account_number: payment.doctors?.bank_account_number || 'N/A',
-            ifsc_code: payment.doctors?.ifsc_code || 'N/A',
-            account_holder_name: payment.doctors?.account_holder_name || 'N/A',
-            bank_name: payment.doctors?.bank_name || 'N/A',
-            total_visits: payment.total_visits
+            payment_ids: record.payment_ids || []
           };
         })
       );
@@ -157,13 +126,38 @@ const BankAdviceReports = () => {
     }
   };
 
+  const handleDownload = (record: BankAdviceHistory) => {
+    if (!record.file_content) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "File content not available"
+      });
+      return;
+    }
+
+    const blob = new Blob([record.file_content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = record.filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Success",
+      description: `Downloaded ${record.filename}`
+    });
+  };
+
   const filteredRecords = records.filter(record => {
-    // Apply doctor search filter
+    // Apply filename search filter
     if (filters.doctorSearch) {
       const searchTerm = filters.doctorSearch.toLowerCase();
-      const matchesName = record.doctor_name.toLowerCase().includes(searchTerm);
-      const matchesCode = record.doctor_code.toLowerCase().includes(searchTerm);
-      if (!matchesName && !matchesCode) {
+      const matchesFilename = record.filename.toLowerCase().includes(searchTerm);
+      if (!matchesFilename) {
         return false;
       }
     }
@@ -173,13 +167,13 @@ const BankAdviceReports = () => {
   // Calculate statistics
   const totalGenerated = filteredRecords.length;
   const totalAmount = filteredRecords.reduce((sum, r) => sum + r.total_amount, 0);
-  const uniqueDoctors = new Set(filteredRecords.map(r => r.doctor_id)).size;
+  const totalPayments = filteredRecords.reduce((sum, r) => sum + r.payment_count, 0);
   
   // This month count
   const now = new Date();
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const thisMonthRecords = filteredRecords.filter(r => 
-    new Date(r.bank_advice_generated_at) >= thisMonthStart
+    new Date(r.created_at) >= thisMonthStart
   );
 
   if (userRole !== 'admin' && userRole !== 'manager') {
@@ -232,18 +226,11 @@ const BankAdviceReports = () => {
           title="Bank Advice History Report"
           data={filteredRecords}
           columns={[
-            { key: 'bank_advice_generated_at', label: 'Generated Date & Time', format: (value: string) => formatDateTimeIST(value) },
-            { key: 'doctor_name', label: 'Doctor Name' },
-            { key: 'doctor_code', label: 'Doctor Code' },
-            { key: 'period_start', label: 'Period Start', format: (value: string) => formatDateIST(value) },
-            { key: 'period_end', label: 'Period End', format: (value: string) => formatDateIST(value) },
-            { key: 'total_visits', label: 'Total Visits' },
-            { key: 'account_holder_name', label: 'Account Holder' },
-            { key: 'account_number', label: 'Account Number' },
-            { key: 'ifsc_code', label: 'IFSC Code' },
-            { key: 'bank_name', label: 'Bank Name' },
+            { key: 'filename', label: 'Filename' },
+            { key: 'generation_date', label: 'Generation Date', format: (value: string) => formatDateIST(value) },
+            { key: 'created_at', label: 'Generated At', format: (value: string) => formatDateTimeIST(value) },
+            { key: 'payment_count', label: 'Payment Count' },
             { key: 'total_amount', label: 'Total Amount', format: (value: number) => formatCurrency(value) },
-            { key: 'paid_amount', label: 'Paid Amount', format: (value: number) => formatCurrency(value) },
             { key: 'generator_name', label: 'Generated By' }
           ]}
           filename="bank_advice_history_report"
@@ -279,10 +266,10 @@ const BankAdviceReports = () => {
         <Card>
           <CardContent className="p-6">
             <div className="flex items-center">
-              <Users className="h-8 w-8 text-purple-600" />
+              <FileText className="h-8 w-8 text-purple-600" />
               <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Total Doctors</p>
-                <p className="text-2xl font-bold">{uniqueDoctors}</p>
+                <p className="text-sm font-medium text-muted-foreground">Total Payments</p>
+                <p className="text-2xl font-bold">{totalPayments}</p>
               </div>
             </div>
           </CardContent>
@@ -313,11 +300,11 @@ const BankAdviceReports = () => {
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="doctorSearch">Search Doctor</Label>
+                <Label htmlFor="doctorSearch">Search Filename</Label>
                 <Input
                   id="doctorSearch"
                   type="text"
-                  placeholder="Search by name or code..."
+                  placeholder="Search by filename..."
                   value={filters.doctorSearch}
                   onChange={(e) => setFilters({ ...filters, doctorSearch: e.target.value })}
                 />
@@ -362,7 +349,7 @@ const BankAdviceReports = () => {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => setFilters({ dateFrom: '', dateTo: '', doctorSearch: '', generatedBy: 'all' })}
+                onClick={() => setFilters({ dateFrom: '', dateTo: '', doctorSearch: '' })}
               >
                 Clear All
               </Button>
@@ -389,15 +376,15 @@ const BankAdviceReports = () => {
                       
                       <div>
                         <div className="flex items-center gap-2 mb-1">
-                          <p className="font-semibold">{record.doctor_name}</p>
-                          <Badge variant="outline">{record.doctor_code}</Badge>
+                          <p className="font-semibold">{record.filename}</p>
+                          <Badge variant="outline">{record.payment_count} payments</Badge>
                         </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
-                            {formatDateIST(record.period_start)} - {formatDateIST(record.period_end)}
+                            Generated: {formatDateTimeIST(record.created_at)}
                           </span>
-                          <span>{record.total_visits} visits</span>
+                          <span>by {record.generator_name}</span>
                         </div>
                       </div>
                     </div>
@@ -410,27 +397,28 @@ const BankAdviceReports = () => {
                         </p>
                       </div>
                       
-                      <div className="text-right">
-                        <p className="text-sm text-muted-foreground">Generated</p>
-                        <p className="text-sm font-medium">
-                          {formatDateTimeIST(record.bank_advice_generated_at)}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          by {record.generator_name}
-                        </p>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownload(record)}
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Download
+                        </Button>
+                        
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedRecord(record);
+                            setDetailsDialog(true);
+                          }}
+                        >
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Details
+                        </Button>
                       </div>
-                      
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedRecord(record);
-                          setDetailsDialog(true);
-                        }}
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        View Details
-                      </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -529,6 +517,10 @@ const BankAdviceReports = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setDetailsDialog(false)}>
               Close
+            </Button>
+            <Button onClick={() => selectedRecord && handleDownload(selectedRecord)}>
+              <Download className="h-4 w-4 mr-2" />
+              Download File
             </Button>
           </DialogFooter>
         </DialogContent>
