@@ -1579,29 +1579,28 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
         const amount = parseFloat(payment.paid_amount).toFixed(2);
         
         const detailLine = [
-          'D',
-          index + 1, // Seq No
-          transactionCode, // Transaction Type Code
-          websiteSettings?.hospital_bank_account_number || '125001608553', // Hospital Account
-          websiteSettings?.hospital_bank_account_holder_name || 'WESTMED HEALTHCARE PRIVATE LIMITED', // Legal Name
-          websiteSettings?.hospital_institution_address || 'ECR Road, 02, New Street, Pudupet, Lawspet, Puducherry, 605008', // Hospital Address
-          '', // Empty
-          '', // Empty
-          doctor.ifsc_code || '', // Beneficiary IFSC Code
-          doctor.bank_account_number, // Beneficiary Account Number
-          '', // Empty
-          doctor.account_holder_name, // Beneficiary Name
-          '', // Empty
-          '', // Beneficiary Email
-          `TXN${String(index + 1).padStart(6, '0')}`, // Transaction Reference Code
-          '', // Empty
-          amount, // Amount
-          dateStr, // Transaction Date
-          '', // Empty
-          '', // Empty
-          '', // Empty
-          'Payment for medical services', // Sender to Receiver Info
-          '' // Empty
+          'D',                          // Record type
+          transactionCode,              // Transaction Type Code (N06)
+          websiteSettings?.hospital_bank_account_number || '120000794291', // Hospital Account Number
+          'Westmed Healthcare Pvt Ltd', // Hospital Name (mixed case)
+          'ADDRESS1',                   // Address Line 1 (literal string)
+          'ADDRESS2',                   // Address Line 2 (literal string)
+          'ADDRESS3',                   // Address Line 3 (literal string)
+          doctor.ifsc_code || '',       // Beneficiary IFSC Code
+          doctor.bank_account_number,   // Beneficiary Account Number
+          doctor.account_holder_name,   // Beneficiary Name
+          '',                           // Empty
+          '',                           // Empty
+          '',                           // Empty
+          '',                           // Empty
+          index + 1,                    // Sequence Number
+          dateStr,                      // Transaction Date
+          amount,                       // Amount
+          index + 1,                    // Sequence Number (again)
+          '',                           // Empty
+          '',                           // Empty
+          '',                           // Empty
+          ''                            // Empty
         ].join('~');
         
         fileContent += detailLine + '\n';
