@@ -1,8 +1,7 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.westmed.hospitaladmin'
-',
+  appId: 'com.westmed.hospitaladmin',
   appName: 'westmed',
   webDir: 'dist',
   plugins: {
