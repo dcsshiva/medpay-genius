@@ -8,12 +8,9 @@ on:
         required: true
         default: 'debug'
         type: choice
-        options:
-          - debug
-          - release
+        options: [debug, release]
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
       - 'src/**'
       - 'android/**'
@@ -22,75 +19,60 @@ on:
 jobs:
   build-android:
     runs-on: ubuntu-latest
-    
+    env:
+      GRADLE_OPTS: -Xmx4096m
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: 20
+          cache: npm
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
+      - uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: 'gradle'
+          distribution: temurin
+          java-version: 17
+          cache: gradle
 
-      - name: Install dependencies
-        run: npm ci
+      - run: npm ci
 
-      - name: Build web app
-        run: npm run build
+      - run: npm run build
         env:
           NODE_ENV: production
 
-      - name: Setup Capacitor
-        run: |
-          npx cap sync android || (npx cap add android && npx cap sync android)
+      - run: npx cap sync android || (npx cap add android && npx cap sync android)
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x android/gradlew
+      - run: chmod +x android/gradlew
 
-      - name: Build Debug APK
-        if: github.event.inputs.build_type == 'debug' || github.event.inputs.build_type == ''
-        run: |
-          cd android
-          ./gradlew assembleDebug --no-daemon
-        env:
-          GRADLE_OPTS: -Xmx4096m -Dorg.gradle.daemon=false
-
-      - name: Build Release Bundle (AAB)
+      - name: Decode Keystore (only for release)
         if: github.event.inputs.build_type == 'release'
+        run: echo "${{ secrets.KEYSTORE_FILE }}" | base64 --decode > android/app/release.keystore
+
+      - name: Build Android
         run: |
           cd android
-          ./gradlew bundleRelease --no-daemon
+          if [ "${{ github.event.inputs.build_type }}" == "release" ]; then
+            ./gradlew bundleRelease --no-daemon
+          else
+            ./gradlew assembleDebug --no-daemon
+          fi
         env:
-          GRADLE_OPTS: -Xmx4096m -Dorg.gradle.daemon=false
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
 
-      - name: Upload Debug APK
-        if: github.event.inputs.build_type == 'debug' || github.event.inputs.build_type == ''
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: westmed-hospital-debug-${{ github.sha }}
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: westmed-hospital-${{ github.event.inputs.build_type }}-${{ github.sha }}
+          path: |
+            android/app/build/outputs/apk/debug/app-debug.apk
+            android/app/build/outputs/bundle/release/app-release.aab
           retention-days: 30
 
-      - name: Upload Release AAB
-        if: github.event.inputs.build_type == 'release'
-        uses: actions/upload-artifact@v4
-        with:
-          name: westmed-hospital-release-${{ github.sha }}
-          path: android/app/build/outputs/bundle/release/app-release.aab
-          retention-days: 90
-
-      - name: Create Release (if release build)
+      - name: Create GitHub Release
         if: github.event.inputs.build_type == 'release' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v1
         with:
