@@ -594,12 +594,13 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                       <Input
                         id="visit_payment"
                         type="number"
-                        step="0.01"
+                        step="1"
                         min="0"
                         value={formData.visit_payment}
                         onChange={(e) => setFormData({ ...formData, visit_payment: e.target.value })}
                         required
                         className="h-9"
+                        placeholder="Enter whole numbers only"
                       />
                     </div>
 
@@ -759,11 +760,12 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                       <Input
                         id="visit_payment"
                         type="number"
-                        step="0.01"
+                        step="1"
                         min="0"
                         value={formData.visit_payment}
                         onChange={(e) => setFormData({ ...formData, visit_payment: e.target.value })}
                         required
+                        placeholder="Enter whole numbers only"
                       />
                     </div>
 

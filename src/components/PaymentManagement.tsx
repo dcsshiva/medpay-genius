@@ -1565,7 +1565,11 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
       }
 
       // Generate GEFU format text file
-      const totalAmount = selectedPaymentsForReview.reduce((sum, p) => sum + parseFloat(p.paid_amount || 0), 0);
+      // Calculate totals with 10% TDS deduction
+      const totalGrossAmount = selectedPaymentsForReview.reduce((sum, p) => sum + parseFloat(p.paid_amount || 0), 0);
+      const totalTDS = totalGrossAmount * 0.10; // 10% TDS
+      const totalNetAmount = totalGrossAmount - totalTDS;
+      
       const today = new Date();
       const dateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
       
@@ -1577,7 +1581,12 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
         const doctor = payment.doctors;
         const transactionType = transactionTypeSelections.get(payment.id) || 'NEFT TRANSFER';
         const transactionCode = TRANSACTION_TYPE_CODES[transactionType];
-        const amount = parseFloat(payment.paid_amount).toFixed(2);
+        
+        // Calculate TDS for this payment
+        const grossAmount = parseFloat(payment.paid_amount);
+        const tdsAmount = grossAmount * 0.10; // 10% TDS
+        const netAmount = grossAmount - tdsAmount;
+        const amount = netAmount.toFixed(2); // Use net amount after TDS deduction
         
         const detailLine = [
           'D',                          // Record type
@@ -1607,22 +1616,22 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
         fileContent += detailLine + '\n';
       });
 
-      // Footer line
-      fileContent += `F~${selectedPaymentsForReview.length}~${totalAmount.toFixed(2)}`;
+      // Footer line (use net amount after TDS)
+      fileContent += `F~${selectedPaymentsForReview.length}~${totalNetAmount.toFixed(2)}`;
 
       // Generate filename with new format: DDMMYY-X.txt
       const filenameDateStr = format(new Date(), 'ddMMyy');
       const paymentCount = selectedPaymentsForReview.length;
       const filename = `${filenameDateStr}-${paymentCount}.txt`;
       
-      // Store bank advice generation in history
+      // Store bank advice generation in history (store net amount after TDS)
       const { error: historyError } = await supabase
         .from('bank_advice_history')
         .insert({
           filename: filename,
           generation_date: new Date().toISOString().split('T')[0],
           payment_count: paymentCount,
-          total_amount: totalAmount,
+          total_amount: totalNetAmount, // Store net amount after TDS deduction
           payment_ids: selectedPaymentsForReview.map(p => p.id),
           generated_by: user?.id,
           file_content: fileContent
@@ -1742,26 +1751,32 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
         return;
       }
 
-      // Calculate totals
-      const totalAmount = validPayments.reduce((sum, p) => sum + parseFloat(p.paid_amount || 0), 0);
+      // Calculate totals with 10% TDS deduction
+      const totalGrossAmount = validPayments.reduce((sum, p) => sum + parseFloat(p.paid_amount || 0), 0);
+      const totalTDS = totalGrossAmount * 0.10; // 10% TDS
+      const totalNetAmount = totalGrossAmount - totalTDS;
       const recordCount = validPayments.length;
       const today = formatReportDateIST();
 
       // Create workbook
       const wb = XLSX.utils.book_new();
       
-      // Header rows
+      // Header rows (show net amount after TDS)
       const headerData = [
-        ['Canara Bank Bulk Upload Sheet', '', '', 'Bulk Upload Date*', 'Total Amount*', 'Record Count*'],
-        ['', '', '', today, totalAmount.toFixed(2), recordCount],
+        ['Canara Bank Bulk Upload Sheet', '', '', 'Bulk Upload Date*', 'Net Amount (After TDS)*', 'Record Count*'],
+        ['', '', '', today, totalNetAmount.toFixed(2), recordCount],
         ['Debiting Account No*', '124578326598', 'Ordering Customer Name*', 'Westmed Hospital', 'Address Line 1*', 'Hospital Address', 'Address Line 2', '', 'Address Line 3', ''],
         [],
-        ['Seq', 'Transaction Type*', 'Bene IFSC Code*', 'Bene A/C No.*', 'Bene Name*', 'Bene Add Line 1', 'Bene Add Line 2', 'Bene Add Line 3', 'Bene e-mail ID', 'Txn Ref No*', 'Amount*', 'Sender To Rcvr Info*', 'Add Info 1', 'Add Info 2', 'Add Info 3', 'Beneficiary LEI Code']
+        ['Seq', 'Transaction Type*', 'Bene IFSC Code*', 'Bene A/C No.*', 'Bene Name*', 'Bene Add Line 1', 'Bene Add Line 2', 'Bene Add Line 3', 'Bene e-mail ID', 'Txn Ref No*', 'Gross Amount', 'TDS (10%)', 'Net Amount*', 'Sender To Rcvr Info*', 'Add Info 1', 'Add Info 2', 'Add Info 3', 'Beneficiary LEI Code']
       ];
 
-      // Data rows
+      // Data rows with TDS calculation
       const dataRows = validPayments.map((payment, index) => {
         const doctor = payment.doctors;
+        const grossAmount = parseFloat(payment.paid_amount);
+        const tdsAmount = grossAmount * 0.10; // 10% TDS
+        const netAmount = grossAmount - tdsAmount;
+        
         return [
           index + 1, // Seq
           'NEFT TRANSFER', // Transaction Type
@@ -1773,7 +1788,9 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
           '', // Bene Add Line 3
           '', // Bene e-mail ID
           index + 1, // Txn Ref No
-          parseFloat(payment.paid_amount).toFixed(2), // Amount
+          grossAmount.toFixed(2), // Gross Amount
+          tdsAmount.toFixed(2), // TDS (10%)
+          netAmount.toFixed(2), // Net Amount (what gets transferred)
           'westmed Hospital', // Sender To Rcvr Info
           '', // Add Info 1
           '', // Add Info 2
@@ -3175,19 +3192,37 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
             </DialogHeader>
             
             <div className="space-y-4">
-              {/* Summary Section */}
-              <div className="bg-muted p-4 rounded-lg">
-                <div className="grid grid-cols-2 gap-4">
+              {/* Summary Section with TDS Breakdown */}
+              <div className="bg-muted p-4 rounded-lg space-y-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
                     <p className="text-sm text-muted-foreground">Total Payments</p>
                     <p className="text-2xl font-bold">{selectedPaymentsForReview.length}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Total Amount</p>
-                    <p className="text-2xl font-bold text-primary">
+                    <p className="text-sm text-muted-foreground">Gross Amount</p>
+                    <p className="text-2xl font-bold">
                       {formatCurrency(selectedPaymentsForReview.reduce((sum, p) => sum + parseFloat(p.paid_amount || 0), 0))}
                     </p>
                   </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">TDS (10%)</p>
+                    <p className="text-2xl font-bold text-destructive">
+                      -{formatCurrency(selectedPaymentsForReview.reduce((sum, p) => sum + parseFloat(p.paid_amount || 0), 0) * 0.10)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Net Payable</p>
+                    <p className="text-2xl font-bold text-primary">
+                      {formatCurrency(selectedPaymentsForReview.reduce((sum, p) => sum + parseFloat(p.paid_amount || 0), 0) * 0.90)}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2 text-sm bg-blue-50 dark:bg-blue-950 p-3 rounded border border-blue-200 dark:border-blue-800">
+                  <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                  <p className="text-blue-700 dark:text-blue-300">
+                    <strong>Note:</strong> 10% TDS will be deducted from all payments as per tax regulations. Net amounts shown will be transferred to doctors' accounts.
+                  </p>
                 </div>
               </div>
 
@@ -3224,7 +3259,9 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                         <th className="px-4 py-3 text-left text-sm font-semibold">Account Number</th>
                         <th className="px-4 py-3 text-left text-sm font-semibold">IFSC Code</th>
                         <th className="px-4 py-3 text-left text-sm font-semibold">Bank Name</th>
-                        <th className="px-4 py-3 text-right text-sm font-semibold">Amount</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold">Gross Amount</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold">TDS (10%)</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold">Net Payable</th>
                         <th className="px-4 py-3 text-left text-sm font-semibold min-w-[200px]">Transaction Type</th>
                       </tr>
                     </thead>
@@ -3235,6 +3272,10 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                         const requiresIfsc = TRANSACTION_REQUIRES_IFSC[transactionType];
                         const hasIfscIssue = requiresIfsc && !doctor.ifsc_code;
                         
+                        const grossAmount = parseFloat(payment.paid_amount || 0);
+                        const tdsAmount = grossAmount * 0.10;
+                        const netAmount = grossAmount - tdsAmount;
+                        
                         return (
                           <tr key={payment.id} className={`hover:bg-muted/50 ${hasIfscIssue ? 'bg-destructive/10' : ''}`}>
                             <td className="px-4 py-3 text-sm">{index + 1}</td>
@@ -3244,8 +3285,14 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                               {doctor.ifsc_code || <span className="text-destructive text-xs">Missing</span>}
                             </td>
                             <td className="px-4 py-3 text-sm">{doctor.bank_name || '-'}</td>
-                            <td className="px-4 py-3 text-sm text-right font-semibold">
-                              {formatCurrency(parseFloat(payment.paid_amount || 0))}
+                            <td className="px-4 py-3 text-sm text-right font-medium">
+                              {formatCurrency(grossAmount)}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-right text-destructive font-medium">
+                              -{formatCurrency(tdsAmount)}
+                            </td>
+                            <td className="px-4 py-3 text-sm text-right font-bold text-primary">
+                              {formatCurrency(netAmount)}
                             </td>
                             <td className="px-4 py-3">
                               <Select
