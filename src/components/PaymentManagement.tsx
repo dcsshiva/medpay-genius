@@ -3000,7 +3000,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                 </Button>
               </div>
               <PaymentManagementTable
-                payments={filterPayments(payments.filter(p => p.is_fully_paid && !p.bank_advice_generated), searchTerm, searchFilter)}
+                payments={filterPayments(fullyPaidPayments, searchTerm, searchFilter)}
                 userRole={userRole}
                 onApprove={(paymentId) => handleApproval(paymentId, 'approve')}
                 onReject={(paymentId) => {
@@ -3017,7 +3017,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                 onSelectPayment={handleSelectPaymentForBankAdvice}
               />
               
-              {payments.filter(p => p.is_fully_paid && !p.bank_advice_generated).length === 0 && (
+              {fullyPaidPayments.length === 0 && (
                 <Card>
                   <CardContent className="p-8 text-center">
                     <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
