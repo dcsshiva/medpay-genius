@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -649,6 +650,98 @@ const DoctorManagement = () => {
     }
   };
 
+  const exportDoctorsToExcel = () => {
+    // Get filtered doctors (same logic as displayed in the table)
+    const filteredDoctors = doctors
+      .filter((doctor) => {
+        const searchLower = searchQuery.toLowerCase();
+        return (
+          doctor.profiles?.full_name.toLowerCase().includes(searchLower) ||
+          doctor.doctor_code.toLowerCase().includes(searchLower) ||
+          doctor.specialization.toLowerCase().includes(searchLower)
+        );
+      })
+      .sort((a, b) => {
+        let aVal = sortField === 'full_name' ? (a.profiles?.full_name || '') : a[sortField];
+        let bVal = sortField === 'full_name' ? (b.profiles?.full_name || '') : b[sortField];
+        if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+        if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+        if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+
+    if (filteredDoctors.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No Data to Export",
+        description: "There are no doctors to export. Please adjust your search filters."
+      });
+      return;
+    }
+
+    // Format data for Excel export
+    const exportData = filteredDoctors.map(doctor => ({
+      'Doctor Code': doctor.doctor_code,
+      'Full Name': doctor.profiles?.full_name || 'N/A',
+      'Specialization': doctor.specialization,
+      'PAN Number': doctor.pan_number || 'Not provided',
+      'Status': doctor.is_active ? 'Active' : 'Inactive',
+      'Bank Account Number': doctor.bank_account_number || 'Not provided',
+      'Account Holder Name': doctor.account_holder_name || 'Not provided',
+      'Bank Name': doctor.bank_name || 'Not provided',
+      'Branch Name': doctor.branch_name || 'Not provided',
+      'IFSC Code': doctor.ifsc_code || 'Not provided'
+    }));
+
+    try {
+      // Create worksheet
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      
+      // Set column widths for better readability
+      ws['!cols'] = [
+        { wch: 15 }, // Doctor Code
+        { wch: 25 }, // Full Name
+        { wch: 20 }, // Specialization
+        { wch: 15 }, // PAN Number
+        { wch: 10 }, // Status
+        { wch: 20 }, // Bank Account Number
+        { wch: 25 }, // Account Holder Name
+        { wch: 20 }, // Bank Name
+        { wch: 20 }, // Branch Name
+        { wch: 15 }  // IFSC Code
+      ];
+
+      // Create workbook and add worksheet
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Doctors List');
+
+      // Generate filename with timestamp
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = now.getFullYear();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const filename = `doctors_list_${day}${month}${year}_${hours}${minutes}_westmed.xlsx`;
+
+      // Download file
+      XLSX.writeFile(wb, filename);
+
+      toast({
+        title: "Export Successful",
+        description: `${filteredDoctors.length} doctor(s) exported to Excel successfully.`
+      });
+    } catch (error) {
+      console.error('Excel Export Error:', error);
+      toast({
+        variant: "destructive",
+        title: "Export Failed",
+        description: `Failed to export doctors: ${error instanceof Error ? error.message : 'Unknown error'}`
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -704,6 +797,15 @@ const DoctorManagement = () => {
             className="hidden"
             onChange={handleDoctorImport}
           />
+
+          <Button
+            variant="outline"
+            onClick={exportDoctorsToExcel}
+            disabled={doctors.length === 0}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export Doctors
+          </Button>
         
           {(userRole === 'admin' || userRole === 'manager') && (
             <Dialog open={dialogOpen} onOpenChange={(open) => {
