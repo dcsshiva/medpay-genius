@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -6,7 +6,7 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/currency';
-import { cn } from '@/lib/utils';
+import { cn, debounce } from '@/lib/utils';
 import { Calendar, CreditCard, Plus, RefreshCw, Search } from 'lucide-react';
 import { formatDateIST, formatInputDateIST, getCurrentISTDate } from '@/lib/dateUtils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -14,6 +14,14 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
 import PaymentManagement from './PaymentManagement';
 
 interface Visit {
@@ -42,6 +50,9 @@ const CashPaymentLite = () => {
   const [activeTab, setActiveTab] = useState('create');
   const [searchTerm, setSearchTerm] = useState('');
   const [searchField, setSearchField] = useState<'all' | 'doctor_name' | 'doctor_code' | 'patient_name'>('all');
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
   
   // Date range state - default to last 30 days
   const today = getCurrentISTDate();
@@ -50,6 +61,67 @@ const CashPaymentLite = () => {
   
   const [startDate, setStartDate] = useState(formatInputDateIST(thirtyDaysAgo));
   const [endDate, setEndDate] = useState(formatInputDateIST(today));
+
+  const fetchSuggestions = useCallback(
+    debounce(async (field: string, term: string) => {
+      if (!term || term.length < 2) {
+        setSuggestions([]);
+        return;
+      }
+
+      setLoadingSuggestions(true);
+      try {
+        const searchValue = `%${term.trim()}%`;
+        let query;
+
+        switch (field) {
+          case 'doctor_name':
+            query = supabase
+              .from('doctors')
+              .select('full_name')
+              .ilike('full_name', searchValue)
+              .eq('is_active', true)
+              .limit(10);
+            break;
+          case 'doctor_code':
+            query = supabase
+              .from('doctors')
+              .select('doctor_code')
+              .ilike('doctor_code', searchValue)
+              .eq('is_active', true)
+              .limit(10);
+            break;
+          case 'patient_name':
+            query = supabase
+              .from('visits')
+              .select('patient_name')
+              .ilike('patient_name', searchValue)
+              .limit(10);
+            break;
+          default:
+            return;
+        }
+
+        const { data, error } = await query;
+        if (error) throw error;
+
+        const fieldName = field === 'doctor_name' ? 'full_name' :
+                          field === 'doctor_code' ? 'doctor_code' : 'patient_name';
+        
+        const uniqueSuggestions = [...new Set(
+          data?.map(item => String(item[fieldName])).filter(Boolean) || []
+        )] as string[];
+        
+        setSuggestions(uniqueSuggestions);
+        setShowSuggestions(true);
+      } catch (error) {
+        console.error('Error fetching suggestions:', error);
+      } finally {
+        setLoadingSuggestions(false);
+      }
+    }, 300),
+    []
+  );
 
   const fetchVisitsByDateRange = async () => {
     if (!startDate || !endDate) {
@@ -373,16 +445,66 @@ const CashPaymentLite = () => {
                 
                 {/* Show search input only when a specific field is selected */}
                 {searchField !== 'all' && (
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type="text"
-                      placeholder={`Enter ${searchField.replace('_', ' ')}...`}
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-10"
-                    />
-                  </div>
+                  <Popover open={showSuggestions && suggestions.length > 0} onOpenChange={setShowSuggestions}>
+                    <PopoverTrigger asChild>
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                        <Input
+                          type="text"
+                          placeholder={`Enter ${searchField.replace('_', ' ')}...`}
+                          value={searchTerm}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setSearchTerm(value);
+                            
+                            if (value.length >= 2) {
+                              fetchSuggestions(searchField, value);
+                            } else {
+                              setSuggestions([]);
+                              setShowSuggestions(false);
+                            }
+                          }}
+                          onFocus={() => {
+                            if (searchTerm.length >= 2 && suggestions.length > 0) {
+                              setShowSuggestions(true);
+                            }
+                          }}
+                          className="pl-10"
+                        />
+                      </div>
+                    </PopoverTrigger>
+                    <PopoverContent 
+                      className="w-[--radix-popover-trigger-width] p-0" 
+                      align="start"
+                      side="bottom"
+                    >
+                      <Command>
+                        <CommandList>
+                          {loadingSuggestions ? (
+                            <CommandEmpty>Loading suggestions...</CommandEmpty>
+                          ) : suggestions.length === 0 ? (
+                            <CommandEmpty>No suggestions found</CommandEmpty>
+                          ) : (
+                            <CommandGroup>
+                              {suggestions.map((suggestion, index) => (
+                                <CommandItem
+                                  key={index}
+                                  value={suggestion}
+                                  onSelect={() => {
+                                    setSearchTerm(suggestion);
+                                    setShowSuggestions(false);
+                                    setSuggestions([]);
+                                  }}
+                                >
+                                  {suggestion}
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          )}
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 )}
               </div>
 
