@@ -22,6 +22,7 @@ import {
   type ImportResults
 } from '@/lib/excelImportUtils';
 import { getSessionAuthHeaders } from '@/lib/sessionAuth';
+import { handleCreateUserError } from '@/lib/utils';
 
 interface Staff {
   id: string;
@@ -329,7 +330,11 @@ const StaffManagement = () => {
 
       if (createUserError || !result?.success) {
         const msg = result?.error || createUserError?.message || '';
-        const needsRetry = !formData.email && /already.*(registered|exists)|email_exists/i.test(msg);
+        const errorCode = result?.code;
+        
+        // For auto-generated emails, retry with a new email on collision
+        const needsRetry = !formData.email && (errorCode === 'email_exists' || /already.*(registered|exists)/i.test(msg));
+        
         if (needsRetry) {
           const retryEmail = `${formData.username}.${Date.now()}_${Math.floor(Math.random()*1000)}@hospital.local`;
           const retry = await supabase.functions.invoke('create-user', {
@@ -344,11 +349,13 @@ const StaffManagement = () => {
             headers: getSessionAuthHeaders()
           });
           if (retry.error || !retry.data?.success) {
-            throw new Error(retry.data?.error || retry.error?.message || 'Failed to create user');
+            throw new Error(handleCreateUserError(retry.error, retry.data, retryEmail));
           }
           createdUser = retry.data.user;
         } else {
-          throw new Error(result?.error || createUserError?.message || 'Failed to create user');
+          // For user-provided emails or other errors, show clear message
+          const errorMessage = handleCreateUserError(createUserError, result, formData.email);
+          throw new Error(errorMessage);
         }
       } else {
         createdUser = result.user;

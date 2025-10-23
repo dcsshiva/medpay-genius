@@ -20,7 +20,7 @@ import {
   type ImportResults
 } from '@/lib/excelImportUtils';
 import { getSessionAuthHeaders } from '@/lib/sessionAuth';
-import { validatePAN } from '@/lib/utils';
+import { validatePAN, handleCreateUserError } from '@/lib/utils';
 
 interface Doctor {
   id: string;
@@ -286,10 +286,7 @@ const DoctorManagement = () => {
         console.log('Create user response:', result, createUserError);
 
         if (createUserError || !result?.success) {
-          const errorMessage = result?.error || createUserError?.message || 'Failed to create user';
-          if (errorMessage.includes('email') && errorMessage.includes('exists')) {
-            throw new Error(`Email ${emailToUse} is already in use. Please use a different email or doctor code.`);
-          }
+          const errorMessage = handleCreateUserError(createUserError, result, emailToUse);
           throw new Error(errorMessage);
         }
 

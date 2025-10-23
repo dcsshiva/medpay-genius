@@ -31,3 +31,22 @@ export function validatePAN(pan: string): boolean {
   const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
   return panRegex.test(pan);
 }
+
+/**
+ * Handles errors from create-user edge function
+ * Provides user-friendly error messages for duplicate email addresses
+ */
+export function handleCreateUserError(error: any, result: any, providedEmail?: string): string {
+  const errorMsg = result?.error || error?.message || 'Failed to create user';
+  const errorCode = result?.code;
+  
+  // Check for duplicate email error
+  if (errorCode === 'email_exists' || /email.*already.*(registered|exists)/i.test(errorMsg)) {
+    if (providedEmail) {
+      return `Email "${providedEmail}" is already registered. Please use a different email address.`;
+    }
+    return 'This email address is already registered. Please use a different email.';
+  }
+  
+  return errorMsg;
+}
