@@ -132,38 +132,16 @@ const CashPaymentLite = () => {
   };
 
   const handleSelectAll = () => {
-    setSelectedVisitIds(new Set(filteredVisits.map(v => v.id)));
+    setSelectedVisitIds(new Set(visits.map(v => v.id)));
   };
 
   const handleClearAll = () => {
     setSelectedVisitIds(new Set());
   };
 
-  // Filter visits based on search term and field
-  const filteredVisits = visits.filter(visit => {
-    if (!searchTerm.trim()) return true;
-    
-    const searchLower = searchTerm.toLowerCase().trim();
-    
-    switch (searchField) {
-      case 'doctor_name':
-        return visit.doctors.full_name.toLowerCase().includes(searchLower);
-      case 'doctor_code':
-        return visit.doctors.doctor_code.toLowerCase().includes(searchLower);
-      case 'patient_name':
-        return visit.patient_name.toLowerCase().includes(searchLower);
-      case 'all':
-      default:
-        return (
-          visit.doctors.full_name.toLowerCase().includes(searchLower) ||
-          visit.doctors.doctor_code.toLowerCase().includes(searchLower) ||
-          visit.patient_name.toLowerCase().includes(searchLower) ||
-          visit.visit_code.toLowerCase().includes(searchLower)
-        );
-    }
-  });
-
-  const selectedVisits = filteredVisits.filter(v => selectedVisitIds.has(v.id));
+  const selectedVisits = Array.from(selectedVisitIds)
+    .map(id => visits.find(v => v.id === id))
+    .filter((v): v is Visit => v !== undefined);
   const totalSelectedAmount = selectedVisits.reduce((sum, v) => sum + (v.visit_payment || 0), 0);
   
   // Group selected visits by doctor
@@ -273,12 +251,6 @@ const CashPaymentLite = () => {
     setEndDate(formatInputDateIST(end));
   };
 
-  // Reset search when visits change
-  useEffect(() => {
-    setSearchTerm('');
-    setSearchField('all');
-  }, [visits.length]);
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -349,64 +321,6 @@ const CashPaymentLite = () => {
             <>
               <Card>
                 <CardContent className="pt-6">
-                  <div className="space-y-4">
-                    {/* Search Input */}
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        type="text"
-                        placeholder="Search visits..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                    
-                    {/* Filter Chips */}
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm text-muted-foreground">Filter by:</span>
-                      <Button
-                        variant={searchField === 'all' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setSearchField('all')}
-                      >
-                        All Fields
-                      </Button>
-                      <Button
-                        variant={searchField === 'doctor_name' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setSearchField('doctor_name')}
-                      >
-                        Doctor Name
-                      </Button>
-                      <Button
-                        variant={searchField === 'doctor_code' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setSearchField('doctor_code')}
-                      >
-                        Doctor Code
-                      </Button>
-                      <Button
-                        variant={searchField === 'patient_name' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => setSearchField('patient_name')}
-                      >
-                        Patient Name
-                      </Button>
-                    </div>
-                    
-                    {/* Search Results Count */}
-                    {searchTerm && (
-                      <div className="text-sm text-muted-foreground">
-                        Found {filteredVisits.length} of {visits.length} visits
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="pt-6">
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="text-center p-4 bg-muted/50 rounded-lg">
                       <p className="text-sm text-muted-foreground">Selected Visits</p>
@@ -443,7 +357,7 @@ const CashPaymentLite = () => {
 
               <Card>
                 <CardHeader>
-                  <CardTitle>Unprocessed Cash Visits ({filteredVisits.length})</CardTitle>
+                  <CardTitle>Unprocessed Cash Visits ({visits.length})</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="rounded-md border">
@@ -452,7 +366,7 @@ const CashPaymentLite = () => {
                         <TableRow>
                           <TableHead className="w-12">
                             <Checkbox 
-                              checked={filteredVisits.length > 0 && filteredVisits.every(v => selectedVisitIds.has(v.id))}
+                              checked={selectedVisitIds.size === visits.length && visits.length > 0}
                               onCheckedChange={(checked) => {
                                 if (checked) {
                                   handleSelectAll();
@@ -472,7 +386,7 @@ const CashPaymentLite = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {filteredVisits.map(visit => (
+                        {visits.map(visit => (
                           <TableRow
                             key={visit.id}
                             className={cn(
