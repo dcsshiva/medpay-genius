@@ -46,6 +46,10 @@ interface Payment {
   is_suspect?: boolean;
   suspect_reason?: string;
   bank_advice_generated?: boolean;
+  gross_amount?: number;
+  tds_amount?: number;
+  tds_percentage?: number;
+  net_amount?: number;
   doctors: {
     doctor_code: string;
     profiles: {
@@ -178,6 +182,9 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             >
               Total Amount
             </TableHead>
+            <TableHead className="text-right">Gross Amount</TableHead>
+            <TableHead className="text-right">TDS (10%)</TableHead>
+            <TableHead className="text-right">Net Payable</TableHead>
             <TableHead className="text-right">Paid</TableHead>
             <TableHead className="text-right">Remaining</TableHead>
             <TableHead className="text-center">Status</TableHead>
@@ -188,7 +195,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
           {sortedPayments.length === 0 ? (
             <TableRow>
               <TableCell 
-                colSpan={showBankAdviceCheckbox ? 10 : 9} 
+                colSpan={showBankAdviceCheckbox ? 13 : 12} 
                 className="text-center text-muted-foreground py-8"
               >
                 No payments found
@@ -269,6 +276,28 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                 </TableCell>
                 <TableCell className="text-right font-semibold text-primary">
                   {formatCurrency(payment.total_amount)}
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="text-sm">
+                    <div className="font-semibold">{formatCurrency(payment.gross_amount || payment.total_amount)}</div>
+                    <div className="text-xs text-muted-foreground">Gross</div>
+                  </div>
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="text-sm">
+                    <div className="font-medium text-destructive">
+                      -{formatCurrency(payment.tds_amount || (payment.gross_amount || payment.total_amount) * 0.10)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">TDS 10%</div>
+                  </div>
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="text-sm">
+                    <div className="font-semibold text-success">
+                      {formatCurrency(payment.net_amount || (payment.gross_amount || payment.total_amount) * 0.90)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Net</div>
+                  </div>
                 </TableCell>
                 <TableCell className="text-right text-success">
                   {formatCurrency(payment.paid_amount)}

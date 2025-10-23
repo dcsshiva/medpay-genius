@@ -425,6 +425,7 @@ export type Database = {
           cash_rejection_reason: string | null
           created_at: string
           doctor_id: string
+          gross_amount: number | null
           id: string
           insurance_approval_status: string | null
           insurance_approved_at: string | null
@@ -436,6 +437,7 @@ export type Database = {
           manager_approved_by: string | null
           marked_suspect_at: string | null
           marked_suspect_by: string | null
+          net_amount: number | null
           paid_amount: number | null
           payment_notes: string | null
           period_end: string
@@ -446,6 +448,8 @@ export type Database = {
           remaining_amount: number | null
           status: Database["public"]["Enums"]["payment_status"]
           suspect_reason: string | null
+          tds_amount: number | null
+          tds_percentage: number | null
           total_amount: number
           total_visits: number
           updated_at: string
@@ -462,6 +466,7 @@ export type Database = {
           cash_rejection_reason?: string | null
           created_at?: string
           doctor_id: string
+          gross_amount?: number | null
           id?: string
           insurance_approval_status?: string | null
           insurance_approved_at?: string | null
@@ -473,6 +478,7 @@ export type Database = {
           manager_approved_by?: string | null
           marked_suspect_at?: string | null
           marked_suspect_by?: string | null
+          net_amount?: number | null
           paid_amount?: number | null
           payment_notes?: string | null
           period_end: string
@@ -483,6 +489,8 @@ export type Database = {
           remaining_amount?: number | null
           status?: Database["public"]["Enums"]["payment_status"]
           suspect_reason?: string | null
+          tds_amount?: number | null
+          tds_percentage?: number | null
           total_amount: number
           total_visits: number
           updated_at?: string
@@ -499,6 +507,7 @@ export type Database = {
           cash_rejection_reason?: string | null
           created_at?: string
           doctor_id?: string
+          gross_amount?: number | null
           id?: string
           insurance_approval_status?: string | null
           insurance_approved_at?: string | null
@@ -510,6 +519,7 @@ export type Database = {
           manager_approved_by?: string | null
           marked_suspect_at?: string | null
           marked_suspect_by?: string | null
+          net_amount?: number | null
           paid_amount?: number | null
           payment_notes?: string | null
           period_end?: string
@@ -520,6 +530,8 @@ export type Database = {
           remaining_amount?: number | null
           status?: Database["public"]["Enums"]["payment_status"]
           suspect_reason?: string | null
+          tds_amount?: number | null
+          tds_percentage?: number | null
           total_amount?: number
           total_visits?: number
           updated_at?: string
@@ -960,6 +972,71 @@ export type Database = {
           },
         ]
       }
+      tds_certificates: {
+        Row: {
+          certificate_data: Json | null
+          certificate_number: string
+          created_at: string | null
+          doctor_id: string
+          financial_year: string
+          generated_at: string | null
+          generated_by: string | null
+          id: string
+          payment_ids: Json
+          period_end: string
+          period_start: string
+          quarter: string
+          total_gross_amount: number
+          total_net_amount: number
+          total_tds_amount: number
+          updated_at: string | null
+        }
+        Insert: {
+          certificate_data?: Json | null
+          certificate_number: string
+          created_at?: string | null
+          doctor_id: string
+          financial_year: string
+          generated_at?: string | null
+          generated_by?: string | null
+          id?: string
+          payment_ids?: Json
+          period_end: string
+          period_start: string
+          quarter: string
+          total_gross_amount?: number
+          total_net_amount?: number
+          total_tds_amount?: number
+          updated_at?: string | null
+        }
+        Update: {
+          certificate_data?: Json | null
+          certificate_number?: string
+          created_at?: string | null
+          doctor_id?: string
+          financial_year?: string
+          generated_at?: string | null
+          generated_by?: string | null
+          id?: string
+          payment_ids?: Json
+          period_end?: string
+          period_start?: string
+          quarter?: string
+          total_gross_amount?: number
+          total_net_amount?: number
+          total_tds_amount?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tds_certificates_doctor_id_fkey"
+            columns: ["doctor_id"]
+            isOneToOne: false
+            referencedRelation: "doctors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_designations: {
         Row: {
           created_at: string
@@ -1365,31 +1442,34 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      cleanup_expired_sessions: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      cleanup_expired_user_sessions: {
-        Args: Record<PropertyKey, never>
-        Returns: number
-      }
-      erase_all_transactions: {
-        Args: Record<PropertyKey, never>
-        Returns: Json
+      cleanup_expired_sessions: { Args: never; Returns: undefined }
+      cleanup_expired_user_sessions: { Args: never; Returns: number }
+      erase_all_transactions: { Args: never; Returns: Json }
+      get_doctor_tds_summary: {
+        Args: { _doctor_id?: string; _end_date: string; _start_date: string }
+        Returns: {
+          doctor_code: string
+          doctor_id: string
+          doctor_name: string
+          total_gross_amount: number
+          total_net_amount: number
+          total_payments: number
+          total_tds_amount: number
+        }[]
       }
       get_financial_year_start: {
         Args: { visit_date: string }
         Returns: string
       }
       get_payment_approval_counts: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           pending_cash_count: number
           pending_insurance_count: number
         }[]
       }
       get_payment_approval_totals: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           approved_cash: number
           approved_insurance: number
@@ -1422,12 +1502,9 @@ export type Database = {
         Args: { _end_date: string; _staff_id: string; _start_date: string }
         Returns: number
       }
-      get_staff_auth_email: {
-        Args: { _username: string }
-        Returns: string
-      }
+      get_staff_auth_email: { Args: { _username: string }; Returns: string }
       get_staff_list_for_management: {
-        Args: Record<PropertyKey, never>
+        Args: never
         Returns: {
           department: string
           full_name: string
@@ -1550,10 +1627,7 @@ export type Database = {
         }
         Returns: undefined
       }
-      simple_hash: {
-        Args: { password: string }
-        Returns: string
-      }
+      simple_hash: { Args: { password: string }; Returns: string }
       verify_user_login: {
         Args: { _password: string; _username: string }
         Returns: Json

@@ -16,7 +16,8 @@ import {
   Globe,
   BookOpen,
   ClipboardCheck,
-  Database
+  Database,
+  FileText
 } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
 import {
@@ -120,6 +121,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
         { id: 'cash-payments-lite', label: 'Cash Payments (Lite)', icon: CreditCard },
         { id: 'insurance-payments', label: 'Insurance Payments', icon: CreditCard },
         { id: 'insurance-payments-lite', label: 'Insurance Payments (Lite)', icon: CreditCard },
+        { id: 'tds-reports', label: 'TDS Reports', icon: FileText },
         { id: 'tasks', label: 'Task Management', icon: ClipboardList },
         { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
         { id: 'complaints', label: 'Complaints', icon: MessageCircle },
@@ -134,19 +136,20 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
       { id: 'masters', label: 'Masters', icon: Database },
       { id: 'doctors', label: 'Doctor Management', icon: Users },
       { id: 'visits', label: 'Visit Management', icon: Calendar },
-        { id: 'cash-payments', label: 'Cash Payments', icon: CreditCard },
-        { id: 'cash-payments-lite', label: 'Cash Payments (Lite)', icon: CreditCard },
-        { id: 'insurance-payments', label: 'Insurance Payments', icon: CreditCard },
-        { id: 'insurance-payments-lite', label: 'Insurance Payments (Lite)', icon: CreditCard },
-        { id: 'tasks', label: 'Task Management', icon: ClipboardList },
-        { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
-        { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
-        { id: 'login-reports', label: 'Login Reports', icon: TrendingUp },
-        { id: 'chat', label: 'Team Chat', icon: MessageSquare },
-        { id: 'version', label: 'Version Management', icon: HistoryIcon },
-        { id: 'website-settings', label: 'Website Settings', icon: Globe },
-        { id: 'settings', label: 'Settings', icon: Settings },
-      ];
+      { id: 'cash-payments', label: 'Cash Payments', icon: CreditCard },
+      { id: 'cash-payments-lite', label: 'Cash Payments (Lite)', icon: CreditCard },
+      { id: 'insurance-payments', label: 'Insurance Payments', icon: CreditCard },
+      { id: 'insurance-payments-lite', label: 'Insurance Payments (Lite)', icon: CreditCard },
+      { id: 'tds-reports', label: 'TDS Reports', icon: FileText },
+      { id: 'tasks', label: 'Task Management', icon: ClipboardList },
+      { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
+      { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
+      { id: 'login-reports', label: 'Login Reports', icon: TrendingUp },
+      { id: 'chat', label: 'Team Chat', icon: MessageSquare },
+      { id: 'version', label: 'Version Management', icon: HistoryIcon },
+      { id: 'website-settings', label: 'Website Settings', icon: Globe },
+      { id: 'settings', label: 'Settings', icon: Settings },
+    ];
     }
 
     // Staff users (nurse, technician, receptionist, pharmacist, cleaner, security, etc.)

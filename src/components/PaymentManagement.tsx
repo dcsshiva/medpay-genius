@@ -1642,6 +1642,23 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
         // Continue with download even if history save fails
       }
 
+      // Update each payment with TDS details in database
+      for (const payment of selectedPaymentsForReview) {
+        const grossAmount = parseFloat(payment.paid_amount);
+        const tdsAmount = grossAmount * 0.10;
+        const netAmount = grossAmount - tdsAmount;
+        
+        await supabase
+          .from('payments')
+          .update({
+            gross_amount: grossAmount,
+            tds_amount: tdsAmount,
+            tds_percentage: 10.0,
+            net_amount: netAmount
+          })
+          .eq('id', payment.id);
+      }
+
       // Create and download file
       const blob = new Blob([fileContent], { type: 'text/plain' });
       const url = window.URL.createObjectURL(blob);

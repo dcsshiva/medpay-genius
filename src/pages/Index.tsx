@@ -21,6 +21,8 @@ import Settings from '@/components/Settings';
 import VersionManager from '@/components/VersionManager';
 import { WebsiteSettings } from '@/components/WebsiteSettings';
 import UserGuide from '@/pages/UserGuide';
+import { TDSCertificateGenerator } from '@/components/TDSCertificateGenerator';
+import { TDSReportsManagement } from '@/components/TDSReportsManagement';
 
 const Index = () => {
   const { user, loading } = useAuth();
