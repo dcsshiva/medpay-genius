@@ -5,32 +5,32 @@ import { utils, write, read, writeFile } from 'xlsx';
 export const generateStaffTemplate = () => {
   const workbook = utils.book_new();
   
-  // Sample data - first row only (locked/reference)
+  // Sample data with clear instructions for optional fields
   const sampleData = [
     {
-      staff_code: '⚠️ SAMPLE ROW - DO NOT MODIFY - Add your data in rows below',
+      staff_code: '⚠️ Optional - Auto-generated (NUR001, ADM001...)',
       username: 'john.smith',
       full_name: 'John Smith',
-      email: 'john.smith@hospital.com',
-      phone: '+1234567890',
-      role: 'admin',
-      department: 'Administration',
-      password: 'SecurePass123'
+      email: 'Optional - Auto from username@gmail.com',
+      phone: 'Optional - +1234567890',
+      role: 'nurse',
+      department: 'Optional - Administration',
+      password: 'Optional - Defaults to "SecurePass789"'
     }
   ];
   
   const worksheet = utils.json_to_sheet(sampleData);
   
-  // Set column widths
+  // Set column widths (wider for instruction columns)
   worksheet['!cols'] = [
-    { wch: 40 }, // staff_code (wider for warning message)
+    { wch: 45 }, // staff_code (wider for instruction)
     { wch: 15 }, // username
     { wch: 20 }, // full_name
-    { wch: 25 }, // email
-    { wch: 15 }, // phone
+    { wch: 40 }, // email (wider for instruction)
+    { wch: 25 }, // phone
     { wch: 15 }, // role
-    { wch: 20 }, // department
-    { wch: 15 }  // password
+    { wch: 30 }, // department
+    { wch: 40 }  // password (wider for instruction)
   ];
   
   // Add data validation for role column (dropdown)

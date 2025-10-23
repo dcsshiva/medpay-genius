@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import * as XLSX from 'xlsx';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -578,6 +579,19 @@ const StaffManagement = () => {
             continue;
           }
           
+          // Auto-generate email from username if missing
+          if (!row.email) {
+            const sanitizedUsername = row.username
+              .toLowerCase()
+              .replace(/[^a-z0-9]/g, '');
+            row.email = `${sanitizedUsername}@gmail.com`;
+          }
+          
+          // Set default password if missing
+          if (!row.password) {
+            row.password = 'SecurePass789';
+          }
+          
           let staffCode = row.staff_code?.trim();
           if (!staffCode) {
             staffCode = generateStaffCodeByRole(row.role);
@@ -636,15 +650,8 @@ const StaffManagement = () => {
             
             results.updated++;
           } else {
-            if (!row.password) {
-              results.errors.push({
-                row: rowNumber,
-                message: 'Password required for new staff'
-              });
-              continue;
-            }
-            
-            const email = row.email || `${row.username}.${Date.now()}@hospital.local`;
+            // Password is now auto-generated above if missing, so just use it
+            const email = row.email; // Already set to sanitized_username@gmail.com or user-provided
             const profileRole = ['admin','manager','doctor'].includes(row.role) 
               ? row.role 
               : 'staff';
@@ -712,6 +719,97 @@ const StaffManagement = () => {
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
+    }
+  };
+
+  const exportStaffToExcel = () => {
+    // Get filtered staff (same logic as displayed in the table)
+    const filteredStaff = staff
+      .filter((member) => {
+        const searchLower = searchQuery.toLowerCase();
+        return (
+          member.full_name.toLowerCase().includes(searchLower) ||
+          member.staff_code.toLowerCase().includes(searchLower) ||
+          member.username.toLowerCase().includes(searchLower) ||
+          member.role.toLowerCase().includes(searchLower)
+        );
+      })
+      .sort((a, b) => {
+        let aVal = a[sortField];
+        let bVal = b[sortField];
+        if (typeof aVal === 'string') aVal = aVal.toLowerCase();
+        if (typeof bVal === 'string') bVal = bVal.toLowerCase();
+        if (aVal < bVal) return sortDirection === 'asc' ? -1 : 1;
+        if (aVal > bVal) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+
+    if (filteredStaff.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No Data to Export",
+        description: "There are no staff members to export. Please adjust your search filters."
+      });
+      return;
+    }
+
+    // Format data for Excel export
+    const exportData = filteredStaff.map(member => ({
+      'Staff Code': member.staff_code,
+      'Username': member.username,
+      'Full Name': member.full_name,
+      'Email': member.email || 'Not provided',
+      'Phone': member.phone || 'Not provided',
+      'Role': member.role,
+      'Department': member.department || 'Not provided',
+      'Status': member.is_active ? 'Active' : 'Inactive',
+      'Last Login': member.last_login ? formatDateIST(member.last_login) : 'Never'
+    }));
+
+    try {
+      // Create worksheet
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      
+      // Set column widths for better readability
+      ws['!cols'] = [
+        { wch: 15 }, // Staff Code
+        { wch: 15 }, // Username
+        { wch: 25 }, // Full Name
+        { wch: 30 }, // Email
+        { wch: 15 }, // Phone
+        { wch: 15 }, // Role
+        { wch: 20 }, // Department
+        { wch: 10 }, // Status
+        { wch: 20 }  // Last Login
+      ];
+
+      // Create workbook and add worksheet
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Staff List');
+
+      // Generate filename with timestamp
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = now.getFullYear();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const filename = `staff_list_${day}${month}${year}_${hours}${minutes}_westmed.xlsx`;
+
+      // Download file
+      XLSX.writeFile(wb, filename);
+
+      toast({
+        title: "Export Successful",
+        description: `${filteredStaff.length} staff member(s) exported to Excel successfully.`
+      });
+    } catch (error) {
+      console.error('Excel Export Error:', error);
+      toast({
+        variant: "destructive",
+        title: "Export Failed",
+        description: `Failed to export staff: ${error instanceof Error ? error.message : 'Unknown error'}`
+      });
     }
   };
 
@@ -787,6 +885,15 @@ const StaffManagement = () => {
             className="hidden"
             onChange={handleStaffImport}
           />
+          
+          <Button
+            variant="outline"
+            onClick={exportStaffToExcel}
+            disabled={staff.length === 0}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export Staff
+          </Button>
         
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
