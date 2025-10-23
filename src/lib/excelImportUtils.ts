@@ -77,16 +77,16 @@ export const generateDoctorTemplate = () => {
   // Sample data - first row only (locked/reference)
   const sampleData = [
     {
-      doctor_code: '⚠️ SAMPLE ROW - DO NOT MODIFY - Add your data in rows below',
+      doctor_code: '⚠️ Optional - Auto-generated (DOC001, DOC002...)',
       full_name: 'Dr. Sarah Wilson',
-      email: 'sarah.wilson@hospital.com',
-      specialization: 'Cardiology',
-      password: 'SecurePass789',
-      pan_number: 'ABCDE1234F',
+      email: 'Optional - Auto from account_holder_name@gmail.com',
+      specialization: 'Optional - Defaults to "others"',
+      password: 'Optional - Defaults to "SecurePass789"',
+      pan_number: 'Optional - ABCDE1234F',
       bank_account_number: '1234567890',
       account_holder_name: 'Dr. Sarah Wilson',
       bank_name: 'National Bank',
-      branch_name: 'Main Branch',
+      branch_name: 'Optional - Main Branch',
       ifsc_code: 'NBNK0001234'
     }
   ];
@@ -95,21 +95,28 @@ export const generateDoctorTemplate = () => {
   
   // Set column widths
   worksheet['!cols'] = [
-    { wch: 40 }, // doctor_code (wider for warning message)
+    { wch: 45 }, // doctor_code (wider for instruction)
     { wch: 25 }, // full_name
-    { wch: 30 }, // email
-    { wch: 20 }, // specialization
-    { wch: 15 }, // password
-    { wch: 12 }, // pan_number
+    { wch: 45 }, // email (wider for instruction)
+    { wch: 35 }, // specialization (wider for instruction)
+    { wch: 38 }, // password (wider for instruction)
+    { wch: 25 }, // pan_number
     { wch: 20 }, // bank_account_number
     { wch: 25 }, // account_holder_name
     { wch: 20 }, // bank_name
-    { wch: 20 }, // branch_name
+    { wch: 25 }, // branch_name
     { wch: 15 }  // ifsc_code
   ];
   
   utils.book_append_sheet(workbook, worksheet, 'Doctor Template');
-  writeFile(workbook, 'doctor_import_template.xlsx');
+  
+  // Generate filename with current date (DDMM format)
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const filename = `doctor_import_${day}${month}_westmed.xlsx`;
+  
+  writeFile(workbook, filename);
 };
 
 // ==================== Excel Parsing ====================
@@ -153,6 +160,28 @@ export const generateStaffCodeByRole = (role: string): string => {
   const prefix = prefixMap[role.toLowerCase()] || 'STF';
   const randomNum = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
   return `${prefix}${randomNum}`;
+};
+
+export const generateDoctorCode = async (supabaseClient: any): Promise<string> => {
+  // Get the highest existing doctor code number
+  const { data: doctors } = await supabaseClient
+    .from('doctors')
+    .select('doctor_code')
+    .ilike('doctor_code', 'DOC%')
+    .order('doctor_code', { ascending: false })
+    .limit(1);
+  
+  let nextNum = 1;
+  
+  if (doctors && doctors.length > 0) {
+    const lastCode = doctors[0].doctor_code;
+    const match = lastCode.match(/DOC(\d+)/i);
+    if (match) {
+      nextNum = parseInt(match[1], 10) + 1;
+    }
+  }
+  
+  return `DOC${nextNum.toString().padStart(3, '0')}`;
 };
 
 export const validateStaffCode = (code: string): boolean => {

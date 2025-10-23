@@ -16,6 +16,7 @@ import {
   generateDoctorTemplate, 
   parseExcelFile, 
   validateDoctorCode,
+  generateDoctorCode,
   analyzeDoctorImport,
   type ImportResults
 } from '@/lib/excelImportUtils';
@@ -456,18 +457,48 @@ const DoctorManagement = () => {
         const rowNumber = i + 3; // Excel row (1=header, 2=sample, 3+=data)
         
         try {
-          if (!row.doctor_code || !row.full_name || !row.specialization) {
+          // Skip sample/header row
+          if (row.doctor_code?.includes('SAMPLE') || row.doctor_code?.includes('⚠️') || row.doctor_code?.includes('Optional')) {
+            continue;
+          }
+
+          // Check required fields - only full_name is mandatory
+          if (!row.full_name) {
             results.errors.push({
               row: rowNumber,
-              message: 'Missing required fields (doctor_code, full_name, or specialization)'
+              message: 'Missing required field: full_name'
             });
             continue;
           }
-          
-          if (!validateDoctorCode(row.doctor_code)) {
+
+          // Auto-generate doctor_code if missing
+          if (!row.doctor_code) {
+            row.doctor_code = await generateDoctorCode(supabase);
+          }
+
+          // Auto-generate email from account_holder_name if missing
+          if (!row.email && row.account_holder_name) {
+            const sanitizedName = row.account_holder_name
+              .toLowerCase()
+              .replace(/[^a-z0-9]/g, '');
+            row.email = `${sanitizedName}@gmail.com`;
+          }
+
+          // Set default password if missing
+          if (!row.password) {
+            row.password = 'SecurePass789';
+          }
+
+          // Replace blank specialization with "others"
+          if (!row.specialization || row.specialization.trim() === '') {
+            row.specialization = 'others';
+          }
+
+          // Validate doctor code format (only if provided or generated)
+          if (row.doctor_code && !validateDoctorCode(row.doctor_code)) {
             results.errors.push({
               row: rowNumber,
-              message: `Invalid doctor code format: ${row.doctor_code}`
+              message: `Invalid doctor code format: ${row.doctor_code}. Expected format: ABC123`
             });
             continue;
           }
@@ -480,18 +511,18 @@ const DoctorManagement = () => {
           }
           
           if (decision.action === 'update') {
-            const { error } = await supabase
-              .from('doctors')
-              .update({
-                specialization: row.specialization,
-                pan_number: row.pan_number || null,
-                bank_account_number: row.bank_account_number || null,
-                account_holder_name: row.account_holder_name || null,
-                bank_name: row.bank_name || null,
-                branch_name: row.branch_name || null,
-                ifsc_code: row.ifsc_code || null
-              })
-              .eq('doctor_code', row.doctor_code);
+        const { error } = await supabase
+          .from('doctors')
+          .update({
+            specialization: row.specialization || 'others',
+            pan_number: row.pan_number || null,
+            bank_account_number: row.bank_account_number || null,
+            account_holder_name: row.account_holder_name || null,
+            bank_name: row.bank_name || null,
+            branch_name: row.branch_name || null,
+            ifsc_code: row.ifsc_code || null
+          })
+          .eq('doctor_code', row.doctor_code);
             
             if (error) throw error;
             
@@ -514,10 +545,13 @@ const DoctorManagement = () => {
             
             results.updated++;
           } else {
-            if (!row.email || !row.password) {
+            // Email and password are now auto-generated, so no need to check
+            
+            // Validate PAN number format if provided
+            if (row.pan_number && !validatePAN(row.pan_number)) {
               results.errors.push({
                 row: rowNumber,
-                message: 'Email and password required for new doctors'
+                message: `Invalid PAN number format: ${row.pan_number}. Expected format: AAAAA9999A`
               });
               continue;
             }
@@ -533,6 +567,7 @@ const DoctorManagement = () => {
                 doctorData: {
                   doctor_code: row.doctor_code,
                   specialization: row.specialization,
+                  pan_number: row.pan_number || null,
                   bank_account_number: row.bank_account_number || null,
                   account_holder_name: row.account_holder_name || null,
                   bank_name: row.bank_name || null,
