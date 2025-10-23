@@ -77,7 +77,7 @@ const InsurancePaymentLite = () => {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('visits')
         .select(`
           id,
@@ -102,9 +102,33 @@ const InsurancePaymentLite = () => {
         .eq('is_processed', false)
         .eq('payment_type', 'insurance')
         .gte('visit_date', startDate)
-        .lte('visit_date', endDate)
+        .lte('visit_date', endDate);
+
+      // Apply optional filter based on selected field
+      if (searchField !== 'all' && searchTerm.trim()) {
+        const searchValue = `%${searchTerm.trim()}%`;
+        
+        switch (searchField) {
+          case 'doctor_name':
+            query = query.ilike('doctors.full_name', searchValue);
+            break;
+          case 'doctor_code':
+            query = query.ilike('doctors.doctor_code', searchValue);
+            break;
+          case 'patient_name':
+            query = query.ilike('patient_name', searchValue);
+            break;
+          case 'insurance_company':
+            query = query.ilike('insurance_companies.company_name', searchValue);
+            break;
+        }
+      }
+
+      query = query
         .order('doctor_id')
         .order('visit_date', { ascending: false });
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -112,9 +136,12 @@ const InsurancePaymentLite = () => {
       setSelectedVisitIds(new Set());
       
       if (data && data.length === 0) {
+        const filterMsg = searchField !== 'all' && searchTerm.trim() 
+          ? ` matching "${searchTerm}" in ${searchField.replace('_', ' ')}`
+          : '';
         toast({
           title: "No Visits Found",
-          description: "No unprocessed insurance visits found in the selected date range"
+          description: `No unprocessed insurance visits found${filterMsg} in the selected date range`
         });
       }
     } catch (error: any) {
@@ -318,6 +345,65 @@ const InsurancePaymentLite = () => {
                 <Button variant="outline" size="sm" onClick={() => setQuickDateRange(90)}>
                   Last 90 Days
                 </Button>
+              </div>
+
+              {/* Optional Filter Section */}
+              <div className="space-y-3 pt-4 border-t">
+                <Label className="text-sm font-medium">Filter by (Optional)</Label>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    variant={searchField === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      setSearchField('all');
+                      setSearchTerm('');
+                    }}
+                  >
+                    All Visits
+                  </Button>
+                  <Button
+                    variant={searchField === 'doctor_name' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSearchField('doctor_name')}
+                  >
+                    Doctor Name
+                  </Button>
+                  <Button
+                    variant={searchField === 'doctor_code' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSearchField('doctor_code')}
+                  >
+                    Doctor Code
+                  </Button>
+                  <Button
+                    variant={searchField === 'patient_name' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSearchField('patient_name')}
+                  >
+                    Patient Name
+                  </Button>
+                  <Button
+                    variant={searchField === 'insurance_company' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSearchField('insurance_company')}
+                  >
+                    Insurance Company
+                  </Button>
+                </div>
+                
+                {/* Show search input only when a specific field is selected */}
+                {searchField !== 'all' && (
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      type="text"
+                      placeholder={`Enter ${searchField.replace('_', ' ')}...`}
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
+                )}
               </div>
 
               <Button onClick={fetchVisitsByDateRange} disabled={loading} className="w-full">
