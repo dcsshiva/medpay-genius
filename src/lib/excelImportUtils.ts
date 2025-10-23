@@ -184,6 +184,29 @@ export const generateDoctorCode = async (supabaseClient: any): Promise<string> =
   return `DOC${nextNum.toString().padStart(3, '0')}`;
 };
 
+export const generatePatientId = async (supabaseClient: any): Promise<string> => {
+  // Get the highest existing patient ID number
+  const { data: visits } = await supabaseClient
+    .from('visits')
+    .select('patient_id')
+    .not('patient_id', 'is', null)
+    .ilike('patient_id', 'PAT%')
+    .order('patient_id', { ascending: false })
+    .limit(1);
+  
+  let nextNum = 1;
+  
+  if (visits && visits.length > 0) {
+    const lastId = visits[0].patient_id;
+    const match = lastId.match(/PAT(\d+)/i);
+    if (match) {
+      nextNum = parseInt(match[1], 10) + 1;
+    }
+  }
+  
+  return `PAT${nextNum.toString().padStart(5, '0')}`;
+};
+
 export const validateStaffCode = (code: string): boolean => {
   // Format: 3 letters + 3 digits
   return /^[A-Z]{3}\d{3}$/.test(code);
@@ -314,3 +337,170 @@ export interface ImportResults {
   skipped: number;
   errors: { row: number; message: string }[];
 }
+
+// ==================== Visit Template Generation ====================
+
+export const generateVisitTemplate = async (
+  doctors: Array<{ doctor_code: string; full_name: string; specialization?: string }>,
+  insuranceCompanies: Array<{ company_code: string; company_name: string }>,
+  visitReasons: Array<{ reason_code: string; reason_name: string }>
+) => {
+  const workbook = utils.book_new();
+  
+  // Sample data with clear instructions
+  const sampleData = [
+    {
+      doctor: 'Select from dropdown below ↓',
+      visit_date: '📅 Click to select date (Cannot be future date)',
+      patient_name: 'John Doe',
+      patient_id: 'Optional - Auto-generated (PAT00001)',
+      payment_amount: 1500,
+      payment_type: 'Select from dropdown ↓',
+      visit_reason: 'Select from dropdown ↓',
+      insurance_company: 'Required if Payment Type = insurance',
+      notes: 'Optional - Any additional notes'
+    }
+  ];
+  
+  const worksheet = utils.json_to_sheet(sampleData);
+  
+  // Set column widths
+  worksheet['!cols'] = [
+    { wch: 35 }, // doctor
+    { wch: 45 }, // visit_date
+    { wch: 20 }, // patient_name
+    { wch: 35 }, // patient_id
+    { wch: 18 }, // payment_amount
+    { wch: 25 }, // payment_type
+    { wch: 25 }, // visit_reason
+    { wch: 40 }, // insurance_company
+    { wch: 30 }  // notes
+  ];
+  
+  // Prepare dropdown options
+  const doctorOptions = doctors.map(d => 
+    `${d.doctor_code} - ${d.full_name}${d.specialization ? ` (${d.specialization})` : ''}`
+  );
+  
+  const insuranceOptions = insuranceCompanies.map(ic => 
+    `${ic.company_code} - ${ic.company_name}`
+  );
+  
+  const visitReasonOptions = visitReasons.map(vr => 
+    `${vr.reason_code} - ${vr.reason_name}`
+  );
+  
+  const paymentTypeOptions = ['cash', 'insurance'];
+  
+  // Initialize data validation object
+  if (!worksheet['!dataValidation']) worksheet['!dataValidation'] = {};
+  
+  // Apply data validation for rows 2-1000
+  for (let row = 2; row <= 1000; row++) {
+    // Doctor dropdown (Column A)
+    worksheet['!dataValidation'][`A${row}`] = {
+      type: 'list',
+      allowBlank: false,
+      formulae: [`"${doctorOptions.join(',')}"`],
+      showDropDown: true,
+      error: 'Please select a doctor from the dropdown',
+      errorTitle: 'Invalid Doctor'
+    };
+    
+    // Visit Date validation (Column B) - Date picker + no future dates
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    worksheet['!dataValidation'][`B${row}`] = {
+      type: 'date',
+      operator: 'lessThanOrEqual',
+      formulae: [today],
+      showDropDown: true,
+      error: 'Visit date cannot be in the future',
+      errorTitle: 'Invalid Date',
+      prompt: '📅 Click to select date (Cannot be future date)',
+      promptTitle: 'Select Visit Date'
+    };
+    
+    // Payment Amount validation (Column E) - Whole numbers only, no decimals
+    worksheet['!dataValidation'][`E${row}`] = {
+      type: 'whole',
+      operator: 'greaterThan',
+      formulae: [0],
+      error: 'Payment must be a positive whole number (no decimals)',
+      errorTitle: 'Invalid Payment Amount'
+    };
+    
+    // Payment Type dropdown (Column F)
+    worksheet['!dataValidation'][`F${row}`] = {
+      type: 'list',
+      allowBlank: false,
+      formulae: [`"${paymentTypeOptions.join(',')}"`],
+      showDropDown: true,
+      error: 'Please select cash or insurance',
+      errorTitle: 'Invalid Payment Type'
+    };
+    
+    // Visit Reason dropdown (Column G)
+    worksheet['!dataValidation'][`G${row}`] = {
+      type: 'list',
+      allowBlank: false,
+      formulae: [`"${visitReasonOptions.join(',')}"`],
+      showDropDown: true,
+      error: 'Please select a visit reason from the dropdown',
+      errorTitle: 'Invalid Visit Reason'
+    };
+    
+    // Insurance Company dropdown (Column H)
+    worksheet['!dataValidation'][`H${row}`] = {
+      type: 'list',
+      allowBlank: true,
+      formulae: [`"${insuranceOptions.join(',')}"`],
+      showDropDown: true,
+      error: 'Please select an insurance company from the dropdown',
+      errorTitle: 'Invalid Insurance Company'
+    };
+  }
+  
+  // Format payment column as whole number (no decimals)
+  const paymentRange = utils.decode_range(worksheet['!ref'] || 'A1');
+  for (let row = 1; row <= 1000; row++) {
+    const cellRef = utils.encode_cell({ r: row, c: 4 }); // Column E (payment_amount)
+    if (!worksheet[cellRef]) worksheet[cellRef] = { t: 'n', v: 0 };
+    worksheet[cellRef].z = '0'; // Number format: whole numbers only
+  }
+  
+  utils.book_append_sheet(workbook, worksheet, 'Visit Template');
+  
+  // Generate filename with current date (DDMM format)
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const filename = `visit_import_${day}${month}_westmed.xlsx`;
+  
+  writeFile(workbook, filename);
+};
+
+// Visit import analysis - duplicate detection
+export const analyzeVisitImport = (
+  importRow: any,
+  existingVisits: any[]
+): ImportDecision => {
+  // Find exact match: same doctor + patient + date + amount
+  const existing = existingVisits.find(v => 
+    v.doctor_id === importRow.doctor_id &&
+    v.patient_name.toLowerCase() === importRow.patient_name.toLowerCase() &&
+    v.visit_date === importRow.visit_date &&
+    Math.abs(v.visit_payment - importRow.visit_payment) < 0.01 // Handle floating point
+  );
+  
+  if (!existing) {
+    return { action: 'insert', reason: 'New visit' };
+  }
+  
+  // Exact duplicate found
+  return { 
+    action: 'skip', 
+    reason: 'Exact duplicate found (same doctor, patient, date, and amount)',
+    existingRecord: existing
+  };
+};

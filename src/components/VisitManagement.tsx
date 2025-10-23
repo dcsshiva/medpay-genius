@@ -12,7 +12,9 @@ import { useAuth } from '@/lib/auth';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Calendar, Users, Stethoscope, Search, Edit, Trash2, CheckCircle, Clock, TrendingUp, Activity, FileText, X } from 'lucide-react';
+import { Plus, Calendar, Users, Stethoscope, Search, Edit, Trash2, CheckCircle, Clock, TrendingUp, Activity, FileText, X, Download, Upload } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { parseExcelFile, generatePatientId, analyzeVisitImport, ImportResults } from '@/lib/excelImportUtils';
 import { VisitManagementTable } from './VisitManagementTable';
 import { formatDateIST, formatDateTimeIST, formatInputDateIST, getCurrentISTDate } from '@/lib/dateUtils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -90,6 +92,9 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
   const [sortField, setSortField] = useState<'visit_date' | 'patient_name' | 'doctor_name'>('visit_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [activeSubTab, setActiveSubTab] = useState('unprocessed');
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importResults, setImportResults] = useState<ImportResults | null>(null);
   const [formData, setFormData] = useState({
     visit_date: formatInputDateIST(getCurrentISTDate()),
     patient_id: '',
@@ -231,6 +236,442 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
       setVisitReasons(data || []);
     } catch (error) {
       console.error('Error fetching visit reasons:', error);
+    }
+  };
+
+  const handleDownloadTemplate = async () => {
+    try {
+      // Prepare data for template
+      const doctorData = doctors.map(d => ({
+        doctor_code: d.doctor_code,
+        full_name: d.profiles?.full_name || '',
+        specialization: '' // Add if available in your schema
+      }));
+      
+      const insuranceData = insuranceCompanies.map(ic => ({
+        company_code: ic.company_code || '',
+        company_name: ic.company_name
+      }));
+      
+      const visitReasonData = visitReasons.map(vr => ({
+        reason_code: vr.reason_code,
+        reason_name: vr.reason_name
+      }));
+      
+      // Dynamically import the template generator
+      const { generateVisitTemplate } = await import('@/lib/excelImportUtils');
+      
+      await generateVisitTemplate(doctorData, insuranceData, visitReasonData);
+      
+      toast({
+        title: "Template Downloaded",
+        description: "Visit import template has been downloaded successfully"
+      });
+    } catch (error) {
+      console.error('Template generation error:', error);
+      toast({
+        variant: "destructive",
+        title: "Download Failed",
+        description: `Failed to generate template: ${error instanceof Error ? error.message : 'Unknown error'}`
+      });
+    }
+  };
+
+  const handleVisitImport = async () => {
+    if (!importFile) {
+      toast({
+        variant: "destructive",
+        title: "No File Selected",
+        description: "Please select an Excel file to import"
+      });
+      return;
+    }
+    
+    setSubmitting(true);
+    
+    try {
+      // Parse Excel file
+      const rows = await parseExcelFile(importFile);
+      
+      if (rows.length === 0) {
+        toast({
+          variant: "destructive",
+          title: "Empty File",
+          description: "The Excel file contains no data rows"
+        });
+        setSubmitting(false);
+        return;
+      }
+      
+      const results: ImportResults = {
+        inserted: 0,
+        updated: 0,
+        skipped: 0,
+        errors: []
+      };
+      
+      // Fetch all existing visits for duplicate detection
+      const { data: existingVisits } = await supabase
+        .from('visits')
+        .select('*');
+      
+      const visitsToInsert = [];
+      
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const rowNumber = i + 2; // Excel row (header is row 1)
+        
+        try {
+          // === 1. PARSE DOCTOR ===
+          const doctorStr = row.doctor?.toString().trim();
+          if (!doctorStr || doctorStr.includes('Select from dropdown')) {
+            results.errors.push({
+              row: rowNumber,
+              message: 'Doctor is required'
+            });
+            continue;
+          }
+          
+          // Extract doctor code (format: "DOC001 - Dr. Name")
+          const doctorCodeMatch = doctorStr.match(/^([A-Z]{3}\d+)/i);
+          if (!doctorCodeMatch) {
+            results.errors.push({
+              row: rowNumber,
+              message: `Invalid doctor format: ${doctorStr}`
+            });
+            continue;
+          }
+          
+          const doctorCode = doctorCodeMatch[1].toUpperCase();
+          const doctor = doctors.find(d => d.doctor_code === doctorCode);
+          
+          if (!doctor) {
+            results.errors.push({
+              row: rowNumber,
+              message: `Doctor not found: ${doctorCode}`
+            });
+            continue;
+          }
+          
+          // === 2. VALIDATE VISIT DATE ===
+          let visitDate: string;
+          
+          if (row.visit_date instanceof Date) {
+            visitDate = row.visit_date.toISOString().split('T')[0];
+          } else if (typeof row.visit_date === 'number') {
+            // Excel serial date
+            const excelEpoch = new Date(1899, 11, 30);
+            const date = new Date(excelEpoch.getTime() + row.visit_date * 86400000);
+            visitDate = date.toISOString().split('T')[0];
+          } else if (typeof row.visit_date === 'string') {
+            visitDate = row.visit_date.trim();
+          } else {
+            results.errors.push({
+              row: rowNumber,
+              message: 'Visit date is required'
+            });
+            continue;
+          }
+          
+          // Validate: no future dates
+          const today = getCurrentISTDate();
+          const selectedDate = new Date(visitDate);
+          today.setHours(0, 0, 0, 0);
+          selectedDate.setHours(0, 0, 0, 0);
+          
+          if (selectedDate > today) {
+            results.errors.push({
+              row: rowNumber,
+              message: `Visit date cannot be in the future: ${visitDate}`
+            });
+            continue;
+          }
+          
+          // === 3. VALIDATE PATIENT NAME ===
+          const patientName = row.patient_name?.toString().trim();
+          if (!patientName) {
+            results.errors.push({
+              row: rowNumber,
+              message: 'Patient name is required'
+            });
+            continue;
+          }
+          
+          // === 4. GENERATE PATIENT ID IF EMPTY ===
+          let patientId = row.patient_id?.toString().trim();
+          if (!patientId || patientId.includes('Optional') || patientId.includes('Auto-generated')) {
+            patientId = await generatePatientId(supabase);
+          }
+          
+          // === 5. VALIDATE PAYMENT AMOUNT ===
+          const paymentAmount = parseFloat(row.payment_amount);
+          if (isNaN(paymentAmount) || paymentAmount <= 0) {
+            results.errors.push({
+              row: rowNumber,
+              message: `Invalid payment amount: ${row.payment_amount}`
+            });
+            continue;
+          }
+          
+          // Enforce whole numbers (no decimals)
+          if (paymentAmount % 1 !== 0) {
+            results.errors.push({
+              row: rowNumber,
+              message: `Payment amount must be a whole number (no decimals): ${paymentAmount}`
+            });
+            continue;
+          }
+          
+          // === 6. VALIDATE PAYMENT TYPE ===
+          const paymentType = row.payment_type?.toString().trim().toLowerCase();
+          if (!paymentType || (paymentType !== 'cash' && paymentType !== 'insurance')) {
+            results.errors.push({
+              row: rowNumber,
+              message: `Invalid payment type: ${row.payment_type} (must be cash or insurance)`
+            });
+            continue;
+          }
+          
+          // === 7. VALIDATE VISIT REASON ===
+          const visitReasonStr = row.visit_reason?.toString().trim();
+          if (!visitReasonStr || visitReasonStr.includes('Select from dropdown')) {
+            results.errors.push({
+              row: rowNumber,
+              message: 'Visit reason is required'
+            });
+            continue;
+          }
+          
+          // Extract reason code (format: "CONS - Consultation")
+          const reasonCodeMatch = visitReasonStr.match(/^([A-Z0-9]+)/i);
+          if (!reasonCodeMatch) {
+            results.errors.push({
+              row: rowNumber,
+              message: `Invalid visit reason format: ${visitReasonStr}`
+            });
+            continue;
+          }
+          
+          const reasonCode = reasonCodeMatch[1].toUpperCase();
+          const visitReason = visitReasons.find(vr => vr.reason_code === reasonCode);
+          
+          if (!visitReason) {
+            results.errors.push({
+              row: rowNumber,
+              message: `Visit reason not found: ${reasonCode}`
+            });
+            continue;
+          }
+          
+          // === 8. VALIDATE INSURANCE COMPANY (if payment type is insurance) ===
+          let insuranceCompanyId = null;
+          
+          if (paymentType === 'insurance') {
+            const insuranceStr = row.insurance_company?.toString().trim();
+            
+            if (!insuranceStr || insuranceStr.includes('Required if Payment Type')) {
+              results.errors.push({
+                row: rowNumber,
+                message: 'Insurance company is required when payment type is insurance'
+              });
+              continue;
+            }
+            
+            // Extract company code (format: "IC001 - Company Name")
+            const companyCodeMatch = insuranceStr.match(/^([A-Z0-9]+)/i);
+            if (!companyCodeMatch) {
+              results.errors.push({
+                row: rowNumber,
+                message: `Invalid insurance company format: ${insuranceStr}`
+              });
+              continue;
+            }
+            
+            const companyCode = companyCodeMatch[1].toUpperCase();
+            const insuranceCompany = insuranceCompanies.find(ic => ic.company_code === companyCode);
+            
+            if (!insuranceCompany) {
+              results.errors.push({
+                row: rowNumber,
+                message: `Insurance company not found: ${companyCode}`
+              });
+              continue;
+            }
+            
+            insuranceCompanyId = insuranceCompany.id;
+          }
+          
+          // === 9. DUPLICATE DETECTION ===
+          const importData = {
+            doctor_id: doctor.id,
+            patient_name: patientName,
+            visit_date: visitDate,
+            visit_payment: paymentAmount
+          };
+          
+          const decision = analyzeVisitImport(importData, existingVisits || []);
+          
+          if (decision.action === 'skip') {
+            results.skipped++;
+            continue;
+          }
+          
+          // === 10. PREPARE FOR INSERT ===
+          const notes = row.notes?.toString().trim() || null;
+          
+          visitsToInsert.push({
+            visit_date: visitDate,
+            patient_count: 1,
+            patient_id: patientId,
+            patient_name: patientName,
+            visit_payment: paymentAmount,
+            payment_type: paymentType,
+            visit_reason: visitReason.reason_code,
+            notes: notes,
+            doctor_id: doctor.id,
+            insurance_company_id: insuranceCompanyId
+          });
+          
+        } catch (error) {
+          results.errors.push({
+            row: rowNumber,
+            message: `Error processing row: ${error instanceof Error ? error.message : 'Unknown error'}`
+          });
+        }
+      }
+      
+      // === 11. BATCH INSERT ===
+      if (visitsToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from('visits')
+          .insert(visitsToInsert);
+        
+        if (insertError) {
+          throw insertError;
+        }
+        
+        results.inserted = visitsToInsert.length;
+      }
+      
+      // === 12. SHOW RESULTS ===
+      setImportResults(results);
+      
+      const totalProcessed = results.inserted + results.skipped + results.errors.length;
+      
+      toast({
+        title: "Import Complete",
+        description: `Processed ${totalProcessed} rows: ${results.inserted} inserted, ${results.skipped} skipped, ${results.errors.length} errors`
+      });
+      
+      // Refresh visits
+      fetchVisits();
+      
+      // Close import dialog if no errors
+      if (results.errors.length === 0) {
+        setImportDialogOpen(false);
+        setImportFile(null);
+      }
+      
+    } catch (error) {
+      console.error('Import error:', error);
+      toast({
+        variant: "destructive",
+        title: "Import Failed",
+        description: `Failed to import visits: ${error instanceof Error ? error.message : 'Unknown error'}`
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const exportVisitsToExcel = () => {
+    // Get current filtered and sorted visits
+    const unprocessedVisits = visits.filter(v => !v.is_processed);
+    const processedVisits = visits.filter(v => v.is_processed);
+    
+    // Determine which tab is active
+    const visitsToExport = activeSubTab === 'unprocessed' ? unprocessedVisits : processedVisits;
+    
+    // Apply search filter
+    const filteredVisits = filterVisits(visitsToExport, searchQuery, searchFilter);
+    
+    if (filteredVisits.length === 0) {
+      toast({
+        variant: "destructive",
+        title: "No Data to Export",
+        description: "There are no visits to export. Please adjust your filters."
+      });
+      return;
+    }
+    
+    // Format data for Excel export
+    const exportData = filteredVisits.map(visit => ({
+      'Visit Code': visit.visit_code || 'N/A',
+      'Visit Date': formatDateIST(visit.visit_date),
+      'Doctor Code': visit.doctors?.doctor_code || 'N/A',
+      'Doctor Name': visit.doctors?.profiles?.full_name || 'N/A',
+      'Patient ID': visit.patient_id || 'N/A',
+      'Patient Name': visit.patient_name,
+      'Patient Count': visit.patient_count,
+      'Payment Type': visit.payment_type === 'cash' ? 'Cash' : 'Insurance',
+      'Insurance Company': visit.insurance_company_name || 'N/A',
+      'Visit Payment': visit.visit_payment?.toFixed(0) || '0',
+      'Visit Reason': visit.visit_reason,
+      'Notes': visit.notes || '',
+      'Status': visit.is_processed ? 'Processed' : 'Pending',
+      'Processed At': visit.processed_at ? formatDateTimeIST(visit.processed_at) : 'N/A'
+    }));
+    
+    try {
+      // Create worksheet
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      
+      // Set column widths
+      ws['!cols'] = [
+        { wch: 12 }, // Visit Code
+        { wch: 12 }, // Visit Date
+        { wch: 12 }, // Doctor Code
+        { wch: 25 }, // Doctor Name
+        { wch: 15 }, // Patient ID
+        { wch: 25 }, // Patient Name
+        { wch: 12 }, // Patient Count
+        { wch: 15 }, // Payment Type
+        { wch: 25 }, // Insurance Company
+        { wch: 15 }, // Visit Payment
+        { wch: 20 }, // Visit Reason
+        { wch: 30 }, // Notes
+        { wch: 12 }, // Status
+        { wch: 20 }  // Processed At
+      ];
+      
+      // Create workbook
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Visits');
+      
+      // Generate filename
+      const now = new Date();
+      const day = String(now.getDate()).padStart(2, '0');
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const year = now.getFullYear();
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const status = activeSubTab === 'unprocessed' ? 'pending' : 'processed';
+      const filename = `visits_${status}_${day}${month}${year}_${hours}${minutes}_westmed.xlsx`;
+      
+      // Download
+      XLSX.writeFile(wb, filename);
+      
+      toast({
+        title: "Export Successful",
+        description: `${filteredVisits.length} visit(s) exported to Excel successfully`
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        variant: "destructive",
+        title: "Export Failed",
+        description: `Failed to export visits: ${error instanceof Error ? error.message : 'Unknown error'}`
+      });
     }
   };
 
@@ -504,19 +945,109 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
           <p className="text-muted-foreground mt-1">Record and manage patient visits</p>
         </div>
         
-        {(userRole === 'admin' || userRole === 'manager' || userRole === 'doctor') && (
-          <Button 
-            className="bg-emerald-600 hover:bg-emerald-700 text-white"
-            onClick={() => {
-              resetForm();
-              setEditingVisit(null);
-              setDialogOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            Record Visit
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {/* Import/Export Buttons */}
+          {(userRole === 'admin' || userRole === 'manager') && (
+            <>
+              <Button
+                variant="outline"
+                onClick={handleDownloadTemplate}
+                disabled={doctors.length === 0 || insuranceCompanies.length === 0 || visitReasons.length === 0}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download Template
+              </Button>
+              
+              <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <Upload className="h-4 w-4 mr-2" />
+                    Import from Excel
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Import Visits from Excel</DialogTitle>
+                  </DialogHeader>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor="import-file">Select Excel File</Label>
+                      <Input
+                        id="import-file"
+                        type="file"
+                        accept=".xlsx,.xls"
+                        onChange={(e) => setImportFile(e.target.files?.[0] || null)}
+                      />
+                    </div>
+                    
+                    {importResults && (
+                      <div className="border rounded p-4 space-y-2">
+                        <h4 className="font-medium">Import Results:</h4>
+                        <p className="text-sm text-green-600">✅ Inserted: {importResults.inserted}</p>
+                        <p className="text-sm text-yellow-600">⏭️ Skipped: {importResults.skipped}</p>
+                        <p className="text-sm text-red-600">❌ Errors: {importResults.errors.length}</p>
+                        
+                        {importResults.errors.length > 0 && (
+                          <div className="mt-4 max-h-60 overflow-y-auto">
+                            <h5 className="font-medium text-sm mb-2">Error Details:</h5>
+                            {importResults.errors.map((err, idx) => (
+                              <p key={idx} className="text-xs text-red-600">
+                                Row {err.row}: {err.message}
+                              </p>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setImportDialogOpen(false);
+                          setImportFile(null);
+                          setImportResults(null);
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleVisitImport}
+                        disabled={!importFile || submitting}
+                      >
+                        {submitting ? 'Importing...' : 'Import Visits'}
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+              
+              <Button
+                variant="outline"
+                onClick={exportVisitsToExcel}
+                disabled={visits.length === 0}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export Visits
+              </Button>
+            </>
+          )}
+          
+          {(userRole === 'admin' || userRole === 'manager' || userRole === 'doctor') && (
+            <Button 
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={() => {
+                resetForm();
+                setEditingVisit(null);
+                setDialogOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Record Visit
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Record Visit Dialog/Sheet */}
