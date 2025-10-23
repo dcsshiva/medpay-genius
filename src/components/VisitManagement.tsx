@@ -1419,8 +1419,18 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
         
         <StatsCard
           title="Payment Split"
-          value={`${getCashVisits()}C / ${getInsuranceVisits()}I`}
-          subtitle="Cash vs Insurance"
+          value={
+            <div className="flex flex-col gap-1">
+              <div className="text-3xl font-bold text-success">
+                {getCashVisits()} CASH
+              </div>
+              <div className="border-t border-border/30 pt-1"></div>
+              <div className="text-3xl font-bold text-info">
+                {getInsuranceVisits()} INS
+              </div>
+            </div>
+          }
+          subtitle="Payment Type Breakdown"
           icon={Activity}
           variant="warning"
         />
