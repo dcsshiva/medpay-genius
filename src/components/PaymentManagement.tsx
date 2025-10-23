@@ -82,6 +82,11 @@ interface Payment {
   insurance_approved_by?: string;
   insurance_approved_at?: string;
   insurance_rejection_reason?: string;
+  // TDS fields
+  gross_amount?: number;
+  tds_amount?: number;
+  tds_percentage?: number;
+  net_amount?: number;
   doctors: {
     doctor_code: string;
     profiles: {
@@ -2820,6 +2825,20 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
               icon={Clock}
               variant="info"
             />
+
+            {userRole === 'doctor' && (
+              <StatsCard
+                title="TDS Deducted (Current FY)"
+                value={formatCurrency(
+                  payments
+                    .filter(p => p.bank_advice_generated)
+                    .reduce((sum, p) => sum + (p.tds_amount || (p.gross_amount || p.paid_amount) * 0.10), 0)
+                )}
+                subtitle="10% TDS on gross amount"
+                icon={FileText}
+                variant="warning"
+              />
+            )}
           </div>
 
           <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full">
@@ -3365,9 +3384,23 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                   </p>
                   <div className="grid grid-cols-3 gap-4 mt-2">
                     <div>
-                      <p className="text-xs text-muted-foreground">Total Amount</p>
-                      <p className="font-semibold">{formatCurrency(selectedPayment.total_amount)}</p>
+                      <p className="text-xs text-muted-foreground">Gross Amount</p>
+                      <p className="font-semibold">{formatCurrency(selectedPayment.gross_amount || selectedPayment.total_amount)}</p>
                     </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">TDS (10%)</p>
+                      <p className="font-semibold text-warning">
+                        {formatCurrency(selectedPayment.tds_amount || (selectedPayment.gross_amount || selectedPayment.total_amount) * 0.10)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Net Amount</p>
+                      <p className="font-semibold text-success">
+                        {formatCurrency(selectedPayment.net_amount || (selectedPayment.gross_amount || selectedPayment.total_amount) * 0.90)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 mt-2">
                     <div>
                       <p className="text-xs text-muted-foreground">Paid Amount</p>
                       <p className="font-semibold text-success">{formatCurrency(selectedPayment.paid_amount)}</p>

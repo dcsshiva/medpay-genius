@@ -16,6 +16,7 @@ import {
 import { FileSpreadsheet, Loader2, TrendingUp } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
+import { TDSCertificateGenerator } from './TDSCertificateGenerator';
 
 export function TDSReportsManagement() {
   const { toast } = useToast();
@@ -307,10 +308,11 @@ export function TDSReportsManagement() {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="quarterly" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="quarterly">Quarterly</TabsTrigger>
               <TabsTrigger value="annual">Annual</TabsTrigger>
               <TabsTrigger value="custom">Custom Period</TabsTrigger>
+              <TabsTrigger value="certificates">Certificates</TabsTrigger>
             </TabsList>
 
             <TabsContent value="quarterly" className="space-y-4 mt-4">
@@ -435,6 +437,10 @@ export function TDSReportsManagement() {
                   </>
                 )}
               </Button>
+            </TabsContent>
+
+            <TabsContent value="certificates" className="mt-4">
+              <TDSCertificateGenerator />
             </TabsContent>
           </Tabs>
         </CardContent>

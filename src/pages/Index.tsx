@@ -117,6 +117,8 @@ const Index = () => {
         return <WebsiteSettings />;
       case 'user-guide':
         return <UserGuide />;
+      case 'tds-reports':
+        return <TDSReportsManagement />;
       case 'settings':
         return <Settings />;
       default:
