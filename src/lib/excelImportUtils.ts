@@ -82,6 +82,7 @@ export const generateDoctorTemplate = () => {
       email: 'sarah.wilson@hospital.com',
       specialization: 'Cardiology',
       password: 'SecurePass789',
+      pan_number: 'ABCDE1234F',
       bank_account_number: '1234567890',
       account_holder_name: 'Dr. Sarah Wilson',
       bank_name: 'National Bank',
@@ -99,6 +100,7 @@ export const generateDoctorTemplate = () => {
     { wch: 30 }, // email
     { wch: 20 }, // specialization
     { wch: 15 }, // password
+    { wch: 12 }, // pan_number
     { wch: 20 }, // bank_account_number
     { wch: 25 }, // account_holder_name
     { wch: 20 }, // bank_name
@@ -240,6 +242,7 @@ export const analyzeDoctorImport = (
   const fieldsMatch = (
     existingFullName === importRow.full_name &&
     existing.specialization === importRow.specialization &&
+    existing.pan_number === (importRow.pan_number || null) &&
     existing.bank_account_number === (importRow.bank_account_number || null) &&
     existing.account_holder_name === (importRow.account_holder_name || null) &&
     existing.bank_name === (importRow.bank_name || null) &&
@@ -259,6 +262,7 @@ export const analyzeDoctorImport = (
   const changedFields = [];
   if (existingFullName !== importRow.full_name) changedFields.push('full_name');
   if (existing.specialization !== importRow.specialization) changedFields.push('specialization');
+  if (existing.pan_number !== (importRow.pan_number || null)) changedFields.push('pan_number');
   if (existing.bank_account_number !== (importRow.bank_account_number || null)) changedFields.push('bank_account_number');
   if (existing.account_holder_name !== (importRow.account_holder_name || null)) changedFields.push('account_holder_name');
   if (existing.bank_name !== (importRow.bank_name || null)) changedFields.push('bank_name');

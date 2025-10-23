@@ -21,3 +21,13 @@ export function debounce<T extends (...args: any[]) => any>(
     timeout = setTimeout(later, wait);
   };
 }
+
+/**
+ * Validates Indian PAN number format
+ * Format: AAAAA9999A (5 letters, 4 digits, 1 letter)
+ */
+export function validatePAN(pan: string): boolean {
+  if (!pan) return true; // Optional field
+  const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+  return panRegex.test(pan);
+}

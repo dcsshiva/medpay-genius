@@ -20,6 +20,7 @@ import {
   type ImportResults
 } from '@/lib/excelImportUtils';
 import { getSessionAuthHeaders } from '@/lib/sessionAuth';
+import { validatePAN } from '@/lib/utils';
 
 interface Doctor {
   id: string;
@@ -28,6 +29,7 @@ interface Doctor {
   doctor_code: string;
   specialization: string;
   is_active: boolean;
+  pan_number?: string;
   bank_account_number?: string;
   account_holder_name?: string;
   bank_name?: string;
@@ -62,6 +64,7 @@ const DoctorManagement = () => {
     is_active: true,
     email: '',
     password: '',
+    pan_number: '',
     bank_account_number: '',
     account_holder_name: '',
     bank_name: '',
@@ -97,6 +100,7 @@ const DoctorManagement = () => {
             doctor_code,
             specialization,
             is_active,
+            pan_number,
             bank_account_number,
             account_holder_name,
             bank_name,
@@ -140,6 +144,17 @@ const DoctorManagement = () => {
       return;
     }
 
+    // Validate PAN number format if provided
+    if (formData.pan_number && !validatePAN(formData.pan_number)) {
+      toast({
+        variant: "destructive",
+        title: "Invalid PAN",
+        description: "PAN must be in format: 5 letters + 4 digits + 1 letter (e.g., ABCDE1234F)"
+      });
+      setSubmitting(false);
+      return;
+    }
+
     try {
       if (editingDoctor) {
         // Validate doctor_code uniqueness (exclude current doctor)
@@ -169,6 +184,7 @@ const DoctorManagement = () => {
             doctor_code: formData.doctor_code,
             specialization: formData.specialization,
             is_active: formData.is_active,
+            pan_number: formData.pan_number || null,
             bank_account_number: formData.bank_account_number,
             account_holder_name: formData.account_holder_name,
             bank_name: formData.bank_name,
@@ -256,6 +272,7 @@ const DoctorManagement = () => {
               password: formData.password,
               doctor_code: formData.doctor_code,
               specialization: formData.specialization,
+              pan_number: formData.pan_number || null,
               bank_account_number: formData.bank_account_number,
               account_holder_name: formData.account_holder_name,
               bank_name: formData.bank_name,
@@ -306,6 +323,7 @@ const DoctorManagement = () => {
       is_active: true,
       email: '',
       password: '',
+      pan_number: '',
       bank_account_number: '',
       account_holder_name: '',
       bank_name: '',
@@ -323,6 +341,7 @@ const DoctorManagement = () => {
       is_active: doctor.is_active,
       email: '', // Don't pre-fill for security
       password: '', // Don't pre-fill for security
+      pan_number: doctor.pan_number || '',
       bank_account_number: doctor.bank_account_number || '',
       account_holder_name: doctor.account_holder_name || '',
       bank_name: doctor.bank_name || '',
@@ -422,6 +441,7 @@ const DoctorManagement = () => {
           id,
           doctor_code,
           specialization,
+          pan_number,
           bank_account_number,
           account_holder_name,
           bank_name,
@@ -467,6 +487,7 @@ const DoctorManagement = () => {
               .from('doctors')
               .update({
                 specialization: row.specialization,
+                pan_number: row.pan_number || null,
                 bank_account_number: row.bank_account_number || null,
                 account_holder_name: row.account_holder_name || null,
                 bank_name: row.bank_name || null,
@@ -709,6 +730,22 @@ const DoctorManagement = () => {
                 </div>
                 
                 <div className="space-y-2">
+                  <Label htmlFor="pan_number">PAN Number</Label>
+                  <Input
+                    id="pan_number"
+                    value={formData.pan_number}
+                    onChange={(e) => setFormData({ ...formData, pan_number: e.target.value.toUpperCase() })}
+                    placeholder="ABCDE1234F"
+                    maxLength={10}
+                    pattern="[A-Z]{5}[0-9]{4}[A-Z]"
+                    title="Enter valid PAN format: 5 letters, 4 digits, 1 letter (e.g., ABCDE1234F)"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Format: 5 letters + 4 digits + 1 letter (e.g., ABCDE1234F)
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
                   <Label htmlFor="email">Email {!editingDoctor && '*'}</Label>
                   <Input
                     id="email"
@@ -901,6 +938,7 @@ const DoctorManagement = () => {
                   <TableHead className="cursor-pointer" onClick={() => handleSort('specialization')}>
                     Specialization <SortIcon field="specialization" />
                   </TableHead>
+                  <TableHead>PAN Number</TableHead>
                   <TableHead>Bank Details</TableHead>
                   <TableHead>Status</TableHead>
                   {(userRole === 'admin' || userRole === 'manager') && (
@@ -914,6 +952,13 @@ const DoctorManagement = () => {
                     <TableCell className="font-medium">{doctor.doctor_code}</TableCell>
                     <TableCell>{doctor.profiles?.full_name || 'N/A'}</TableCell>
                     <TableCell>{doctor.specialization}</TableCell>
+                    <TableCell>
+                      {doctor.pan_number ? (
+                        <span className="font-mono text-sm">{doctor.pan_number}</span>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">Not provided</span>
+                      )}
+                    </TableCell>
                     <TableCell>
                       {doctor.bank_account_number ? (
                         <div className="text-sm">

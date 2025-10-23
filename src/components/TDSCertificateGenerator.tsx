@@ -22,6 +22,7 @@ interface Doctor {
   id: string;
   doctor_code: string;
   full_name: string;
+  pan_number?: string;
 }
 
 interface Payment {
@@ -56,7 +57,7 @@ export function TDSCertificateGenerator() {
     try {
       let query = supabase
         .from('doctors')
-        .select('id, doctor_code, full_name')
+        .select('id, doctor_code, full_name, pan_number')
         .eq('is_active', true)
         .order('doctor_code');
 
@@ -222,17 +223,18 @@ export function TDSCertificateGenerator() {
       pdf.setFontSize(10);
       pdf.text(`Name: ${doctor.full_name}`, 20, 82);
       pdf.text(`Doctor Code: ${doctor.doctor_code}`, 20, 88);
+      pdf.text(`PAN: ${doctor.pan_number || 'Not Provided'}`, 20, 94);
       
       // Period
       const { startDate, endDate } = getQuarterDateRange(selectedFY, selectedQuarter);
       pdf.setFontSize(11);
       pdf.setFont('helvetica', 'bold');
-      pdf.text('Period Covered:', 20, 100);
+      pdf.text('Period Covered:', 20, 106);
       pdf.setFont('helvetica', 'normal');
       pdf.setFontSize(10);
-      pdf.text(`${format(startDate, 'dd MMM yyyy')} to ${format(endDate, 'dd MMM yyyy')}`, 20, 107);
-      pdf.text(`Financial Year: ${selectedFY}`, 20, 113);
-      pdf.text(`Quarter: ${selectedQuarter}`, 20, 119);
+      pdf.text(`${format(startDate, 'dd MMM yyyy')} to ${format(endDate, 'dd MMM yyyy')}`, 20, 113);
+      pdf.text(`Financial Year: ${selectedFY}`, 20, 119);
+      pdf.text(`Quarter: ${selectedQuarter}`, 20, 125);
       
       // Payment Details Table
       const tableData = payments.map((payment, index) => [
@@ -245,7 +247,7 @@ export function TDSCertificateGenerator() {
       ]);
 
       (pdf as any).autoTable({
-        startY: 130,
+        startY: 136,
         head: [['#', 'Payment Date', 'Period', 'Gross Amount', 'TDS @ 10%', 'Net Amount']],
         body: tableData,
         theme: 'grid',

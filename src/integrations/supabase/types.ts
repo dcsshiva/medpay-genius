@@ -217,6 +217,7 @@ export type Database = {
           id: string
           ifsc_code: string | null
           is_active: boolean
+          pan_number: string | null
           password_hash: string | null
           specialization: string
           updated_at: string
@@ -233,6 +234,7 @@ export type Database = {
           id?: string
           ifsc_code?: string | null
           is_active?: boolean
+          pan_number?: string | null
           password_hash?: string | null
           specialization: string
           updated_at?: string
@@ -249,6 +251,7 @@ export type Database = {
           id?: string
           ifsc_code?: string | null
           is_active?: boolean
+          pan_number?: string | null
           password_hash?: string | null
           specialization?: string
           updated_at?: string
