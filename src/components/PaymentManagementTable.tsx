@@ -102,6 +102,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   onSelectForApproval,
 }) => {
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [expandedPatients, setExpandedPatients] = useState<Set<string>>(new Set());
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -260,14 +261,32 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                   <div className="space-y-1 max-w-[200px]">
                     {payment.patient_names && payment.patient_names.length > 0 ? (
                       <>
-                        {payment.patient_names.slice(0, 2).map((name, idx) => (
+                        {(expandedPatients.has(payment.id) 
+                          ? payment.patient_names 
+                          : payment.patient_names.slice(0, 2)
+                        ).map((name, idx) => (
                           <div key={idx} className="text-sm truncate" title={name}>
                             {name}
                           </div>
                         ))}
                         {payment.patient_names.length > 2 && (
-                          <Badge variant="secondary" className="text-xs">
-                            +{payment.patient_names.length - 2} more
+                          <Badge 
+                            variant="secondary" 
+                            className="text-xs cursor-pointer hover:bg-secondary/80"
+                            onClick={() => {
+                              const newExpanded = new Set(expandedPatients);
+                              if (expandedPatients.has(payment.id)) {
+                                newExpanded.delete(payment.id);
+                              } else {
+                                newExpanded.add(payment.id);
+                              }
+                              setExpandedPatients(newExpanded);
+                            }}
+                          >
+                            {expandedPatients.has(payment.id) 
+                              ? 'Show less' 
+                              : `+${payment.patient_names.length - 2} more`
+                            }
                           </Badge>
                         )}
                       </>

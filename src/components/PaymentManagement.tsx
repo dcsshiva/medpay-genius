@@ -265,9 +265,33 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
 
   const fetchGlobalTotals = async () => {
     try {
+      // Build visits query with optional payment_type filter
+      let visitsQuery = supabase
+        .from('visits')
+        .select('visit_payment');
+      
+      if (paymentTypeOnly) {
+        visitsQuery = visitsQuery.eq('payment_type', paymentTypeOnly);
+      }
+
+      // Build transactions query with optional payment_type filter
+      let transactionsQuery = supabase
+        .from('payment_transactions')
+        .select(`
+          amount,
+          payments!inner(
+            id,
+            payment_visits!inner(
+              visits!inner(
+                payment_type
+              )
+            )
+          )
+        `);
+
       const [visitsResponse, transactionsResponse] = await Promise.all([
-        supabase.from('visits').select('visit_payment'),
-        supabase.from('payment_transactions').select('amount')
+        visitsQuery,
+        transactionsQuery
       ]);
 
       let totalFromVisits = 0;
@@ -280,7 +304,18 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
       }
 
       if (transactionsResponse.data) {
-        totalPaidAmount = transactionsResponse.data.reduce((sum, transaction) => 
+        // Filter transactions by payment_type if specified
+        const filteredTransactions = paymentTypeOnly 
+          ? transactionsResponse.data.filter(transaction => {
+              // Check if this transaction's payment has visits of the specified type
+              const hasMatchingVisits = transaction.payments.payment_visits.some(
+                (pv: any) => pv.visits.payment_type === paymentTypeOnly
+              );
+              return hasMatchingVisits;
+            })
+          : transactionsResponse.data;
+
+        totalPaidAmount = filteredTransactions.reduce((sum, transaction) => 
           sum + transaction.amount, 0
         );
         setTotalPaid(totalPaidAmount);
