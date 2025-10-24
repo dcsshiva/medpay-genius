@@ -1736,6 +1736,14 @@ export type Database = {
       cleanup_expired_sessions: { Args: never; Returns: undefined }
       cleanup_expired_user_sessions: { Args: never; Returns: number }
       erase_all_transactions: { Args: never; Returns: Json }
+      get_available_managers: {
+        Args: never
+        Returns: {
+          full_name: string
+          id: string
+          staff_code: string
+        }[]
+      }
       get_doctor_tds_summary: {
         Args: { _doctor_id?: string; _end_date: string; _start_date: string }
         Returns: {
