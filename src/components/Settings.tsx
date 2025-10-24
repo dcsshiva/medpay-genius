@@ -15,10 +15,12 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/lib/auth';
 import { Settings as SettingsIcon, Shield, Eye, Users, Lock, Trash2, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { UserAccessManagement } from './UserAccessManagement';
 
 const Settings = () => {
   const { userRole, signOut } = useAuth();
@@ -83,8 +85,8 @@ const Settings = () => {
     }
   };
 
-  // Only admins can access settings
-  if (userRole !== 'admin') {
+  // Only admins and managers can access settings
+  if (userRole !== 'admin' && userRole !== 'manager') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card className="w-96">
@@ -104,6 +106,17 @@ const Settings = () => {
         <h1 className="text-3xl font-bold text-foreground">Settings</h1>
         <p className="text-muted-foreground">Manage system configurations and permissions</p>
       </div>
+
+      <Tabs defaultValue="general" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="general">General Settings</TabsTrigger>
+          <TabsTrigger value="access" className="flex items-center gap-2">
+            <Users className="h-4 w-4" />
+            User Access Management
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="general" className="space-y-6">
 
       {/* Task Visibility Settings */}
       <Card>
@@ -305,6 +318,12 @@ const Settings = () => {
           </div>
         </CardContent>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="access">
+          <UserAccessManagement />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

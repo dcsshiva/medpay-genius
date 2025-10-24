@@ -1040,6 +1040,108 @@ export type Database = {
           },
         ]
       }
+      user_access_history: {
+        Row: {
+          action_type: string
+          changed_by: string | null
+          created_at: string
+          id: string
+          new_value: Json | null
+          notes: string | null
+          old_value: Json | null
+          permission_type: string
+          staff_id: string
+        }
+        Insert: {
+          action_type: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_value?: Json | null
+          notes?: string | null
+          old_value?: Json | null
+          permission_type: string
+          staff_id: string
+        }
+        Update: {
+          action_type?: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_value?: Json | null
+          notes?: string | null
+          old_value?: Json | null
+          permission_type?: string
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_access_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_access_history_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_approval_permissions: {
+        Row: {
+          approval_type: Database["public"]["Enums"]["approval_type"]
+          can_approve: boolean
+          created_at: string
+          granted_at: string
+          granted_by: string | null
+          id: string
+          notes: string | null
+          staff_id: string
+          updated_at: string
+        }
+        Insert: {
+          approval_type: Database["public"]["Enums"]["approval_type"]
+          can_approve?: boolean
+          created_at?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          notes?: string | null
+          staff_id: string
+          updated_at?: string
+        }
+        Update: {
+          approval_type?: Database["public"]["Enums"]["approval_type"]
+          can_approve?: boolean
+          created_at?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          notes?: string | null
+          staff_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_approval_permissions_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_approval_permissions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_designations: {
         Row: {
           created_at: string
@@ -1123,6 +1225,60 @@ export type Database = {
           welcome_message_staff?: string | null
         }
         Relationships: []
+      }
+      user_screen_access: {
+        Row: {
+          can_edit: boolean
+          can_view: boolean
+          created_at: string
+          granted_at: string
+          granted_by: string | null
+          id: string
+          notes: string | null
+          screen_module: Database["public"]["Enums"]["screen_module"]
+          staff_id: string
+          updated_at: string
+        }
+        Insert: {
+          can_edit?: boolean
+          can_view?: boolean
+          created_at?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          notes?: string | null
+          screen_module: Database["public"]["Enums"]["screen_module"]
+          staff_id: string
+          updated_at?: string
+        }
+        Update: {
+          can_edit?: boolean
+          can_view?: boolean
+          created_at?: string
+          granted_at?: string
+          granted_by?: string | null
+          id?: string
+          notes?: string | null
+          screen_module?: Database["public"]["Enums"]["screen_module"]
+          staff_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_screen_access_granted_by_fkey"
+            columns: ["granted_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_screen_access_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_sessions: {
         Row: {
@@ -1464,6 +1620,19 @@ export type Database = {
         Args: { visit_date: string }
         Returns: string
       }
+      get_manageable_staff: {
+        Args: { _requesting_user_id: string }
+        Returns: {
+          approval_permission_count: number
+          department: string
+          full_name: string
+          id: string
+          is_active: boolean
+          role: Database["public"]["Enums"]["staff_role"]
+          screen_access_count: number
+          staff_code: string
+        }[]
+      }
       get_payment_approval_counts: {
         Args: never
         Returns: {
@@ -1587,6 +1756,7 @@ export type Database = {
           total_visits: number
         }[]
       }
+      get_user_permissions: { Args: { _staff_id: string }; Returns: Json }
       get_user_role: {
         Args: { user_uuid: string }
         Returns: Database["public"]["Enums"]["user_role"]
@@ -1615,9 +1785,45 @@ export type Database = {
           visit_reason: string
         }[]
       }
+      grant_approval_permission: {
+        Args: {
+          _approval_type: Database["public"]["Enums"]["approval_type"]
+          _can_approve: boolean
+          _granted_by_user_id: string
+          _notes?: string
+          _staff_id: string
+        }
+        Returns: Json
+      }
+      grant_screen_access: {
+        Args: {
+          _can_edit: boolean
+          _can_view: boolean
+          _granted_by_user_id: string
+          _notes?: string
+          _screen_module: Database["public"]["Enums"]["screen_module"]
+          _staff_id: string
+        }
+        Returns: Json
+      }
+      has_approval_permission: {
+        Args: {
+          _approval_type: Database["public"]["Enums"]["approval_type"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_designation: {
         Args: {
           _designation: Database["public"]["Enums"]["app_designation"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      has_screen_access: {
+        Args: {
+          _require_edit?: boolean
+          _screen: Database["public"]["Enums"]["screen_module"]
           _user_id: string
         }
         Returns: boolean
@@ -1644,6 +1850,16 @@ export type Database = {
         | "satisfactory"
         | "needs_improvement"
         | "poor"
+      approval_type:
+        | "cash_payment_manager"
+        | "cash_payment_admin"
+        | "insurance_payment_manager"
+        | "insurance_payment_admin"
+        | "payment_rejection"
+        | "bank_advice_generation"
+        | "staff_appraisal_approval"
+        | "complaint_resolution"
+        | "master_data_changes"
       attendance_status: "present" | "late" | "absent" | "half_day" | "leave"
       complaint_status:
         | "open"
@@ -1658,6 +1874,26 @@ export type Database = {
         | "manager_approved"
         | "admin_approved"
         | "rejected"
+      screen_module:
+        | "dashboard"
+        | "visit_management"
+        | "payment_management"
+        | "cash_payments"
+        | "insurance_payments"
+        | "doctor_management"
+        | "staff_management"
+        | "task_management"
+        | "report_generation"
+        | "bank_advice_reports"
+        | "tds_reports"
+        | "user_login_reports"
+        | "staff_appraisal"
+        | "complaint_management"
+        | "master_data"
+        | "settings"
+        | "team_chat"
+        | "website_settings"
+        | "user_guide"
       staff_role:
         | "admin"
         | "manager"
@@ -1834,6 +2070,17 @@ export const Constants = {
         "needs_improvement",
         "poor",
       ],
+      approval_type: [
+        "cash_payment_manager",
+        "cash_payment_admin",
+        "insurance_payment_manager",
+        "insurance_payment_admin",
+        "payment_rejection",
+        "bank_advice_generation",
+        "staff_appraisal_approval",
+        "complaint_resolution",
+        "master_data_changes",
+      ],
       attendance_status: ["present", "late", "absent", "half_day", "leave"],
       complaint_status: [
         "open",
@@ -1849,6 +2096,27 @@ export const Constants = {
         "manager_approved",
         "admin_approved",
         "rejected",
+      ],
+      screen_module: [
+        "dashboard",
+        "visit_management",
+        "payment_management",
+        "cash_payments",
+        "insurance_payments",
+        "doctor_management",
+        "staff_management",
+        "task_management",
+        "report_generation",
+        "bank_advice_reports",
+        "tds_reports",
+        "user_login_reports",
+        "staff_appraisal",
+        "complaint_management",
+        "master_data",
+        "settings",
+        "team_chat",
+        "website_settings",
+        "user_guide",
       ],
       staff_role: [
         "admin",
