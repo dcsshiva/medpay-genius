@@ -48,6 +48,11 @@ interface Vendor {
   vendor_name: string;
   mobile_number: string;
   gst_number: string | null;
+  bank_name: string | null;
+  account_number: string | null;
+  ifsc_code: string | null;
+  branch_name: string | null;
+  account_holder_name: string | null;
 }
 
 interface QuickPayment {
@@ -136,7 +141,7 @@ const QuickPaymentManagement = () => {
     try {
       const { data, error } = await supabase
         .from('vendors')
-        .select('id, vendor_code, vendor_name, mobile_number, gst_number')
+        .select('id, vendor_code, vendor_name, mobile_number, gst_number, bank_name, account_number, ifsc_code, branch_name, account_holder_name')
         .eq('is_active', true)
         .order('vendor_name');
 
@@ -407,11 +412,11 @@ const QuickPaymentManagement = () => {
         name: vendor.vendor_name,
         mobile_number: vendor.mobile_number,
         gst_number: vendor.gst_number || '',
-        bank_name: '',
-        account_number: '',
-        ifsc_code: '',
-        branch_name: '',
-        account_holder_name: '',
+        bank_name: vendor.bank_name || '',
+        account_number: vendor.account_number || '',
+        ifsc_code: vendor.ifsc_code || '',
+        branch_name: vendor.branch_name || '',
+        account_holder_name: vendor.account_holder_name || '',
       }));
     }
   };
