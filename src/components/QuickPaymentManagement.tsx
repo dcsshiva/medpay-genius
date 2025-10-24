@@ -39,6 +39,15 @@ import { format } from 'date-fns';
 interface QuickPaymentType {
   id: string;
   type_name: string;
+  type_code: string;
+}
+
+interface Vendor {
+  id: string;
+  vendor_code: string;
+  vendor_name: string;
+  mobile_number: string;
+  gst_number: string | null;
 }
 
 interface QuickPayment {
@@ -67,6 +76,9 @@ const QuickPaymentManagement = () => {
   const [activeTab, setActiveTab] = useState('add-payment');
   const [types, setTypes] = useState<QuickPaymentType[]>([]);
   const [payments, setPayments] = useState<QuickPayment[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [selectedVendor, setSelectedVendor] = useState<string>('');
+  const [isVendorPayment, setIsVendorPayment] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedPayments, setSelectedPayments] = useState<string[]>([]);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -85,11 +97,13 @@ const QuickPaymentManagement = () => {
     gross_amount: '',
     tds_percentage: '0',
     payment_notes: '',
+    gst_number: '',
   });
 
   useEffect(() => {
     fetchTypes();
     fetchPayments();
+    fetchVendors();
   }, []);
 
   // Calculate TDS and net amount when gross amount or TDS percentage changes
@@ -106,7 +120,7 @@ const QuickPaymentManagement = () => {
     try {
       const { data, error } = await supabase
         .from('quick_payment_types')
-        .select('id, type_name')
+        .select('id, type_name, type_code')
         .eq('is_active', true)
         .order('display_order');
 
@@ -114,6 +128,22 @@ const QuickPaymentManagement = () => {
       setTypes(data || []);
     } catch (error: any) {
       toast.error('Failed to fetch payment types');
+      console.error('Error:', error);
+    }
+  };
+
+  const fetchVendors = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('vendors')
+        .select('id, vendor_code, vendor_name, mobile_number, gst_number')
+        .eq('is_active', true)
+        .order('vendor_name');
+
+      if (error) throw error;
+      setVendors(data || []);
+    } catch (error: any) {
+      toast.error('Failed to fetch vendors');
       console.error('Error:', error);
     }
   };
@@ -156,16 +186,18 @@ const QuickPaymentManagement = () => {
 
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from('quick_payments')
-        .insert([{
-          ...formData,
-          gross_amount: grossAmount,
-          tds_percentage: tdsPercentage,
-          tds_amount: tdsAmount,
-          net_amount: netAmount,
-          created_by: user?.id,
-        }]);
+    const { error } = await supabase
+      .from('quick_payments')
+      .insert([{
+        ...formData,
+        vendor_id: isVendorPayment ? selectedVendor : null,
+        gst_number: formData.gst_number || null,
+        gross_amount: grossAmount,
+        tds_percentage: tdsPercentage,
+        tds_amount: tdsAmount,
+        net_amount: netAmount,
+        created_by: user?.id,
+      }]);
 
       if (error) throw error;
       
@@ -340,8 +372,48 @@ const QuickPaymentManagement = () => {
       gross_amount: payment.gross_amount.toString(),
       tds_percentage: payment.tds_percentage.toString(),
       payment_notes: payment.payment_notes || '',
+      gst_number: '',
     });
     setEditDialogOpen(true);
+  };
+
+  const handlePaymentTypeChange = (value: string) => {
+    setFormData({ ...formData, payment_type_id: value });
+    
+    const selectedType = types.find(t => t.id === value);
+    const isVendor = selectedType?.type_code?.toLowerCase() === 'vendor' || 
+                     selectedType?.type_name?.toLowerCase().includes('vendor');
+    
+    setIsVendorPayment(isVendor);
+    
+    if (!isVendor) {
+      setSelectedVendor('');
+      setFormData(prev => ({
+        ...prev,
+        name: '',
+        mobile_number: '',
+        gst_number: '',
+      }));
+    }
+  };
+
+  const handleVendorChange = (vendorId: string) => {
+    setSelectedVendor(vendorId);
+    
+    const vendor = vendors.find(v => v.id === vendorId);
+    if (vendor) {
+      setFormData(prev => ({
+        ...prev,
+        name: vendor.vendor_name,
+        mobile_number: vendor.mobile_number,
+        gst_number: vendor.gst_number || '',
+        bank_name: '',
+        account_number: '',
+        ifsc_code: '',
+        branch_name: '',
+        account_holder_name: '',
+      }));
+    }
   };
 
   const resetForm = () => {
@@ -357,8 +429,11 @@ const QuickPaymentManagement = () => {
       gross_amount: '',
       tds_percentage: '0',
       payment_notes: '',
+      gst_number: '',
     });
     setSelectedPayment(null);
+    setSelectedVendor('');
+    setIsVendorPayment(false);
   };
 
   const pendingPayments = payments.filter(p => !p.bank_advice_generated);
@@ -374,6 +449,8 @@ const QuickPaymentManagement = () => {
     const hasType = formData.payment_type_id.length > 0;
     const hasGrossAmount = parseFloat(formData.gross_amount) > 0;
     
+    const vendorValid = !isVendorPayment || selectedVendor.length > 0;
+    
     // All bank details are now required
     const hasBankName = formData.bank_name.trim().length > 0;
     const hasAccountNumber = formData.account_number.trim().length > 0;
@@ -381,7 +458,7 @@ const QuickPaymentManagement = () => {
     const hasBranchName = formData.branch_name.trim().length > 0;
     const hasAccountHolder = formData.account_holder_name.trim().length > 0;
     
-    return hasName && hasMobile && hasType && hasGrossAmount && 
+    return hasName && hasMobile && hasType && hasGrossAmount && vendorValid &&
            hasBankName && hasAccountNumber && hasIFSC && hasBranchName && hasAccountHolder;
   };
 
@@ -402,16 +479,70 @@ const QuickPaymentManagement = () => {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Payment Type Selection */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="payment_type_id">Payment Type *</Label>
+                    <Select
+                      value={formData.payment_type_id}
+                      onValueChange={handlePaymentTypeChange}
+                      required
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select payment type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {types.map((type) => (
+                          <SelectItem key={type.id} value={type.id}>
+                            {type.type_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {isVendorPayment && (
+                    <div>
+                      <Label htmlFor="vendor_id">Select Vendor *</Label>
+                      <Select
+                        value={selectedVendor}
+                        onValueChange={handleVendorChange}
+                        required
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select vendor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {vendors.map((vendor) => (
+                            <SelectItem key={vendor.id} value={vendor.id}>
+                              {vendor.vendor_code} - {vendor.vendor_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+
+                {isVendorPayment && formData.gst_number && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                    <p className="text-sm text-blue-800">
+                      <strong>GST Number:</strong> {formData.gst_number}
+                    </p>
+                  </div>
+                )}
+
                 {/* Basic Details */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="name">Name *</Label>
+                    <Label htmlFor="name">Name / Company Name *</Label>
                     <Input
                       id="name"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="Enter name"
                       required
+                      disabled={isVendorPayment}
                     />
                   </div>
                   <div>
@@ -426,34 +557,13 @@ const QuickPaymentManagement = () => {
                       placeholder="10-digit mobile number"
                       maxLength={10}
                       required
+                      disabled={isVendorPayment}
                     />
                     {formData.mobile_number && !validateMobileNumber(formData.mobile_number) && (
                       <p className="text-sm text-destructive mt-1">
                         Mobile number must be exactly 10 digits
                       </p>
                     )}
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="payment_type_id">Payment Type *</Label>
-                    <Select
-                      value={formData.payment_type_id}
-                      onValueChange={(value) => setFormData({ ...formData, payment_type_id: value })}
-                      required
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select payment type" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {types.map((type) => (
-                          <SelectItem key={type.id} value={type.id}>
-                            {type.type_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
                   </div>
                 </div>
 

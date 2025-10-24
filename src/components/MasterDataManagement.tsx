@@ -10,6 +10,7 @@ import InsuranceCompaniesTab from '@/components/masters/InsuranceCompaniesTab';
 import AppraisalReasonsTab from '@/components/masters/AppraisalReasonsTab';
 import ComplaintCategoriesTab from '@/components/masters/ComplaintCategoriesTab';
 import QuickPaymentTypesTab from '@/components/masters/QuickPaymentTypesTab';
+import VendorDetailsTab from '@/components/masters/VendorDetailsTab';
 
 const MasterDataManagement = () => {
   const [activeTab, setActiveTab] = useState('roles');
@@ -27,7 +28,7 @@ const MasterDataManagement = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-9">
+        <TabsList className="grid w-full grid-cols-10">
           <TabsTrigger value="roles">Roles</TabsTrigger>
           <TabsTrigger value="departments">Departments</TabsTrigger>
           <TabsTrigger value="leave-reasons">Leave Reasons</TabsTrigger>
@@ -37,6 +38,7 @@ const MasterDataManagement = () => {
           <TabsTrigger value="appraisal-reasons">Appraisals</TabsTrigger>
           <TabsTrigger value="complaint-categories">Complaints</TabsTrigger>
           <TabsTrigger value="quick-payment-types">Quick Pay</TabsTrigger>
+          <TabsTrigger value="vendors">Vendors</TabsTrigger>
         </TabsList>
 
         <TabsContent value="roles" className="mt-6">
@@ -73,6 +75,10 @@ const MasterDataManagement = () => {
 
         <TabsContent value="quick-payment-types" className="mt-6">
           <QuickPaymentTypesTab />
+        </TabsContent>
+
+        <TabsContent value="vendors" className="mt-6">
+          <VendorDetailsTab />
         </TabsContent>
       </Tabs>
     </div>

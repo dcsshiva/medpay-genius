@@ -904,6 +904,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           gross_amount: number
+          gst_number: string | null
           id: string
           ifsc_code: string | null
           mobile_number: string
@@ -914,6 +915,7 @@ export type Database = {
           tds_amount: number | null
           tds_percentage: number | null
           updated_at: string
+          vendor_id: string | null
         }
         Insert: {
           account_holder_name?: string | null
@@ -927,6 +929,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           gross_amount?: number
+          gst_number?: string | null
           id?: string
           ifsc_code?: string | null
           mobile_number: string
@@ -937,6 +940,7 @@ export type Database = {
           tds_amount?: number | null
           tds_percentage?: number | null
           updated_at?: string
+          vendor_id?: string | null
         }
         Update: {
           account_holder_name?: string | null
@@ -950,6 +954,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           gross_amount?: number
+          gst_number?: string | null
           id?: string
           ifsc_code?: string | null
           mobile_number?: string
@@ -960,6 +965,7 @@ export type Database = {
           tds_amount?: number | null
           tds_percentage?: number | null
           updated_at?: string
+          vendor_id?: string | null
         }
         Relationships: [
           {
@@ -967,6 +973,13 @@ export type Database = {
             columns: ["payment_type_id"]
             isOneToOne: false
             referencedRelation: "quick_payment_types"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "quick_payments_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
             referencedColumns: ["id"]
           },
         ]
@@ -1737,6 +1750,69 @@ export type Database = {
           user_type?: string
           username?: string | null
           warning_shown_at?: string | null
+        }
+        Relationships: []
+      }
+      vendors: {
+        Row: {
+          account_holder_name: string | null
+          account_number: string | null
+          address: string | null
+          bank_name: string | null
+          branch_name: string | null
+          contact_person_name: string
+          created_at: string
+          description: string | null
+          display_order: number
+          email: string | null
+          gst_number: string | null
+          id: string
+          ifsc_code: string | null
+          is_active: boolean
+          mobile_number: string
+          updated_at: string
+          vendor_code: string
+          vendor_name: string
+        }
+        Insert: {
+          account_holder_name?: string | null
+          account_number?: string | null
+          address?: string | null
+          bank_name?: string | null
+          branch_name?: string | null
+          contact_person_name: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          email?: string | null
+          gst_number?: string | null
+          id?: string
+          ifsc_code?: string | null
+          is_active?: boolean
+          mobile_number: string
+          updated_at?: string
+          vendor_code: string
+          vendor_name: string
+        }
+        Update: {
+          account_holder_name?: string | null
+          account_number?: string | null
+          address?: string | null
+          bank_name?: string | null
+          branch_name?: string | null
+          contact_person_name?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          email?: string | null
+          gst_number?: string | null
+          id?: string
+          ifsc_code?: string | null
+          is_active?: boolean
+          mobile_number?: string
+          updated_at?: string
+          vendor_code?: string
+          vendor_name?: string
         }
         Relationships: []
       }
