@@ -23,6 +23,7 @@ import { WebsiteSettings } from '@/components/WebsiteSettings';
 import UserGuide from '@/pages/UserGuide';
 import { TDSCertificateGenerator } from '@/components/TDSCertificateGenerator';
 import { TDSReportsManagement } from '@/components/TDSReportsManagement';
+import BankAdvicePaymentReport from '@/components/BankAdvicePaymentReport';
 import LeavePermissionManagement from '@/components/leave-permission/LeavePermissionManagement';
 import ApprovalManagement from '@/components/leave-permission/ApprovalManagement';
 
@@ -121,6 +122,8 @@ const Index = () => {
         return <UserGuide />;
       case 'tds-reports':
         return <TDSReportsManagement />;
+      case 'bank-advice-payment-report':
+        return <BankAdvicePaymentReport />;
       case 'leave-permission':
         return <LeavePermissionManagement />;
       case 'leave-approvals':
