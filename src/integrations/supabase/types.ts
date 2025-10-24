@@ -813,6 +813,164 @@ export type Database = {
         }
         Relationships: []
       }
+      quick_payment_bank_advice_history: {
+        Row: {
+          created_at: string
+          file_content: string | null
+          filename: string
+          generated_by: string | null
+          generation_date: string
+          id: string
+          payment_count: number
+          payment_ids: Json
+          total_gross_amount: number
+          total_net_amount: number
+          total_tds_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          file_content?: string | null
+          filename: string
+          generated_by?: string | null
+          generation_date?: string
+          id?: string
+          payment_count: number
+          payment_ids?: Json
+          total_gross_amount?: number
+          total_net_amount?: number
+          total_tds_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          file_content?: string | null
+          filename?: string
+          generated_by?: string | null
+          generation_date?: string
+          id?: string
+          payment_count?: number
+          payment_ids?: Json
+          total_gross_amount?: number
+          total_net_amount?: number
+          total_tds_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      quick_payment_types: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          type_code: string
+          type_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          type_code: string
+          type_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          type_code?: string
+          type_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      quick_payments: {
+        Row: {
+          account_holder_name: string | null
+          account_number: string | null
+          bank_advice_generated: boolean
+          bank_advice_generated_at: string | null
+          bank_advice_generated_by: string | null
+          bank_advice_reference: string | null
+          bank_name: string | null
+          branch_name: string | null
+          created_at: string
+          created_by: string | null
+          gross_amount: number
+          id: string
+          ifsc_code: string | null
+          mobile_number: string
+          name: string
+          net_amount: number | null
+          payment_notes: string | null
+          payment_type_id: string | null
+          tds_amount: number | null
+          tds_percentage: number | null
+          updated_at: string
+        }
+        Insert: {
+          account_holder_name?: string | null
+          account_number?: string | null
+          bank_advice_generated?: boolean
+          bank_advice_generated_at?: string | null
+          bank_advice_generated_by?: string | null
+          bank_advice_reference?: string | null
+          bank_name?: string | null
+          branch_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          gross_amount?: number
+          id?: string
+          ifsc_code?: string | null
+          mobile_number: string
+          name: string
+          net_amount?: number | null
+          payment_notes?: string | null
+          payment_type_id?: string | null
+          tds_amount?: number | null
+          tds_percentage?: number | null
+          updated_at?: string
+        }
+        Update: {
+          account_holder_name?: string | null
+          account_number?: string | null
+          bank_advice_generated?: boolean
+          bank_advice_generated_at?: string | null
+          bank_advice_generated_by?: string | null
+          bank_advice_reference?: string | null
+          bank_name?: string | null
+          branch_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          gross_amount?: number
+          id?: string
+          ifsc_code?: string | null
+          mobile_number?: string
+          name?: string
+          net_amount?: number | null
+          payment_notes?: string | null
+          payment_type_id?: string | null
+          tds_amount?: number | null
+          tds_percentage?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "quick_payments_payment_type_id_fkey"
+            columns: ["payment_type_id"]
+            isOneToOne: false
+            referencedRelation: "quick_payment_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       roles_master: {
         Row: {
           created_at: string
