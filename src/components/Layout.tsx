@@ -25,7 +25,8 @@ import {
   History as HistoryIcon,
   BookOpen,
   ClipboardCheck,
-  Database
+  Database,
+  CalendarCheck
 } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
 
@@ -61,6 +62,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
         { id: 'payments', label: 'Payment Approvals', icon: CreditCard },
         { id: 'tasks', label: 'Task Management', icon: ClipboardList },
         { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
+        { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
         { id: 'complaints', label: 'Complaints', icon: MessageCircle },
         { id: 'chat', label: 'Team Chat', icon: MessageSquare },
       ];
@@ -76,6 +78,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
         { id: 'payments', label: 'Payment Management', icon: CreditCard },
         { id: 'tasks', label: 'Task Management', icon: ClipboardList },
         { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
+        { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
         { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
         { id: 'chat', label: 'Team Chat', icon: MessageSquare },
         { id: 'version', label: 'Version Management', icon: HistoryIcon },
@@ -87,6 +90,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
     if (isStaffRole(userRole)) {
       return [
         ...baseItems,
+        { id: 'leave-permission', label: 'Leave & Permission', icon: CalendarCheck },
         { id: 'tasks', label: 'My Tasks', icon: ClipboardList },
         { id: 'complaints', label: 'Complaints', icon: MessageCircle },
       ];

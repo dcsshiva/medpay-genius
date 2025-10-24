@@ -17,7 +17,8 @@ import {
   BookOpen,
   ClipboardCheck,
   Database,
-  FileText
+  FileText,
+  CalendarCheck
 } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
 import {
@@ -124,6 +125,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
         { id: 'tds-reports', label: 'TDS Reports', icon: FileText },
         { id: 'tasks', label: 'Task Management', icon: ClipboardList },
         { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
+        { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
         { id: 'complaints', label: 'Complaints', icon: MessageCircle },
         { id: 'chat', label: 'Team Chat', icon: MessageSquare },
       ];
@@ -143,6 +145,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
       { id: 'tds-reports', label: 'TDS Reports', icon: FileText },
       { id: 'tasks', label: 'Task Management', icon: ClipboardList },
       { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
+      { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
       { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
       { id: 'login-reports', label: 'Login Reports', icon: TrendingUp },
       { id: 'chat', label: 'Team Chat', icon: MessageSquare },
@@ -156,6 +159,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
     if (isStaffRole(userRole)) {
       return [
         ...baseItems,
+        { id: 'leave-permission', label: 'Leave & Permission', icon: CalendarCheck },
         { id: 'tasks', label: 'My Tasks', icon: ClipboardList },
         { id: 'complaints', label: 'Complaints', icon: MessageCircle },
       ];

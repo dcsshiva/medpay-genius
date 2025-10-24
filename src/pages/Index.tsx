@@ -23,6 +23,8 @@ import { WebsiteSettings } from '@/components/WebsiteSettings';
 import UserGuide from '@/pages/UserGuide';
 import { TDSCertificateGenerator } from '@/components/TDSCertificateGenerator';
 import { TDSReportsManagement } from '@/components/TDSReportsManagement';
+import LeavePermissionManagement from '@/components/leave-permission/LeavePermissionManagement';
+import ApprovalManagement from '@/components/leave-permission/ApprovalManagement';
 
 const Index = () => {
   const { user, loading } = useAuth();
@@ -119,6 +121,10 @@ const Index = () => {
         return <UserGuide />;
       case 'tds-reports':
         return <TDSReportsManagement />;
+      case 'leave-permission':
+        return <LeavePermissionManagement />;
+      case 'leave-approvals':
+        return <ApprovalManagement />;
       case 'settings':
         return <Settings />;
       default:
