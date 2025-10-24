@@ -70,15 +70,14 @@ const StaffManagement = () => {
   const [importResults, setImportResults] = useState<ImportResults | null>(null);
   const [showImportResults, setShowImportResults] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const staffRoles = [
-    'admin', 'manager', 'nurse', 'doctor', 'technician', 
-    'receptionist', 'pharmacist', 'cleaner', 'security'
-  ];
+  const [rolesMaster, setRolesMaster] = useState<Array<{ id: string; role_code: string; role_name: string }>>([]);
+  const [departmentsMaster, setDepartmentsMaster] = useState<Array<{ id: string; department_code: string; department_name: string }>>([]);
 
   useEffect(() => {
     if (userRole === 'admin') {
       fetchStaff();
+      fetchRolesMaster();
+      fetchDepartmentsMaster();
     }
   }, [userRole]);
 
@@ -100,6 +99,30 @@ const StaffManagement = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchRolesMaster = async () => {
+    const { data, error } = await supabase
+      .from('roles_master')
+      .select('id, role_code, role_name')
+      .eq('is_active', true)
+      .order('display_order');
+    
+    if (!error && data) {
+      setRolesMaster(data);
+    }
+  };
+
+  const fetchDepartmentsMaster = async () => {
+    const { data, error } = await supabase
+      .from('departments_master')
+      .select('id, department_code, department_name')
+      .eq('is_active', true)
+      .order('display_order');
+    
+    if (!error && data) {
+      setDepartmentsMaster(data);
     }
   };
 
@@ -997,9 +1020,9 @@ const StaffManagement = () => {
                       <SelectValue placeholder="Select role" />
                     </SelectTrigger>
                     <SelectContent>
-                      {staffRoles.map((role) => (
-                        <SelectItem key={role} value={role}>
-                          {role.charAt(0).toUpperCase() + role.slice(1)}
+                      {rolesMaster.map((role) => (
+                        <SelectItem key={role.id} value={role.role_code}>
+                          {role.role_name}
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -1008,12 +1031,21 @@ const StaffManagement = () => {
                 
                 <div className="space-y-2">
                   <Label htmlFor="department">Department</Label>
-                  <Input
-                    id="department"
-                    value={formData.department}
-                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                    placeholder="Emergency, ICU, Cardiology, etc."
-                  />
+                  <Select 
+                    value={formData.department} 
+                    onValueChange={(value) => setFormData({ ...formData, department: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {departmentsMaster.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.department_code}>
+                          {dept.department_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

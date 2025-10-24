@@ -17,17 +17,6 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { formatInputDateIST, getCurrentISTDate, toISOStringIST } from "@/lib/dateUtils";
 
-const leaveReasons = [
-  { value: "sick_leave", label: "Sick Leave" },
-  { value: "casual_leave", label: "Casual Leave" },
-  { value: "annual_leave", label: "Annual Leave" },
-  { value: "emergency_leave", label: "Emergency Leave" },
-  { value: "maternity_leave", label: "Maternity Leave" },
-  { value: "paternity_leave", label: "Paternity Leave" },
-  { value: "unpaid_leave", label: "Unpaid Leave" },
-  { value: "other", label: "Other" },
-];
-
 const formSchema = z.object({
   startDate: z.date({
     required_error: "Start date is required",
@@ -59,6 +48,7 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
   const [managers, setManagers] = useState<Array<{ id: string; staff_code: string; full_name: string }>>([]);
   const [staffId, setStaffId] = useState<string | null>(null);
   const [isManagerRole, setIsManagerRole] = useState(false);
+  const [leaveReasons, setLeaveReasons] = useState<Array<{ id: string; reason_code: string; reason_name: string }>>([]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -69,7 +59,20 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
 
   useEffect(() => {
     loadManagersAndStaffInfo();
+    fetchLeaveReasons();
   }, []);
+
+  const fetchLeaveReasons = async () => {
+    const { data, error } = await supabase
+      .from('leave_reasons_master')
+      .select('id, reason_code, reason_name')
+      .eq('is_active', true)
+      .order('display_order');
+    
+    if (!error && data) {
+      setLeaveReasons(data);
+    }
+  };
 
   const loadManagersAndStaffInfo = async () => {
     try {
@@ -338,13 +341,13 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
                     <SelectValue placeholder="Select leave reason" />
                   </SelectTrigger>
                 </FormControl>
-                <SelectContent>
-                  {leaveReasons.map((reason) => (
-                    <SelectItem key={reason.value} value={reason.value}>
-                      {reason.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
+                    <SelectContent>
+                      {leaveReasons.map((reason) => (
+                        <SelectItem key={reason.id} value={reason.reason_code}>
+                          {reason.reason_name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
               </Select>
               <FormMessage />
             </FormItem>

@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Database } from 'lucide-react';
+import RolesTab from '@/components/masters/RolesTab';
+import DepartmentsTab from '@/components/masters/DepartmentsTab';
+import LeaveReasonsTab from '@/components/masters/LeaveReasonsTab';
+import PermissionReasonsTab from '@/components/masters/PermissionReasonsTab';
 import VisitReasonsTab from '@/components/masters/VisitReasonsTab';
 import InsuranceCompaniesTab from '@/components/masters/InsuranceCompaniesTab';
 import AppraisalReasonsTab from '@/components/masters/AppraisalReasonsTab';
 import ComplaintCategoriesTab from '@/components/masters/ComplaintCategoriesTab';
 
 const MasterDataManagement = () => {
-  const [activeTab, setActiveTab] = useState('visit-reasons');
+  const [activeTab, setActiveTab] = useState('roles');
   
   return (
     <div className="space-y-6">
@@ -22,12 +26,32 @@ const MasterDataManagement = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-8">
+          <TabsTrigger value="roles">Roles</TabsTrigger>
+          <TabsTrigger value="departments">Departments</TabsTrigger>
+          <TabsTrigger value="leave-reasons">Leave Reasons</TabsTrigger>
+          <TabsTrigger value="permission-reasons">Permission Reasons</TabsTrigger>
           <TabsTrigger value="visit-reasons">Visit Reasons</TabsTrigger>
-          <TabsTrigger value="insurance-companies">Insurance Companies</TabsTrigger>
-          <TabsTrigger value="appraisal-reasons">Appraisal Reasons</TabsTrigger>
-          <TabsTrigger value="complaint-categories">Complaint Categories</TabsTrigger>
+          <TabsTrigger value="insurance-companies">Insurance</TabsTrigger>
+          <TabsTrigger value="appraisal-reasons">Appraisals</TabsTrigger>
+          <TabsTrigger value="complaint-categories">Complaints</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="roles" className="mt-6">
+          <RolesTab />
+        </TabsContent>
+
+        <TabsContent value="departments" className="mt-6">
+          <DepartmentsTab />
+        </TabsContent>
+
+        <TabsContent value="leave-reasons" className="mt-6">
+          <LeaveReasonsTab />
+        </TabsContent>
+
+        <TabsContent value="permission-reasons" className="mt-6">
+          <PermissionReasonsTab />
+        </TabsContent>
 
         <TabsContent value="visit-reasons" className="mt-6">
           <VisitReasonsTab />

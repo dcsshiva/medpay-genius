@@ -13,14 +13,6 @@ import { Loader2, Clock } from "lucide-react";
 import { formatInputDateIST } from "@/lib/dateUtils";
 import { cn } from "@/lib/utils";
 
-const permissionReasons = [
-  { value: "personal_work", label: "Personal Work" },
-  { value: "medical_appointment", label: "Medical Appointment" },
-  { value: "family_emergency", label: "Family Emergency" },
-  { value: "official_work", label: "Official Work" },
-  { value: "other", label: "Other" },
-];
-
 const formSchema = z.object({
   startTime: z.string({
     required_error: "Start time is required",
@@ -51,6 +43,7 @@ const PermissionApplicationForm = ({ onSuccess }: PermissionApplicationFormProps
   const [isManagerRole, setIsManagerRole] = useState(false);
   const [duration, setDuration] = useState<number>(0);
   const [durationValid, setDurationValid] = useState(true);
+  const [permissionReasons, setPermissionReasons] = useState<Array<{ id: string; reason_code: string; reason_name: string }>>([]);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -61,7 +54,20 @@ const PermissionApplicationForm = ({ onSuccess }: PermissionApplicationFormProps
 
   useEffect(() => {
     loadManagersAndStaffInfo();
+    fetchPermissionReasons();
   }, []);
+
+  const fetchPermissionReasons = async () => {
+    const { data, error } = await supabase
+      .from('permission_reasons_master')
+      .select('id, reason_code, reason_name')
+      .eq('is_active', true)
+      .order('display_order');
+    
+    if (!error && data) {
+      setPermissionReasons(data);
+    }
+  };
 
   useEffect(() => {
     if (startTime && endTime) {
@@ -301,8 +307,8 @@ const PermissionApplicationForm = ({ onSuccess }: PermissionApplicationFormProps
                 </FormControl>
                 <SelectContent>
                   {permissionReasons.map((reason) => (
-                    <SelectItem key={reason.value} value={reason.value}>
-                      {reason.label}
+                    <SelectItem key={reason.id} value={reason.reason_code}>
+                      {reason.reason_name}
                     </SelectItem>
                   ))}
                 </SelectContent>

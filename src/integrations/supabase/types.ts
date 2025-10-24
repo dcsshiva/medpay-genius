@@ -205,6 +205,39 @@ export type Database = {
           },
         ]
       }
+      departments_master: {
+        Row: {
+          created_at: string
+          department_code: string
+          department_name: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          department_code: string
+          department_name: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          department_code?: string
+          department_name?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       doctors: {
         Row: {
           account_holder_name: string | null
@@ -291,6 +324,39 @@ export type Database = {
           email?: string | null
           id?: string
           is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      leave_reasons_master: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          reason_code: string
+          reason_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          reason_code: string
+          reason_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          reason_code?: string
+          reason_name?: string
           updated_at?: string
         }
         Relationships: []
@@ -577,6 +643,39 @@ export type Database = {
           },
         ]
       }
+      permission_reasons_master: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          reason_code: string
+          reason_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          reason_code: string
+          reason_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          reason_code?: string
+          reason_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -601,6 +700,39 @@ export type Database = {
           role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      roles_master: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          role_code: string
+          role_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          role_code: string
+          role_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          role_code?: string
+          role_name?: string
+          updated_at?: string
         }
         Relationships: []
       }
