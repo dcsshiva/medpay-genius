@@ -328,6 +328,116 @@ export type Database = {
         }
         Relationships: []
       }
+      leave_permission_applications: {
+        Row: {
+          applicant_id: string
+          application_type: Database["public"]["Enums"]["application_type"]
+          approved_at: string | null
+          approved_by: string | null
+          approver_id: string
+          created_at: string
+          id: string
+          is_half_day: boolean | null
+          leave_days: number | null
+          leave_end_date: string | null
+          leave_reason: string | null
+          leave_start_date: string | null
+          notes: string | null
+          permission_date: string | null
+          permission_duration_minutes: number | null
+          permission_end_time: string | null
+          permission_reason: string | null
+          permission_start_time: string | null
+          reason_details: string
+          rejected_at: string | null
+          rejected_by: string | null
+          rejection_reason: string | null
+          status: Database["public"]["Enums"]["application_status"]
+          updated_at: string
+        }
+        Insert: {
+          applicant_id: string
+          application_type: Database["public"]["Enums"]["application_type"]
+          approved_at?: string | null
+          approved_by?: string | null
+          approver_id: string
+          created_at?: string
+          id?: string
+          is_half_day?: boolean | null
+          leave_days?: number | null
+          leave_end_date?: string | null
+          leave_reason?: string | null
+          leave_start_date?: string | null
+          notes?: string | null
+          permission_date?: string | null
+          permission_duration_minutes?: number | null
+          permission_end_time?: string | null
+          permission_reason?: string | null
+          permission_start_time?: string | null
+          reason_details: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          status?: Database["public"]["Enums"]["application_status"]
+          updated_at?: string
+        }
+        Update: {
+          applicant_id?: string
+          application_type?: Database["public"]["Enums"]["application_type"]
+          approved_at?: string | null
+          approved_by?: string | null
+          approver_id?: string
+          created_at?: string
+          id?: string
+          is_half_day?: boolean | null
+          leave_days?: number | null
+          leave_end_date?: string | null
+          leave_reason?: string | null
+          leave_start_date?: string | null
+          notes?: string | null
+          permission_date?: string | null
+          permission_duration_minutes?: number | null
+          permission_end_time?: string | null
+          permission_reason?: string | null
+          permission_start_time?: string | null
+          reason_details?: string
+          rejected_at?: string | null
+          rejected_by?: string | null
+          rejection_reason?: string | null
+          status?: Database["public"]["Enums"]["application_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "leave_permission_applications_applicant_id_fkey"
+            columns: ["applicant_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_permission_applications_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_permission_applications_approver_id_fkey"
+            columns: ["approver_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "leave_permission_applications_rejected_by_fkey"
+            columns: ["rejected_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leave_reasons_master: {
         Row: {
           created_at: string
@@ -1977,6 +2087,20 @@ export type Database = {
         Returns: undefined
       }
       simple_hash: { Args: { password: string }; Returns: string }
+      validate_leave_application: {
+        Args: { _applicant_id: string; _end_date: string; _start_date: string }
+        Returns: Json
+      }
+      validate_permission_application: {
+        Args: {
+          _applicant_id: string
+          _duration_minutes: number
+          _end_time: string
+          _permission_date: string
+          _start_time: string
+        }
+        Returns: Json
+      }
       verify_user_login: {
         Args: { _password: string; _username: string }
         Returns: Json
@@ -1984,6 +2108,8 @@ export type Database = {
     }
     Enums: {
       app_designation: "admin" | "manager" | "supervisor" | "doctor" | "staff"
+      application_status: "pending" | "approved" | "rejected"
+      application_type: "leave" | "permission"
       appraisal_rating:
         | "excellent"
         | "good"
@@ -2203,6 +2329,8 @@ export const Constants = {
   public: {
     Enums: {
       app_designation: ["admin", "manager", "supervisor", "doctor", "staff"],
+      application_status: ["pending", "approved", "rejected"],
+      application_type: ["leave", "permission"],
       appraisal_rating: [
         "excellent",
         "good",
