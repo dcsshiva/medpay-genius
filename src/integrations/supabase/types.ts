@@ -2088,16 +2088,18 @@ export type Database = {
       }
       simple_hash: { Args: { password: string }; Returns: string }
       validate_leave_application: {
-        Args: { _applicant_id: string; _end_date: string; _start_date: string }
+        Args: {
+          _applicant_id: string
+          _leave_end_date: string
+          _leave_start_date: string
+        }
         Returns: Json
       }
       validate_permission_application: {
         Args: {
           _applicant_id: string
           _duration_minutes: number
-          _end_time: string
           _permission_date: string
-          _start_time: string
         }
         Returns: Json
       }
