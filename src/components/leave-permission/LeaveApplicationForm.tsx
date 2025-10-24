@@ -58,6 +58,8 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
   const [staffId, setStaffId] = useState<string | null>(null);
   const [isManagerRole, setIsManagerRole] = useState(false);
   const [leaveReasons, setLeaveReasons] = useState<Array<{ id: string; reason_code: string; reason_name: string }>>([]);
+  const [openStart, setOpenStart] = useState(false);
+  const [openEnd, setOpenEnd] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -99,21 +101,14 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
       // Get staff ID and check if manager
       const { data: staffData, error: staffError } = await supabase
         .from("staff")
-        .select("id")
+        .select("id, role")
         .eq("user_id", authUserId)
         .single();
 
       if (staffError) throw staffError;
       setStaffId(staffData.id);
 
-      // Check if user is a manager
-      const { data: designationData } = await supabase
-        .from("user_designations")
-        .select("designation")
-        .eq("user_id", authUserId)
-        .single();
-
-      const isManager = designationData?.designation === "manager";
+      const isManager = staffData.role === "manager";
       setIsManagerRole(isManager);
 
       // Load managers
@@ -245,7 +240,7 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
             render={({ field }) => (
               <FormItem className="flex flex-col">
                 <FormLabel>Start Date *</FormLabel>
-                <Popover>
+                <Popover open={openStart} onOpenChange={setOpenStart}>
                   <PopoverTrigger asChild>
                     <FormControl>
                       <Button
@@ -264,7 +259,10 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
                     <Calendar
                       mode="single"
                       selected={field.value}
-                      onSelect={field.onChange}
+                      onSelect={(date) => {
+                        field.onChange(date);
+                        setOpenStart(false);
+                      }}
                       disabled={(date) => {
                         const dateAtMidnight = new Date(date);
                         dateAtMidnight.setHours(0, 0, 0, 0);
@@ -294,7 +292,7 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
             render={({ field }) => (
               <FormItem className="flex flex-col">
                 <FormLabel>End Date *</FormLabel>
-                <Popover>
+                <Popover open={openEnd} onOpenChange={setOpenEnd}>
                   <PopoverTrigger asChild>
                     <FormControl>
                       <Button
@@ -313,7 +311,10 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
                     <Calendar
                       mode="single"
                       selected={field.value}
-                      onSelect={field.onChange}
+                      onSelect={(date) => {
+                        field.onChange(date);
+                        setOpenEnd(false);
+                      }}
                       disabled={(date) => {
                         const startDate = form.getValues("startDate");
                         const dateAtMidnight = new Date(date);

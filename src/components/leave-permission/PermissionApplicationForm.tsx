@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Clock } from "lucide-react";
-import { formatInputDateIST } from "@/lib/dateUtils";
+import { formatInputDateIST, formatLongDateIST } from "@/lib/dateUtils";
 import { cn } from "@/lib/utils";
 
 const formSchema = z.object({
@@ -93,21 +93,14 @@ const PermissionApplicationForm = ({ onSuccess }: PermissionApplicationFormProps
       // Get staff ID and check if manager
       const { data: staffData, error: staffError } = await supabase
         .from("staff")
-        .select("id")
+        .select("id, role")
         .eq("user_id", authUserId)
         .single();
 
       if (staffError) throw staffError;
       setStaffId(staffData.id);
 
-      // Check if user is a manager
-      const { data: designationData } = await supabase
-        .from("user_designations")
-        .select("designation")
-        .eq("user_id", authUserId)
-        .single();
-
-      const isManager = designationData?.designation === "manager";
+      const isManager = staffData.role === "manager";
       setIsManagerRole(isManager);
 
       // Load managers
@@ -251,10 +244,10 @@ const PermissionApplicationForm = ({ onSuccess }: PermissionApplicationFormProps
           <div className="flex items-center gap-2 text-sm">
             <Clock className="h-4 w-4" />
             <span className="font-medium">Today's Date:</span>
-            <span>{new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            <span>{formatLongDateIST(new Date())}</span>
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            Permission can only be applied for current day
+            Permission can only be applied for current day (IST)
           </p>
         </div>
 
