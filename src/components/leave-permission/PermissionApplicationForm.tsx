@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,7 @@ interface PermissionApplicationFormProps {
 }
 
 const PermissionApplicationForm = ({ onSuccess }: PermissionApplicationFormProps) => {
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [managers, setManagers] = useState<Array<{ id: string; staff_code: string; full_name: string }>>([]);
   const [staffId, setStaffId] = useState<string | null>(null);
@@ -77,14 +79,22 @@ const PermissionApplicationForm = ({ onSuccess }: PermissionApplicationFormProps
 
   const loadManagersAndStaffInfo = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user?.id) {
+        toast({
+          title: "Error",
+          description: "You are not logged in",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const authUserId = user.id;
 
       // Get staff ID and check if manager
       const { data: staffData, error: staffError } = await supabase
         .from("staff")
         .select("id")
-        .eq("user_id", user.id)
+        .eq("user_id", authUserId)
         .single();
 
       if (staffError) throw staffError;
@@ -94,7 +104,7 @@ const PermissionApplicationForm = ({ onSuccess }: PermissionApplicationFormProps
       const { data: designationData } = await supabase
         .from("user_designations")
         .select("designation")
-        .eq("user_id", user.id)
+        .eq("user_id", authUserId)
         .single();
 
       const isManager = designationData?.designation === "manager";
@@ -106,13 +116,25 @@ const PermissionApplicationForm = ({ onSuccess }: PermissionApplicationFormProps
 
       if (managersError) throw managersError;
       
-      const managers = managersData as any as Array<{ id: string; staff_code: string; full_name: string }>;
-      setManagers(managers || []);
+      const managers = (managersData || []) as Array<{ id: string; staff_code: string; full_name: string }>;
+      setManagers(managers);
+
+      if (managers.length === 0) {
+        toast({
+          title: "No approvers found",
+          description: "Please contact the administrator to configure approvers.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       // If manager, auto-select admin
-      if (isManager && managers && managers.length > 0) {
-        const admin = managers.find((m: any) => m.full_name.includes("Admin")) || managers[0];
+      if (isManager && managers.length > 0) {
+        const admin = managers.find((m: any) => m.full_name?.toLowerCase().includes("admin")) || managers[0];
         form.setValue("approverId", admin.id);
+      } else if (managers.length === 1) {
+        // Auto-select if only one manager available
+        form.setValue("approverId", managers[0].id);
       }
     } catch (error: any) {
       console.error("Error loading managers:", error);
