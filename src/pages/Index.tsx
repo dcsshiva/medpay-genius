@@ -27,6 +27,7 @@ import BankAdvicePaymentReport from '@/components/BankAdvicePaymentReport';
 import LeavePermissionManagement from '@/components/leave-permission/LeavePermissionManagement';
 import ApprovalManagement from '@/components/leave-permission/ApprovalManagement';
 import QuickPaymentManagement from '@/components/QuickPaymentManagement';
+import QuickPaymentBankAdviceReport from '@/components/QuickPaymentBankAdviceReport';
 
 // Bank Advice Payment Report Component
 const Index = () => {
@@ -128,6 +129,8 @@ const Index = () => {
         return <BankAdvicePaymentReport />;
       case 'quick-payment':
         return <QuickPaymentManagement />;
+      case 'quick-payment-bank-advice-report':
+        return <QuickPaymentBankAdviceReport />;
       case 'leave-permission':
         return <LeavePermissionManagement />;
       case 'leave-approvals':
