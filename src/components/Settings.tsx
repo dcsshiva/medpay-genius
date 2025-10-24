@@ -21,12 +21,38 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const Settings = () => {
-  const { userRole } = useAuth();
+  const { userRole, signOut } = useAuth();
   const [isEraseDialogOpen, setIsEraseDialogOpen] = useState(false);
   const [isErasing, setIsErasing] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
+  const [password, setPassword] = useState('');
+  const [failedAttempts, setFailedAttempts] = useState(0);
+
+  // Security constants
+  const ERASE_PASSWORD = '9629945305';
+  const MAX_FAILED_ATTEMPTS = 3;
 
   const handleEraseTransactions = async () => {
+    // First check password
+    if (password !== ERASE_PASSWORD) {
+      const newFailedAttempts = failedAttempts + 1;
+      setFailedAttempts(newFailedAttempts);
+      
+      toast.error(`Incorrect password. Attempt ${newFailedAttempts} of ${MAX_FAILED_ATTEMPTS}`);
+      
+      // Logout after 3 failed attempts
+      if (newFailedAttempts >= MAX_FAILED_ATTEMPTS) {
+        toast.error('Maximum attempts exceeded. Logging out for security.');
+        setTimeout(async () => {
+          await signOut();
+        }, 1500);
+        return;
+      }
+      
+      return;
+    }
+
+    // Then check confirmation text
     if (confirmationText !== 'DELETE ALL') {
       toast.error('Please type "DELETE ALL" to confirm');
       return;
@@ -44,8 +70,11 @@ const Settings = () => {
         `Successfully deleted: ${result.visits_deleted} visits, ${result.payments_deleted} payments, ${result.payment_visits_deleted} payment links, ${result.payment_transactions_deleted} transactions`
       );
       
+      // Reset all fields on success
       setIsEraseDialogOpen(false);
       setConfirmationText('');
+      setPassword('');
+      setFailedAttempts(0);
     } catch (error) {
       console.error('Error erasing transactions:', error);
       toast.error('Failed to erase transactions. Please try again.');
@@ -223,6 +252,25 @@ const Settings = () => {
                     <div className="text-destructive font-medium">
                       All doctors and staff records will remain intact.
                     </div>
+                    <div className="space-y-2 pt-4">
+                      <Label htmlFor="password-input" className="text-foreground">
+                        Enter the password:
+                      </Label>
+                      <Input
+                        id="password-input"
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Enter password"
+                        className="font-mono"
+                        autoComplete="off"
+                      />
+                      {failedAttempts > 0 && (
+                        <p className="text-sm text-destructive">
+                          Failed attempts: {failedAttempts}/{MAX_FAILED_ATTEMPTS}
+                        </p>
+                      )}
+                    </div>
                     <div className="space-y-2 pt-2">
                       <Label htmlFor="confirm-text" className="text-foreground">
                         Type <span className="font-mono font-bold">DELETE ALL</span> to confirm:
@@ -238,12 +286,15 @@ const Settings = () => {
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                  <AlertDialogCancel onClick={() => setConfirmationText('')}>
+                  <AlertDialogCancel onClick={() => {
+                    setConfirmationText('');
+                    setPassword('');
+                  }}>
                     Cancel
                   </AlertDialogCancel>
                   <AlertDialogAction
                     onClick={handleEraseTransactions}
-                    disabled={confirmationText !== 'DELETE ALL' || isErasing}
+                    disabled={!password || confirmationText !== 'DELETE ALL' || isErasing}
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                   >
                     {isErasing ? 'Erasing...' : 'Erase All Transactions'}
