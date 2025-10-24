@@ -367,6 +367,24 @@ const QuickPaymentManagement = () => {
   const pendingTotal = pendingPayments.reduce((sum, p) => sum + p.net_amount, 0);
   const generatedTotal = generatedPayments.reduce((sum, p) => sum + p.net_amount, 0);
 
+  // Form validation function
+  const isFormValid = () => {
+    const hasName = formData.name.trim().length > 0;
+    const hasMobile = validateMobileNumber(formData.mobile_number);
+    const hasType = formData.payment_type_id.length > 0;
+    const hasGrossAmount = parseFloat(formData.gross_amount) > 0;
+    
+    // All bank details are now required
+    const hasBankName = formData.bank_name.trim().length > 0;
+    const hasAccountNumber = formData.account_number.trim().length > 0;
+    const hasIFSC = formData.ifsc_code.trim().length > 0;
+    const hasBranchName = formData.branch_name.trim().length > 0;
+    const hasAccountHolder = formData.account_holder_name.trim().length > 0;
+    
+    return hasName && hasMobile && hasType && hasGrossAmount && 
+           hasBankName && hasAccountNumber && hasIFSC && hasBranchName && hasAccountHolder;
+  };
+
   return (
     <div className="container mx-auto p-6">
       <h1 className="text-3xl font-bold mb-6">Quick Payment Management</h1>
@@ -502,56 +520,61 @@ const QuickPaymentManagement = () => {
 
                 {/* Bank Details */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Bank Details (Optional)</h3>
+                  <h3 className="text-lg font-semibold">Bank Details *</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="bank_name">Bank Name</Label>
+                      <Label htmlFor="bank_name">Bank Name *</Label>
                       <Input
                         id="bank_name"
                         value={formData.bank_name}
                         onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
                         placeholder="Enter bank name"
+                        required
                       />
                     </div>
                     <div>
-                      <Label htmlFor="account_holder_name">Account Holder Name</Label>
+                      <Label htmlFor="account_holder_name">Account Holder Name *</Label>
                       <Input
                         id="account_holder_name"
                         value={formData.account_holder_name}
                         onChange={(e) => setFormData({ ...formData, account_holder_name: e.target.value })}
                         placeholder="Enter account holder name"
+                        required
                       />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="account_number">Account Number</Label>
+                      <Label htmlFor="account_number">Account Number *</Label>
                       <Input
                         id="account_number"
                         value={formData.account_number}
                         onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
                         placeholder="Enter account number"
+                        required
                       />
                     </div>
                     <div>
-                      <Label htmlFor="ifsc_code">IFSC Code</Label>
+                      <Label htmlFor="ifsc_code">IFSC Code *</Label>
                       <Input
                         id="ifsc_code"
                         value={formData.ifsc_code}
                         onChange={(e) => setFormData({ ...formData, ifsc_code: e.target.value.toUpperCase() })}
                         placeholder="e.g., SBIN0001234"
+                        required
                       />
                     </div>
                   </div>
 
                   <div>
-                    <Label htmlFor="branch_name">Branch Name</Label>
+                    <Label htmlFor="branch_name">Branch Name *</Label>
                     <Input
                       id="branch_name"
                       value={formData.branch_name}
                       onChange={(e) => setFormData({ ...formData, branch_name: e.target.value })}
                       placeholder="Enter branch name"
+                      required
                     />
                   </div>
                 </div>
@@ -568,13 +591,20 @@ const QuickPaymentManagement = () => {
                   />
                 </div>
 
-                <div className="flex gap-4">
-                  <Button type="submit" disabled={loading}>
-                    {loading ? 'Saving...' : 'Submit Payment'}
-                  </Button>
-                  <Button type="button" variant="outline" onClick={resetForm}>
-                    Clear Form
-                  </Button>
+                <div className="space-y-2">
+                  <div className="flex gap-4">
+                    <Button type="submit" disabled={loading || !isFormValid()}>
+                      {loading ? 'Saving...' : 'Submit Payment'}
+                    </Button>
+                    <Button type="button" variant="outline" onClick={resetForm}>
+                      Clear Form
+                    </Button>
+                  </div>
+                  {!isFormValid() && (
+                    <p className="text-sm text-muted-foreground">
+                      Please fill all required fields: Name, Mobile (10 digits), Payment Type, Gross Amount, and all Bank Details
+                    </p>
+                  )}
                 </div>
               </form>
             </CardContent>
