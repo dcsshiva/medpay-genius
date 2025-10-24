@@ -79,6 +79,9 @@ interface PaymentManagementTableProps {
   showBankAdviceCheckbox?: boolean;
   selectedPayments?: Set<string>;
   onSelectPayment?: (paymentId: string, checked: boolean) => void;
+  showApprovalCheckbox?: boolean;
+  selectedForApproval?: Set<string>;
+  onSelectForApproval?: (paymentId: string, checked: boolean) => void;
 }
 
 const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
@@ -94,6 +97,9 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   showBankAdviceCheckbox,
   selectedPayments,
   onSelectPayment,
+  showApprovalCheckbox,
+  selectedForApproval,
+  onSelectForApproval,
 }) => {
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
@@ -159,6 +165,16 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
         <Table>
         <TableHeader>
           <TableRow>
+            {showApprovalCheckbox && (
+              <TableHead className="w-12">
+                <Checkbox
+                  checked={payments.length > 0 && payments.every(p => selectedForApproval?.has(p.id))}
+                  onCheckedChange={(checked) => {
+                    payments.forEach(p => onSelectForApproval?.(p.id, !!checked));
+                  }}
+                />
+              </TableHead>
+            )}
             {showBankAdviceCheckbox && (
               <TableHead className="w-12">Select</TableHead>
             )}
@@ -195,7 +211,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
           {sortedPayments.length === 0 ? (
             <TableRow>
               <TableCell 
-                colSpan={showBankAdviceCheckbox ? 13 : 12} 
+                colSpan={(showApprovalCheckbox ? 1 : 0) + (showBankAdviceCheckbox ? 13 : 12)} 
                 className="text-center text-muted-foreground py-8"
               >
                 No payments found
@@ -205,6 +221,14 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
             sortedPayments.map((payment) => (
               <React.Fragment key={payment.id}>
                 <TableRow className={payment.is_suspect ? 'bg-destructive/5' : ''}>
+                {showApprovalCheckbox && onSelectForApproval && (
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedForApproval?.has(payment.id) || false}
+                      onCheckedChange={(checked) => onSelectForApproval(payment.id, !!checked)}
+                    />
+                  </TableCell>
+                )}
                 {showBankAdviceCheckbox && onSelectPayment && (
                   <TableCell>
                     <Checkbox

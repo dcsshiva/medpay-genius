@@ -173,6 +173,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
   const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPaymentsForBankAdvice, setSelectedPaymentsForBankAdvice] = useState<Set<string>>(new Set());
+  const [selectedForApproval, setSelectedForApproval] = useState<Set<string>>(new Set());
   const [generatingBankAdvice, setGeneratingBankAdvice] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState('waiting');
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<'all' | 'cash' | 'insurance' | 'mixed'>('all');
@@ -1263,6 +1264,109 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
         description: error.message || `Failed to ${action} insurance payment`
       });
     }
+  };
+
+  // Bulk approval handler
+  const handleBulkApproval = async () => {
+    if (selectedForApproval.size === 0) {
+      toast({
+        variant: "destructive",
+        title: "No Payments Selected",
+        description: "Please select at least one payment to approve"
+      });
+      return;
+    }
+
+    const selectedPaymentsList = Array.from(selectedForApproval)
+      .map(id => payments.find(p => p.id === id))
+      .filter(Boolean) as Payment[];
+
+    const cashCount = selectedPaymentsList.filter(p => (p.cash_total || 0) > 0 && p.cash_approval_status === 'pending').length;
+    const insuranceCount = selectedPaymentsList.filter(p => (p.insurance_total || 0) > 0 && p.insurance_approval_status === 'pending').length;
+
+    const confirmMsg = `You are about to approve ${selectedForApproval.size} payment(s):\n\n` +
+      `• ${cashCount} Cash payment(s)\n` +
+      `• ${insuranceCount} Insurance payment(s)\n\n` +
+      `Do you want to proceed?`;
+
+    if (!confirm(confirmMsg)) return;
+
+    setSubmitting(true);
+    let successCount = 0;
+    let errorCount = 0;
+    const errors: string[] = [];
+
+    try {
+      for (const payment of selectedPaymentsList) {
+        try {
+          // Approve cash if present
+          if ((payment.cash_total || 0) > 0 && payment.cash_approval_status === 'pending') {
+            await handleCashApproval(payment.id, 'approve');
+            successCount++;
+          }
+
+          // Approve insurance if present
+          if ((payment.insurance_total || 0) > 0 && payment.insurance_approval_status === 'pending') {
+            await handleInsuranceApproval(payment.id, 'approve');
+            successCount++;
+          }
+        } catch (error: any) {
+          errorCount++;
+          errors.push(`${payment.doctors.profiles.full_name}: ${error.message}`);
+        }
+      }
+
+      // Show results
+      if (errorCount === 0) {
+        toast({
+          title: "Bulk Approval Complete",
+          description: `Successfully approved ${successCount} payment(s) for ${selectedForApproval.size} doctor(s)`
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Partial Success",
+          description: `Approved: ${successCount}, Failed: ${errorCount}\n\nErrors:\n${errors.join('\n')}`
+        });
+      }
+
+      // Clear selection and refresh
+      setSelectedForApproval(new Set());
+      fetchPayments();
+
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Bulk Approval Failed",
+        description: error.message || "An unexpected error occurred"
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Handler for checkbox selection
+  const handleSelectForApproval = (paymentId: string, checked: boolean) => {
+    setSelectedForApproval(prev => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(paymentId);
+      } else {
+        newSet.delete(paymentId);
+      }
+      return newSet;
+    });
+  };
+
+  // Handler for select all
+  const handleSelectAllForApproval = () => {
+    const allIds = waitingForApprovalPayments.map(p => p.id);
+    setSelectedForApproval(new Set(allIds));
+  };
+
+  // Handler for clear all
+  const handleClearAllApprovalSelection = () => {
+    setSelectedForApproval(new Set());
   };
 
   const handleSuspectToggle = async (paymentId: string, reason?: string) => {
@@ -2887,7 +2991,49 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
 
           <TabsContent value="waiting" className="space-y-4">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Payments Waiting for Approval</h3>
+              <div className="flex items-center gap-4">
+                <h3 className="text-lg font-semibold">Payments Waiting for Approval</h3>
+                
+                {/* Bulk Approval Controls */}
+                {waitingForApprovalPayments.length > 0 && (userRole === 'admin' || userRole === 'manager') && (
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="px-3 py-1">
+                      {selectedForApproval.size} selected
+                    </Badge>
+                    
+                    {selectedForApproval.size > 0 ? (
+                      <>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="bg-success hover:bg-success/90"
+                          onClick={handleBulkApproval}
+                          disabled={submitting}
+                        >
+                          <CheckCircle className="h-4 w-4 mr-2" />
+                          Approve All ({selectedForApproval.size})
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleClearAllApprovalSelection}
+                        >
+                          Clear Selection
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleSelectAllForApproval}
+                      >
+                        Select All ({waitingForApprovalPayments.length})
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
+              
               {waitingForApprovalPayments.length > 0 && (userRole === 'admin' || userRole === 'manager') && (
                 <ReportGeneration
                   title="Payments Waiting for Approval Report"
@@ -2925,6 +3071,9 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                 fetchTransactions(payment.id);
                 setTransactionsDialog(true);
               }}
+              showApprovalCheckbox={(userRole === 'admin' || userRole === 'manager')}
+              selectedForApproval={selectedForApproval}
+              onSelectForApproval={handleSelectForApproval}
             />
             
             {waitingForApprovalPayments.length === 0 && !loading && (
