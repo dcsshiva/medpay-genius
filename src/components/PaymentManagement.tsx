@@ -270,19 +270,26 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
         supabase.from('payment_transactions').select('amount')
       ]);
 
+      let totalFromVisits = 0;
+      let totalPaidAmount = 0;
+
       if (visitsResponse.data) {
-        const totalFromVisits = visitsResponse.data.reduce((sum, visit) => 
+        totalFromVisits = visitsResponse.data.reduce((sum, visit) => 
           sum + (visit.visit_payment || 0), 0
         );
-        setTotalPending(totalFromVisits);
       }
 
       if (transactionsResponse.data) {
-        const totalPaidAmount = transactionsResponse.data.reduce((sum, transaction) => 
+        totalPaidAmount = transactionsResponse.data.reduce((sum, transaction) => 
           sum + transaction.amount, 0
         );
         setTotalPaid(totalPaidAmount);
       }
+
+      // Calculate actual pending amount (Total Visits - Total Paid)
+      const actualPending = totalFromVisits - totalPaidAmount;
+      setTotalPending(actualPending);
+      
     } catch (error) {
       console.error('Error fetching global totals:', error);
     }
@@ -2909,7 +2916,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
             <StatsCard
               title="Total Pending"
               value={formatCurrency(totalPending)}
-              subtitle="Across all visits"
+              subtitle="Yet to be paid"
               icon={IndianRupee}
               variant="warning"
             />
