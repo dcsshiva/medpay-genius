@@ -28,7 +28,7 @@ const MasterDataManagement = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-10">
+        <TabsList className="flex flex-wrap gap-1 w-full h-auto justify-start p-1">
           <TabsTrigger value="roles">Roles</TabsTrigger>
           <TabsTrigger value="departments">Departments</TabsTrigger>
           <TabsTrigger value="leave-reasons">Leave Reasons</TabsTrigger>
