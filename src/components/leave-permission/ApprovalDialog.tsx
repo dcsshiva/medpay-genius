@@ -58,7 +58,7 @@ const ApprovalDialog = ({ open, onOpenChange, application, action, onComplete }:
       }
 
       const { error } = await supabase
-        .from("leave_permission_applications")
+        .from("leave_permission_applications" as any)
         .update(updateData)
         .eq("id", application.id);
 

@@ -71,7 +71,7 @@ const ApplicationHistory = () => {
       if (!staffData) return;
 
       const { data, error } = await supabase
-        .from("leave_permission_applications")
+        .from("leave_permission_applications" as any)
         .select(`
           *,
           approver:approver_id(full_name, staff_code),
@@ -81,7 +81,7 @@ const ApplicationHistory = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setApplications(data || []);
+      setApplications(data as any || []);
     } catch (error: any) {
       console.error("Error loading applications:", error);
       toast({
@@ -138,7 +138,7 @@ const ApplicationHistory = () => {
   const handleCancelApplication = async (id: string) => {
     try {
       const { error } = await supabase
-        .from("leave_permission_applications")
+        .from("leave_permission_applications" as any)
         .update({ status: "cancelled" })
         .eq("id", id)
         .eq("status", "pending");

@@ -98,14 +98,16 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
 
       // Load managers
       const { data: managersData, error: managersError } = await supabase
-        .rpc("get_available_managers");
+        .rpc("get_available_managers" as any);
 
       if (managersError) throw managersError;
-      setManagers(managersData || []);
+      
+      const managers = managersData as any as Array<{ id: string; staff_code: string; full_name: string }>;
+      setManagers(managers || []);
 
       // If manager, auto-select admin (first in list if any)
-      if (isManager && managersData && managersData.length > 0) {
-        const admin = managersData.find((m: any) => m.full_name.includes("Admin")) || managersData[0];
+      if (isManager && managers && managers.length > 0) {
+        const admin = managers.find((m: any) => m.full_name.includes("Admin")) || managers[0];
         form.setValue("approverId", admin.id);
       }
     } catch (error: any) {
@@ -138,7 +140,7 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
     try {
       // Validate leave application
       const { data: validationResult, error: validationError } = await supabase
-        .rpc("validate_leave_application", {
+        .rpc("validate_leave_application" as any, {
           _applicant_id: staffId,
           _leave_start_date: formatInputDateIST(values.startDate),
           _leave_end_date: formatInputDateIST(values.endDate),
@@ -146,10 +148,11 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
 
       if (validationError) throw validationError;
 
-      if (!validationResult.valid) {
+      const validation = validationResult as any as { valid: boolean; error?: string };
+      if (!validation.valid) {
         toast({
           title: "Validation Failed",
-          description: validationResult.error,
+          description: validation.error,
           variant: "destructive",
         });
         setLoading(false);
@@ -161,7 +164,7 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
 
       // Submit application
       const { error: insertError } = await supabase
-        .from("leave_permission_applications")
+        .from("leave_permission_applications" as any)
         .insert({
           applicant_id: staffId,
           application_type: "leave",

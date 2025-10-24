@@ -68,7 +68,7 @@ const ApprovalManagement = () => {
 
       // Load applications where user is the approver or user is admin
       const { data, error } = await supabase
-        .from("leave_permission_applications")
+        .from("leave_permission_applications" as any)
         .select(`
           *,
           applicant:applicant_id(full_name, staff_code, role)
@@ -78,7 +78,7 @@ const ApprovalManagement = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setApplications(data || []);
+      setApplications(data as any || []);
     } catch (error: any) {
       console.error("Error loading applications:", error);
       toast({

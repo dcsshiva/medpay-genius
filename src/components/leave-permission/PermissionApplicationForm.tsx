@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/hooks/use-toast";
 import { Loader2, Clock } from "lucide-react";
 import { formatInputDateIST } from "@/lib/dateUtils";
+import { cn } from "@/lib/utils";
 
 const permissionReasons = [
   { value: "personal_work", label: "Personal Work" },
@@ -95,14 +96,16 @@ const PermissionApplicationForm = ({ onSuccess }: PermissionApplicationFormProps
 
       // Load managers
       const { data: managersData, error: managersError } = await supabase
-        .rpc("get_available_managers");
+        .rpc("get_available_managers" as any);
 
       if (managersError) throw managersError;
-      setManagers(managersData || []);
+      
+      const managers = managersData as any as Array<{ id: string; staff_code: string; full_name: string }>;
+      setManagers(managers || []);
 
       // If manager, auto-select admin
-      if (isManager && managersData && managersData.length > 0) {
-        const admin = managersData.find((m: any) => m.full_name.includes("Admin")) || managersData[0];
+      if (isManager && managers && managers.length > 0) {
+        const admin = managers.find((m: any) => m.full_name.includes("Admin")) || managers[0];
         form.setValue("approverId", admin.id);
       }
     } catch (error: any) {
@@ -153,7 +156,7 @@ const PermissionApplicationForm = ({ onSuccess }: PermissionApplicationFormProps
 
       // Validate permission application
       const { data: validationResult, error: validationError } = await supabase
-        .rpc("validate_permission_application", {
+        .rpc("validate_permission_application" as any, {
           _applicant_id: staffId,
           _permission_date: todayStr,
           _duration_minutes: duration,
@@ -161,10 +164,11 @@ const PermissionApplicationForm = ({ onSuccess }: PermissionApplicationFormProps
 
       if (validationError) throw validationError;
 
-      if (!validationResult.valid) {
+      const validation = validationResult as any as { valid: boolean; error?: string };
+      if (!validation.valid) {
         toast({
           title: "Validation Failed",
-          description: validationResult.error,
+          description: validation.error,
           variant: "destructive",
         });
         setLoading(false);
@@ -173,7 +177,7 @@ const PermissionApplicationForm = ({ onSuccess }: PermissionApplicationFormProps
 
       // Submit application
       const { error: insertError } = await supabase
-        .from("leave_permission_applications")
+        .from("leave_permission_applications" as any)
         .insert({
           applicant_id: staffId,
           application_type: "permission",
