@@ -27,6 +27,7 @@ import BankAdvicePaymentReport from '@/components/BankAdvicePaymentReport';
 import LeavePermissionManagement from '@/components/leave-permission/LeavePermissionManagement';
 import ApprovalManagement from '@/components/leave-permission/ApprovalManagement';
 
+// Bank Advice Payment Report Component
 const Index = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
