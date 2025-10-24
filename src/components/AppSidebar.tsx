@@ -18,7 +18,8 @@ import {
   ClipboardCheck,
   Database,
   FileText,
-  CalendarCheck
+  CalendarCheck,
+  Zap
 } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
 import {
@@ -123,6 +124,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
         { id: 'insurance-payments', label: 'Insurance Payments', icon: CreditCard },
         { id: 'insurance-payments-lite', label: 'Insurance Payments (Lite)', icon: CreditCard },
         { id: 'bank-advice-payment-report', label: 'Bank Advice Payment Report', icon: FileText },
+        { id: 'quick-payment', label: 'Quick Payment', icon: Zap },
         { id: 'tds-reports', label: 'TDS Reports', icon: FileText },
         { id: 'tasks', label: 'Task Management', icon: ClipboardList },
         { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
@@ -144,6 +146,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
       { id: 'insurance-payments', label: 'Insurance Payments', icon: CreditCard },
       { id: 'insurance-payments-lite', label: 'Insurance Payments (Lite)', icon: CreditCard },
       { id: 'bank-advice-payment-report', label: 'Bank Advice Payment Report', icon: FileText },
+      { id: 'quick-payment', label: 'Quick Payment', icon: Zap },
       { id: 'tds-reports', label: 'TDS Reports', icon: FileText },
       { id: 'tasks', label: 'Task Management', icon: ClipboardList },
       { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },

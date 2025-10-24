@@ -26,6 +26,7 @@ import { TDSReportsManagement } from '@/components/TDSReportsManagement';
 import BankAdvicePaymentReport from '@/components/BankAdvicePaymentReport';
 import LeavePermissionManagement from '@/components/leave-permission/LeavePermissionManagement';
 import ApprovalManagement from '@/components/leave-permission/ApprovalManagement';
+import QuickPaymentManagement from '@/components/QuickPaymentManagement';
 
 // Bank Advice Payment Report Component
 const Index = () => {
@@ -125,6 +126,8 @@ const Index = () => {
         return <TDSReportsManagement />;
       case 'bank-advice-payment-report':
         return <BankAdvicePaymentReport />;
+      case 'quick-payment':
+        return <QuickPaymentManagement />;
       case 'leave-permission':
         return <LeavePermissionManagement />;
       case 'leave-approvals':
