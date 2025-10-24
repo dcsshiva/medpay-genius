@@ -5,6 +5,7 @@ import MobileHeader from '@/components/MobileHeader';
 import { AppSidebar } from '@/components/AppSidebar';
 import { isStaffRole } from '@/lib/staffUtils';
 import VersionDisplay from '@/components/VersionDisplay';
+import Footer from '@/components/Footer';
 import { 
   SidebarProvider, 
   SidebarInset, 
@@ -168,6 +169,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
         
         {/* Version Display */}
         <VersionDisplay />
+        
+        {/* Footer */}
+        <Footer />
       </div>
     </SidebarProvider>
   );

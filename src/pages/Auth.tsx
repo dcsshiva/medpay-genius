@@ -11,6 +11,7 @@ import { LogIn, Shield, UserCheck, ArrowLeft } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import westmedBanner from '@/assets/westmed-banner.png';
 import westmedLogo from '@/assets/westmed-logo.png';
+import Footer from '@/components/Footer';
 
 const Auth = () => {
   const [staffLoading, setStaffLoading] = useState(false);
@@ -297,6 +298,7 @@ const Auth = () => {
             </Tabs>
           </CardContent>
         </Card>
+        <Footer variant="light" className="mt-8" />
       </div>
     </div>
   );

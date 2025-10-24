@@ -336,7 +336,7 @@ const Landing = () => {
               <span className="font-semibold text-sm sm:text-base">{hospitalName}</span>
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground text-center order-last md:order-none">
-              {settings?.copyright_text || `© ${new Date().getFullYear()} ${hospitalName}. All rights reserved.`}
+              Copyright © 2025–2045 Sivakumaran Infotech, Villupuram. All rights reserved. | 📞 94869 33892
             </p>
             <div className="flex gap-4 sm:gap-6">
               <a href="#" className="text-xs sm:text-sm text-muted-foreground hover:text-primary transition-colors min-h-[44px] flex items-center">Privacy Policy</a>
