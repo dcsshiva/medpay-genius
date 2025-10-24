@@ -15,7 +15,14 @@ import { toast } from "@/hooks/use-toast";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { formatInputDateIST, getCurrentISTDate, toISOStringIST } from "@/lib/dateUtils";
+import { 
+  formatInputDateIST, 
+  getCurrentISTDate, 
+  toISOStringIST,
+  getMinLeaveDate,
+  getMaxLeaveDate,
+  formatDateIST 
+} from "@/lib/dateUtils";
 
 const formSchema = z.object({
   startDate: z.date({
@@ -203,11 +210,8 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
     }
   };
 
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  
-  const maxDate = new Date();
-  maxDate.setDate(maxDate.getDate() + 15);
+  const minDate = getMinLeaveDate();
+  const maxDate = getMaxLeaveDate();
 
   return (
     <Form {...form}>
@@ -239,14 +243,23 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
                       mode="single"
                       selected={field.value}
                       onSelect={field.onChange}
-                      disabled={(date) => date < tomorrow || date > maxDate}
+                      disabled={(date) => {
+                        const dateAtMidnight = new Date(date);
+                        dateAtMidnight.setHours(0, 0, 0, 0);
+                        const minDateAtMidnight = new Date(minDate);
+                        minDateAtMidnight.setHours(0, 0, 0, 0);
+                        const maxDateAtMidnight = new Date(maxDate);
+                        maxDateAtMidnight.setHours(23, 59, 59, 999);
+                        
+                        return dateAtMidnight < minDateAtMidnight || dateAtMidnight > maxDateAtMidnight;
+                      }}
                       initialFocus
                       className="pointer-events-auto"
                     />
                   </PopoverContent>
                 </Popover>
                 <FormDescription>
-                  Select a date from tomorrow to 15 days ahead
+                  Select a date from {formatDateIST(minDate)} to {formatDateIST(maxDate)} (IST)
                 </FormDescription>
                 <FormMessage />
               </FormItem>
@@ -279,7 +292,17 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
                       mode="single"
                       selected={field.value}
                       onSelect={field.onChange}
-                      disabled={(date) => date < tomorrow || date > maxDate}
+                      disabled={(date) => {
+                        const startDate = form.getValues("startDate");
+                        const dateAtMidnight = new Date(date);
+                        dateAtMidnight.setHours(0, 0, 0, 0);
+                        const minDateAtMidnight = startDate ? new Date(startDate) : new Date(minDate);
+                        minDateAtMidnight.setHours(0, 0, 0, 0);
+                        const maxDateAtMidnight = new Date(maxDate);
+                        maxDateAtMidnight.setHours(23, 59, 59, 999);
+                        
+                        return dateAtMidnight < minDateAtMidnight || dateAtMidnight > maxDateAtMidnight;
+                      }}
                       initialFocus
                       className="pointer-events-auto"
                     />

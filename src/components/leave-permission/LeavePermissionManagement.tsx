@@ -44,8 +44,8 @@ const LeavePermissionManagement = () => {
             <CardHeader>
               <CardTitle>Apply for Leave</CardTitle>
               <CardDescription>
-                Submit your leave application at least one day in advance (before 11:59 PM).
-                You can apply for dates up to 15 days in the future.
+                Submit your leave application at least one day in advance (before 11:59 PM IST). 
+                You can apply for dates up to 15 days in the future. All times are in Indian Standard Time (IST).
               </CardDescription>
             </CardHeader>
             <CardContent>
