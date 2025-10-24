@@ -35,6 +35,7 @@ import { useAuth } from '@/lib/auth';
 import { Checkbox } from '@/components/ui/checkbox';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
+import { useWebsiteSettings } from '@/hooks/useWebsiteSettings';
 
 interface QuickPaymentType {
   id: string;
@@ -78,6 +79,7 @@ interface QuickPayment {
 
 const QuickPaymentManagement = () => {
   const { user } = useAuth();
+  const { data: websiteSettings } = useWebsiteSettings();
   const [activeTab, setActiveTab] = useState('add-payment');
   const [types, setTypes] = useState<QuickPaymentType[]>([]);
   const [payments, setPayments] = useState<QuickPayment[]>([]);
@@ -293,55 +295,89 @@ const QuickPaymentManagement = () => {
     }
 
     try {
-      // Create Excel file
-      const workbook = XLSX.utils.book_new();
+      // Generate GEFU format text file (same as Cash/Insurance payments)
+      const totalGrossAmount = paymentsToGenerate.reduce((sum, p) => sum + p.gross_amount, 0);
+      const totalTDSAmount = paymentsToGenerate.reduce((sum, p) => sum + p.tds_amount, 0);
+      const totalNetAmount = paymentsToGenerate.reduce((sum, p) => sum + p.net_amount, 0);
       
-      const excelData = paymentsToGenerate.map(payment => ({
-        'Payee Name': payment.name,
-        'Mobile Number': payment.mobile_number,
-        'Type': payment.quick_payment_types.type_name,
-        'Bank Name': payment.bank_name || 'N/A',
-        'Account Number': payment.account_number || 'N/A',
-        'IFSC Code': payment.ifsc_code || 'N/A',
-        'Account Holder': payment.account_holder_name || payment.name,
-        'Gross Amount': payment.gross_amount,
-        'TDS %': payment.tds_percentage,
-        'TDS Amount': payment.tds_amount,
-        'Net Amount': payment.net_amount,
-        'Notes': payment.payment_notes || '',
-      }));
+      const today = new Date();
+      const dateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
       
-      const worksheet = XLSX.utils.json_to_sheet(excelData);
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Quick Payments');
+      // Header line
+      let fileContent = `H~${dateStr}~${websiteSettings?.hospital_institution_code || 'ABC07112007'}\n`;
+
+      // Detail lines
+      paymentsToGenerate.forEach((payment, index) => {
+        const netAmount = payment.net_amount.toFixed(2);
+        
+        const detailLine = [
+          'D',                          // Record type
+          'N06',                        // Transaction Type Code (NEFT TRANSFER)
+          websiteSettings?.hospital_bank_account_number || '120000794291', // Hospital Account Number
+          websiteSettings?.hospital_bank_account_holder_name || 'Westmed Healthcare Pvt Ltd', // Hospital Name
+          'ADDRESS1',                   // Address Line 1
+          'ADDRESS2',                   // Address Line 2
+          'ADDRESS3',                   // Address Line 3
+          payment.ifsc_code || '',      // Beneficiary IFSC Code
+          payment.account_number || '', // Beneficiary Account Number
+          payment.account_holder_name || payment.name, // Beneficiary Name
+          '',                           // Empty
+          '',                           // Empty
+          '',                           // Empty
+          '',                           // Empty
+          index + 1,                    // Sequence Number
+          dateStr,                      // Transaction Date
+          netAmount,                    // Net Amount (after TDS)
+          index + 1,                    // Sequence Number (again)
+          '',                           // Empty
+          '',                           // Empty
+          '',                           // Empty
+          ''                            // Empty
+        ].join('~');
+        
+        fileContent += detailLine + '\n';
+      });
+
+      // Footer line (use net amount after TDS)
+      fileContent += `F~${paymentsToGenerate.length}~${totalNetAmount.toFixed(2)}`;
+
+      // Generate filename with format: DDMMYY-X.txt
+      const filenameDateStr = format(today, 'ddMMyy');
+      const paymentCount = paymentsToGenerate.length;
+      const filename = `${filenameDateStr}-${paymentCount}.txt`;
       
-      // Generate filename
-      const timestamp = format(new Date(), 'yyyyMMdd_HHmmss');
-      const filename = `QuickPayment_BankAdvice_${timestamp}.xlsx`;
-      
-      // Download file
-      XLSX.writeFile(workbook, filename);
-      
-      // Calculate totals
-      const totalGross = paymentsToGenerate.reduce((sum, p) => sum + p.gross_amount, 0);
-      const totalTDS = paymentsToGenerate.reduce((sum, p) => sum + p.tds_amount, 0);
-      const totalNet = paymentsToGenerate.reduce((sum, p) => sum + p.net_amount, 0);
-      
-      // Save to history
+      // Store bank advice generation in history with file content
       const { error: historyError } = await supabase
         .from('quick_payment_bank_advice_history')
         .insert({
-          filename,
-          payment_count: paymentsToGenerate.length,
-          total_gross_amount: totalGross,
-          total_tds_amount: totalTDS,
-          total_net_amount: totalNet,
+          filename: filename,
+          generation_date: today.toISOString().split('T')[0],
+          payment_count: paymentCount,
+          total_gross_amount: totalGrossAmount,
+          total_tds_amount: totalTDSAmount,
+          total_net_amount: totalNetAmount,
           payment_ids: paymentsToGenerate.map(p => p.id),
           generated_by: user?.id,
+          file_content: fileContent
         });
       
-      if (historyError) throw historyError;
-      
-      // Update payments as generated
+      if (historyError) {
+        console.error('Error saving bank advice history:', historyError);
+        // Continue with download even if history save fails
+      }
+
+      // Create and download text file
+      const blob = new Blob([fileContent], { type: 'text/plain' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      // Update payments as bank advice generated
       const { error: updateError } = await supabase
         .from('quick_payments')
         .update({
@@ -354,7 +390,10 @@ const QuickPaymentManagement = () => {
       
       if (updateError) throw updateError;
       
-      toast.success(`Bank advice generated for ${paymentsToGenerate.length} payments`);
+      toast.success(`Downloaded ${filename}`, {
+        description: `Bank advice generated for ${paymentsToGenerate.length} payment(s)`
+      });
+      
       setSelectedPayments([]);
       fetchPayments();
     } catch (error: any) {
