@@ -231,7 +231,7 @@ export const AccessConfigDialog = ({ isOpen, onClose, staffMember }: AccessConfi
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh]">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-primary" />
@@ -262,7 +262,7 @@ export const AccessConfigDialog = ({ isOpen, onClose, staffMember }: AccessConfi
             </TabsList>
 
             <TabsContent value="screens" className="space-y-4">
-              <ScrollArea className="h-[400px] pr-4">
+              <ScrollArea className="h-[300px] pr-4">
                 {Object.entries(groupedScreens).map(([category, screens]) => (
                   <div key={category} className="mb-6">
                     <h3 className="font-semibold text-sm text-muted-foreground mb-3 flex items-center gap-2">
@@ -319,7 +319,7 @@ export const AccessConfigDialog = ({ isOpen, onClose, staffMember }: AccessConfi
             </TabsContent>
 
             <TabsContent value="approvals" className="space-y-4">
-              <ScrollArea className="h-[400px] pr-4">
+              <ScrollArea className="h-[300px] pr-4">
                 <div className="space-y-3">
                   {APPROVAL_TYPES.map((approval) => {
                     const disabled = isAdminLevelApproval(approval.value);
@@ -369,7 +369,7 @@ export const AccessConfigDialog = ({ isOpen, onClose, staffMember }: AccessConfi
           />
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
           <Button variant="outline" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
