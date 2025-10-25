@@ -106,76 +106,98 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
     ];
 
     if (userRole === 'doctor') {
-      return [
-        ...baseItems,
-        { id: 'visits', label: 'My Visits', icon: Calendar },
-        { id: 'cash-payments', label: 'Cash Payments', icon: CreditCard },
-        { id: 'insurance-payments', label: 'Insurance Payments', icon: CreditCard },
-        { id: 'tasks', label: 'My Tasks', icon: ClipboardList },
-        { id: 'complaints', label: 'Complaints', icon: MessageCircle },
-      ];
+      return {
+        main: [
+          ...baseItems,
+          { id: 'visits', label: 'My Visits', icon: Calendar },
+          { id: 'cash-payments', label: 'Cash Payments', icon: CreditCard },
+          { id: 'insurance-payments', label: 'Insurance Payments', icon: CreditCard },
+          { id: 'tasks', label: 'My Tasks', icon: ClipboardList },
+          { id: 'complaints', label: 'Complaints', icon: MessageCircle },
+        ]
+      };
     }
 
     if (userRole === 'manager') {
-      return [
+      return {
+        main: [
+          ...baseItems,
+          { id: 'doctors', label: 'Doctors', icon: Users },
+        ],
+        prototype: [
+          { id: 'cash-payments', label: 'Cash Payments', icon: CreditCard },
+          { id: 'cash-payments-lite', label: 'Cash Payments (Lite)', icon: CreditCard },
+          { id: 'insurance-payments', label: 'Insurance Payments', icon: CreditCard },
+          { id: 'insurance-payments-lite', label: 'Insurance Payments (Lite)', icon: CreditCard },
+        ],
+        reports: [
+          { id: 'bank-advice-payment-report', label: 'BA Payment Report', icon: FileText },
+          { id: 'quick-payment-bank-advice-report', label: 'Quick Payment BA Report', icon: FileText },
+          { id: 'tds-reports', label: 'TDS Reports', icon: FileText },
+          { id: 'bank-advice-report', label: 'Bank Advice', icon: FileText },
+        ],
+        management: [
+          { id: 'bank-advice-generation', label: 'Central Bank Advice', icon: Building2 },
+          { id: 'quick-payment', label: 'Quick Payment', icon: Zap },
+          { id: 'tasks', label: 'Task Management', icon: ClipboardList },
+          { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
+          { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
+          { id: 'complaints', label: 'Complaints', icon: MessageCircle },
+          { id: 'chat', label: 'Team Chat', icon: MessageSquare },
+        ]
+      };
+    }
+
+  if (userRole === 'admin') {
+    return {
+      main: [
         ...baseItems,
-        { id: 'doctors', label: 'Doctors', icon: Users },
+        { id: 'staff', label: 'Staff Management', icon: UserCog },
+        { id: 'masters', label: 'Masters', icon: Database },
+        { id: 'doctors', label: 'Doctor Management', icon: Users },
+        { id: 'visits', label: 'Visit Management', icon: Calendar },
+      ],
+      prototype: [
         { id: 'cash-payments', label: 'Cash Payments', icon: CreditCard },
         { id: 'cash-payments-lite', label: 'Cash Payments (Lite)', icon: CreditCard },
         { id: 'insurance-payments', label: 'Insurance Payments', icon: CreditCard },
         { id: 'insurance-payments-lite', label: 'Insurance Payments (Lite)', icon: CreditCard },
+      ],
+      reports: [
         { id: 'bank-advice-payment-report', label: 'BA Payment Report', icon: FileText },
         { id: 'quick-payment-bank-advice-report', label: 'Quick Payment BA Report', icon: FileText },
+        { id: 'tds-reports', label: 'TDS Reports', icon: FileText },
+        { id: 'bank-advice-report', label: 'Bank Advice', icon: FileText },
+      ],
+      management: [
         { id: 'bank-advice-generation', label: 'Central Bank Advice', icon: Building2 },
         { id: 'quick-payment', label: 'Quick Payment', icon: Zap },
-        { id: 'tds-reports', label: 'TDS Reports', icon: FileText },
         { id: 'tasks', label: 'Task Management', icon: ClipboardList },
         { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
         { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
-        { id: 'complaints', label: 'Complaints', icon: MessageCircle },
+        { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
+        { id: 'login-reports', label: 'Login Reports', icon: TrendingUp },
         { id: 'chat', label: 'Team Chat', icon: MessageSquare },
-      ];
-    }
-
-  if (userRole === 'admin') {
-    return [
-      ...baseItems,
-      { id: 'staff', label: 'Staff Management', icon: UserCog },
-      { id: 'masters', label: 'Masters', icon: Database },
-      { id: 'doctors', label: 'Doctor Management', icon: Users },
-      { id: 'visits', label: 'Visit Management', icon: Calendar },
-      { id: 'cash-payments', label: 'Cash Payments', icon: CreditCard },
-      { id: 'cash-payments-lite', label: 'Cash Payments (Lite)', icon: CreditCard },
-      { id: 'insurance-payments', label: 'Insurance Payments', icon: CreditCard },
-      { id: 'insurance-payments-lite', label: 'Insurance Payments (Lite)', icon: CreditCard },
-      { id: 'bank-advice-payment-report', label: 'BA Payment Report', icon: FileText },
-      { id: 'quick-payment-bank-advice-report', label: 'Quick Payment BA Report', icon: FileText },
-      { id: 'bank-advice-generation', label: 'Central Bank Advice', icon: Building2 },
-      { id: 'quick-payment', label: 'Quick Payment', icon: Zap },
-      { id: 'tds-reports', label: 'TDS Reports', icon: FileText },
-      { id: 'tasks', label: 'Task Management', icon: ClipboardList },
-      { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
-      { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
-      { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
-      { id: 'login-reports', label: 'Login Reports', icon: TrendingUp },
-      { id: 'chat', label: 'Team Chat', icon: MessageSquare },
-      { id: 'version', label: 'Version Management', icon: HistoryIcon },
-      { id: 'website-settings', label: 'Website Settings', icon: Globe },
-      { id: 'settings', label: 'Settings', icon: Settings },
-    ];
+        { id: 'version', label: 'Version Management', icon: HistoryIcon },
+        { id: 'website-settings', label: 'Website Settings', icon: Globe },
+        { id: 'settings', label: 'Settings', icon: Settings },
+      ]
+    };
     }
 
     // Staff users (nurse, technician, receptionist, pharmacist, cleaner, security, etc.)
     if (isStaffRole(userRole)) {
-      return [
-        ...baseItems,
-        { id: 'leave-permission', label: 'Leave & Permission', icon: CalendarCheck },
-        { id: 'tasks', label: 'My Tasks', icon: ClipboardList },
-        { id: 'complaints', label: 'Complaints', icon: MessageCircle },
-      ];
+      return {
+        main: [
+          ...baseItems,
+          { id: 'leave-permission', label: 'Leave & Permission', icon: CalendarCheck },
+          { id: 'tasks', label: 'My Tasks', icon: ClipboardList },
+          { id: 'complaints', label: 'Complaints', icon: MessageCircle },
+        ]
+      };
     }
 
-    return baseItems;
+    return { main: baseItems };
   };
 
   const navigationItems = getNavigationItems();
@@ -196,30 +218,117 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
       </SidebarHeader>
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {navigationItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.id;
-                
-                return (
-                  <SidebarMenuItem key={item.id}>
-                    <SidebarMenuButton 
-                      isActive={isActive}
-                      tooltip={isCollapsed ? item.label : undefined}
-                      onClick={() => onTabChange(item.id)}
-                    >
-                      <Icon className="h-4 w-4" />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {/* Main Navigation */}
+        {navigationItems.main && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Navigation</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {navigationItems.main.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  
+                  return (
+                    <SidebarMenuItem key={item.id}>
+                      <SidebarMenuButton 
+                        isActive={isActive}
+                        tooltip={isCollapsed ? item.label : undefined}
+                        onClick={() => onTabChange(item.id)}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span>{item.label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Prototype Section */}
+        {navigationItems.prototype && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Prototype</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {navigationItems.prototype.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  
+                  return (
+                    <SidebarMenuItem key={item.id}>
+                      <SidebarMenuButton 
+                        isActive={isActive}
+                        tooltip={isCollapsed ? item.label : undefined}
+                        onClick={() => onTabChange(item.id)}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span>{item.label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Reports Section */}
+        {navigationItems.reports && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Reports</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {navigationItems.reports.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  
+                  return (
+                    <SidebarMenuItem key={item.id}>
+                      <SidebarMenuButton 
+                        isActive={isActive}
+                        tooltip={isCollapsed ? item.label : undefined}
+                        onClick={() => onTabChange(item.id)}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span>{item.label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
+        {/* Management Section */}
+        {navigationItems.management && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Management</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {navigationItems.management.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeTab === item.id;
+                  
+                  return (
+                    <SidebarMenuItem key={item.id}>
+                      <SidebarMenuButton 
+                        isActive={isActive}
+                        tooltip={isCollapsed ? item.label : undefined}
+                        onClick={() => onTabChange(item.id)}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span>{item.label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {/* Payment Stats Section - Only for managers and admins */}
         {(userRole === 'manager' || userRole === 'admin') && (
