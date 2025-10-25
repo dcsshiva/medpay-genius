@@ -2998,13 +2998,13 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                 Processed Payment ({processedPayments.length})
               </TabsTrigger>
             )}
-            {(userRole === 'admin' || userRole === 'manager') && (
+            {userRole === 'admin' && (
               <TabsTrigger value="bankadvice">
                 <Building2 className="h-4 w-4 mr-1" />
                 Bank Advice ({payments.filter(p => p.is_fully_paid && !p.bank_advice_generated).length})
               </TabsTrigger>
             )}
-            {(userRole === 'admin' || userRole === 'manager') && (
+            {userRole === 'admin' && (
               <TabsTrigger value="history">
                 <History className="h-4 w-4 mr-1" />
                 Bank Advice History
@@ -3226,7 +3226,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
           )}
 
           {/* Bank Advice Tab */}
-          {(userRole === 'admin' || userRole === 'manager') && (
+          {userRole === 'admin' && (
             <TabsContent value="bankadvice" className="space-y-4">
               <div className="flex justify-between items-center mb-4">
                 <div>
@@ -3276,7 +3276,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
           )}
 
           {/* Bank Advice History Tab */}
-          {(userRole === 'admin' || userRole === 'manager') && (
+          {userRole === 'admin' && (
             <TabsContent value="history">
               <BankAdviceReports />
             </TabsContent>

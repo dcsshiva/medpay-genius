@@ -41,7 +41,7 @@ interface UnifiedBankAdvicePayment {
 }
 
 const BankAdviceGeneration = () => {
-  const { user } = useAuth();
+  const { user, userRole } = useAuth();
   const { data: websiteSettings } = useWebsiteSettings();
   const { toast } = useToast();
 
@@ -586,14 +586,26 @@ const BankAdviceGeneration = () => {
             Generate bank advice for all approved payments in one place
           </p>
         </div>
-        <Button
-          onClick={generateBankAdvice}
-          disabled={selectedPayments.length === 0 || generating}
-          size="lg"
-        >
-          <Download className="mr-2 h-5 w-5" />
-          {generating ? 'Generating...' : `Generate Bank Advice (${selectedPayments.length})`}
-        </Button>
+        {userRole === 'admin' ? (
+          <Button
+            onClick={generateBankAdvice}
+            disabled={selectedPayments.length === 0 || generating}
+            size="lg"
+          >
+            <Download className="mr-2 h-5 w-5" />
+            {generating ? 'Generating...' : `Generate Bank Advice (${selectedPayments.length})`}
+          </Button>
+        ) : (
+          <Button
+            disabled
+            size="lg"
+            className="cursor-not-allowed opacity-50"
+            title="Only administrators can generate bank advice"
+          >
+            <Download className="mr-2 h-5 w-5" />
+            Admin Only
+          </Button>
+        )}
       </div>
 
       {/* Summary Cards */}
