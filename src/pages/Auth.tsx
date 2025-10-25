@@ -159,24 +159,6 @@ const Auth = () => {
     }
   };
 
-  const handleAdminMagicLink = async () => {
-    if (!adminData.email) {
-      toast({ variant: 'destructive', title: 'Email required', description: 'Enter your admin email first.' });
-      return;
-    }
-    try {
-      const redirectUrl = `${window.location.origin}/dashboard`;
-      const { error } = await supabase.auth.signInWithOtp({
-        email: adminData.email,
-        options: { emailRedirectTo: redirectUrl },
-      });
-      if (error) throw error;
-      toast({ title: 'Magic link sent', description: 'Check your inbox to sign in.' });
-    } catch (err: any) {
-      toast({ variant: 'destructive', title: 'Magic link failed', description: err?.message || 'Could not send magic link.' });
-    }
-  };
-
   // Staff OTP Handlers
   const handleStaffSendOTP = async () => {
     setStaffLoading(true);
@@ -207,8 +189,8 @@ const Auth = () => {
       setStaffOTPSent(true);
       setStaffResendCooldown(60);
       toast({
-        title: "OTP Sent!",
-        description: `A 6-digit code has been sent to ${email.substring(0, 3)}***@${email.split('@')[1]}`,
+        title: "6-Digit Code Sent!",
+        description: `We've sent a 6-digit code (not a link) to ${email.substring(0, 3)}***@${email.split('@')[1]}. Check your inbox.`,
       });
     }
     
@@ -281,8 +263,8 @@ const Auth = () => {
       setDoctorOTPSent(true);
       setDoctorResendCooldown(60);
       toast({
-        title: "OTP Sent!",
-        description: `A 6-digit code has been sent to ${email.substring(0, 3)}***@${email.split('@')[1]}`,
+        title: "6-Digit Code Sent!",
+        description: `We've sent a 6-digit code (not a link) to ${email.substring(0, 3)}***@${email.split('@')[1]}. Check your inbox.`,
       });
     }
     
@@ -350,8 +332,8 @@ const Auth = () => {
       setAdminOTPSent(true);
       setAdminResendCooldown(60);
       toast({
-        title: "OTP Sent!",
-        description: `A 6-digit code has been sent to ${adminData.email}`,
+        title: "6-Digit Code Sent!",
+        description: `We've sent a 6-digit code (not a link) to ${adminData.email}. Check your inbox.`,
       });
     }
     
@@ -522,12 +504,15 @@ const Auth = () => {
                         className="w-full" 
                         disabled={staffLoading || !staffData.username}
                       >
-                        {staffLoading ? 'Sending OTP...' : 'Send OTP to Email'}
+                        {staffLoading ? 'Sending OTP...' : 'Send 6-Digit OTP'}
                       </Button>
                     ) : (
                       <form onSubmit={handleStaffVerifyOTP} className="space-y-4">
                         <div className="space-y-2">
                           <Label>Enter 6-Digit OTP</Label>
+                          <p className="text-xs text-muted-foreground text-center">
+                            Enter the 6-digit code emailed to you
+                          </p>
                           <div className="flex justify-center">
                             <InputOTP 
                               maxLength={6} 
@@ -545,7 +530,7 @@ const Auth = () => {
                             </InputOTP>
                           </div>
                           <p className="text-xs text-muted-foreground text-center mt-2">
-                            OTP sent to {staffEmail.substring(0, 3)}***@{staffEmail.split('@')[1]}
+                            Code sent to {staffEmail.substring(0, 3)}***@{staffEmail.split('@')[1]}
                           </p>
                         </div>
                         
@@ -657,12 +642,15 @@ const Auth = () => {
                         className="w-full" 
                         disabled={doctorLoading || !doctorData.doctorCode}
                       >
-                        {doctorLoading ? 'Sending OTP...' : 'Send OTP to Email'}
+                        {doctorLoading ? 'Sending OTP...' : 'Send 6-Digit OTP'}
                       </Button>
                     ) : (
                       <form onSubmit={handleDoctorVerifyOTP} className="space-y-4">
                         <div className="space-y-2">
                           <Label>Enter 6-Digit OTP</Label>
+                          <p className="text-xs text-muted-foreground text-center">
+                            Enter the 6-digit code emailed to you
+                          </p>
                           <div className="flex justify-center">
                             <InputOTP 
                               maxLength={6} 
@@ -680,7 +668,7 @@ const Auth = () => {
                             </InputOTP>
                           </div>
                           <p className="text-xs text-muted-foreground text-center mt-2">
-                            OTP sent to {doctorEmail.substring(0, 3)}***@{doctorEmail.split('@')[1]}
+                            Code sent to {doctorEmail.substring(0, 3)}***@{doctorEmail.split('@')[1]}
                           </p>
                         </div>
                         
@@ -771,12 +759,9 @@ const Auth = () => {
                     <Button type="submit" className="w-full" disabled={adminLoading}>
                       {adminLoading ? 'Signing In...' : 'Sign In as Admin'}
                     </Button>
-                    <div className="flex items-center justify-between text-xs text-muted-foreground mt-2">
+                    <div className="flex items-center justify-center text-xs text-muted-foreground mt-2">
                       <button type="button" onClick={handleAdminResetPassword} className="underline hover:opacity-80">
                         Forgot password?
-                      </button>
-                      <button type="button" onClick={handleAdminMagicLink} className="underline hover:opacity-80">
-                        Send magic link
                       </button>
                     </div>
                   </form>
@@ -789,12 +774,15 @@ const Auth = () => {
                         className="w-full" 
                         disabled={adminLoading || !adminData.email}
                       >
-                        {adminLoading ? 'Sending OTP...' : 'Send OTP to Email'}
+                        {adminLoading ? 'Sending OTP...' : 'Send 6-Digit OTP'}
                       </Button>
                     ) : (
                       <form onSubmit={handleAdminVerifyOTP} className="space-y-4">
                         <div className="space-y-2">
                           <Label>Enter 6-Digit OTP</Label>
+                          <p className="text-xs text-muted-foreground text-center">
+                            Enter the 6-digit code emailed to you
+                          </p>
                           <div className="flex justify-center">
                             <InputOTP 
                               maxLength={6} 
@@ -812,7 +800,7 @@ const Auth = () => {
                             </InputOTP>
                           </div>
                           <p className="text-xs text-muted-foreground text-center mt-2">
-                            OTP sent to {adminData.email}
+                            Code sent to {adminData.email}
                           </p>
                         </div>
                         
