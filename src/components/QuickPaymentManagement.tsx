@@ -36,6 +36,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { useWebsiteSettings } from '@/hooks/useWebsiteSettings';
+import { formatDateTimeIST } from '@/lib/dateUtils';
 
 interface QuickPaymentType {
   id: string;
@@ -1191,7 +1192,7 @@ const QuickPaymentManagement = () => {
                       <TableHead>Net Amount</TableHead>
                       <TableHead>Bank</TableHead>
                       <TableHead>Reference</TableHead>
-                      <TableHead>Generated Date</TableHead>
+                      <TableHead>Generated Date & Time</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1204,7 +1205,7 @@ const QuickPaymentManagement = () => {
                         <TableCell>{formatCurrency(payment.net_amount)}</TableCell>
                         <TableCell>{payment.bank_name || '-'}</TableCell>
                         <TableCell className="text-sm">{payment.bank_advice_reference}</TableCell>
-                        <TableCell>{format(new Date(payment.created_at), 'dd MMM yyyy')}</TableCell>
+                        <TableCell>{formatDateTimeIST(payment.created_at)}</TableCell>
                         <TableCell className="text-right">
                           <Button
                             size="sm"
@@ -1280,7 +1281,7 @@ const QuickPaymentManagement = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
+                      <TableHead>Date & Time</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Mobile</TableHead>
                       <TableHead>Type</TableHead>
@@ -1306,7 +1307,7 @@ const QuickPaymentManagement = () => {
                       filteredPayments.map((payment) => (
                         <TableRow key={payment.id}>
                           <TableCell className="text-sm">
-                            {format(new Date(payment.created_at), 'dd MMM yyyy')}
+                            {formatDateTimeIST(payment.created_at)}
                           </TableCell>
                           <TableCell className="font-medium">{payment.name}</TableCell>
                           <TableCell>{payment.mobile_number}</TableCell>
