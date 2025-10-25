@@ -224,6 +224,9 @@ const Auth = () => {
         title: "Welcome back!",
         description: "Successfully signed in as staff.",
       });
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 100);
     }
     
     setStaffLoading(false);
@@ -298,6 +301,9 @@ const Auth = () => {
         title: "Welcome Doctor!",
         description: "Successfully signed in.",
       });
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 100);
     }
     
     setDoctorLoading(false);
@@ -367,6 +373,9 @@ const Auth = () => {
         title: "Welcome back Admin!",
         description: "Successfully signed in as administrator.",
       });
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 100);
     }
     
     setAdminLoading(false);
