@@ -66,6 +66,12 @@ serve(async (req) => {
     }
 
     const userId = authData.user.id;
+    console.log('Auth user created with email:', email, 'user_id:', userId);
+    
+    // Verify email was set correctly
+    if (authData.user.email !== email) {
+      console.warn('Email mismatch detected! Expected:', email, 'Got:', authData.user.email);
+    }
 
     // Insert into user_designations table
     const { error: designationError } = await supabaseClient
@@ -158,11 +164,21 @@ serve(async (req) => {
       staffId = staff.id;
     }
 
+    // Final verification
+    console.log('User creation completed successfully:', {
+      user_id: userId,
+      email_set: email,
+      designation,
+      doctor_id: doctorId,
+      staff_id: staffId,
+    });
+
     return new Response(JSON.stringify({ 
       user: authData.user,
       doctor_id: doctorId,
       staff_id: staffId,
-      success: true 
+      success: true,
+      email_confirmed: email
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

@@ -17,10 +17,11 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/lib/auth';
-import { Settings as SettingsIcon, Shield, Eye, Users, Lock, Trash2, AlertTriangle } from 'lucide-react';
+import { Settings as SettingsIcon, Shield, Eye, Users, Lock, Trash2, AlertTriangle, Mail } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { UserAccessManagement } from './UserAccessManagement';
+import { AuthEmailSync } from './AuthEmailSync';
 
 const Settings = () => {
   const { userRole, signOut } = useAuth();
@@ -108,12 +109,18 @@ const Settings = () => {
       </div>
 
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="general">General Settings</TabsTrigger>
           <TabsTrigger value="access" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             User Access Management
           </TabsTrigger>
+          {userRole === 'admin' && (
+            <TabsTrigger value="auth-sync" className="flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              Auth Synchronization
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
@@ -323,6 +330,12 @@ const Settings = () => {
         <TabsContent value="access">
           <UserAccessManagement />
         </TabsContent>
+
+        {userRole === 'admin' && (
+          <TabsContent value="auth-sync">
+            <AuthEmailSync />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );
