@@ -69,6 +69,8 @@ const BankAdviceGeneration = () => {
           period_start,
           period_end,
           total_visits,
+          total_amount,
+          paid_amount,
           gross_amount,
           tds_amount,
           tds_percentage,
@@ -89,6 +91,7 @@ const BankAdviceGeneration = () => {
         `)
         .eq('bank_advice_generated', false)
         .or('cash_approval_status.eq.approved,insurance_approval_status.eq.approved')
+        .gt('paid_amount', 0)
         .order('created_at', { ascending: false });
 
       if (doctorError) throw doctorError;
@@ -98,16 +101,30 @@ const BankAdviceGeneration = () => {
         const doctor = payment.doctors;
         if (!doctor) return;
 
-        // Determine payment source
+        // Determine payment source and calculate amounts
         let paymentSource: 'cash' | 'insurance';
         let approvedAt: string;
+        let grossAmount: number;
+        let tdsAmount: number;
+        let netAmount: number;
 
         if (payment.cash_approval_status === 'approved') {
           paymentSource = 'cash';
           approvedAt = payment.cash_approved_at;
+          
+          // For cash payments, calculate from total_amount
+          grossAmount = Number(payment.total_amount) || 0;
+          const tdsPercentage = Number(payment.tds_percentage) || 10;
+          tdsAmount = grossAmount * tdsPercentage / 100;
+          netAmount = grossAmount - tdsAmount;
         } else {
           paymentSource = 'insurance';
           approvedAt = payment.insurance_approved_at;
+          
+          // For insurance payments, use existing calculated values
+          grossAmount = Number(payment.gross_amount) || 0;
+          tdsAmount = Number(payment.tds_amount) || 0;
+          netAmount = Number(payment.net_amount) || 0;
         }
 
         unified.push({
@@ -117,10 +134,10 @@ const BankAdviceGeneration = () => {
           beneficiary_name: doctor.full_name || 'Doctor',
           beneficiary_type: 'doctor',
           beneficiary_code: doctor.doctor_code,
-          gross_amount: Number(payment.gross_amount) || 0,
-          tds_amount: Number(payment.tds_amount) || 0,
+          gross_amount: grossAmount,
+          tds_amount: tdsAmount,
           tds_percentage: Number(payment.tds_percentage) || 10,
-          net_amount: Number(payment.net_amount) || 0,
+          net_amount: netAmount,
           bank_account_number: doctor.bank_account_number || '',
           ifsc_code: doctor.ifsc_code || '',
           bank_name: doctor.bank_name || '',
