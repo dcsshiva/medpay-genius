@@ -98,6 +98,18 @@ const QuickPaymentManagement = () => {
   const [filePreview, setFilePreview] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   
+  // History tab state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'generated'>('all');
+  const [previewDocument, setPreviewDocument] = useState<{
+    url: string;
+    name: string;
+    type: string;
+  } | null>(null);
+  const [isDocumentPreviewOpen, setIsDocumentPreviewOpen] = useState(false);
+  const [loadingDocument, setLoadingDocument] = useState(false);
+  
   const [formData, setFormData] = useState({
     name: '',
     mobile_number: '',
@@ -600,6 +612,98 @@ const QuickPaymentManagement = () => {
   const pendingTotal = pendingPayments.reduce((sum, p) => sum + p.net_amount, 0);
   const generatedTotal = generatedPayments.reduce((sum, p) => sum + p.net_amount, 0);
 
+  // Filter payments for history tab
+  const getFilteredPayments = () => {
+    let filtered = payments;
+
+    // Status filter
+    if (statusFilter === 'pending') {
+      filtered = filtered.filter(p => !p.bank_advice_generated);
+    } else if (statusFilter === 'generated') {
+      filtered = filtered.filter(p => p.bank_advice_generated);
+    }
+
+    // Date filter
+    const now = new Date();
+    if (dateFilter === 'today') {
+      filtered = filtered.filter(p => {
+        const created = new Date(p.created_at);
+        return created.toDateString() === now.toDateString();
+      });
+    } else if (dateFilter === 'week') {
+      const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      filtered = filtered.filter(p => new Date(p.created_at) >= weekAgo);
+    } else if (dateFilter === 'month') {
+      const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      filtered = filtered.filter(p => new Date(p.created_at) >= monthAgo);
+    }
+
+    // Search filter
+    if (searchTerm) {
+      const term = searchTerm.toLowerCase();
+      filtered = filtered.filter(p => 
+        p.name.toLowerCase().includes(term) ||
+        p.mobile_number.includes(term) ||
+        p.quick_payment_types.type_name.toLowerCase().includes(term) ||
+        (p.bank_advice_reference && p.bank_advice_reference.toLowerCase().includes(term))
+      );
+    }
+
+    return filtered;
+  };
+
+  const filteredPayments = getFilteredPayments();
+
+  // Document preview functions
+  const handleViewDocument = async (payment: QuickPayment) => {
+    if (!payment.supporting_document_path) return;
+
+    setLoadingDocument(true);
+    try {
+      const { data, error } = await supabase.storage
+        .from('quick-payment-documents')
+        .createSignedUrl(payment.supporting_document_path, 3600);
+
+      if (error) throw error;
+
+      setPreviewDocument({
+        url: data.signedUrl,
+        name: payment.supporting_document_name || 'Document',
+        type: payment.supporting_document_type || 'application/pdf',
+      });
+      setIsDocumentPreviewOpen(true);
+    } catch (error) {
+      console.error('Error loading document:', error);
+      toast.error('Failed to load document preview');
+    } finally {
+      setLoadingDocument(false);
+    }
+  };
+
+  const handleDownloadDocument = async (payment: QuickPayment) => {
+    if (!payment.supporting_document_path) return;
+
+    try {
+      const { data, error } = await supabase.storage
+        .from('quick-payment-documents')
+        .download(payment.supporting_document_path);
+      
+      if (error) throw error;
+      
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = payment.supporting_document_name || 'document';
+      a.click();
+      URL.revokeObjectURL(url);
+
+      toast.success('Document downloaded successfully');
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      toast.error('Failed to download document');
+    }
+  };
+
   // Form validation function
   const isFormValid = () => {
     const hasName = formData.name.trim().length > 0;
@@ -625,9 +729,10 @@ const QuickPaymentManagement = () => {
       <h1 className="text-3xl font-bold mb-6">Quick Payment Management</h1>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="add-payment">Add Payment</TabsTrigger>
           <TabsTrigger value="review">Review & Generate</TabsTrigger>
+          <TabsTrigger value="history">Payment History</TabsTrigger>
         </TabsList>
 
         <TabsContent value="add-payment" className="mt-6">
@@ -1120,6 +1225,154 @@ const QuickPaymentManagement = () => {
             </Card>
           </div>
         </TabsContent>
+
+        <TabsContent value="history" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Payment History</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Search and Filter Section */}
+              <div className="flex flex-col md:flex-row gap-4">
+                {/* Search Input */}
+                <div className="flex-1">
+                  <Input
+                    placeholder="Search by name, mobile, type, or reference..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+
+                {/* Status Filter */}
+                <Select value={statusFilter} onValueChange={(value: any) => setStatusFilter(value)}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter by status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Payments</SelectItem>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="generated">Generated</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                {/* Date Filter */}
+                <Select value={dateFilter} onValueChange={(value: any) => setDateFilter(value)}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter by date" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Time</SelectItem>
+                    <SelectItem value="today">Today</SelectItem>
+                    <SelectItem value="week">Last 7 Days</SelectItem>
+                    <SelectItem value="month">Last 30 Days</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Results Summary */}
+              <div className="text-sm text-muted-foreground">
+                Showing {filteredPayments.length} of {payments.length} payments
+              </div>
+
+              {/* History Table */}
+              <div className="border rounded-md">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Mobile</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead className="text-right">Gross</TableHead>
+                      <TableHead className="text-right">TDS</TableHead>
+                      <TableHead className="text-right">Net</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Reference</TableHead>
+                      <TableHead className="text-center">Document</TableHead>
+                      <TableHead className="text-center">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredPayments.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
+                          {searchTerm || statusFilter !== 'all' || dateFilter !== 'all' 
+                            ? 'No payments found matching your filters' 
+                            : 'No payment records found'}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredPayments.map((payment) => (
+                        <TableRow key={payment.id}>
+                          <TableCell className="text-sm">
+                            {format(new Date(payment.created_at), 'dd MMM yyyy')}
+                          </TableCell>
+                          <TableCell className="font-medium">{payment.name}</TableCell>
+                          <TableCell>{payment.mobile_number}</TableCell>
+                          <TableCell className="text-sm">{payment.quick_payment_types.type_name}</TableCell>
+                          <TableCell className="text-right">{formatCurrency(payment.gross_amount)}</TableCell>
+                          <TableCell className="text-right">{payment.tds_percentage}%</TableCell>
+                          <TableCell className="text-right font-semibold">{formatCurrency(payment.net_amount)}</TableCell>
+                          <TableCell>
+                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                              payment.bank_advice_generated 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {payment.bank_advice_generated ? 'Generated' : 'Pending'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {payment.bank_advice_reference || '-'}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {payment.supporting_document_path ? (
+                              <div className="flex items-center justify-center gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleViewDocument(payment)}
+                                  disabled={loadingDocument}
+                                  title="Preview Document"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleDownloadDocument(payment)}
+                                  title="Download Document"
+                                >
+                                  <Download className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setSelectedPayment(payment);
+                                setViewDialogOpen(true);
+                              }}
+                              title="View Details"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
 
       {/* View Dialog */}
@@ -1324,6 +1577,51 @@ const QuickPaymentManagement = () => {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Document Preview Dialog */}
+      <Dialog open={isDocumentPreviewOpen} onOpenChange={setIsDocumentPreviewOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {previewDocument?.type?.includes('pdf') ? (
+                <FileText className="h-5 w-5 text-red-500" />
+              ) : (
+                <Image className="h-5 w-5 text-blue-500" />
+              )}
+              {previewDocument?.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="overflow-auto max-h-[70vh]">
+            {previewDocument?.type?.includes('image') ? (
+              <img 
+                src={previewDocument.url} 
+                alt={previewDocument.name}
+                className="w-full h-auto"
+              />
+            ) : previewDocument?.type?.includes('pdf') ? (
+              <iframe
+                src={previewDocument.url}
+                className="w-full h-[70vh] border-0"
+                title="PDF Preview"
+              />
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                Preview not available for this file type
+              </div>
+            )}
+          </div>
+          
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button
+              variant="outline"
+              onClick={() => setIsDocumentPreviewOpen(false)}
+            >
+              Close
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
