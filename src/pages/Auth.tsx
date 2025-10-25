@@ -23,7 +23,7 @@ const Auth = () => {
   const [adminData, setAdminData] = useState({ email: '', password: '' });
   
   // OTP states for Staff
-  const [staffUseOTP, setStaffUseOTP] = useState(false);
+  const [staffUseOTP, setStaffUseOTP] = useState(true);
   const [staffOTPSent, setStaffOTPSent] = useState(false);
   const [staffOTPCode, setStaffOTPCode] = useState('');
   const [staffEmail, setStaffEmail] = useState('');
@@ -32,7 +32,7 @@ const Auth = () => {
   const [staffMobile, setStaffMobile] = useState('');
 
   // OTP states for Doctor
-  const [doctorUseOTP, setDoctorUseOTP] = useState(false);
+  const [doctorUseOTP, setDoctorUseOTP] = useState(true);
   const [doctorOTPSent, setDoctorOTPSent] = useState(false);
   const [doctorOTPCode, setDoctorOTPCode] = useState('');
   const [doctorEmail, setDoctorEmail] = useState('');
@@ -41,7 +41,7 @@ const Auth = () => {
   const [doctorMobile, setDoctorMobile] = useState('');
 
   // OTP states for Admin
-  const [adminUseOTP, setAdminUseOTP] = useState(false);
+  const [adminUseOTP, setAdminUseOTP] = useState(true);
   const [adminOTPSent, setAdminOTPSent] = useState(false);
   const [adminOTPCode, setAdminOTPCode] = useState('');
   const [adminResendCooldown, setAdminResendCooldown] = useState(0);
