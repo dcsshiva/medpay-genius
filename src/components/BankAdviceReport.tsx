@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Download, Search, Filter, FileText } from 'lucide-react';
+import { Download, Search, Filter, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateIST } from '@/lib/dateUtils';
@@ -41,6 +41,10 @@ const BankAdviceReport = () => {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState<number | 'all'>(20);
+
   // Summary stats
   const [stats, setStats] = useState({
     totalRecords: 0,
@@ -56,6 +60,11 @@ const BankAdviceReport = () => {
   useEffect(() => {
     applyFilters();
   }, [records, searchQuery, beneficiaryTypeFilter, paymentSourceFilter, dateFrom, dateTo]);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, beneficiaryTypeFilter, paymentSourceFilter, dateFrom, dateTo]);
 
   const fetchBankAdviceRecords = async () => {
     try {
@@ -250,6 +259,33 @@ const BankAdviceReport = () => {
     }
   };
 
+  // Pagination calculations
+  const indexOfLastRecord = recordsPerPage === 'all' 
+    ? filteredRecords.length 
+    : currentPage * recordsPerPage;
+  const indexOfFirstRecord = recordsPerPage === 'all' 
+    ? 0 
+    : indexOfLastRecord - recordsPerPage;
+  const currentRecords = recordsPerPage === 'all'
+    ? filteredRecords
+    : filteredRecords.slice(indexOfFirstRecord, indexOfLastRecord);
+  const totalPages = recordsPerPage === 'all'
+    ? 1
+    : Math.ceil(filteredRecords.length / recordsPerPage);
+
+  const handleRecordsPerPageChange = (value: string) => {
+    if (value === 'all') {
+      setRecordsPerPage('all');
+    } else {
+      setRecordsPerPage(parseInt(value));
+    }
+    setCurrentPage(1);
+  };
+
+  const goToPage = (page: number) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -374,10 +410,31 @@ const BankAdviceReport = () => {
       {/* Records Table */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Generated Bank Advice Records
-          </CardTitle>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Generated Bank Advice Records
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="records-per-page" className="text-sm whitespace-nowrap">
+                Records per page:
+              </Label>
+              <Select
+                value={recordsPerPage.toString()}
+                onValueChange={handleRecordsPerPageChange}
+              >
+                <SelectTrigger id="records-per-page" className="w-[100px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                  <SelectItem value="all">All</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -385,57 +442,117 @@ const BankAdviceReport = () => {
           ) : filteredRecords.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">No records found</div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Generated Date</TableHead>
-                    <TableHead>Beneficiary</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead className="text-right">Gross Amount</TableHead>
-                    <TableHead className="text-right">TDS</TableHead>
-                    <TableHead className="text-right">Net Amount</TableHead>
-                    <TableHead>Bank Details</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredRecords.map((record) => (
-                    <TableRow key={record.id}>
-                      <TableCell className="whitespace-nowrap">
-                        {formatDateIST(record.generated_at)}
-                      </TableCell>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{record.beneficiary_name}</div>
-                          <div className="text-xs text-muted-foreground">{record.beneficiary_code}</div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{record.beneficiary_type}</Badge>
-                      </TableCell>
-                      <TableCell>{getPaymentSourceBadge(record.payment_source)}</TableCell>
-                      <TableCell className="text-right font-medium">
-                        {formatCurrency(record.gross_amount)}
-                      </TableCell>
-                      <TableCell className="text-right text-amber-600">
-                        {formatCurrency(record.tds_amount)}
-                      </TableCell>
-                      <TableCell className="text-right font-bold text-green-600">
-                        {formatCurrency(record.net_amount)}
-                      </TableCell>
-                      <TableCell>
-                        <div className="text-xs space-y-1">
-                          <div>{record.bank_name}</div>
-                          <div className="text-muted-foreground">{record.bank_account_number}</div>
-                          <div className="text-muted-foreground">{record.ifsc_code}</div>
-                        </div>
-                      </TableCell>
+            <>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Generated Date</TableHead>
+                      <TableHead>Beneficiary</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Source</TableHead>
+                      <TableHead className="text-right">Gross Amount</TableHead>
+                      <TableHead className="text-right">TDS</TableHead>
+                      <TableHead className="text-right">Net Amount</TableHead>
+                      <TableHead>Bank Details</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                  </TableHeader>
+                  <TableBody>
+                    {currentRecords.map((record) => (
+                      <TableRow key={record.id}>
+                        <TableCell className="whitespace-nowrap">
+                          {formatDateIST(record.generated_at)}
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{record.beneficiary_name}</div>
+                            <div className="text-xs text-muted-foreground">{record.beneficiary_code}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{record.beneficiary_type}</Badge>
+                        </TableCell>
+                        <TableCell>{getPaymentSourceBadge(record.payment_source)}</TableCell>
+                        <TableCell className="text-right font-medium">
+                          {formatCurrency(record.gross_amount)}
+                        </TableCell>
+                        <TableCell className="text-right text-amber-600">
+                          {formatCurrency(record.tds_amount)}
+                        </TableCell>
+                        <TableCell className="text-right font-bold text-green-600">
+                          {formatCurrency(record.net_amount)}
+                        </TableCell>
+                        <TableCell>
+                          <div className="text-xs space-y-1">
+                            <div>{record.bank_name}</div>
+                            <div className="text-muted-foreground">{record.bank_account_number}</div>
+                            <div className="text-muted-foreground">{record.ifsc_code}</div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {/* Pagination Controls */}
+              {recordsPerPage !== 'all' && totalPages > 1 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t">
+                  <div className="text-sm text-muted-foreground">
+                    Showing {indexOfFirstRecord + 1} to {Math.min(indexOfLastRecord, filteredRecords.length)} of{' '}
+                    {filteredRecords.length} records
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => goToPage(currentPage - 1)}
+                      disabled={currentPage === 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(page => {
+                          // Show first page, last page, current page, and pages around current
+                          return (
+                            page === 1 ||
+                            page === totalPages ||
+                            (page >= currentPage - 1 && page <= currentPage + 1)
+                          );
+                        })
+                        .map((page, index, array) => (
+                          <React.Fragment key={page}>
+                            {index > 0 && array[index - 1] !== page - 1 && (
+                              <span className="px-2 text-muted-foreground">...</span>
+                            )}
+                            <Button
+                              variant={currentPage === page ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => goToPage(page)}
+                              className="w-10"
+                            >
+                              {page}
+                            </Button>
+                          </React.Fragment>
+                        ))}
+                    </div>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => goToPage(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
