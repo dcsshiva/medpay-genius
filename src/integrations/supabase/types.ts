@@ -2097,6 +2097,7 @@ export type Database = {
           staff_code: string
         }[]
       }
+      get_doctor_auth_email: { Args: { _doctor_code: string }; Returns: string }
       get_doctor_tds_summary: {
         Args: { _doctor_id?: string; _end_date: string; _start_date: string }
         Returns: {

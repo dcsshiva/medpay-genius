@@ -11,6 +11,9 @@ interface AuthContextType {
   userProfile: any | null;
   signInWithUsername: (username: string, password: string) => Promise<{ error: any }>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
+  signInWithOTP: (email: string) => Promise<{ error: any }>;
+  verifyOTP: (email: string, token: string) => Promise<{ error: any }>;
+  getUserEmail: (username: string, userType: 'staff' | 'doctor') => Promise<{ email: string | null; error: any }>;
   signOut: () => Promise<void>;
 }
 
@@ -361,6 +364,90 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const getUserEmail = async (username: string, userType: 'staff' | 'doctor') => {
+    try {
+      if (userType === 'staff') {
+        const { data, error } = await supabase
+          .rpc('get_staff_auth_email', { _username: username });
+        
+        if (error) return { email: null, error };
+        if (!data) return { email: null, error: { message: 'No email found for this user' } };
+        
+        return { email: data, error: null };
+      } else {
+        const { data, error } = await supabase
+          .rpc('get_doctor_auth_email', { _doctor_code: username });
+        
+        if (error) return { email: null, error };
+        if (!data) return { email: null, error: { message: 'No email found for this user' } };
+        
+        return { email: data, error: null };
+      }
+    } catch (error: any) {
+      return { email: null, error: { message: error.message || 'Failed to fetch email' } };
+    }
+  };
+
+  const signInWithOTP = async (email: string) => {
+    try {
+      const redirectUrl = `${window.location.origin}/auth`;
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email,
+        options: { 
+          emailRedirectTo: redirectUrl,
+          shouldCreateUser: false
+        }
+      });
+      
+      if (error) return { error };
+      return { error: null };
+    } catch (error: any) {
+      return { error: { message: 'Failed to send OTP' } };
+    }
+  };
+
+  const verifyOTP = async (email: string, token: string) => {
+    try {
+      await invalidateSession();
+      
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'email'
+      });
+      
+      if (error) return { error };
+      
+      if (data.user && data.session) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('user_id', data.user.id)
+          .maybeSingle();
+        
+        if (profile) {
+          setUser(data.user);
+          setSession(data.session);
+          setUserRole(profile.role);
+          setUserProfile(profile);
+          
+          await createUserSession({
+            user_type: 'supabase_auth',
+            original_id: data.user.id,
+            user_id: data.user.id,
+            username: email,
+            full_name: profile.full_name || email,
+            role: profile.role || 'staff'
+          });
+        }
+      }
+      
+      return { error: null };
+    } catch (error: any) {
+      return { error: { message: 'OTP verification failed' } };
+    }
+  };
+
   const signOut = async () => {
     try {
       await invalidateSession();
@@ -388,6 +475,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       userProfile,
       signInWithUsername,
       signInWithEmail,
+      signInWithOTP,
+      verifyOTP,
+      getUserEmail,
       signOut,
     }}>
       {children}
