@@ -64,57 +64,53 @@ const BankAdviceReport = () => {
       // Fetch from payments table where bank_advice_generated = true
       const { data: paymentData, error: paymentError } = await supabase
         .from('payments')
-        .select(`
-          id,
-          doctor_id,
-          total_amount,
-          paid_amount,
-          gross_amount,
-          tds_amount,
-          tds_percentage,
-          net_amount,
-          cash_approval_status,
-          insurance_approval_status,
-          bank_advice_generated_at,
-          bank_advice_generated_by,
-          doctors (
-            doctor_code,
-            full_name,
-            bank_account_number,
-            ifsc_code,
-            bank_name
-          )
-        `)
+        .select('*')
         .eq('bank_advice_generated', true)
         .order('bank_advice_generated_at', { ascending: false });
 
-      if (paymentError) throw paymentError;
+      if (paymentError) {
+        console.error('Error fetching payments:', paymentError);
+        throw new Error(`Failed to fetch payments: ${paymentError.message}`);
+      }
+
+      // Get unique doctor IDs from payments
+      const doctorIds = Array.from(new Set(
+        (paymentData || []).map((p: any) => p.doctor_id).filter(Boolean)
+      ));
+
+      // Fetch doctors separately
+      let doctorsMap = new Map();
+      if (doctorIds.length > 0) {
+        const { data: doctorsData, error: doctorsError } = await supabase
+          .from('doctors')
+          .select('id, doctor_code, full_name, bank_account_number, ifsc_code, bank_name')
+          .in('id', doctorIds);
+
+        if (doctorsError) {
+          console.error('Error fetching doctors:', doctorsError);
+          toast.error('Warning: Some doctor details could not be loaded');
+        } else {
+          doctorsData?.forEach((doctor: any) => {
+            doctorsMap.set(doctor.id, doctor);
+          });
+        }
+      }
 
       // Fetch from quick_payments table where bank_advice_generated = true
       const { data: quickPaymentData, error: quickPaymentError } = await supabase
         .from('quick_payments')
-        .select(`
-          id,
-          beneficiary_name,
-          beneficiary_type,
-          beneficiary_code,
-          gross_amount,
-          tds_amount,
-          net_amount,
-          bank_account_number,
-          ifsc_code,
-          bank_name,
-          bank_advice_generated_at,
-          bank_advice_generated_by
-        `)
+        .select('*')
         .eq('bank_advice_generated', true)
         .order('bank_advice_generated_at', { ascending: false });
 
-      if (quickPaymentError) throw quickPaymentError;
+      if (quickPaymentError) {
+        console.error('Error fetching quick payments:', quickPaymentError);
+        throw new Error(`Failed to fetch quick payments: ${quickPaymentError.message}`);
+      }
 
-      // Transform and combine data
+      // Transform payments with doctor data
       const transformedPayments: BankAdviceRecord[] = (paymentData || []).map((payment: any) => {
-        const doctor = payment.doctors;
+        const doctor = doctorsMap.get(payment.doctor_id);
         const paymentSource = payment.cash_approval_status === 'approved' ? 'cash' : 'insurance';
         
         let grossAmount: number;
@@ -134,7 +130,7 @@ const BankAdviceReport = () => {
 
         return {
           id: payment.id,
-          beneficiary_name: doctor?.full_name || 'Unknown',
+          beneficiary_name: doctor?.full_name || 'Unknown Doctor',
           beneficiary_type: 'doctor',
           beneficiary_code: doctor?.doctor_code || '',
           payment_source: paymentSource,
@@ -150,16 +146,17 @@ const BankAdviceReport = () => {
         };
       });
 
+      // Transform quick payments
       const transformedQuickPayments: BankAdviceRecord[] = (quickPaymentData || []).map((qp: any) => ({
         id: qp.id,
-        beneficiary_name: qp.beneficiary_name,
-        beneficiary_type: qp.beneficiary_type,
-        beneficiary_code: qp.beneficiary_code || '',
+        beneficiary_name: qp.name || qp.beneficiary_name || 'Unknown',
+        beneficiary_type: 'vendor',
+        beneficiary_code: qp.vendor_code || '',
         payment_source: 'quick_payment',
         gross_amount: Number(qp.gross_amount) || 0,
         tds_amount: Number(qp.tds_amount) || 0,
         net_amount: Number(qp.net_amount) || 0,
-        bank_account_number: qp.bank_account_number || '',
+        bank_account_number: qp.account_number || '',
         ifsc_code: qp.ifsc_code || '',
         bank_name: qp.bank_name || '',
         generated_at: qp.bank_advice_generated_at,
@@ -167,13 +164,15 @@ const BankAdviceReport = () => {
         reference_info: qp,
       }));
 
+      // Combine and sort all records
       const allRecords = [...transformedPayments, ...transformedQuickPayments];
       allRecords.sort((a, b) => new Date(b.generated_at).getTime() - new Date(a.generated_at).getTime());
 
       setRecords(allRecords);
-    } catch (error) {
+      toast.success(`Loaded ${allRecords.length} bank advice records`);
+    } catch (error: any) {
       console.error('Error fetching bank advice records:', error);
-      toast.error('Failed to load bank advice records');
+      toast.error(error.message || 'Failed to load bank advice records');
     } finally {
       setLoading(false);
     }
