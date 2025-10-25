@@ -35,6 +35,7 @@ interface BankAdviceHistory {
   file_content: string;
   created_at: string;
   generator_name?: string;
+  payment_source: 'doctor' | 'quick_payment';
 }
 
 const BankAdviceReports = () => {
@@ -73,26 +74,65 @@ const BankAdviceReports = () => {
     if (userRole !== 'admin' && userRole !== 'manager') return;
 
     try {
-      let query = supabase
+      // Fetch from bank_advice_history (doctor payments)
+      let doctorQuery = supabase
         .from('bank_advice_history')
         .select('*')
         .order('created_at', { ascending: false });
 
       // Apply date filters
       if (filters.dateFrom) {
-        query = query.gte('generation_date', filters.dateFrom);
+        doctorQuery = doctorQuery.gte('generation_date', filters.dateFrom);
       }
       if (filters.dateTo) {
-        query = query.lte('generation_date', filters.dateTo);
+        doctorQuery = doctorQuery.lte('generation_date', filters.dateTo);
       }
 
-      const { data: history, error } = await query;
+      // Fetch from quick_payment_bank_advice_history (quick payments)
+      let quickQuery = supabase
+        .from('quick_payment_bank_advice_history')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      // Apply same date filters
+      if (filters.dateFrom) {
+        quickQuery = quickQuery.gte('generation_date', filters.dateFrom);
+      }
+      if (filters.dateTo) {
+        quickQuery = quickQuery.lte('generation_date', filters.dateTo);
+      }
 
-      // Fetch generator names
+      const [doctorResult, quickResult] = await Promise.all([
+        doctorQuery,
+        quickQuery
+      ]);
+
+      if (doctorResult.error) throw doctorResult.error;
+      if (quickResult.error) throw quickResult.error;
+
+      // Map doctor payments with payment_source
+      const doctorRecords = (doctorResult.data || []).map((record: any) => ({
+        ...record,
+        payment_source: 'doctor' as const,
+        payment_ids: record.payment_ids || []
+      }));
+
+      // Map quick payments with payment_source and normalize field names
+      const quickRecords = (quickResult.data || []).map((record: any) => ({
+        ...record,
+        payment_source: 'quick_payment' as const,
+        total_amount: record.total_net_amount || 0,
+        payment_ids: record.payment_ids || []
+      }));
+
+      // Merge and sort by created_at
+      const allRecords = [...doctorRecords, ...quickRecords].sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      // Fetch generator names for all records
       const recordsWithGenerators = await Promise.all(
-        (history || []).map(async (record: any) => {
+        allRecords.map(async (record: any) => {
           let generatorName = 'Unknown';
           
           if (record.generated_by) {
@@ -107,8 +147,7 @@ const BankAdviceReports = () => {
 
           return {
             ...record,
-            generator_name: generatorName,
-            payment_ids: record.payment_ids || []
+            generator_name: generatorName
           };
         })
       );
@@ -378,6 +417,9 @@ const BankAdviceReports = () => {
                         <div className="flex items-center gap-2 mb-1">
                           <p className="font-semibold">{record.filename}</p>
                           <Badge variant="outline">{record.payment_count} payments</Badge>
+                          <Badge variant={record.payment_source === 'doctor' ? 'default' : 'secondary'}>
+                            {record.payment_source === 'doctor' ? 'Doctor Payments' : 'Quick Payments'}
+                          </Badge>
                         </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
