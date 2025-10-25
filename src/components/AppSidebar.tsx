@@ -20,7 +20,8 @@ import {
   FileText,
   CalendarCheck,
   Zap,
-  Building2
+  Building2,
+  FolderOpen
 } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
 import {
@@ -124,7 +125,8 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
         { id: 'insurance-payments-lite', label: 'Insurance Payments (Lite)', icon: CreditCard },
         { id: 'quick-payment', label: 'Quick Payment', icon: Zap },
         { id: 'bank-advice-generation', label: 'Central Bank Advice', icon: Building2 },
-        { id: 'bank-advice-report', label: 'Bank Advice Report', icon: FileText },
+        { id: 'bank-advice-history', label: 'Bank Advice History', icon: FolderOpen },
+        { id: 'bank-advice-records', label: 'Bank Advice Records', icon: FileText },
         { id: 'tds-reports', label: 'TDS Reports', icon: FileText },
         { id: 'cash-payments', label: 'Cash Payments', icon: CreditCard },
         { id: 'insurance-payments', label: 'Insurance Payments', icon: CreditCard },
@@ -149,7 +151,8 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
         { id: 'insurance-payments-lite', label: 'Insurance Payments (Lite)', icon: CreditCard },
         { id: 'quick-payment', label: 'Quick Payment', icon: Zap },
         { id: 'bank-advice-generation', label: 'Central Bank Advice', icon: Building2 },
-        { id: 'bank-advice-report', label: 'Bank Advice Report', icon: FileText },
+        { id: 'bank-advice-history', label: 'Bank Advice History', icon: FolderOpen },
+        { id: 'bank-advice-records', label: 'Bank Advice Records', icon: FileText },
         { id: 'tds-reports', label: 'TDS Reports', icon: FileText },
         { id: 'cash-payments', label: 'Cash Payments', icon: CreditCard },
         { id: 'insurance-payments', label: 'Insurance Payments', icon: CreditCard },

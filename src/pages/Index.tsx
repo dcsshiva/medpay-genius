@@ -30,6 +30,7 @@ import QuickPaymentManagement from '@/components/QuickPaymentManagement';
 import QuickPaymentBankAdviceReport from '@/components/QuickPaymentBankAdviceReport';
 import BankAdviceGeneration from '@/components/BankAdviceGeneration';
 import BankAdviceReport from '@/components/BankAdviceReport';
+import BankAdviceReports from '@/components/BankAdviceReports';
 
 // Bank Advice Payment Report Component
 const Index = () => {
@@ -135,7 +136,9 @@ const Index = () => {
         return <QuickPaymentBankAdviceReport />;
       case 'bank-advice-generation':
         return <BankAdviceGeneration />;
-      case 'bank-advice-report':
+      case 'bank-advice-history':
+        return <BankAdviceReports />;
+      case 'bank-advice-records':
         return <BankAdviceReport />;
       case 'leave-permission':
         return <LeavePermissionManagement />;
