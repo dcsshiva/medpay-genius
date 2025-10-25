@@ -152,7 +152,7 @@ const BankAdviceGeneration = () => {
           quick_payment_types (
             type_name
           ),
-          vendor_details (
+          vendors (
             vendor_name
           )
         `)
@@ -164,7 +164,7 @@ const BankAdviceGeneration = () => {
       // Transform quick payments
       quickPayments?.forEach((payment: any) => {
         const isVendor = !!payment.vendor_id;
-        const vendorName = payment.vendor_details?.vendor_name;
+        const vendorName = payment.vendors?.vendor_name;
 
         unified.push({
           id: payment.id,
