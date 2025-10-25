@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { FileText, IndianRupee, TrendingUp, DollarSign, Download, Filter, X } from 'lucide-react';
+import { FileText, IndianRupee, TrendingUp, DollarSign, Download, Filter, X, Eye, Image } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateIST, toIST } from '@/lib/dateUtils';
 
@@ -33,6 +34,9 @@ interface UnifiedBankAdvicePayment {
   payment_period?: string;
   payment_type_name?: string;
   vendor_name?: string;
+  supporting_document_path?: string | null;
+  supporting_document_name?: string | null;
+  supporting_document_type?: string | null;
   reference_info: any;
 }
 
@@ -50,6 +54,13 @@ const BankAdviceGeneration = () => {
   const [endDate, setEndDate] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [generating, setGenerating] = useState(false);
+  const [previewDocument, setPreviewDocument] = useState<{
+    url: string;
+    name: string;
+    type: string;
+  } | null>(null);
+  const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
+  const [loadingPreview, setLoadingPreview] = useState(false);
 
   useEffect(() => {
     fetchAllPendingPayments();
@@ -166,6 +177,9 @@ const BankAdviceGeneration = () => {
           created_at,
           vendor_id,
           payment_type_id,
+          supporting_document_path,
+          supporting_document_name,
+          supporting_document_type,
           quick_payment_types (
             type_name
           ),
@@ -201,6 +215,9 @@ const BankAdviceGeneration = () => {
           approved_at: payment.created_at,
           payment_type_name: payment.quick_payment_types?.type_name,
           vendor_name: vendorName,
+          supporting_document_path: payment.supporting_document_path,
+          supporting_document_name: payment.supporting_document_name,
+          supporting_document_type: payment.supporting_document_type,
           reference_info: payment,
         });
       });
@@ -289,6 +306,66 @@ const BankAdviceGeneration = () => {
         ? prev.filter((id) => id !== paymentId)
         : [...prev, paymentId]
     );
+  };
+
+  const handleViewDocument = async (payment: UnifiedBankAdvicePayment) => {
+    if (!payment.supporting_document_path) return;
+
+    setLoadingPreview(true);
+    try {
+      const { data, error } = await supabase.storage
+        .from('quick-payment-documents')
+        .createSignedUrl(payment.supporting_document_path, 3600);
+
+      if (error) throw error;
+
+      setPreviewDocument({
+        url: data.signedUrl,
+        name: payment.supporting_document_name || 'Document',
+        type: payment.supporting_document_type || 'application/pdf',
+      });
+      setIsPreviewDialogOpen(true);
+    } catch (error) {
+      console.error('Error loading document:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load document preview',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
+  const handleDownloadDocument = async (payment: UnifiedBankAdvicePayment) => {
+    if (!payment.supporting_document_path) return;
+
+    try {
+      const { data, error } = await supabase.storage
+        .from('quick-payment-documents')
+        .download(payment.supporting_document_path);
+      
+      if (error) throw error;
+      
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = payment.supporting_document_name || 'document';
+      a.click();
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: 'Success',
+        description: 'Document downloaded successfully',
+      });
+    } catch (error) {
+      console.error('Error downloading document:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to download document',
+        variant: 'destructive',
+      });
+    }
   };
 
   const clearFilters = () => {
@@ -672,14 +749,15 @@ const BankAdviceGeneration = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-12">Select</TableHead>
-                    <TableHead>Source</TableHead>
-                    <TableHead>Beneficiary</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Gross</TableHead>
-                    <TableHead className="text-right">TDS</TableHead>
-                    <TableHead className="text-right">Net</TableHead>
-                    <TableHead>Bank Details</TableHead>
-                    <TableHead>Approved</TableHead>
+                  <TableHead>Source</TableHead>
+                  <TableHead>Beneficiary</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead className="text-right">Gross</TableHead>
+                  <TableHead className="text-right">TDS</TableHead>
+                  <TableHead className="text-right">Net</TableHead>
+                  <TableHead>Bank Details</TableHead>
+                  <TableHead>Approved</TableHead>
+                  <TableHead className="text-center">Document</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -731,6 +809,31 @@ const BankAdviceGeneration = () => {
                       <TableCell>
                         <div className="text-sm">{formatDateIST(payment.approved_at)}</div>
                       </TableCell>
+                      <TableCell className="text-center">
+                        {payment.payment_source === 'quick_payment' && payment.supporting_document_path ? (
+                          <div className="flex items-center justify-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleViewDocument(payment)}
+                              disabled={loadingPreview}
+                              title="Preview Document"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => handleDownloadDocument(payment)}
+                              title="Download Document"
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -739,6 +842,64 @@ const BankAdviceGeneration = () => {
           )}
         </CardContent>
       </Card>
+
+      {/* Document Preview Dialog */}
+      <Dialog open={isPreviewDialogOpen} onOpenChange={setIsPreviewDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {previewDocument?.type?.includes('pdf') ? (
+                <FileText className="h-5 w-5" />
+              ) : (
+                <Image className="h-5 w-5" />
+              )}
+              {previewDocument?.name}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="overflow-auto max-h-[70vh]">
+            {previewDocument?.type?.includes('image') ? (
+              <img 
+                src={previewDocument.url} 
+                alt={previewDocument.name}
+                className="w-full h-auto"
+              />
+            ) : previewDocument?.type?.includes('pdf') ? (
+              <iframe
+                src={previewDocument.url}
+                className="w-full h-[70vh] border-0"
+                title="PDF Preview"
+              />
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                Preview not available for this file type
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (previewDocument) {
+                  const selectedPayment = filteredPayments.find(
+                    p => p.supporting_document_name === previewDocument.name
+                  );
+                  if (selectedPayment) {
+                    handleDownloadDocument(selectedPayment);
+                  }
+                }
+              }}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Download
+            </Button>
+            <Button onClick={() => setIsPreviewDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
