@@ -262,19 +262,27 @@ const StaffManagement = () => {
             // Don't throw error - continue with other updates
           }
 
-          // Update auth user password if provided
-          if (formData.password.trim()) {
+          // Update auth user credentials (email and/or password) if provided
+          const shouldUpdateEmail = formData.email.trim() && formData.email.trim() !== editingStaff.email;
+          const shouldUpdatePassword = formData.password.trim();
+          
+          if (shouldUpdateEmail || shouldUpdatePassword) {
+            const updateBody: any = { userId: editingStaff.user_id };
+            if (shouldUpdateEmail) updateBody.email = formData.email.trim();
+            if (shouldUpdatePassword) updateBody.password = formData.password.trim();
+            
             const { error: credUpdateError } = await supabase.functions.invoke('update-user-credentials', {
-              body: {
-                userId: editingStaff.user_id,
-                password: formData.password.trim()
-              },
+              body: updateBody,
               headers: getSessionAuthHeaders()
             });
 
             if (credUpdateError) {
-              console.error('Failed to update password:', credUpdateError);
-              // Don't throw error - continue with other updates
+              console.error('Failed to update credentials:', credUpdateError);
+              toast({
+                variant: "destructive",
+                title: "Credential Sync Warning",
+                description: "Staff record updated but authentication credentials may not be synced. Please use the Auth Synchronization tool."
+              });
             }
           }
         }

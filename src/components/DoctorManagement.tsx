@@ -208,22 +208,24 @@ const DoctorManagement = () => {
           throw updateDoctorError;
         }
 
-        // Update auth user email/password if provided
-        if (formData.email.trim() || formData.password.trim()) {
-          if (editingDoctor.user_id) {
-            const { error: credUpdateError } = await supabase.functions.invoke('update-user-credentials', {
-              body: {
-                userId: editingDoctor.user_id,
-                email: formData.email.trim(),
-                password: formData.password.trim()
-              },
-              headers: getSessionAuthHeaders()
-            });
+        // Update auth user email/password if provided and user_id exists
+        if (editingDoctor.user_id && (formData.email.trim() || formData.password.trim())) {
+          const updateBody: any = { userId: editingDoctor.user_id };
+          if (formData.email.trim()) updateBody.email = formData.email.trim();
+          if (formData.password.trim()) updateBody.password = formData.password.trim();
+          
+          const { error: credUpdateError } = await supabase.functions.invoke('update-user-credentials', {
+            body: updateBody,
+            headers: getSessionAuthHeaders()
+          });
 
-            if (credUpdateError) {
-              console.error('Failed to update credentials:', credUpdateError);
-              // Don't throw error - continue with other updates
-            }
+          if (credUpdateError) {
+            console.error('Failed to update credentials:', credUpdateError);
+            toast({
+              variant: "destructive",
+              title: "Credential Sync Warning",
+              description: "Doctor record updated but authentication credentials may not be synced. Please use the Auth Synchronization tool."
+            });
           }
         }
 
