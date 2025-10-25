@@ -1352,17 +1352,31 @@ const QuickPaymentManagement = () => {
                             )}
                           </TableCell>
                           <TableCell className="text-center">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                setSelectedPayment(payment);
-                                setViewDialogOpen(true);
-                              }}
-                              title="View Details"
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
+                            <div className="flex items-center justify-center gap-1">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setSelectedPayment(payment);
+                                  setViewDialogOpen(true);
+                                }}
+                                title="View Details"
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              
+                              {/* Show Edit button only for non-generated payments */}
+                              {!payment.bank_advice_generated && (
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => openEditDialog(payment)}
+                                  title="Edit Payment"
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))
