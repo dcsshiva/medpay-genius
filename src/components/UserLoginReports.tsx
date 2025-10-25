@@ -21,6 +21,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { formatDateTimeIST } from '@/lib/dateUtils';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 
 interface LoginSession {
   id: string;
@@ -45,6 +46,8 @@ const UserLoginReports = () => {
   const { toast } = useToast();
   const [sessions, setSessions] = useState<LoginSession[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState<number | 'all'>(20);
   const [filters, setFilters] = useState({
     dateFrom: '',
     dateTo: '',
@@ -71,6 +74,11 @@ const UserLoginReports = () => {
       fetchLoginSessions();
     }
   }, [userRole, filters]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters]);
 
   const fetchLoginSessions = async () => {
     if (userRole !== 'admin') return;
@@ -180,6 +188,15 @@ const UserLoginReports = () => {
     }
     return true;
   });
+
+  // Calculate pagination
+  const indexOfLastRecord = recordsPerPage === 'all' 
+    ? filteredSessions.length 
+    : currentPage * recordsPerPage;
+  const indexOfFirstRecord = recordsPerPage === 'all' 
+    ? 0 
+    : indexOfLastRecord - recordsPerPage;
+  const currentRecords = filteredSessions.slice(indexOfFirstRecord, indexOfLastRecord);
 
   if (userRole !== 'admin') {
     return (
@@ -441,6 +458,21 @@ const UserLoginReports = () => {
           </Card>
         ))}
       </div>
+
+      {/* Pagination Controls Bottom */}
+      {filteredSessions.length > 0 && (
+        <Card>
+          <CardContent className="p-4">
+            <PaginationControls
+              totalRecords={filteredSessions.length}
+              recordsPerPage={recordsPerPage}
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
+              onRecordsPerPageChange={setRecordsPerPage}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {filteredSessions.length === 0 && (
         <Card>

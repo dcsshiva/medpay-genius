@@ -11,6 +11,7 @@ import { FileText, Search, Calendar, TrendingUp, IndianRupee } from 'lucide-reac
 import { formatCurrency } from '@/lib/currency';
 import { formatDateIST, formatFullDateTimeIST } from '@/lib/dateUtils';
 import ReportGeneration from './ReportGeneration';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 
 interface BankAdvicePaymentData {
   id: string;
@@ -37,10 +38,17 @@ const BankAdvicePaymentReport: React.FC = () => {
   const [patientSearch, setPatientSearch] = useState('');
   const [insuranceSearch, setInsuranceSearch] = useState('');
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<'all' | 'cash' | 'insurance'>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState<number | 'all'>(20);
 
   useEffect(() => {
     fetchReportData();
   }, []);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [startDate, endDate, doctorSearch, patientSearch, insuranceSearch, paymentTypeFilter]);
 
   const fetchReportData = async () => {
     try {
@@ -195,6 +203,15 @@ const BankAdvicePaymentReport: React.FC = () => {
       totalNet: filteredData.reduce((sum, r) => sum + r.net_amount, 0),
     };
   }, [filteredData]);
+
+  // Calculate pagination
+  const indexOfLastRecord = recordsPerPage === 'all' 
+    ? filteredData.length 
+    : currentPage * recordsPerPage;
+  const indexOfFirstRecord = recordsPerPage === 'all' 
+    ? 0 
+    : indexOfLastRecord - recordsPerPage;
+  const currentRecords = filteredData.slice(indexOfFirstRecord, indexOfLastRecord);
 
   // Quick date filters
   const setQuickDateRange = (days: number) => {
@@ -407,10 +424,20 @@ const BankAdvicePaymentReport: React.FC = () => {
         <CardHeader>
           <CardTitle>Payment Records</CardTitle>
           <CardDescription>
-            Showing {filteredData.length} of {reportData.length} total records
+            {filteredData.length} total records
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {!loading && filteredData.length > 0 && (
+            <PaginationControls
+              totalRecords={filteredData.length}
+              recordsPerPage={recordsPerPage}
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
+              onRecordsPerPageChange={setRecordsPerPage}
+            />
+          )}
+          
           {loading ? (
             <div className="text-center py-8 text-muted-foreground">Loading data...</div>
           ) : filteredData.length === 0 ? (
@@ -434,7 +461,7 @@ const BankAdvicePaymentReport: React.FC = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredData.map((record) => (
+                  {currentRecords.map((record) => (
                     <TableRow key={record.id}>
                       <TableCell className="font-medium">
                         {formatDateIST(record.visit_date)}
@@ -471,6 +498,16 @@ const BankAdvicePaymentReport: React.FC = () => {
                 </TableBody>
               </Table>
             </div>
+          )}
+
+          {filteredData.length > 0 && (
+            <PaginationControls
+              totalRecords={filteredData.length}
+              recordsPerPage={recordsPerPage}
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
+              onRecordsPerPageChange={setRecordsPerPage}
+            />
           )}
         </CardContent>
       </Card>

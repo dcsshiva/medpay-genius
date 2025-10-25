@@ -24,6 +24,7 @@ import {
 } from '@/lib/excelImportUtils';
 import { getSessionAuthHeaders } from '@/lib/sessionAuth';
 import { handleCreateUserError } from '@/lib/utils';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 
 interface Staff {
   id: string;
@@ -56,6 +57,8 @@ const StaffManagement = () => {
   }>({ open: false, staff: null, action: null });
   const [sortField, setSortField] = useState<'staff_code' | 'full_name' | 'role'>('staff_code');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState<number | 'all'>(20);
   const [formData, setFormData] = useState({
     staff_code: '',
     username: '',

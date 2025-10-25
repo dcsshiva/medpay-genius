@@ -12,6 +12,7 @@ import { formatCurrency } from '@/lib/currency';
 import { formatDateIST, formatFullDateTimeIST } from '@/lib/dateUtils';
 import ReportGeneration from './ReportGeneration';
 import { StatsCard } from '@/components/ui/stats-card';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 
 interface QuickPaymentReportData {
   id: string;
@@ -50,11 +51,18 @@ const QuickPaymentBankAdviceReport = () => {
   const [beneficiarySearch, setBeneficiarySearch] = useState('');
   const [vendorSearch, setVendorSearch] = useState('');
   const [bankAdviceRefSearch, setBankAdviceRefSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState<number | 'all'>(20);
 
   useEffect(() => {
     fetchPaymentTypes();
     fetchReportData();
   }, []);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [startDate, endDate, paymentTypeFilter, beneficiarySearch, vendorSearch, bankAdviceRefSearch]);
 
   const fetchPaymentTypes = async () => {
     try {
@@ -189,6 +197,15 @@ const QuickPaymentBankAdviceReport = () => {
       totalNet: filteredData.reduce((sum, p) => sum + p.net_amount, 0),
     };
   }, [filteredData]);
+
+  // Calculate pagination
+  const indexOfLastRecord = recordsPerPage === 'all' 
+    ? filteredData.length 
+    : currentPage * recordsPerPage;
+  const indexOfFirstRecord = recordsPerPage === 'all' 
+    ? 0 
+    : indexOfLastRecord - recordsPerPage;
+  const currentRecords = filteredData.slice(indexOfFirstRecord, indexOfLastRecord);
 
   const handleQuickFilter = (days: number) => {
     const end = new Date();
@@ -414,10 +431,18 @@ const QuickPaymentBankAdviceReport = () => {
         <CardHeader>
           <CardTitle>Payment Records</CardTitle>
           <CardDescription>
-            Showing {filteredData.length} of {reportData.length} total records
+            {filteredData.length} total records
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <PaginationControls
+            totalRecords={filteredData.length}
+            recordsPerPage={recordsPerPage}
+            currentPage={currentPage}
+            onPageChange={setCurrentPage}
+            onRecordsPerPageChange={setRecordsPerPage}
+          />
+
           {filteredData.length === 0 ? (
             <div className="text-center py-12">
               <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -443,7 +468,7 @@ const QuickPaymentBankAdviceReport = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredData.map((payment) => (
+                  {currentRecords.map((payment) => (
                     <TableRow key={payment.id}>
                       <TableCell className="whitespace-nowrap">
                         {formatDateIST(new Date(payment.payment_date))}
@@ -494,6 +519,16 @@ const QuickPaymentBankAdviceReport = () => {
                 </TableBody>
               </Table>
             </div>
+          )}
+          
+          {filteredData.length > 0 && (
+            <PaginationControls
+              totalRecords={filteredData.length}
+              recordsPerPage={recordsPerPage}
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
+              onRecordsPerPageChange={setRecordsPerPage}
+            />
           )}
         </CardContent>
       </Card>
