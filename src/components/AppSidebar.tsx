@@ -19,7 +19,8 @@ import {
   Database,
   FileText,
   CalendarCheck,
-  Zap
+  Zap,
+  Building2
 } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
 import {
@@ -125,6 +126,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
         { id: 'insurance-payments-lite', label: 'Insurance Payments (Lite)', icon: CreditCard },
         { id: 'bank-advice-payment-report', label: 'Bank Advice Payment Report', icon: FileText },
         { id: 'quick-payment-bank-advice-report', label: 'Quick Payment Bank Advice Report', icon: FileText },
+        { id: 'bank-advice-generation', label: 'Bank Advice Generation (Central)', icon: Building2 },
         { id: 'quick-payment', label: 'Quick Payment', icon: Zap },
         { id: 'tds-reports', label: 'TDS Reports', icon: FileText },
         { id: 'tasks', label: 'Task Management', icon: ClipboardList },
@@ -148,6 +150,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
       { id: 'insurance-payments-lite', label: 'Insurance Payments (Lite)', icon: CreditCard },
       { id: 'bank-advice-payment-report', label: 'Bank Advice Payment Report', icon: FileText },
       { id: 'quick-payment-bank-advice-report', label: 'Quick Payment Bank Advice Report', icon: FileText },
+      { id: 'bank-advice-generation', label: 'Bank Advice Generation (Central)', icon: Building2 },
       { id: 'quick-payment', label: 'Quick Payment', icon: Zap },
       { id: 'tds-reports', label: 'TDS Reports', icon: FileText },
       { id: 'tasks', label: 'Task Management', icon: ClipboardList },
