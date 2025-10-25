@@ -47,7 +47,9 @@ const Auth = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log('Auth useEffect - user exists:', !!user);
     if (user) {
+      console.log('Navigating to dashboard from useEffect...');
       navigate('/dashboard');
     }
   }, [user, navigate]);

@@ -327,7 +327,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error };
       }
 
-      if (data.user) {
+      if (data.user && data.session) {
+        // Set user and session immediately
+        setUser(data.user);
+        setSession(data.session);
+        
         const { data: profile } = await supabase
           .from('profiles')
           .select('*')
@@ -335,24 +339,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .maybeSingle();
 
         if (profile) {
-          // Set auth state immediately
-          setUser(data.user);
-          setSession(data.session);
+          // Profile exists, use it
           setUserRole(profile.role);
           setUserProfile(profile);
 
-          // Best-effort: create a tracked session in DB, but don't block login on failure
           try {
             await createUserSession({
               user_type: 'supabase_auth',
               original_id: data.user.id,
-              user_id: data.user.id,  // Changed: Pass auth user_id
+              user_id: data.user.id,
               username: email,
               full_name: profile.full_name || email,
               role: profile.role || 'staff'
             });
           } catch (e: any) {
-            console.error('createUserSession (admin) failed:', e?.message || e);
+            console.error('createUserSession (email) failed:', e?.message || e);
+          }
+        } else {
+          // No profile, set defaults to allow login
+          console.warn('No profile found for user, using defaults');
+          setUserRole('staff');
+          setUserProfile({
+            id: data.user.id,
+            user_id: data.user.id,
+            full_name: email,
+            role: 'staff'
+          });
+          
+          try {
+            await createUserSession({
+              user_type: 'supabase_auth',
+              original_id: data.user.id,
+              user_id: data.user.id,
+              username: email,
+              full_name: email,
+              role: 'staff'
+            });
+          } catch (e: any) {
+            console.error('createUserSession (email, no profile) failed:', e?.message || e);
           }
         }
       }
@@ -417,6 +441,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) return { error };
       
       if (data.user && data.session) {
+        // Set user and session immediately
+        setUser(data.user);
+        setSession(data.session);
+        console.log('OTP verified, user set:', data.user.id);
+        
         const { data: profile } = await supabase
           .from('profiles')
           .select('*')
@@ -424,19 +453,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .maybeSingle();
         
         if (profile) {
-          setUser(data.user);
-          setSession(data.session);
+          // Profile exists, use it
           setUserRole(profile.role);
           setUserProfile(profile);
           
-          await createUserSession({
-            user_type: 'supabase_auth',
-            original_id: data.user.id,
+          try {
+            await createUserSession({
+              user_type: 'supabase_auth',
+              original_id: data.user.id,
+              user_id: data.user.id,
+              username: email,
+              full_name: profile.full_name || email,
+              role: profile.role || 'staff'
+            });
+          } catch (e: any) {
+            console.error('createUserSession failed (OTP):', e?.message || e);
+          }
+        } else {
+          // No profile, set defaults to allow login
+          console.warn('No profile found for user, using defaults');
+          setUserRole('staff');
+          setUserProfile({
+            id: data.user.id,
             user_id: data.user.id,
-            username: email,
-            full_name: profile.full_name || email,
-            role: profile.role || 'staff'
+            full_name: email,
+            role: 'staff'
           });
+          
+          try {
+            await createUserSession({
+              user_type: 'supabase_auth',
+              original_id: data.user.id,
+              user_id: data.user.id,
+              username: email,
+              full_name: email,
+              role: 'staff'
+            });
+          } catch (e: any) {
+            console.error('createUserSession failed (OTP, no profile):', e?.message || e);
+          }
         }
       }
       
