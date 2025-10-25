@@ -341,12 +341,23 @@ const StaffManagement = () => {
         ? (formData.role as 'admin'|'manager'|'doctor')
         : 'staff';
 
+      // Map staff role to designation for user_designations table
+      const mapRoleToDesignation = (role: string): string => {
+        if (role === 'admin') return 'admin';
+        if (role === 'manager') return 'manager';
+        if (role === 'doctor') return 'doctor';
+        return 'staff';
+      };
+
+      const designation = mapRoleToDesignation(formData.role);
+
       // Attempt to create auth user via edge function (with one retry on email collision)
       let createdUser: any = null;
       let { data: result, error: createUserError } = await supabase.functions.invoke('create-user', {
         body: {
           email: uniqueEmail,
           password: formData.password,
+          designation: designation,
           userData: {
             full_name: formData.full_name,
             role: profileRole
@@ -368,6 +379,7 @@ const StaffManagement = () => {
             body: {
               email: retryEmail,
               password: formData.password,
+              designation: designation,
               userData: {
                 full_name: formData.full_name,
                 role: profileRole

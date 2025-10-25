@@ -332,38 +332,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setUser(data.user);
         setSession(data.session);
         
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
+        // Priority 1: Check user_designations (source of truth)
+        const { data: designation } = await supabase
+          .from('user_designations')
+          .select('designation')
           .eq('user_id', data.user.id)
           .maybeSingle();
 
-        if (profile) {
-          // Profile exists, use it
-          setUserRole(profile.role);
-          setUserProfile(profile);
-
-          try {
-            await createUserSession({
-              user_type: 'supabase_auth',
-              original_id: data.user.id,
-              user_id: data.user.id,
-              username: email,
-              full_name: profile.full_name || email,
-              role: profile.role || 'staff'
-            });
-          } catch (e: any) {
-            console.error('createUserSession (email) failed:', e?.message || e);
-          }
-        } else {
-          // No profile, set defaults to allow login
-          console.warn('No profile found for user, using defaults');
-          setUserRole('staff');
+        if (designation?.designation) {
+          // Use designation as role
+          setUserRole(designation.designation);
           setUserProfile({
             id: data.user.id,
             user_id: data.user.id,
             full_name: email,
-            role: 'staff'
+            role: designation.designation
           });
           
           try {
@@ -373,10 +356,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               user_id: data.user.id,
               username: email,
               full_name: email,
-              role: 'staff'
+              role: designation.designation
             });
           } catch (e: any) {
-            console.error('createUserSession (email, no profile) failed:', e?.message || e);
+            console.error('createUserSession (email) failed:', e?.message || e);
+          }
+        } else {
+          // Priority 2: Check profiles table as fallback
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', data.user.id)
+            .maybeSingle();
+
+          if (profile) {
+            // Profile exists, use it
+            setUserRole(profile.role);
+            setUserProfile(profile);
+
+            try {
+              await createUserSession({
+                user_type: 'supabase_auth',
+                original_id: data.user.id,
+                user_id: data.user.id,
+                username: email,
+                full_name: profile.full_name || email,
+                role: profile.role || 'staff'
+              });
+            } catch (e: any) {
+              console.error('createUserSession (email) failed:', e?.message || e);
+            }
+          } else {
+            // Priority 3: Default to staff
+            console.warn('No designation or profile found for user, using defaults');
+            setUserRole('staff');
+            setUserProfile({
+              id: data.user.id,
+              user_id: data.user.id,
+              full_name: email,
+              role: 'staff'
+            });
+            
+            try {
+              await createUserSession({
+                user_type: 'supabase_auth',
+                original_id: data.user.id,
+                user_id: data.user.id,
+                username: email,
+                full_name: email,
+                role: 'staff'
+              });
+            } catch (e: any) {
+              console.error('createUserSession (email, no profile) failed:', e?.message || e);
+            }
           }
         }
       }
@@ -446,38 +478,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(data.session);
         console.log('OTP verified, user set:', data.user.id);
         
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
+        // Priority 1: Check user_designations (source of truth)
+        const { data: designation } = await supabase
+          .from('user_designations')
+          .select('designation')
           .eq('user_id', data.user.id)
           .maybeSingle();
-        
-        if (profile) {
-          // Profile exists, use it
-          setUserRole(profile.role);
-          setUserProfile(profile);
-          
-          try {
-            await createUserSession({
-              user_type: 'supabase_auth',
-              original_id: data.user.id,
-              user_id: data.user.id,
-              username: email,
-              full_name: profile.full_name || email,
-              role: profile.role || 'staff'
-            });
-          } catch (e: any) {
-            console.error('createUserSession failed (OTP):', e?.message || e);
-          }
-        } else {
-          // No profile, set defaults to allow login
-          console.warn('No profile found for user, using defaults');
-          setUserRole('staff');
+
+        if (designation?.designation) {
+          // Use designation as role
+          setUserRole(designation.designation);
           setUserProfile({
             id: data.user.id,
             user_id: data.user.id,
             full_name: email,
-            role: 'staff'
+            role: designation.designation
           });
           
           try {
@@ -487,10 +502,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               user_id: data.user.id,
               username: email,
               full_name: email,
-              role: 'staff'
+              role: designation.designation
             });
           } catch (e: any) {
-            console.error('createUserSession failed (OTP, no profile):', e?.message || e);
+            console.error('createUserSession failed (OTP):', e?.message || e);
+          }
+        } else {
+          // Priority 2: Check profiles table as fallback
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('user_id', data.user.id)
+            .maybeSingle();
+          
+          if (profile) {
+            // Profile exists, use it
+            setUserRole(profile.role);
+            setUserProfile(profile);
+            
+            try {
+              await createUserSession({
+                user_type: 'supabase_auth',
+                original_id: data.user.id,
+                user_id: data.user.id,
+                username: email,
+                full_name: profile.full_name || email,
+                role: profile.role || 'staff'
+              });
+            } catch (e: any) {
+              console.error('createUserSession failed (OTP):', e?.message || e);
+            }
+          } else {
+            // Priority 3: Default to staff
+            console.warn('No designation or profile found for user, using defaults');
+            setUserRole('staff');
+            setUserProfile({
+              id: data.user.id,
+              user_id: data.user.id,
+              full_name: email,
+              role: 'staff'
+            });
+            
+            try {
+              await createUserSession({
+                user_type: 'supabase_auth',
+                original_id: data.user.id,
+                user_id: data.user.id,
+                username: email,
+                full_name: email,
+                role: 'staff'
+              });
+            } catch (e: any) {
+              console.error('createUserSession failed (OTP, no profile):', e?.message || e);
+            }
           }
         }
       }
