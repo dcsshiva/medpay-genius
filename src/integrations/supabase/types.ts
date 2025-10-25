@@ -912,6 +912,9 @@ export type Database = {
           net_amount: number | null
           payment_notes: string | null
           payment_type_id: string | null
+          supporting_document_name: string | null
+          supporting_document_path: string | null
+          supporting_document_type: string | null
           tds_amount: number | null
           tds_percentage: number | null
           updated_at: string
@@ -937,6 +940,9 @@ export type Database = {
           net_amount?: number | null
           payment_notes?: string | null
           payment_type_id?: string | null
+          supporting_document_name?: string | null
+          supporting_document_path?: string | null
+          supporting_document_type?: string | null
           tds_amount?: number | null
           tds_percentage?: number | null
           updated_at?: string
@@ -962,6 +968,9 @@ export type Database = {
           net_amount?: number | null
           payment_notes?: string | null
           payment_type_id?: string | null
+          supporting_document_name?: string | null
+          supporting_document_path?: string | null
+          supporting_document_type?: string | null
           tds_amount?: number | null
           tds_percentage?: number | null
           updated_at?: string

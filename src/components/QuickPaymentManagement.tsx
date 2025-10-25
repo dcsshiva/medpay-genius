@@ -28,7 +28,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Pencil, Trash2, Eye, Download } from 'lucide-react';
+import { Pencil, Trash2, Eye, Download, FileText, Image } from 'lucide-react';
 import { validateMobileNumber, formatMobileNumber } from '@/lib/validators';
 import { formatCurrency } from '@/lib/currency';
 import { useAuth } from '@/lib/auth';
@@ -75,6 +75,9 @@ interface QuickPayment {
   bank_advice_reference: string | null;
   created_at: string;
   quick_payment_types: { type_name: string };
+  supporting_document_path: string | null;
+  supporting_document_name: string | null;
+  supporting_document_type: string | null;
 }
 
 const QuickPaymentManagement = () => {
@@ -91,6 +94,9 @@ const QuickPaymentManagement = () => {
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<QuickPayment | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -179,6 +185,87 @@ const QuickPaymentManagement = () => {
     return { tdsAmount, netAmount };
   };
 
+  const validateFile = (file: File): boolean => {
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg'];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Only PDF and JPEG files are allowed');
+      return false;
+    }
+
+    if (file.size > maxSize) {
+      toast.error('File size must be less than 5MB');
+      return false;
+    }
+
+    return true;
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!validateFile(file)) {
+      e.target.value = ''; // Reset input
+      return;
+    }
+
+    setSelectedFile(file);
+    
+    // Generate preview for JPEG
+    if (file.type.includes('image')) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFilePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setFilePreview(null);
+    }
+  };
+
+  const handleFileRemove = () => {
+    setSelectedFile(null);
+    setFilePreview(null);
+  };
+
+  const uploadDocument = async (paymentId: string): Promise<{ path: string; name: string; type: string } | null> => {
+    if (!selectedFile) return null;
+
+    try {
+      setIsUploading(true);
+      
+      // Generate unique filename with timestamp
+      const timestamp = Date.now();
+      const fileExt = selectedFile.name.split('.').pop();
+      const fileName = `${paymentId}_${timestamp}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('quick-payment-documents')
+        .upload(filePath, selectedFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      return {
+        path: filePath,
+        name: selectedFile.name,
+        type: selectedFile.type
+      };
+    } catch (error: any) {
+      console.error('Error uploading file:', error);
+      toast.error('Failed to upload document');
+      return null;
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -193,20 +280,45 @@ const QuickPaymentManagement = () => {
 
     setLoading(true);
     try {
-    const { error } = await supabase
-      .from('quick_payments')
-      .insert([{
-        ...formData,
-        vendor_id: isVendorPayment ? selectedVendor : null,
-        gst_number: formData.gst_number || null,
-        gross_amount: grossAmount,
-        tds_percentage: tdsPercentage,
-        tds_amount: tdsAmount,
-        net_amount: netAmount,
-        created_by: user?.id,
-      }]);
+      // First insert the payment record
+      const { data: paymentData, error: insertError } = await supabase
+        .from('quick_payments')
+        .insert([{
+          ...formData,
+          vendor_id: isVendorPayment ? selectedVendor : null,
+          gst_number: formData.gst_number || null,
+          gross_amount: grossAmount,
+          tds_percentage: tdsPercentage,
+          tds_amount: tdsAmount,
+          net_amount: netAmount,
+          created_by: user?.id,
+        }])
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (insertError) throw insertError;
+
+      // Upload document if selected
+      if (selectedFile && paymentData) {
+        const documentInfo = await uploadDocument(paymentData.id);
+        
+        if (documentInfo) {
+          // Update payment record with document info
+          const { error: updateError } = await supabase
+            .from('quick_payments')
+            .update({
+              supporting_document_path: documentInfo.path,
+              supporting_document_name: documentInfo.name,
+              supporting_document_type: documentInfo.type
+            })
+            .eq('id', paymentData.id);
+
+          if (updateError) {
+            console.error('Error updating document info:', updateError);
+            toast.error('Payment saved but document upload failed');
+          }
+        }
+      }
       
       toast.success('Quick payment added successfully');
       resetForm();
@@ -478,6 +590,8 @@ const QuickPaymentManagement = () => {
     setSelectedPayment(null);
     setSelectedVendor('');
     setIsVendorPayment(false);
+    setSelectedFile(null);
+    setFilePreview(null);
   };
 
   const pendingPayments = payments.filter(p => !p.bank_advice_generated);
@@ -743,6 +857,63 @@ const QuickPaymentManagement = () => {
                     placeholder="Optional notes"
                     rows={3}
                   />
+                </div>
+
+                {/* Supporting Document Upload */}
+                <div className="space-y-2">
+                  <Label htmlFor="supporting_document">Supporting Document</Label>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Upload a supporting document (PDF or JPEG, max 5MB)
+                  </p>
+                  
+                  {!selectedFile ? (
+                    <div className="flex items-center gap-4">
+                      <Input
+                        id="supporting_document"
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg"
+                        onChange={handleFileSelect}
+                        disabled={loading || isUploading}
+                        className="cursor-pointer"
+                      />
+                    </div>
+                  ) : (
+                    <div className="border rounded-md p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {selectedFile.type === 'application/pdf' ? (
+                            <FileText className="h-5 w-5 text-red-500" />
+                          ) : (
+                            <Image className="h-5 w-5 text-blue-500" />
+                          )}
+                          <span className="text-sm font-medium">{selectedFile.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            ({(selectedFile.size / 1024).toFixed(1)} KB)
+                          </span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleFileRemove}
+                          disabled={loading || isUploading}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      
+                      {/* Image Preview */}
+                      {filePreview && (
+                        <div className="mt-2">
+                          <img 
+                            src={filePreview} 
+                            alt="Preview" 
+                            className="max-w-xs max-h-48 rounded border"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
@@ -1020,6 +1191,45 @@ const QuickPaymentManagement = () => {
                 <div>
                   <Label>Notes</Label>
                   <p className="text-sm text-muted-foreground">{selectedPayment.payment_notes}</p>
+                </div>
+              )}
+
+              {selectedPayment.supporting_document_path && (
+                <div className="border-t pt-4">
+                  <Label>Supporting Document</Label>
+                  <div className="flex items-center gap-2 mt-2">
+                    {selectedPayment.supporting_document_type === 'application/pdf' ? (
+                      <FileText className="h-5 w-5 text-red-500" />
+                    ) : (
+                      <Image className="h-5 w-5 text-blue-500" />
+                    )}
+                    <span className="text-sm flex-1">{selectedPayment.supporting_document_name}</span>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        try {
+                          const { data, error } = await supabase.storage
+                            .from('quick-payment-documents')
+                            .download(selectedPayment.supporting_document_path!);
+                          
+                          if (error) throw error;
+                          
+                          const url = URL.createObjectURL(data);
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = selectedPayment.supporting_document_name || 'document';
+                          a.click();
+                          URL.revokeObjectURL(url);
+                        } catch (error) {
+                          toast.error('Failed to download document');
+                        }
+                      }}
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Download
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
