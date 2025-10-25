@@ -5,10 +5,10 @@ import { useToast } from '@/hooks/use-toast';
 import { toISOStringIST } from '@/lib/dateUtils';
 
 interface SessionTimeoutConfig {
-  staff: 180; // 3 minutes
-  doctor: 180; // 3 minutes  
-  admin: 300; // 5 minutes
-  manager: 300; // 5 minutes
+  staff: 600; // 10 minutes
+  doctor: 600; // 10 minutes  
+  admin: 600; // 10 minutes
+  manager: 600; // 10 minutes
 }
 
 interface TimeoutState {
@@ -34,22 +34,21 @@ export const useSessionTimeout = () => {
   const sessionCheckIntervalRef = useRef<NodeJS.Timeout>();
 
   const timeoutConfig: SessionTimeoutConfig = {
-    staff: 180,
-    doctor: 180,
-    admin: 300,
-    manager: 300
+    staff: 600,
+    doctor: 600,
+    admin: 600,
+    manager: 600
   };
 
   const getTimeoutDuration = useCallback(() => {
-    if (!userRole) return 180;
-    return timeoutConfig[userRole as keyof SessionTimeoutConfig] || 180;
+    if (!userRole) return 600;
+    return timeoutConfig[userRole as keyof SessionTimeoutConfig] || 600;
   }, [userRole]);
 
   const getWarningTime = useCallback(() => {
     const timeout = getTimeoutDuration();
-    // For admin/manager: show warning at 240 seconds (60 seconds before timeout)
-    // For staff/doctor: show warning at 120 seconds (60 seconds before timeout)
-    return timeout === 300 ? 240 : 120;
+    // Show warning at 540 seconds (9 minutes - 60 seconds before timeout)
+    return timeout - 60;
   }, [getTimeoutDuration]);
 
   // Update last activity in Supabase
