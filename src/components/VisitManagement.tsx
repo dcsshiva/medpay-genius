@@ -23,6 +23,7 @@ import { StatsCard } from '@/components/ui/stats-card';
 import { LoadingScreen } from '@/components/ui/loading-skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FilterChips } from '@/components/ui/filter-chip';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 
@@ -95,6 +96,15 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importResults, setImportResults] = useState<ImportResults | null>(null);
+  
+  // Pagination states for unprocessed visits
+  const [unprocessedCurrentPage, setUnprocessedCurrentPage] = useState(1);
+  const [unprocessedRecordsPerPage, setUnprocessedRecordsPerPage] = useState<number | 'all'>(20);
+  
+  // Pagination states for processed visits
+  const [processedCurrentPage, setProcessedCurrentPage] = useState(1);
+  const [processedRecordsPerPage, setProcessedRecordsPerPage] = useState<number | 'all'>(20);
+  
   const [formData, setFormData] = useState({
     visit_date: formatInputDateIST(getCurrentISTDate()),
     patient_id: '',
@@ -238,6 +248,16 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
       console.error('Error fetching visit reasons:', error);
     }
   };
+
+  // Reset unprocessed pagination when filters change
+  useEffect(() => {
+    setUnprocessedCurrentPage(1);
+  }, [searchQuery, searchFilter]);
+
+  // Reset processed pagination when filters change
+  useEffect(() => {
+    setProcessedCurrentPage(1);
+  }, [searchQuery, searchFilter]);
 
   const handleDownloadTemplate = async () => {
     try {
@@ -1614,25 +1634,47 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
             const unprocessedVisits = visits.filter(v => !v.is_processed);
             const filteredVisits = filterVisits(unprocessedVisits, searchQuery, searchFilter);
             
+            // Calculate pagination for unprocessed visits
+            const unprocessedIndexOfLastRecord = unprocessedRecordsPerPage === 'all' 
+              ? filteredVisits.length 
+              : unprocessedCurrentPage * unprocessedRecordsPerPage;
+            const unprocessedIndexOfFirstRecord = unprocessedRecordsPerPage === 'all' 
+              ? 0 
+              : unprocessedIndexOfLastRecord - unprocessedRecordsPerPage;
+            const currentUnprocessedRecords = filteredVisits.slice(
+              unprocessedIndexOfFirstRecord, 
+              unprocessedIndexOfLastRecord
+            );
+            
             if (filteredVisits.length > 0) {
               return (
-                <VisitManagementTable
-                  visits={filteredVisits}
-                  onEdit={(userRole === 'admin' || userRole === 'manager') ? handleEdit : undefined}
-                  onDelete={(userRole === 'admin' || userRole === 'manager') ? handleDelete : undefined}
-                  onPaymentTypeClick={handlePaymentTypeNavigation}
-                  showActions={userRole === 'admin' || userRole === 'manager'}
-                  sortField={sortField}
-                  sortDirection={sortDirection}
-                  onSort={(field) => {
-                    if (sortField === field) {
-                      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-                    } else {
-                      setSortField(field);
-                      setSortDirection('desc');
-                    }
-                  }}
-                />
+                <div className="space-y-4">
+                  <VisitManagementTable
+                    visits={currentUnprocessedRecords}
+                    onEdit={(userRole === 'admin' || userRole === 'manager') ? handleEdit : undefined}
+                    onDelete={(userRole === 'admin' || userRole === 'manager') ? handleDelete : undefined}
+                    onPaymentTypeClick={handlePaymentTypeNavigation}
+                    showActions={userRole === 'admin' || userRole === 'manager'}
+                    sortField={sortField}
+                    sortDirection={sortDirection}
+                    onSort={(field) => {
+                      if (sortField === field) {
+                        setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                      } else {
+                        setSortField(field);
+                        setSortDirection('desc');
+                      }
+                    }}
+                  />
+                  
+                  <PaginationControls
+                    totalRecords={filteredVisits.length}
+                    recordsPerPage={unprocessedRecordsPerPage}
+                    currentPage={unprocessedCurrentPage}
+                    onPageChange={setUnprocessedCurrentPage}
+                    onRecordsPerPageChange={setUnprocessedRecordsPerPage}
+                  />
+                </div>
               );
             }
             
@@ -1819,25 +1861,47 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
             const processedVisits = visits.filter(v => v.is_processed);
             const filteredVisits = filterVisits(processedVisits, searchQuery, searchFilter);
             
+            // Calculate pagination for processed visits
+            const processedIndexOfLastRecord = processedRecordsPerPage === 'all' 
+              ? filteredVisits.length 
+              : processedCurrentPage * processedRecordsPerPage;
+            const processedIndexOfFirstRecord = processedRecordsPerPage === 'all' 
+              ? 0 
+              : processedIndexOfLastRecord - processedRecordsPerPage;
+            const currentProcessedRecords = filteredVisits.slice(
+              processedIndexOfFirstRecord, 
+              processedIndexOfLastRecord
+            );
+            
             if (filteredVisits.length > 0) {
               return (
-                <VisitManagementTable
-                  visits={filteredVisits}
-                  onEdit={undefined}
-                  onDelete={undefined}
-                  onPaymentTypeClick={handlePaymentTypeNavigation}
-                  showActions={false}
-                  sortField={sortField}
-                  sortDirection={sortDirection}
-                  onSort={(field) => {
-                    if (sortField === field) {
-                      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-                    } else {
-                      setSortField(field);
-                      setSortDirection('desc');
-                    }
-                  }}
-                />
+                <div className="space-y-4">
+                  <VisitManagementTable
+                    visits={currentProcessedRecords}
+                    onEdit={undefined}
+                    onDelete={undefined}
+                    onPaymentTypeClick={handlePaymentTypeNavigation}
+                    showActions={false}
+                    sortField={sortField}
+                    sortDirection={sortDirection}
+                    onSort={(field) => {
+                      if (sortField === field) {
+                        setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+                      } else {
+                        setSortField(field);
+                        setSortDirection('desc');
+                      }
+                    }}
+                  />
+                  
+                  <PaginationControls
+                    totalRecords={filteredVisits.length}
+                    recordsPerPage={processedRecordsPerPage}
+                    currentPage={processedCurrentPage}
+                    onPageChange={setProcessedCurrentPage}
+                    onRecordsPerPageChange={setProcessedRecordsPerPage}
+                  />
+                </div>
               );
             }
             
