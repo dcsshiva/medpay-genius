@@ -13,6 +13,8 @@ interface AuthContextType {
   signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
   signInWithOTP: (email: string) => Promise<{ error: any }>;
   verifyOTP: (email: string, token: string) => Promise<{ error: any }>;
+  sendMobileOTP: (mobile: string) => Promise<{ error: any }>;
+  verifyMobileOTP: (mobile: string, otp: string) => Promise<{ error: any }>;
   getUserEmail: (username: string, userType: 'staff' | 'doctor') => Promise<{ email: string | null; error: any }>;
   signOut: () => Promise<void>;
 }
@@ -583,6 +585,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const sendMobileOTP = async (mobile: string) => {
+    try {
+      const { data, error } = await supabase.functions.invoke('send-otp', {
+        body: { mobile }
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || 'Failed to send OTP');
+
+      return { error: null };
+    } catch (error: any) {
+      console.error('Send mobile OTP error:', error);
+      return { error: { message: error.message || 'Failed to send OTP' } };
+    }
+  };
+
+  const verifyMobileOTP = async (mobile: string, otp: string) => {
+    try {
+      await invalidateSession();
+
+      const { data, error } = await supabase.functions.invoke('verify-otp', {
+        body: { mobile, otp }
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || 'Failed to verify OTP');
+
+      const userData = data.user;
+      
+      // Create session using the returned user data
+      if (userData) {
+        // Set a pseudo user object for our session
+        const pseudoUser: any = {
+          id: userData.user_id,
+          email: userData.email || `${mobile}@westmed.local`,
+          user_metadata: {
+            full_name: userData.full_name,
+            role: userData.role
+          }
+        };
+        
+        setUser(pseudoUser);
+        setSession({ user: pseudoUser } as Session);
+        setUserRole(userData.role);
+        setUserProfile({
+          id: userData.id,
+          user_id: userData.user_id,
+          full_name: userData.full_name,
+          role: userData.role
+        });
+
+        try {
+          await createUserSession({
+            user_type: userData.user_type,
+            original_id: userData.id,
+            user_id: userData.user_id,
+            username: mobile,
+            full_name: userData.full_name,
+            role: userData.role
+          });
+        } catch (e: any) {
+          console.error('createUserSession failed (mobile OTP):', e?.message || e);
+        }
+      }
+
+      return { error: null };
+    } catch (error: any) {
+      console.error('Verify mobile OTP error:', error);
+      return { error: { message: error.message || 'Failed to verify OTP' } };
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -594,6 +668,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signInWithEmail,
       signInWithOTP,
       verifyOTP,
+      sendMobileOTP,
+      verifyMobileOTP,
       getUserEmail,
       signOut,
     }}>

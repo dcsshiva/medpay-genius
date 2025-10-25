@@ -504,6 +504,39 @@ export type Database = {
         }
         Relationships: []
       }
+      otp_verifications: {
+        Row: {
+          attempts: number | null
+          created_at: string | null
+          expires_at: string
+          id: string
+          is_verified: boolean | null
+          mobile_number: string
+          otp_code: string
+          verified_at: string | null
+        }
+        Insert: {
+          attempts?: number | null
+          created_at?: string | null
+          expires_at: string
+          id?: string
+          is_verified?: boolean | null
+          mobile_number: string
+          otp_code: string
+          verified_at?: string | null
+        }
+        Update: {
+          attempts?: number | null
+          created_at?: string | null
+          expires_at?: string
+          id?: string
+          is_verified?: boolean | null
+          mobile_number?: string
+          otp_code?: string
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
       payment_transactions: {
         Row: {
           amount: number
@@ -2086,6 +2119,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_expired_otps: { Args: never; Returns: number }
       cleanup_expired_sessions: { Args: never; Returns: undefined }
       cleanup_expired_user_sessions: { Args: never; Returns: number }
       erase_all_transactions: { Args: never; Returns: Json }

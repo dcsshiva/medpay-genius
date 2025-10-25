@@ -28,6 +28,8 @@ const Auth = () => {
   const [staffOTPCode, setStaffOTPCode] = useState('');
   const [staffEmail, setStaffEmail] = useState('');
   const [staffResendCooldown, setStaffResendCooldown] = useState(0);
+  const [staffOTPType, setStaffOTPType] = useState<'email' | 'mobile'>('email');
+  const [staffMobile, setStaffMobile] = useState('');
 
   // OTP states for Doctor
   const [doctorUseOTP, setDoctorUseOTP] = useState(false);
@@ -35,6 +37,8 @@ const Auth = () => {
   const [doctorOTPCode, setDoctorOTPCode] = useState('');
   const [doctorEmail, setDoctorEmail] = useState('');
   const [doctorResendCooldown, setDoctorResendCooldown] = useState(0);
+  const [doctorOTPType, setDoctorOTPType] = useState<'email' | 'mobile'>('email');
+  const [doctorMobile, setDoctorMobile] = useState('');
 
   // OTP states for Admin
   const [adminUseOTP, setAdminUseOTP] = useState(false);
@@ -42,7 +46,7 @@ const Auth = () => {
   const [adminOTPCode, setAdminOTPCode] = useState('');
   const [adminResendCooldown, setAdminResendCooldown] = useState(0);
   
-  const { signInWithUsername, signInWithEmail, signInWithOTP, verifyOTP, getUserEmail, user } = useAuth();
+  const { signInWithUsername, signInWithEmail, signInWithOTP, verifyOTP, sendMobileOTP, verifyMobileOTP, getUserEmail, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -236,6 +240,64 @@ const Auth = () => {
 
   const handleStaffResendOTP = async () => {
     await handleStaffSendOTP();
+  };
+
+  const handleStaffSendMobileOTP = async () => {
+    setStaffLoading(true);
+    
+    const { error } = await sendMobileOTP(staffMobile);
+    
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "Failed to Send OTP",
+        description: error.message,
+      });
+    } else {
+      setStaffOTPSent(true);
+      setStaffResendCooldown(300); // 5 minutes for mobile OTP
+      toast({
+        title: "OTP Sent!",
+        description: `We've sent a 6-digit OTP to ${staffMobile.substring(0, 3)}****${staffMobile.substring(7)}`,
+      });
+    }
+    
+    setStaffLoading(false);
+  };
+
+  const handleStaffVerifyMobileOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setStaffLoading(true);
+    
+    if (staffOTPCode.length !== 6) {
+      toast({
+        variant: "destructive",
+        title: "Invalid OTP",
+        description: "Please enter the complete 6-digit code.",
+      });
+      setStaffLoading(false);
+      return;
+    }
+    
+    const { error } = await verifyMobileOTP(staffMobile, staffOTPCode);
+    
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "OTP Verification Failed",
+        description: error.message || "Invalid or expired OTP code.",
+      });
+    } else {
+      toast({
+        title: "Welcome back!",
+        description: "Successfully signed in as staff.",
+      });
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 100);
+    }
+    
+    setStaffLoading(false);
   };
 
   // Doctor OTP Handlers
@@ -495,34 +557,80 @@ const Auth = () => {
                   </form>
                 ) : (
                   <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="staff-username-otp">Username</Label>
-                      <Input
-                        id="staff-username-otp"
-                        type="text"
-                        placeholder="Enter your username"
-                        value={staffData.username}
-                        onChange={(e) => setStaffData({ ...staffData, username: e.target.value })}
-                        disabled={staffOTPSent}
-                        required
-                      />
-                    </div>
-                    
                     {!staffOTPSent ? (
-                      <Button 
-                        type="button"
-                        onClick={handleStaffSendOTP} 
-                        className="w-full" 
-                        disabled={staffLoading || !staffData.username}
-                      >
-                        {staffLoading ? 'Sending OTP...' : 'Send 6-Digit OTP'}
-                      </Button>
+                      <>
+                        <div className="flex gap-2 mb-2">
+                          <Button 
+                            type="button"
+                            size="sm"
+                            variant={staffOTPType === 'email' ? "default" : "outline"}
+                            className="flex-1"
+                            onClick={() => setStaffOTPType('email')}
+                          >
+                            Email OTP
+                          </Button>
+                          <Button 
+                            type="button"
+                            size="sm"
+                            variant={staffOTPType === 'mobile' ? "default" : "outline"}
+                            className="flex-1"
+                            onClick={() => setStaffOTPType('mobile')}
+                          >
+                            Mobile OTP
+                          </Button>
+                        </div>
+
+                        {staffOTPType === 'email' ? (
+                          <div className="space-y-2">
+                            <Label htmlFor="staff-username-otp">Username</Label>
+                            <Input
+                              id="staff-username-otp"
+                              type="text"
+                              placeholder="Enter your username"
+                              value={staffData.username}
+                              onChange={(e) => setStaffData({ ...staffData, username: e.target.value })}
+                              required
+                            />
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Label htmlFor="staff-mobile">Mobile Number</Label>
+                            <Input
+                              id="staff-mobile"
+                              type="tel"
+                              placeholder="Enter 10-digit mobile number"
+                              value={staffMobile}
+                              onChange={(e) => {
+                                const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                setStaffMobile(value);
+                              }}
+                              maxLength={10}
+                              required
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Enter your registered mobile number
+                            </p>
+                          </div>
+                        )}
+                        
+                        <Button 
+                          type="button"
+                          onClick={staffOTPType === 'email' ? handleStaffSendOTP : handleStaffSendMobileOTP} 
+                          className="w-full" 
+                          disabled={staffLoading || (staffOTPType === 'email' ? !staffData.username : !staffMobile || staffMobile.length !== 10)}
+                        >
+                          {staffLoading ? 'Sending OTP...' : 'Send 6-Digit OTP'}
+                        </Button>
+                      </>
                     ) : (
-                      <form onSubmit={handleStaffVerifyOTP} className="space-y-4">
+                      <form onSubmit={staffOTPType === 'email' ? handleStaffVerifyOTP : handleStaffVerifyMobileOTP} className="space-y-4">
                         <div className="space-y-2">
                           <Label>Enter 6-Digit OTP</Label>
                           <p className="text-xs text-muted-foreground text-center">
-                            Enter the 6-digit code emailed to you
+                            {staffOTPType === 'email' 
+                              ? `Code sent to ${staffEmail.substring(0, 3)}***@${staffEmail.split('@')[1]}`
+                              : `Code sent to ${staffMobile.substring(0, 3)}****${staffMobile.substring(7)}`
+                            }
                           </p>
                           <div className="flex justify-center">
                             <InputOTP 
@@ -541,7 +649,12 @@ const Auth = () => {
                             </InputOTP>
                           </div>
                           <p className="text-xs text-muted-foreground text-center mt-2">
-                            Code sent to {staffEmail.substring(0, 3)}***@{staffEmail.split('@')[1]}
+                            {staffOTPType === 'email' && staffEmail
+                              ? `Code sent to ${staffEmail.substring(0, 3)}***@${staffEmail.split('@')[1]}`
+                              : staffOTPType === 'mobile' && staffMobile
+                              ? `Code sent to ${staffMobile.substring(0, 3)}****${staffMobile.substring(7)}`
+                              : 'Code sent successfully'
+                            }
                           </p>
                         </div>
                         
@@ -557,7 +670,7 @@ const Auth = () => {
                           type="button"
                           variant="ghost" 
                           className="w-full" 
-                          onClick={handleStaffResendOTP}
+                          onClick={staffOTPType === 'email' ? handleStaffResendOTP : handleStaffSendMobileOTP}
                           disabled={staffResendCooldown > 0 || staffLoading}
                         >
                           {staffResendCooldown > 0 
