@@ -21,7 +21,8 @@ import {
   CalendarCheck,
   Zap,
   Building2,
-  FolderOpen
+  FolderOpen,
+  LayoutDashboard
 } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
 import {
@@ -121,6 +122,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
       return [
         ...baseItems,
         { id: 'doctors', label: 'Doctors', icon: Users },
+        { id: 'payment-hub', label: 'Payment Hub', icon: LayoutDashboard },
         { id: 'cash-payments-lite', label: 'Cash Payments (Lite)', icon: CreditCard },
         { id: 'insurance-payments-lite', label: 'Insurance Payments (Lite)', icon: CreditCard },
         { id: 'quick-payment', label: 'Quick Payment', icon: Zap },
@@ -147,6 +149,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
         { id: 'staff', label: 'Staff Management', icon: UserCog },
         { id: 'doctors', label: 'Doctor Management', icon: Users },
         { id: 'visits', label: 'Visit Management', icon: Calendar },
+        { id: 'payment-hub', label: 'Payment Hub', icon: LayoutDashboard },
         { id: 'cash-payments-lite', label: 'Cash Payments (Lite)', icon: CreditCard },
         { id: 'insurance-payments-lite', label: 'Insurance Payments (Lite)', icon: CreditCard },
         { id: 'quick-payment', label: 'Quick Payment', icon: Zap },

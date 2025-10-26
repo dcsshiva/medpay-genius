@@ -31,6 +31,7 @@ import QuickPaymentBankAdviceReport from '@/components/QuickPaymentBankAdviceRep
 import BankAdviceGeneration from '@/components/BankAdviceGeneration';
 import BankAdviceReport from '@/components/BankAdviceReport';
 import BankAdviceReports from '@/components/BankAdviceReports';
+import PaymentHub from '@/components/PaymentHub';
 
 // Bank Advice Payment Report Component
 const Index = () => {
@@ -140,6 +141,8 @@ const Index = () => {
         return <BankAdviceReports />;
       case 'bank-advice-records':
         return <BankAdviceReport />;
+      case 'payment-hub':
+        return <PaymentHub />;
       case 'leave-permission':
         return <LeavePermissionManagement />;
       case 'leave-approvals':
