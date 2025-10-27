@@ -29,6 +29,7 @@ import ApprovalManagement from '@/components/leave-permission/ApprovalManagement
 import QuickPaymentManagement from '@/components/QuickPaymentManagement';
 import QuickPaymentBankAdviceReport from '@/components/QuickPaymentBankAdviceReport';
 import BankAdviceGeneration from '@/components/BankAdviceGeneration';
+import BankAdviceGenerationBeta from '@/components/BankAdviceGenerationBeta';
 import BankAdviceReport from '@/components/BankAdviceReport';
 import BankAdviceReports from '@/components/BankAdviceReports';
 import PaymentHub from '@/components/PaymentHub';
@@ -137,6 +138,8 @@ const Index = () => {
         return <QuickPaymentBankAdviceReport />;
       case 'bank-advice-generation':
         return <BankAdviceGeneration />;
+      case 'bank-advice-generation-beta':
+        return <BankAdviceGenerationBeta />;
       case 'bank-advice-history':
         return <BankAdviceReports />;
       case 'bank-advice-records':

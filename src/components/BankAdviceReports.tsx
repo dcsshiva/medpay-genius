@@ -191,6 +191,118 @@ const BankAdviceReports = () => {
     });
   };
 
+  const handleRegenerate = async (record: BankAdviceHistory) => {
+    try {
+      // Fetch latest bank details from doctors table
+      if (record.payment_source === 'doctor') {
+        const { data: payments } = await supabase
+          .from('payments')
+          .select(`
+            id,
+            net_amount,
+            doctors (
+              full_name,
+              bank_account_number,
+              ifsc_code,
+              bank_name,
+              account_holder_name
+            )
+          `)
+          .in('id', record.payment_ids);
+
+        if (!payments || payments.length === 0) {
+          throw new Error('No payment records found');
+        }
+
+        // Rebuild GEFU format with latest bank details
+        const today = new Date();
+        const dd = String(today.getDate()).padStart(2, '0');
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const yy = String(today.getFullYear()).slice(-2);
+
+        let gefuContent = `H~${dd}/${mm}/20${yy}~WESTMED\n`;
+        
+        let totalNetAmount = 0;
+        payments.forEach((payment: any, index: number) => {
+          const doctor = payment.doctors;
+          const seq = String(index + 1).padStart(6, '0');
+          const netAmount = Number(payment.net_amount).toFixed(2);
+          totalNetAmount += Number(payment.net_amount);
+
+          gefuContent += `D~N06~HOSPITAL_ACCOUNT~HOSPITAL_NAME~ADDRESS1~ADDRESS2~ADDRESS3~${doctor.ifsc_code}~${doctor.bank_account_number}~${doctor.account_holder_name}~~~~~${seq}~${dd}/${mm}/20${yy}~${netAmount}~${seq}~~~~\n`;
+        });
+
+        gefuContent += `F~${payments.length}~${totalNetAmount.toFixed(2)}\n`;
+
+        // Download regenerated file
+        const blob = new Blob([gefuContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = record.filename.replace('.txt', '-updated.txt');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        toast({
+          title: "Success",
+          description: "Bank advice regenerated with latest bank details"
+        });
+      } else {
+        // For quick payments
+        const { data: payments } = await supabase
+          .from('quick_payments')
+          .select('*')
+          .in('id', record.payment_ids);
+
+        if (!payments || payments.length === 0) {
+          throw new Error('No payment records found');
+        }
+
+        const today = new Date();
+        const dd = String(today.getDate()).padStart(2, '0');
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const yy = String(today.getFullYear()).slice(-2);
+
+        let gefuContent = `H~${dd}/${mm}/20${yy}~WESTMED\n`;
+        
+        let totalNetAmount = 0;
+        payments.forEach((payment: any, index: number) => {
+          const seq = String(index + 1).padStart(6, '0');
+          const netAmount = Number(payment.net_amount).toFixed(2);
+          totalNetAmount += Number(payment.net_amount);
+
+          gefuContent += `D~N06~HOSPITAL_ACCOUNT~HOSPITAL_NAME~ADDRESS1~ADDRESS2~ADDRESS3~${payment.ifsc_code}~${payment.account_number}~${payment.account_holder_name}~~~~~${seq}~${dd}/${mm}/20${yy}~${netAmount}~${seq}~~~~\n`;
+        });
+
+        gefuContent += `F~${payments.length}~${totalNetAmount.toFixed(2)}\n`;
+
+        const blob = new Blob([gefuContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = record.filename.replace('.txt', '-updated.txt');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        toast({
+          title: "Success",
+          description: "Bank advice regenerated with latest bank details"
+        });
+      }
+    } catch (error) {
+      console.error('Error regenerating bank advice:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to regenerate bank advice"
+      });
+    }
+  };
+
   const filteredRecords = records.filter(record => {
     // Apply filename search filter
     if (filters.doctorSearch) {
@@ -439,7 +551,7 @@ const BankAdviceReports = () => {
                         </p>
                       </div>
                       
-                      <div className="flex gap-2">
+                      <div className="flex flex-col gap-2">
                         <Button
                           variant="outline"
                           size="sm"
@@ -447,6 +559,15 @@ const BankAdviceReports = () => {
                         >
                           <Download className="h-4 w-4 mr-2" />
                           Download
+                        </Button>
+                        
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleRegenerate(record)}
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Regenerate
                         </Button>
                         
                         <Button
