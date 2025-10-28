@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Shield, Search, Settings2, Eye, History, UserCheck } from 'lucide-react';
 import { AccessConfigDialog } from './AccessConfigDialog';
+import { AdminAccessManagement } from './AdminAccessManagement';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface StaffMember {
@@ -38,7 +39,7 @@ interface AccessHistory {
 }
 
 export const UserAccessManagement = () => {
-  const { user } = useAuth();
+  const { user, userDesignation } = useAuth();
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [filteredStaff, setFilteredStaff] = useState<StaffMember[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -167,7 +168,7 @@ export const UserAccessManagement = () => {
       </div>
 
       <Tabs defaultValue="staff" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className={`grid w-full ${userDesignation === 'super_admin' ? 'grid-cols-3' : 'grid-cols-2'}`}>
           <TabsTrigger value="staff" className="flex items-center gap-2">
             <UserCheck className="h-4 w-4" />
             Staff Access
@@ -176,6 +177,12 @@ export const UserAccessManagement = () => {
             <History className="h-4 w-4" />
             Access History
           </TabsTrigger>
+          {userDesignation === 'super_admin' && (
+            <TabsTrigger value="admin-access" className="flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              Admin Access Control
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="staff" className="space-y-4">
@@ -317,6 +324,12 @@ export const UserAccessManagement = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {userDesignation === 'super_admin' && (
+          <TabsContent value="admin-access" className="space-y-4">
+            <AdminAccessManagement />
+          </TabsContent>
+        )}
       </Tabs>
 
       {selectedStaff && (

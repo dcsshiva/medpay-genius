@@ -24,7 +24,7 @@ import { UserAccessManagement } from './UserAccessManagement';
 import { AuthEmailSync } from './AuthEmailSync';
 
 const Settings = () => {
-  const { userRole, signOut } = useAuth();
+  const { userRole, userDesignation, signOut } = useAuth();
   const [isEraseDialogOpen, setIsEraseDialogOpen] = useState(false);
   const [isErasing, setIsErasing] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
@@ -86,15 +86,17 @@ const Settings = () => {
     }
   };
 
-  // Only admins and managers can access settings
-  if (userRole !== 'admin' && userRole !== 'manager') {
+  // Only super admins and admins can access settings
+  if (userDesignation !== 'super_admin' && userDesignation !== 'admin') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card className="w-96">
           <CardContent className="p-6 text-center">
             <Lock className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <h2 className="text-xl font-semibold mb-2">Access Denied</h2>
-            <p className="text-muted-foreground">You don't have permission to access this page.</p>
+            <p className="text-muted-foreground">
+              Only Super Admins and Admins can access this page.
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -115,7 +117,7 @@ const Settings = () => {
             <Users className="h-4 w-4" />
             User Access Management
           </TabsTrigger>
-          {userRole === 'admin' && (
+          {userDesignation === 'super_admin' && (
             <TabsTrigger value="auth-sync" className="flex items-center gap-2">
               <Mail className="h-4 w-4" />
               Auth Synchronization

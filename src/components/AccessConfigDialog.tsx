@@ -45,25 +45,51 @@ interface AccessConfigDialogProps {
 }
 
 const SCREEN_MODULES = [
+  // Main
   { value: 'dashboard', label: 'Dashboard', category: 'Main' },
+  { value: 'user_guide', label: 'User Guide', category: 'Help' },
+  
+  // Management
   { value: 'visit_management', label: 'Visit Management', category: 'Management' },
   { value: 'payment_management', label: 'Payment Management', category: 'Management' },
+  { value: 'doctor_management', label: 'Doctor Management', category: 'Management' },
+  { value: 'staff_management', label: 'Staff Management', category: 'Management', superAdminOnly: true },
+  { value: 'task_management', label: 'Task Management', category: 'Management' },
+  { value: 'staff_appraisal', label: 'Staff Appraisal', category: 'Management' },
+  { value: 'appraisals', label: 'Staff Appraisals Management', category: 'Management' },
+  { value: 'complaint_management', label: 'Complaint Management', category: 'Management' },
+  { value: 'leave_permission', label: 'Leave & Permission', category: 'Management' },
+  { value: 'leave_approvals', label: 'Leave Approvals', category: 'Management' },
+  
+  // Payments
+  { value: 'payment_hub', label: 'Payment Hub', category: 'Payments' },
   { value: 'cash_payments', label: 'Cash Payments', category: 'Payments' },
   { value: 'insurance_payments', label: 'Insurance Payments', category: 'Payments' },
-  { value: 'doctor_management', label: 'Doctor Management', category: 'Management' },
-  { value: 'staff_management', label: 'Staff Management', category: 'Management', adminOnly: true },
-  { value: 'task_management', label: 'Task Management', category: 'Management' },
+  { value: 'quick_payment', label: 'Quick Payment', category: 'Payments' },
+  
+  // Bank Advice
+  { value: 'bank_advice_generation', label: 'Bank Advice (Legacy)', category: 'Bank Advice' },
+  { value: 'bank_advice_generation_beta', label: 'Bank Advice (Beta)', category: 'Bank Advice' },
+  { value: 'bank_advice_history', label: 'Bank Advice History', category: 'Bank Advice' },
+  { value: 'bank_advice_records', label: 'Bank Advice Records', category: 'Bank Advice' },
+  { value: 'bank_advice_payment_report', label: 'BA Payment Report', category: 'Bank Advice' },
+  { value: 'quick_payment_bank_advice_report', label: 'Quick Payment BA Report', category: 'Bank Advice' },
+  
+  // Reports
   { value: 'report_generation', label: 'Report Generation', category: 'Reports' },
   { value: 'bank_advice_reports', label: 'Bank Advice Reports', category: 'Reports' },
   { value: 'tds_reports', label: 'TDS Reports', category: 'Reports' },
   { value: 'user_login_reports', label: 'User Login Reports', category: 'Reports' },
-  { value: 'staff_appraisal', label: 'Staff Appraisal', category: 'Management' },
-  { value: 'complaint_management', label: 'Complaint Management', category: 'Management' },
+  { value: 'login_reports', label: 'Login Reports', category: 'Reports' },
+  
+  // Settings
   { value: 'master_data', label: 'Master Data', category: 'Settings' },
-  { value: 'settings', label: 'Settings', category: 'Settings', adminOnly: true },
-  { value: 'team_chat', label: 'Team Chat', category: 'Communication' },
+  { value: 'settings', label: 'Settings', category: 'Settings', superAdminOnly: true },
+  { value: 'version', label: 'Version Management', category: 'Settings', superAdminOnly: true },
   { value: 'website_settings', label: 'Website Settings', category: 'Settings' },
-  { value: 'user_guide', label: 'User Guide', category: 'Help' },
+  
+  // Communication
+  { value: 'team_chat', label: 'Team Chat', category: 'Communication' },
 ];
 
 const APPROVAL_TYPES = [
@@ -71,15 +97,17 @@ const APPROVAL_TYPES = [
   { value: 'cash_payment_admin', label: 'Cash Payment (Admin Level)', level: 'admin' },
   { value: 'insurance_payment_manager', label: 'Insurance Payment (Manager Level)', level: 'manager' },
   { value: 'insurance_payment_admin', label: 'Insurance Payment (Admin Level)', level: 'admin' },
+  { value: 'quick_payment_approval', label: 'Quick Payment Approval', level: 'manager' },
   { value: 'payment_rejection', label: 'Payment Rejection', level: 'manager' },
   { value: 'bank_advice_generation', label: 'Bank Advice Generation', level: 'admin' },
   { value: 'staff_appraisal_approval', label: 'Staff Appraisal Approval', level: 'manager' },
+  { value: 'leave_permission_approval', label: 'Leave/Permission Approval', level: 'manager' },
   { value: 'complaint_resolution', label: 'Complaint Resolution', level: 'manager' },
   { value: 'master_data_changes', label: 'Master Data Changes', level: 'admin' },
 ];
 
 export const AccessConfigDialog = ({ isOpen, onClose, staffMember }: AccessConfigDialogProps) => {
-  const { user, userRole } = useAuth();
+  const { user, userRole, userDesignation } = useAuth();
   const [screenAccess, setScreenAccess] = useState<Record<string, ScreenAccess>>({});
   const [approvalPermissions, setApprovalPermissions] = useState<Record<string, ApprovalPermission>>({});
   const [notes, setNotes] = useState('');
@@ -211,14 +239,14 @@ export const AccessConfigDialog = ({ isOpen, onClose, staffMember }: AccessConfi
     }
   };
 
-  const isAdminOnly = (screenModule: string) => {
+  const isSuperAdminOnly = (screenModule: string) => {
     const screen = SCREEN_MODULES.find(s => s.value === screenModule);
-    return screen?.adminOnly && userRole !== 'admin';
+    return screen?.superAdminOnly && userDesignation !== 'super_admin';
   };
 
   const isAdminLevelApproval = (approvalType: string) => {
     const approval = APPROVAL_TYPES.find(a => a.value === approvalType);
-    return approval?.level === 'admin' && userRole !== 'admin';
+    return approval?.level === 'admin' && userDesignation !== 'super_admin' && userDesignation !== 'admin';
   };
 
   const groupedScreens = SCREEN_MODULES.reduce((acc, screen) => {
@@ -270,7 +298,7 @@ export const AccessConfigDialog = ({ isOpen, onClose, staffMember }: AccessConfi
                     </h3>
                     <div className="space-y-3 ml-2">
                       {screens.map((screen) => {
-                        const disabled = isAdminOnly(screen.value);
+                        const disabled = isSuperAdminOnly(screen.value);
                         return (
                           <div
                             key={screen.value}

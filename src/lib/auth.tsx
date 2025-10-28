@@ -9,6 +9,7 @@ interface AuthContextType {
   loading: boolean;
   userRole: string | null;
   userProfile: any | null;
+  userDesignation: 'super_admin' | 'admin' | 'manager' | 'supervisor' | 'doctor' | 'staff' | null;
   signInWithUsername: (username: string, password: string) => Promise<{ error: any }>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
   signInWithOTP: (email: string) => Promise<{ error: any }>;
@@ -102,6 +103,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<any | null>(null);
+  const [userDesignation, setUserDesignation] = useState<'super_admin' | 'admin' | 'manager' | 'supervisor' | 'doctor' | 'staff' | null>(null);
+
+  // Fetch user designation from user_designations table
+  const fetchDesignation = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('user_designations')
+        .select('designation')
+        .eq('user_id', userId)
+        .single();
+      
+      if (!error && data) {
+        return data.designation;
+      }
+    } catch (error) {
+      console.error('Error fetching designation:', error);
+    }
+    return null;
+  };
 
   // Load session from Supabase on mount
   useEffect(() => {
@@ -133,9 +153,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             token_type: 'bearer'
           } as Session;
 
+          // Fetch designation
+          const designation = await fetchDesignation(sessionData.user_id);
+
           setUser(mockUser);
           setSession(mockSession);
           setUserRole(sessionData.role);
+          setUserDesignation(designation);
           setUserProfile({
             role: sessionData.role,
             full_name: sessionData.full_name,
@@ -664,6 +688,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loading,
       userRole,
       userProfile,
+      userDesignation,
       signInWithUsername,
       signInWithEmail,
       signInWithOTP,
