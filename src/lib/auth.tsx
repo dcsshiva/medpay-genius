@@ -236,9 +236,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               token_type: 'bearer'
             } as Session;
 
+            // Fetch designation
+            const designation = await fetchDesignation(sessionData.user_id);
+            
             setUser(mockUser);
             setSession(mockSession);
             setUserRole(sessionData.role);
+            setUserDesignation(designation);
             setUserProfile({
               role: sessionData.role,
               full_name: sessionData.full_name,
@@ -365,15 +369,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .eq('user_id', data.user.id)
           .maybeSingle();
 
-        if (designation?.designation) {
-          // Use designation as role
-          setUserRole(designation.designation);
-          setUserProfile({
-            id: data.user.id,
-            user_id: data.user.id,
-            full_name: email,
-            role: designation.designation
-          });
+      if (designation?.designation) {
+        // Use designation for both role and designation
+        setUserRole(designation.designation);
+        setUserDesignation(designation.designation);
+        setUserProfile({
+          id: data.user.id,
+          user_id: data.user.id,
+          full_name: email,
+          role: designation.designation
+        });
           
           try {
             await createUserSession({
@@ -398,6 +403,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (profile) {
             // Profile exists, use it
             setUserRole(profile.role);
+            setUserDesignation(null);
             setUserProfile(profile);
 
             try {

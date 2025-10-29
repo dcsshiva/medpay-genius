@@ -2387,7 +2387,13 @@ export type Database = {
       }
     }
     Enums: {
-      app_designation: "admin" | "manager" | "supervisor" | "doctor" | "staff"
+      app_designation:
+        | "super_admin"
+        | "admin"
+        | "manager"
+        | "supervisor"
+        | "doctor"
+        | "staff"
       application_status: "pending" | "approved" | "rejected"
       application_type: "leave" | "permission"
       appraisal_rating:
@@ -2608,7 +2614,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_designation: ["admin", "manager", "supervisor", "doctor", "staff"],
+      app_designation: [
+        "super_admin",
+        "admin",
+        "manager",
+        "supervisor",
+        "doctor",
+        "staff",
+      ],
       application_status: ["pending", "approved", "rejected"],
       application_type: ["leave", "permission"],
       appraisal_rating: [
