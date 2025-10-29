@@ -57,7 +57,7 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
-  const { userRole } = useAuth();
+  const { userRole, userDesignation } = useAuth();
   const { open } = useSidebar();
   const [stats, setStats] = useState<NavigationStats>({
     pendingRequests: 0,
@@ -66,7 +66,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   });
 
   const fetchStats = async () => {
-    if (!(userRole === 'manager' || userRole === 'admin')) return;
+    if (!(userRole === 'manager' || userRole === 'admin' || userDesignation === 'super_admin' || userDesignation === 'admin' || userDesignation === 'manager')) return;
     
     try {
       const [visitsRes, transactionsRes, paymentsRes] = await Promise.all([
@@ -107,6 +107,39 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
       { id: 'user-guide', label: 'User Guide', icon: BookOpen },
     ];
 
+    // Super Admin - Full access to everything
+    if (userDesignation === 'super_admin') {
+      return [
+        ...baseItems,
+        { id: 'masters', label: 'Masters', icon: Database },
+        { id: 'staff', label: 'Staff Management', icon: UserCog },
+        { id: 'doctors', label: 'Doctor Management', icon: Users },
+        { id: 'visits', label: 'Visit Management', icon: Calendar },
+        { id: 'payment-hub', label: 'Payment Hub', icon: LayoutDashboard },
+        { id: 'cash-payments-lite', label: 'Cash Payments (Lite)', icon: CreditCard },
+        { id: 'insurance-payments-lite', label: 'Insurance Payments (Lite)', icon: CreditCard },
+        { id: 'quick-payment', label: 'Quick Payment', icon: Zap },
+        { id: 'bank-advice-generation-beta', label: 'Bank Advice (Beta)', icon: Building2 },
+        { id: 'bank-advice-generation', label: 'Bank Advice (Legacy)', icon: Building2 },
+        { id: 'bank-advice-history', label: 'Bank Advice History', icon: FolderOpen },
+        { id: 'bank-advice-records', label: 'Bank Advice Records', icon: FileText },
+        { id: 'tds-reports', label: 'TDS Reports', icon: FileText },
+        { id: 'cash-payments', label: 'Cash Payments', icon: CreditCard },
+        { id: 'insurance-payments', label: 'Insurance Payments', icon: CreditCard },
+        { id: 'bank-advice-payment-report', label: 'BA Payment Report', icon: FileText },
+        { id: 'quick-payment-bank-advice-report', label: 'Quick Payment BA Report', icon: FileText },
+        { id: 'tasks', label: 'Task Management', icon: ClipboardList },
+        { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
+        { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
+        { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
+        { id: 'login-reports', label: 'Login Reports', icon: TrendingUp },
+        { id: 'chat', label: 'Team Chat', icon: MessageSquare },
+        { id: 'version', label: 'Version Management', icon: HistoryIcon },
+        { id: 'website-settings', label: 'Website Settings', icon: Globe },
+        { id: 'settings', label: 'Settings', icon: Settings },
+      ];
+    }
+
     if (userRole === 'doctor') {
       return [
         ...baseItems,
@@ -143,7 +176,8 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
       ];
     }
 
-    if (userRole === 'admin') {
+    // Admin designation also gets full access
+    if (userRole === 'admin' || userDesignation === 'admin') {
       return [
         ...baseItems,
         { id: 'masters', label: 'Masters', icon: Database },
@@ -232,7 +266,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
         </SidebarGroup>
 
         {/* Payment Stats Section - Only for managers and admins */}
-        {(userRole === 'manager' || userRole === 'admin') && (
+        {(userRole === 'manager' || userRole === 'admin' || userDesignation === 'super_admin' || userDesignation === 'admin' || userDesignation === 'manager') && (
           <SidebarGroup>
             <SidebarGroupLabel>Payment Stats</SidebarGroupLabel>
             <SidebarGroupContent>
