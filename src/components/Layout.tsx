@@ -27,7 +27,9 @@ import {
   BookOpen,
   ClipboardCheck,
   Database,
-  CalendarCheck
+  CalendarCheck,
+  Zap,
+  LayoutDashboard
 } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
 
@@ -60,6 +62,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
       return [
         ...baseItems,
         { id: 'doctors', label: 'Doctors', icon: Users },
+        { id: 'doctor-hub', label: 'Doctor Hub', icon: Stethoscope },
         { id: 'payments', label: 'Payment Approvals', icon: CreditCard },
         { id: 'tasks', label: 'Task Management', icon: ClipboardList },
         { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
@@ -75,6 +78,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
       { id: 'staff', label: 'Staff Management', icon: UserCog },
       { id: 'masters', label: 'Masters', icon: Database },
       { id: 'doctors', label: 'Doctor Management', icon: Users },
+        { id: 'doctor-hub', label: 'Doctor Hub', icon: Stethoscope },
         { id: 'visits', label: 'Visit Management', icon: Calendar },
         { id: 'payments', label: 'Payment Management', icon: CreditCard },
         { id: 'tasks', label: 'Task Management', icon: ClipboardList },

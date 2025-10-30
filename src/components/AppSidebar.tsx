@@ -22,7 +22,8 @@ import {
   Zap,
   Building2,
   FolderOpen,
-  LayoutDashboard
+  LayoutDashboard,
+  Stethoscope
 } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
 import {
@@ -116,6 +117,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
         { id: 'doctors', label: 'Doctor Management', icon: Users },
         { id: 'visits', label: 'Visit Management', icon: Calendar },
         { id: 'payment-hub', label: 'Payment Hub', icon: LayoutDashboard },
+        { id: 'doctor-hub', label: 'Doctor Hub', icon: Stethoscope },
         { id: 'cash-payments-lite', label: 'Cash Payments (Lite)', icon: CreditCard },
         { id: 'insurance-payments-lite', label: 'Insurance Payments (Lite)', icon: CreditCard },
         { id: 'quick-payment', label: 'Quick Payment', icon: Zap },

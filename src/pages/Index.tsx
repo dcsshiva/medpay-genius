@@ -33,6 +33,7 @@ import BankAdviceGenerationBeta from '@/components/BankAdviceGenerationBeta';
 import BankAdviceReport from '@/components/BankAdviceReport';
 import BankAdviceReports from '@/components/BankAdviceReports';
 import PaymentHub from '@/components/PaymentHub';
+import DoctorHub from '@/components/DoctorHub';
 
 // Bank Advice Payment Report Component
 const Index = () => {
@@ -146,6 +147,8 @@ const Index = () => {
         return <BankAdviceReport />;
       case 'payment-hub':
         return <PaymentHub />;
+      case 'doctor-hub':
+        return <DoctorHub />;
       case 'leave-permission':
         return <LeavePermissionManagement />;
       case 'leave-approvals':
