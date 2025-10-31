@@ -42,7 +42,7 @@ interface Staff {
 }
 
 const StaffManagement = () => {
-  const { userRole } = useAuth();
+  const { userRole, userDesignation } = useAuth();
   const { toast } = useToast();
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,12 +77,12 @@ const StaffManagement = () => {
   const [departmentsMaster, setDepartmentsMaster] = useState<Array<{ id: string; department_code: string; department_name: string }>>([]);
 
   useEffect(() => {
-    if (userRole === 'admin') {
+    if (userRole === 'admin' || userRole === 'super_admin' || userDesignation === 'super_admin') {
       fetchStaff();
       fetchRolesMaster();
       fetchDepartmentsMaster();
     }
-  }, [userRole]);
+  }, [userRole, userDesignation]);
 
   const fetchStaff = async () => {
     try {
@@ -159,7 +159,7 @@ const StaffManagement = () => {
     e.preventDefault();
     setSubmitting(true);
 
-    if (!['admin', 'manager'].includes(userRole || '')) {
+    if (!['admin', 'manager', 'super_admin'].includes(userRole || '')) {
       toast({
         variant: "destructive",
         title: "Access Denied",

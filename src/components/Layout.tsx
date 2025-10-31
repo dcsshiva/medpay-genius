@@ -40,7 +40,7 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => {
-  const { user, userRole, signOut } = useAuth();
+  const { user, userRole, userDesignation, signOut } = useAuth();
 
   const getNavigationItems = () => {
     const baseItems = [
@@ -48,7 +48,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
       { id: 'user-guide', label: 'User Guide', icon: BookOpen },
     ];
 
-    if (userRole === 'doctor') {
+    if (userRole === 'doctor' || userDesignation === 'doctor') {
       return [
         ...baseItems,
         { id: 'visits', label: 'My Visits', icon: Calendar },
@@ -58,7 +58,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
       ];
     }
 
-    if (userRole === 'manager') {
+    if (userRole === 'manager' || userDesignation === 'manager') {
       return [
         ...baseItems,
         { id: 'doctors', label: 'Doctors', icon: Users },
@@ -72,12 +72,32 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
       ];
     }
 
-  if (userRole === 'admin') {
+  if (userRole === 'admin' || userDesignation === 'admin') {
     return [
       ...baseItems,
       { id: 'staff', label: 'Staff Management', icon: UserCog },
       { id: 'masters', label: 'Masters', icon: Database },
       { id: 'doctors', label: 'Doctor Management', icon: Users },
+        { id: 'doctor-hub', label: 'Doctor Hub', icon: Stethoscope },
+        { id: 'visits', label: 'Visit Management', icon: Calendar },
+        { id: 'payments', label: 'Payment Management', icon: CreditCard },
+        { id: 'tasks', label: 'Task Management', icon: ClipboardList },
+        { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
+        { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
+        { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
+        { id: 'chat', label: 'Team Chat', icon: MessageSquare },
+        { id: 'version', label: 'Version Management', icon: HistoryIcon },
+        { id: 'settings', label: 'Settings', icon: Settings },
+      ];
+    }
+
+    // Super admin - full access (same as admin + settings)
+    if (userRole === 'super_admin' || userDesignation === 'super_admin') {
+      return [
+        ...baseItems,
+        { id: 'staff', label: 'Staff Management', icon: UserCog },
+        { id: 'masters', label: 'Masters', icon: Database },
+        { id: 'doctors', label: 'Doctor Management', icon: Users },
         { id: 'doctor-hub', label: 'Doctor Hub', icon: Stethoscope },
         { id: 'visits', label: 'Visit Management', icon: Calendar },
         { id: 'payments', label: 'Payment Management', icon: CreditCard },

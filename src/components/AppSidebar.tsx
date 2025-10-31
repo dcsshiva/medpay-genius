@@ -109,7 +109,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
     ];
 
     // Super Admin - Full access to everything
-    if (userDesignation === 'super_admin') {
+    if (userDesignation === 'super_admin' || userRole === 'super_admin') {
       return [
         ...baseItems,
         { id: 'masters', label: 'Masters', icon: Database },
@@ -153,11 +153,12 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
       ];
     }
 
-    if (userRole === 'manager') {
+    if (userRole === 'manager' || userDesignation === 'manager') {
       return [
         ...baseItems,
         { id: 'doctors', label: 'Doctors', icon: Users },
         { id: 'payment-hub', label: 'Payment Hub', icon: LayoutDashboard },
+        { id: 'doctor-hub', label: 'Doctor Hub', icon: Stethoscope },
         { id: 'cash-payments-lite', label: 'Cash Payments (Lite)', icon: CreditCard },
         { id: 'insurance-payments-lite', label: 'Insurance Payments (Lite)', icon: CreditCard },
         { id: 'quick-payment', label: 'Quick Payment', icon: Zap },
@@ -185,6 +186,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
         { id: 'masters', label: 'Masters', icon: Database },
         { id: 'staff', label: 'Staff Management', icon: UserCog },
         { id: 'doctors', label: 'Doctor Management', icon: Users },
+        { id: 'doctor-hub', label: 'Doctor Hub', icon: Stethoscope },
         { id: 'visits', label: 'Visit Management', icon: Calendar },
         { id: 'payment-hub', label: 'Payment Hub', icon: LayoutDashboard },
         { id: 'cash-payments-lite', label: 'Cash Payments (Lite)', icon: CreditCard },
