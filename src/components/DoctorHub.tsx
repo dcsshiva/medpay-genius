@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronUp, CheckCircle2, Clock, Receipt } from 'lucide-react';
+import { ChevronDown, ChevronUp, CheckCircle2, Clock, Receipt, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateIST } from '@/lib/dateUtils';
 import { getFinancialYearStart } from '@/lib/tdsUtils';
@@ -43,6 +43,9 @@ interface UnpaidVisit {
   payment_status?: string;
 }
 
+type SortField = 'doctor_code' | 'full_name' | 'paid_amount' | 'unpaid_amount' | 'total_amount';
+type SortDirection = 'asc' | 'desc';
+
 const DoctorHub: React.FC = () => {
   const [doctors, setDoctors] = useState<DoctorSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -51,6 +54,8 @@ const DoctorHub: React.FC = () => {
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
   const [unpaidVisits, setUnpaidVisits] = useState<UnpaidVisit[]>([]);
   const [detailsLoading, setDetailsLoading] = useState(false);
+  const [sortField, setSortField] = useState<SortField>('doctor_code');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const { toast } = useToast();
 
   const currentFYStart = getFinancialYearStart(new Date());
@@ -120,6 +125,33 @@ const DoctorHub: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const sortedDoctors = [...doctors].sort((a, b) => {
+    const aValue = a[sortField];
+    const bValue = b[sortField];
+    const modifier = sortDirection === 'asc' ? 1 : -1;
+
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      return aValue.localeCompare(bValue) * modifier;
+    }
+    return ((aValue as number) - (bValue as number)) * modifier;
+  });
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return <ArrowUpDown className="h-4 w-4 ml-1" />;
+    return sortDirection === 'asc' ? 
+      <ArrowUp className="h-4 w-4 ml-1" /> : 
+      <ArrowDown className="h-4 w-4 ml-1" />;
   };
 
   const fetchPaymentHistory = async (doctorId: string) => {
@@ -262,193 +294,239 @@ const DoctorHub: React.FC = () => {
         </div>
       </div>
 
-      <div className="grid gap-4">
-        {doctors.map((doctor) => (
-          <Card key={doctor.id} className="overflow-hidden">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle className="text-xl">
-                    {doctor.full_name}
-                    <Badge variant="outline" className="ml-2">
-                      {doctor.doctor_code}
-                    </Badge>
-                  </CardTitle>
-                  <CardDescription>
-                    {doctor.paid_count} payments processed • {doctor.unpaid_visits_count} pending visits
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {/* Paid */}
-                <Button
-                  variant={expandedDoctor === doctor.id && expandedTab === 'paid' ? 'default' : 'outline'}
-                  className="h-auto py-4 flex flex-col items-start gap-1 w-full"
-                  onClick={() => handleDoctorClick(doctor.id, 'paid')}
-                >
-                  <div className="flex items-center gap-2 w-full justify-between">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      <span className="font-semibold">Paid</span>
-                    </div>
-                    {expandedDoctor === doctor.id && expandedTab === 'paid' ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                  </div>
-                  <div className="text-2xl font-bold">{formatCurrency(doctor.paid_amount)}</div>
-                  <div className="text-xs text-muted-foreground">{doctor.paid_count} payments</div>
-                </Button>
+      <Card>
+        <CardContent className="p-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>
+                  <Button 
+                    variant="ghost" 
+                    className="flex items-center hover:bg-transparent"
+                    onClick={() => handleSort('doctor_code')}
+                  >
+                    Doctor Code
+                    {getSortIcon('doctor_code')}
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button 
+                    variant="ghost" 
+                    className="flex items-center hover:bg-transparent"
+                    onClick={() => handleSort('full_name')}
+                  >
+                    Doctor Name
+                    {getSortIcon('full_name')}
+                  </Button>
+                </TableHead>
+                <TableHead className="text-right">
+                  <Button 
+                    variant="ghost" 
+                    className="flex items-center ml-auto hover:bg-transparent"
+                    onClick={() => handleSort('paid_amount')}
+                  >
+                    Paid
+                    {getSortIcon('paid_amount')}
+                  </Button>
+                </TableHead>
+                <TableHead className="text-right">
+                  <Button 
+                    variant="ghost" 
+                    className="flex items-center ml-auto hover:bg-transparent"
+                    onClick={() => handleSort('unpaid_amount')}
+                  >
+                    Unpaid
+                    {getSortIcon('unpaid_amount')}
+                  </Button>
+                </TableHead>
+                <TableHead className="text-right">
+                  <Button 
+                    variant="ghost" 
+                    className="flex items-center ml-auto hover:bg-transparent"
+                    onClick={() => handleSort('total_amount')}
+                  >
+                    Total
+                    {getSortIcon('total_amount')}
+                  </Button>
+                </TableHead>
+                <TableHead className="text-center">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {sortedDoctors.map((doctor) => (
+                <React.Fragment key={doctor.id}>
+                  <TableRow className="hover:bg-muted/50">
+                    <TableCell className="font-medium">
+                      <Badge variant="outline">{doctor.doctor_code}</Badge>
+                    </TableCell>
+                    <TableCell className="font-semibold">{doctor.full_name}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex flex-col items-end">
+                        <span className="font-semibold text-green-600">
+                          {formatCurrency(doctor.paid_amount)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {doctor.paid_count} payments
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex flex-col items-end">
+                        <span className="font-semibold text-orange-600">
+                          {formatCurrency(doctor.unpaid_amount)}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {doctor.unpaid_visits_count} visits
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <span className="font-bold text-blue-600">
+                        {formatCurrency(doctor.total_amount)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-center gap-1">
+                        <Button
+                          size="sm"
+                          variant={expandedDoctor === doctor.id && expandedTab === 'paid' ? 'default' : 'outline'}
+                          onClick={() => handleDoctorClick(doctor.id, 'paid')}
+                          className="h-8"
+                        >
+                          <CheckCircle2 className="h-3 w-3 mr-1" />
+                          Paid
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={expandedDoctor === doctor.id && expandedTab === 'unpaid' ? 'default' : 'outline'}
+                          onClick={() => handleDoctorClick(doctor.id, 'unpaid')}
+                          className="h-8"
+                        >
+                          <Clock className="h-3 w-3 mr-1" />
+                          Unpaid
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant={expandedDoctor === doctor.id && expandedTab === 'total' ? 'default' : 'outline'}
+                          onClick={() => handleDoctorClick(doctor.id, 'total')}
+                          className="h-8"
+                        >
+                          <Receipt className="h-3 w-3 mr-1" />
+                          Total
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
 
-                {/* Unpaid */}
-                <Button
-                  variant={expandedDoctor === doctor.id && expandedTab === 'unpaid' ? 'default' : 'outline'}
-                  className="h-auto py-4 flex flex-col items-start gap-1 w-full"
-                  onClick={() => handleDoctorClick(doctor.id, 'unpaid')}
-                >
-                  <div className="flex items-center gap-2 w-full justify-between">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-5 w-5 text-orange-600" />
-                      <span className="font-semibold">Unpaid</span>
-                    </div>
-                    {expandedDoctor === doctor.id && expandedTab === 'unpaid' ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                  </div>
-                  <div className="text-2xl font-bold">{formatCurrency(doctor.unpaid_amount)}</div>
-                  <div className="text-xs text-muted-foreground">{doctor.unpaid_visits_count} visits</div>
-                </Button>
+                  {/* Expanded Details Row */}
+                  {expandedDoctor === doctor.id && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="bg-muted/30 p-6">
+                        {detailsLoading ? (
+                          <div className="text-center py-8">
+                            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
+                            <p className="mt-2 text-sm text-muted-foreground">Loading details...</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-6">
+                            {/* Paid History */}
+                            {(expandedTab === 'paid' || expandedTab === 'total') && (
+                              <div className="space-y-3">
+                                <h3 className="font-semibold text-lg flex items-center gap-2">
+                                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                  Payment History (Bank Advice Generated)
+                                </h3>
+                                {paymentHistory.length === 0 ? (
+                                  <p className="text-sm text-muted-foreground py-4">No payment history found</p>
+                                ) : (
+                                  <div className="rounded-md border bg-card">
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableHead>Period</TableHead>
+                                          <TableHead>Gross Amount</TableHead>
+                                          <TableHead>TDS</TableHead>
+                                          <TableHead>Net Amount</TableHead>
+                                          <TableHead>Generated On</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {paymentHistory.map((payment) => (
+                                          <TableRow key={payment.id}>
+                                            <TableCell className="font-medium">
+                                              {formatDateIST(payment.period_start)} - {formatDateIST(payment.period_end)}
+                                            </TableCell>
+                                            <TableCell>{formatCurrency(payment.gross_amount)}</TableCell>
+                                            <TableCell>{formatCurrency(payment.tds_amount)}</TableCell>
+                                            <TableCell className="font-semibold text-green-600">
+                                              {formatCurrency(payment.net_amount)}
+                                            </TableCell>
+                                            <TableCell>{formatDateIST(payment.bank_advice_generated_at)}</TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                )}
+                              </div>
+                            )}
 
-                {/* Total */}
-                <Button
-                  variant={expandedDoctor === doctor.id && expandedTab === 'total' ? 'default' : 'outline'}
-                  className="h-auto py-4 flex flex-col items-start gap-1 w-full"
-                  onClick={() => handleDoctorClick(doctor.id, 'total')}
-                >
-                  <div className="flex items-center gap-2 w-full justify-between">
-                    <div className="flex items-center gap-2">
-                      <Receipt className="h-5 w-5 text-blue-600" />
-                      <span className="font-semibold">Total</span>
-                    </div>
-                    {expandedDoctor === doctor.id && expandedTab === 'total' ? (
-                      <ChevronUp className="h-4 w-4" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4" />
-                    )}
-                  </div>
-                  <div className="text-2xl font-bold">{formatCurrency(doctor.total_amount)}</div>
-                  <div className="text-xs text-muted-foreground">Combined overview</div>
-                </Button>
-              </div>
-
-              {/* Expanded Content */}
-              {expandedDoctor === doctor.id && (
-                <div className="mt-4 pt-4 border-t">
-                  {detailsLoading ? (
-                    <div className="text-center py-8">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
-                      <p className="mt-2 text-sm text-muted-foreground">Loading details...</p>
-                    </div>
-                  ) : (
-                    <>
-                      {/* Paid History */}
-                      {(expandedTab === 'paid' || expandedTab === 'total') && (
-                        <div className="space-y-2">
-                          <h3 className="font-semibold flex items-center gap-2">
-                            <CheckCircle2 className="h-4 w-4 text-green-600" />
-                            Payment History (Bank Advice Generated)
-                          </h3>
-                          {paymentHistory.length === 0 ? (
-                            <p className="text-sm text-muted-foreground py-4">No payment history found</p>
-                          ) : (
-                            <div className="rounded-md border">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead>Period</TableHead>
-                                    <TableHead>Gross Amount</TableHead>
-                                    <TableHead>TDS</TableHead>
-                                    <TableHead>Net Amount</TableHead>
-                                    <TableHead>Generated On</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {paymentHistory.map((payment) => (
-                                    <TableRow key={payment.id}>
-                                      <TableCell className="font-medium">
-                                        {formatDateIST(payment.period_start)} - {formatDateIST(payment.period_end)}
-                                      </TableCell>
-                                      <TableCell>{formatCurrency(payment.gross_amount)}</TableCell>
-                                      <TableCell>{formatCurrency(payment.tds_amount)}</TableCell>
-                                      <TableCell className="font-semibold">
-                                        {formatCurrency(payment.net_amount)}
-                                      </TableCell>
-                                      <TableCell>{formatDateIST(payment.bank_advice_generated_at)}</TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Unpaid Visits */}
-                      {(expandedTab === 'unpaid' || expandedTab === 'total') && (
-                        <div className="space-y-2 mt-6">
-                          <h3 className="font-semibold flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-orange-600" />
-                            Unpaid Visits (Unprocessed)
-                          </h3>
-                          {unpaidVisits.length === 0 ? (
-                            <p className="text-sm text-muted-foreground py-4">No unpaid visits found</p>
-                          ) : (
-                            <div className="rounded-md border">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead>Visit Code</TableHead>
-                                    <TableHead>Date</TableHead>
-                                    <TableHead>Patient</TableHead>
-                                    <TableHead>Type</TableHead>
-                                    <TableHead>Amount</TableHead>
-                                    <TableHead>Status</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {unpaidVisits.map((visit) => (
-                                    <TableRow key={visit.id}>
-                                      <TableCell className="font-medium">{visit.visit_code}</TableCell>
-                                      <TableCell>{formatDateIST(visit.visit_date)}</TableCell>
-                                      <TableCell>{visit.patient_name}</TableCell>
-                                      <TableCell>
-                                        <Badge variant="outline">{visit.payment_type}</Badge>
-                                      </TableCell>
-                                      <TableCell>{formatCurrency(visit.visit_payment)}</TableCell>
-                                      <TableCell>
-                                        <Badge variant="secondary">{visit.payment_status}</Badge>
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </>
+                            {/* Unpaid Visits */}
+                            {(expandedTab === 'unpaid' || expandedTab === 'total') && (
+                              <div className="space-y-3">
+                                <h3 className="font-semibold text-lg flex items-center gap-2">
+                                  <Clock className="h-5 w-5 text-orange-600" />
+                                  Unpaid Visits (Unprocessed)
+                                </h3>
+                                {unpaidVisits.length === 0 ? (
+                                  <p className="text-sm text-muted-foreground py-4">No unpaid visits found</p>
+                                ) : (
+                                  <div className="rounded-md border bg-card">
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableHead>Visit Code</TableHead>
+                                          <TableHead>Date</TableHead>
+                                          <TableHead>Patient</TableHead>
+                                          <TableHead>Type</TableHead>
+                                          <TableHead>Amount</TableHead>
+                                          <TableHead>Status</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {unpaidVisits.map((visit) => (
+                                          <TableRow key={visit.id}>
+                                            <TableCell className="font-medium">{visit.visit_code}</TableCell>
+                                            <TableCell>{formatDateIST(visit.visit_date)}</TableCell>
+                                            <TableCell>{visit.patient_name}</TableCell>
+                                            <TableCell>
+                                              <Badge variant="outline">{visit.payment_type}</Badge>
+                                            </TableCell>
+                                            <TableCell className="font-semibold text-orange-600">
+                                              {formatCurrency(visit.visit_payment)}
+                                            </TableCell>
+                                            <TableCell>
+                                              <Badge variant="secondary">{visit.payment_status}</Badge>
+                                            </TableCell>
+                                          </TableRow>
+                                        ))}
+                                      </TableBody>
+                                    </Table>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </TableCell>
+                    </TableRow>
                   )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                </React.Fragment>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
     </div>
   );
 };
