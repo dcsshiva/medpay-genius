@@ -86,8 +86,8 @@ const Settings = () => {
     }
   };
 
-  // Only super admins and admins can access settings
-  if (userDesignation !== 'super_admin' && userDesignation !== 'admin') {
+  // Only super admins and admins can access settings (fallback to userRole when designation unavailable)
+  if (!((userDesignation === 'super_admin' || userDesignation === 'admin') || (userRole === 'super_admin' || userRole === 'admin'))) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Card className="w-96">
