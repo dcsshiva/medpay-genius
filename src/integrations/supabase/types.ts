@@ -2123,6 +2123,15 @@ export type Database = {
       cleanup_expired_sessions: { Args: never; Returns: undefined }
       cleanup_expired_user_sessions: { Args: never; Returns: number }
       erase_all_transactions: { Args: never; Returns: Json }
+      get_admin_users: {
+        Args: { _requesting_user_id: string }
+        Returns: {
+          email: string
+          full_name: string
+          screen_access_count: number
+          user_id: string
+        }[]
+      }
       get_available_managers: {
         Args: never
         Returns: {
