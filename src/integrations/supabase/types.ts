@@ -1061,14 +1061,20 @@ export type Database = {
       }
       staff: {
         Row: {
+          account_holder_name: string | null
+          bank_account_number: string | null
+          bank_name: string | null
+          branch_name: string | null
           created_at: string
           department: string | null
           email: string | null
           full_name: string
           id: string
+          ifsc_code: string | null
           is_active: boolean
           last_login: string | null
           password_hash: string
+          payment_notes: string | null
           phone: string | null
           role: Database["public"]["Enums"]["staff_role"]
           staff_category_id: string | null
@@ -1078,14 +1084,20 @@ export type Database = {
           username: string
         }
         Insert: {
+          account_holder_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          branch_name?: string | null
           created_at?: string
           department?: string | null
           email?: string | null
           full_name: string
           id?: string
+          ifsc_code?: string | null
           is_active?: boolean
           last_login?: string | null
           password_hash: string
+          payment_notes?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["staff_role"]
           staff_category_id?: string | null
@@ -1095,14 +1107,20 @@ export type Database = {
           username: string
         }
         Update: {
+          account_holder_name?: string | null
+          bank_account_number?: string | null
+          bank_name?: string | null
+          branch_name?: string | null
           created_at?: string
           department?: string | null
           email?: string | null
           full_name?: string
           id?: string
+          ifsc_code?: string | null
           is_active?: boolean
           last_login?: string | null
           password_hash?: string
+          payment_notes?: string | null
           phone?: string | null
           role?: Database["public"]["Enums"]["staff_role"]
           staff_category_id?: string | null
@@ -1288,6 +1306,113 @@ export type Database = {
           },
           {
             foreignKeyName: "staff_daily_activities_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_payment_bank_advice_history: {
+        Row: {
+          created_at: string
+          file_content: string | null
+          filename: string
+          generated_by: string | null
+          generation_date: string
+          id: string
+          payment_count: number
+          payment_ids: Json
+          total_amount: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          file_content?: string | null
+          filename: string
+          generated_by?: string | null
+          generation_date?: string
+          id?: string
+          payment_count: number
+          payment_ids?: Json
+          total_amount?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          file_content?: string | null
+          filename?: string
+          generated_by?: string | null
+          generation_date?: string
+          id?: string
+          payment_count?: number
+          payment_ids?: Json
+          total_amount?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      staff_payments: {
+        Row: {
+          account_holder_name: string | null
+          account_number: string | null
+          amount: number
+          bank_advice_generated: boolean
+          bank_advice_generated_at: string | null
+          bank_advice_generated_by: string | null
+          bank_advice_reference: string | null
+          bank_name: string | null
+          branch_name: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          ifsc_code: string | null
+          payment_date: string
+          payment_notes: string | null
+          staff_id: string
+          updated_at: string
+        }
+        Insert: {
+          account_holder_name?: string | null
+          account_number?: string | null
+          amount: number
+          bank_advice_generated?: boolean
+          bank_advice_generated_at?: string | null
+          bank_advice_generated_by?: string | null
+          bank_advice_reference?: string | null
+          bank_name?: string | null
+          branch_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          ifsc_code?: string | null
+          payment_date?: string
+          payment_notes?: string | null
+          staff_id: string
+          updated_at?: string
+        }
+        Update: {
+          account_holder_name?: string | null
+          account_number?: string | null
+          amount?: number
+          bank_advice_generated?: boolean
+          bank_advice_generated_at?: string | null
+          bank_advice_generated_by?: string | null
+          bank_advice_reference?: string | null
+          bank_name?: string | null
+          branch_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          ifsc_code?: string | null
+          payment_date?: string
+          payment_notes?: string | null
+          staff_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_payments_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "staff"

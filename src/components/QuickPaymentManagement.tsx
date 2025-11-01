@@ -37,6 +37,8 @@ import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { useWebsiteSettings } from '@/hooks/useWebsiteSettings';
 import { formatDateTimeIST } from '@/lib/dateUtils';
+import { StaffBulkPaymentTab } from './quick-payment/StaffBulkPaymentTab';
+import { StaffPaymentHistoryTab } from './quick-payment/StaffPaymentHistoryTab';
 
 interface QuickPaymentType {
   id: string;
@@ -730,9 +732,11 @@ const QuickPaymentManagement = () => {
       <h1 className="text-3xl font-bold mb-6">Quick Payment Management</h1>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="add-payment">Add Payment</TabsTrigger>
           <TabsTrigger value="review">Review & Generate</TabsTrigger>
+          <TabsTrigger value="staff-bulk">Staff Bulk Payment</TabsTrigger>
+          <TabsTrigger value="staff-history">Staff Payment History</TabsTrigger>
           <TabsTrigger value="history">Payment History</TabsTrigger>
         </TabsList>
 
@@ -1225,6 +1229,28 @@ const QuickPaymentManagement = () => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="staff-bulk" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Staff Bulk Payment</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <StaffBulkPaymentTab />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="staff-history" className="mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Staff Payment History</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <StaffPaymentHistoryTab />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="history" className="mt-6">
