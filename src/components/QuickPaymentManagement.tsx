@@ -24,15 +24,25 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Pencil, Trash2, Eye, Download, FileText, Image } from 'lucide-react';
+import { Pencil, Trash2, Eye, Download, FileText, Image, MoreVertical, RefreshCw } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { validateMobileNumber, formatMobileNumber } from '@/lib/validators';
 import { formatCurrency } from '@/lib/currency';
 import { useAuth } from '@/lib/auth';
 import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Separator } from '@/components/ui/separator';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { useWebsiteSettings } from '@/hooks/useWebsiteSettings';
@@ -76,11 +86,24 @@ interface QuickPayment {
   payment_notes: string | null;
   bank_advice_generated: boolean;
   bank_advice_reference: string | null;
+  bank_advice_generated_at: string | null;
   created_at: string;
   quick_payment_types: { type_name: string };
   supporting_document_path: string | null;
   supporting_document_name: string | null;
   supporting_document_type: string | null;
+}
+
+interface QuickPaymentBankComparison {
+  beneficiary_name: string;
+  payment_type: string;
+  original_ifsc: string;
+  latest_ifsc: string;
+  original_account: string;
+  latest_account: string;
+  original_bank: string;
+  latest_bank: string;
+  has_changes: boolean;
 }
 
 const QuickPaymentManagement = () => {
@@ -105,6 +128,11 @@ const QuickPaymentManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'generated'>('all');
+  const [regeneratingQuickPayment, setRegeneratingQuickPayment] = useState<string | null>(null);
+  const [quickPaymentComparisonDialog, setQuickPaymentComparisonDialog] = useState(false);
+  const [quickPaymentComparison, setQuickPaymentComparison] = useState<QuickPaymentBankComparison[]>([]);
+  const [quickPaymentDetailsDialog, setQuickPaymentDetailsDialog] = useState(false);
+  const [selectedQuickPaymentDetails, setSelectedQuickPaymentDetails] = useState<QuickPayment | null>(null);
   const [previewDocument, setPreviewDocument] = useState<{
     url: string;
     name: string;
@@ -705,6 +733,146 @@ const QuickPaymentManagement = () => {
       console.error('Error downloading document:', error);
       toast.error('Failed to download document');
     }
+  };
+
+  const handleDownloadQuickPaymentBankAdvice = async (payment: QuickPayment) => {
+    if (!payment.bank_advice_reference) {
+      toast.error('No bank advice reference found');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('quick_payment_bank_advice_history')
+        .select('file_content, filename')
+        .contains('payment_ids', [payment.id])
+        .single();
+
+      if (error) throw error;
+
+      if (!data?.file_content) {
+        toast.error('Bank advice file content not found');
+        return;
+      }
+
+      const blob = new Blob([data.file_content], { type: 'text/plain' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = data.filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Bank advice downloaded successfully');
+    } catch (error: any) {
+      toast.error('Failed to download bank advice');
+      console.error('Error:', error);
+    }
+  };
+
+  const handleRegenerateQuickPayment = async (payment: QuickPayment) => {
+    setRegeneratingQuickPayment(payment.id);
+    
+    try {
+      const { data: historyData, error: historyError } = await supabase
+        .from('quick_payment_bank_advice_history')
+        .select('file_content, filename')
+        .contains('payment_ids', [payment.id])
+        .single();
+
+      if (historyError) throw historyError;
+
+      const { data: latestPayment, error: paymentError } = await supabase
+        .from('quick_payments')
+        .select(`
+          *,
+          quick_payment_types (type_name)
+        `)
+        .eq('id', payment.id)
+        .single();
+
+      if (paymentError) throw paymentError;
+
+      const lines = historyData.file_content.split('\n');
+      const detailLine = lines.find(line => line.startsWith('D~'));
+      
+      let originalIfsc = '';
+      let originalAccount = '';
+      let originalBank = payment.bank_name || '';
+      
+      if (detailLine) {
+        const parts = detailLine.split('~');
+        originalIfsc = parts[7] || '';
+        originalAccount = parts[8] || '';
+      }
+
+      const comparison: QuickPaymentBankComparison = {
+        beneficiary_name: latestPayment.name,
+        payment_type: latestPayment.quick_payment_types?.type_name || 'Quick Payment',
+        original_ifsc: originalIfsc,
+        latest_ifsc: latestPayment.ifsc_code || '',
+        original_account: originalAccount,
+        latest_account: latestPayment.account_number || '',
+        original_bank: originalBank,
+        latest_bank: latestPayment.bank_name || '',
+        has_changes: (originalIfsc !== latestPayment.ifsc_code) || 
+                     (originalAccount !== latestPayment.account_number) ||
+                     (originalBank !== latestPayment.bank_name),
+      };
+
+      setQuickPaymentComparison([comparison]);
+      setQuickPaymentComparisonDialog(true);
+
+      const dateStr = format(new Date(latestPayment.created_at), 'dd/MM/yyyy');
+      let gefuContent = `H~${dateStr}~${websiteSettings?.hospital_institution_code || 'ABC07112007'}\n`;
+
+      const netAmount = latestPayment.net_amount.toFixed(2);
+      const detailLineNew = [
+        'D',
+        'N06',
+        websiteSettings?.hospital_bank_account_number || '120000794291',
+        websiteSettings?.hospital_bank_account_holder_name || 'Westmed Healthcare Pvt Ltd',
+        'ADDRESS1',
+        'ADDRESS2',
+        'ADDRESS3',
+        latestPayment.ifsc_code || '',
+        latestPayment.account_number || '',
+        latestPayment.account_holder_name || latestPayment.name,
+        '', '', '', '',
+        '1',
+        dateStr,
+        netAmount,
+        '1',
+        '', '', '', ''
+      ].join('~');
+
+      gefuContent += detailLineNew + '\n';
+      gefuContent += `F~1~${netAmount}`;
+
+      const blob = new Blob([gefuContent], { type: 'text/plain' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = historyData.filename.replace('.txt', '-updated.txt');
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Bank advice regenerated with latest details');
+    } catch (error: any) {
+      toast.error('Failed to regenerate bank advice');
+      console.error('Error:', error);
+    } finally {
+      setRegeneratingQuickPayment(null);
+    }
+  };
+
+  const handleViewQuickPaymentDetails = (payment: QuickPayment) => {
+    setSelectedQuickPaymentDetails(payment);
+    setQuickPaymentDetailsDialog(true);
   };
 
   // Form validation function
@@ -1379,21 +1547,44 @@ const QuickPaymentManagement = () => {
                             )}
                           </TableCell>
                           <TableCell className="text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  setSelectedPayment(payment);
-                                  setViewDialogOpen(true);
-                                }}
-                                title="View Details"
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              
-                              {/* Show Edit button only for non-generated payments */}
-                              {!payment.bank_advice_generated && (
+                            {payment.bank_advice_generated ? (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <MoreVertical className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem onClick={() => handleDownloadQuickPaymentBankAdvice(payment)}>
+                                    <Download className="mr-2 h-4 w-4" />
+                                    Download
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem 
+                                    onClick={() => handleRegenerateQuickPayment(payment)}
+                                    disabled={regeneratingQuickPayment === payment.id}
+                                  >
+                                    <RefreshCw className={`mr-2 h-4 w-4 ${regeneratingQuickPayment === payment.id ? 'animate-spin' : ''}`} />
+                                    Regenerate
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleViewQuickPaymentDetails(payment)}>
+                                    <Eye className="mr-2 h-4 w-4" />
+                                    View Details
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            ) : (
+                              <div className="flex items-center justify-center gap-1">
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => {
+                                    setSelectedPayment(payment);
+                                    setViewDialogOpen(true);
+                                  }}
+                                  title="View Details"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
                                 <Button
                                   size="sm"
                                   variant="ghost"
@@ -1402,8 +1593,16 @@ const QuickPaymentManagement = () => {
                                 >
                                   <Pencil className="h-4 w-4" />
                                 </Button>
-                              )}
-                            </div>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleDelete(payment.id)}
+                                  title="Delete"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))
@@ -1663,6 +1862,186 @@ const QuickPaymentManagement = () => {
               Close
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Payment Bank Comparison Dialog */}
+      <Dialog open={quickPaymentComparisonDialog} onOpenChange={setQuickPaymentComparisonDialog}>
+        <DialogContent className="max-w-3xl max-h-[600px]">
+          <DialogHeader>
+            <DialogTitle>Bank Details Comparison - Original vs Latest</DialogTitle>
+            <DialogDescription>
+              Comparing bank details from original payment record with current payment details
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="h-[500px]">
+            <div className="space-y-4 p-4">
+              {quickPaymentComparison.map((comp, idx) => (
+                <Card key={idx} className={comp.has_changes ? 'border-orange-500 border-2' : ''}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <p className="font-semibold">{comp.beneficiary_name}</p>
+                        <p className="text-sm text-muted-foreground">{comp.payment_type}</p>
+                      </div>
+                      {comp.has_changes && (
+                        <Badge variant="destructive">Changed</Badge>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-muted-foreground font-medium mb-1">Original Bank</p>
+                        <p className="font-mono">{comp.original_bank}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-medium mb-1">Latest Bank</p>
+                        <p className={`font-mono ${comp.original_bank !== comp.latest_bank ? 'text-orange-600 font-semibold' : ''}`}>
+                          {comp.latest_bank}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-medium mb-1">Original IFSC</p>
+                        <p className="font-mono">{comp.original_ifsc}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-medium mb-1">Latest IFSC</p>
+                        <p className={`font-mono ${comp.original_ifsc !== comp.latest_ifsc ? 'text-orange-600 font-semibold' : ''}`}>
+                          {comp.latest_ifsc}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-medium mb-1">Original Account</p>
+                        <p className="font-mono">{comp.original_account}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-medium mb-1">Latest Account</p>
+                        <p className={`font-mono ${comp.original_account !== comp.latest_account ? 'text-orange-600 font-semibold' : ''}`}>
+                          {comp.latest_account}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick Payment Details Dialog */}
+      <Dialog open={quickPaymentDetailsDialog} onOpenChange={setQuickPaymentDetailsDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Quick Payment Details</DialogTitle>
+          </DialogHeader>
+          {selectedQuickPaymentDetails && (
+            <ScrollArea className="max-h-[60vh]">
+              <div className="space-y-4 p-1">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground">Payment Type</Label>
+                    <p className="font-medium">{selectedQuickPaymentDetails.quick_payment_types?.type_name}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Beneficiary Name</Label>
+                    <p className="font-medium">{selectedQuickPaymentDetails.name}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Mobile Number</Label>
+                    <p>{selectedQuickPaymentDetails.mobile_number}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Payment Date</Label>
+                    <p>{format(new Date(selectedQuickPaymentDetails.created_at), 'dd/MM/yyyy')}</p>
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                <div>
+                  <h4 className="font-semibold mb-3">Amount Details</h4>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label className="text-muted-foreground">Gross Amount</Label>
+                      <p className="font-semibold">{formatCurrency(selectedQuickPaymentDetails.gross_amount)}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">TDS Amount ({selectedQuickPaymentDetails.tds_percentage}%)</Label>
+                      <p className="font-semibold">{formatCurrency(selectedQuickPaymentDetails.tds_amount)}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Net Amount</Label>
+                      <p className="font-semibold text-lg text-primary">{formatCurrency(selectedQuickPaymentDetails.net_amount)}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                <div>
+                  <h4 className="font-semibold mb-3">Bank Details</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-muted-foreground">Bank Name</Label>
+                      <p>{selectedQuickPaymentDetails.bank_name || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Account Holder</Label>
+                      <p>{selectedQuickPaymentDetails.account_holder_name || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Account Number</Label>
+                      <p className="font-mono">{selectedQuickPaymentDetails.account_number || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">IFSC Code</Label>
+                      <p className="font-mono">{selectedQuickPaymentDetails.ifsc_code || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Branch</Label>
+                      <p>{selectedQuickPaymentDetails.branch_name || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                <div>
+                  <h4 className="font-semibold mb-3">Bank Advice Information</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-muted-foreground">Status</Label>
+                      <div>
+                        <Badge variant={selectedQuickPaymentDetails.bank_advice_generated ? "default" : "secondary"}>
+                          {selectedQuickPaymentDetails.bank_advice_generated ? 'Generated' : 'Pending'}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Reference</Label>
+                      <p className="font-mono text-sm">{selectedQuickPaymentDetails.bank_advice_reference || '-'}</p>
+                    </div>
+                    {selectedQuickPaymentDetails.bank_advice_generated_at && (
+                      <div>
+                        <Label className="text-muted-foreground">Generated At</Label>
+                        <p>{format(new Date(selectedQuickPaymentDetails.bank_advice_generated_at), 'dd/MM/yyyy HH:mm')}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {selectedQuickPaymentDetails.payment_notes && (
+                  <>
+                    <Separator />
+                    <div>
+                      <Label className="text-muted-foreground">Notes</Label>
+                      <p className="text-sm mt-1">{selectedQuickPaymentDetails.payment_notes}</p>
+                    </div>
+                  </>
+                )}
+              </div>
+            </ScrollArea>
+          )}
         </DialogContent>
       </Dialog>
     </div>

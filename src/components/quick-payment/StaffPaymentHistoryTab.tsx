@@ -20,10 +20,28 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Download, FileText } from 'lucide-react';
+import { Download, FileText, MoreVertical, RefreshCw, Eye } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateTimeIST } from '@/lib/dateUtils';
 import * as XLSX from 'xlsx';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Card, CardContent } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { format } from 'date-fns';
+import { useWebsiteSettings } from '@/hooks/useWebsiteSettings';
 
 interface StaffPayment {
   id: string;
@@ -38,19 +56,42 @@ interface StaffPayment {
   payment_notes: string | null;
   bank_advice_generated: boolean;
   bank_advice_reference: string | null;
+  bank_advice_generated_at: string | null;
   created_at: string;
   staff: {
     staff_code: string;
     full_name: string;
+    bank_account_number: string | null;
+    ifsc_code: string | null;
+    bank_name: string | null;
+    account_holder_name: string | null;
   } | null;
 }
 
+interface BankDetailsComparison {
+  staff_name: string;
+  staff_code: string;
+  original_ifsc: string;
+  latest_ifsc: string;
+  original_account: string;
+  latest_account: string;
+  original_bank: string;
+  latest_bank: string;
+  has_changes: boolean;
+}
+
 export const StaffPaymentHistoryTab = () => {
+  const { data: websiteSettings } = useWebsiteSettings();
   const [payments, setPayments] = useState<StaffPayment[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'week' | 'month'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'generated'>('all');
   const [loading, setLoading] = useState(false);
+  const [regenerating, setRegenerating] = useState<string | null>(null);
+  const [comparisonDialog, setComparisonDialog] = useState(false);
+  const [comparison, setComparison] = useState<BankDetailsComparison[]>([]);
+  const [detailsDialog, setDetailsDialog] = useState(false);
+  const [selectedPaymentDetails, setSelectedPaymentDetails] = useState<StaffPayment | null>(null);
 
   useEffect(() => {
     fetchStaffPaymentHistory();
@@ -65,7 +106,11 @@ export const StaffPaymentHistoryTab = () => {
           *,
           staff:staff_id (
             staff_code,
-            full_name
+            full_name,
+            bank_account_number,
+            ifsc_code,
+            bank_name,
+            account_holder_name
           )
         `)
         .order('payment_date', { ascending: false });
@@ -125,7 +170,6 @@ export const StaffPaymentHistoryTab = () => {
     }
 
     try {
-      // Fetch the bank advice history record to get file content
       const { data, error } = await supabase
         .from('staff_payment_bank_advice_history')
         .select('file_content, filename')
@@ -139,7 +183,6 @@ export const StaffPaymentHistoryTab = () => {
         return;
       }
 
-      // Download the file
       const blob = new Blob([data.file_content], { type: 'text/plain' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -155,6 +198,111 @@ export const StaffPaymentHistoryTab = () => {
       toast.error('Failed to download bank advice');
       console.error('Error:', error);
     }
+  };
+
+  const handleRegenerate = async (payment: StaffPayment) => {
+    setRegenerating(payment.id);
+    
+    try {
+      // Fetch the original bank advice history
+      const { data: historyData, error: historyError } = await supabase
+        .from('staff_payment_bank_advice_history')
+        .select('file_content, filename')
+        .contains('payment_ids', [payment.id])
+        .single();
+
+      if (historyError) throw historyError;
+
+      // Fetch latest staff bank details
+      const { data: latestStaff, error: staffError } = await supabase
+        .from('staff')
+        .select('staff_code, full_name, bank_account_number, ifsc_code, bank_name, account_holder_name')
+        .eq('id', payment.staff_id)
+        .single();
+
+      if (staffError) throw staffError;
+
+      // Parse original GEFU file to extract bank details
+      const lines = historyData.file_content.split('\n');
+      const detailLine = lines.find(line => line.startsWith('D~'));
+      
+      let originalIfsc = '';
+      let originalAccount = '';
+      let originalBank = payment.bank_name || '';
+      
+      if (detailLine) {
+        const parts = detailLine.split('~');
+        originalIfsc = parts[7] || '';
+        originalAccount = parts[8] || '';
+      }
+
+      // Build comparison
+      const comp: BankDetailsComparison = {
+        staff_name: latestStaff.full_name,
+        staff_code: latestStaff.staff_code,
+        original_ifsc: originalIfsc,
+        latest_ifsc: latestStaff.ifsc_code || '',
+        original_account: originalAccount,
+        latest_account: latestStaff.bank_account_number || '',
+        original_bank: originalBank,
+        latest_bank: latestStaff.bank_name || '',
+        has_changes: (originalIfsc !== latestStaff.ifsc_code) || 
+                     (originalAccount !== latestStaff.bank_account_number) ||
+                     (originalBank !== latestStaff.bank_name),
+      };
+
+      setComparison([comp]);
+      setComparisonDialog(true);
+
+      // Regenerate GEFU file with EXACT format
+      const dateStr = format(new Date(payment.payment_date), 'dd/MM/yyyy');
+      let gefuContent = `H~${dateStr}~${websiteSettings?.hospital_institution_code || 'ABC07112007'}\n`;
+
+      const detailLineNew = [
+        'D',
+        'N06',
+        websiteSettings?.hospital_bank_account_number || '120000794291',
+        websiteSettings?.hospital_bank_account_holder_name || 'Westmed Healthcare Pvt Ltd',
+        'ADDRESS1',
+        'ADDRESS2',
+        'ADDRESS3',
+        latestStaff.ifsc_code || '',
+        latestStaff.bank_account_number || '',
+        latestStaff.account_holder_name || latestStaff.full_name,
+        '', '', '', '',
+        '1',
+        dateStr,
+        payment.amount.toFixed(2),
+        '1',
+        '', '', '', ''
+      ].join('~');
+
+      gefuContent += detailLineNew + '\n';
+      gefuContent += `F~1~${payment.amount.toFixed(2)}`;
+
+      // Download regenerated file
+      const blob = new Blob([gefuContent], { type: 'text/plain' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = historyData.filename.replace('.txt', '-updated.txt');
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Bank advice regenerated with latest details');
+    } catch (error: any) {
+      toast.error('Failed to regenerate bank advice');
+      console.error('Error:', error);
+    } finally {
+      setRegenerating(null);
+    }
+  };
+
+  const handleViewDetails = (payment: StaffPayment) => {
+    setSelectedPaymentDetails(payment);
+    setDetailsDialog(true);
   };
 
   const handleExportToExcel = () => {
@@ -309,15 +457,31 @@ export const StaffPaymentHistoryTab = () => {
                     {payment.bank_advice_reference || '-'}
                   </TableCell>
                   <TableCell className="text-right">
-                    {payment.bank_advice_generated && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDownloadBankAdvice(payment)}
-                        title="Download Bank Advice"
-                      >
-                        <FileText className="h-4 w-4" />
-                      </Button>
+                    {payment.bank_advice_generated && payment.bank_advice_reference && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleDownloadBankAdvice(payment)}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Download
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleRegenerate(payment)}
+                            disabled={regenerating === payment.id}
+                          >
+                            <RefreshCw className={`mr-2 h-4 w-4 ${regenerating === payment.id ? 'animate-spin' : ''}`} />
+                            Regenerate
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleViewDetails(payment)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Details
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     )}
                   </TableCell>
                 </TableRow>
@@ -326,6 +490,166 @@ export const StaffPaymentHistoryTab = () => {
           </TableBody>
         </Table>
       </div>
+
+      {/* Bank Details Comparison Dialog */}
+      <Dialog open={comparisonDialog} onOpenChange={setComparisonDialog}>
+        <DialogContent className="max-w-3xl max-h-[600px]">
+          <DialogHeader>
+            <DialogTitle>Bank Details Comparison - Original vs Latest</DialogTitle>
+            <DialogDescription>
+              Comparing bank details from original payment record with current staff bank details
+            </DialogDescription>
+          </DialogHeader>
+          <ScrollArea className="h-[500px]">
+            <div className="space-y-4 p-4">
+              {comparison.map((comp, idx) => (
+                <Card key={idx} className={comp.has_changes ? 'border-orange-500 border-2' : ''}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <p className="font-semibold">{comp.staff_name}</p>
+                        <p className="text-sm text-muted-foreground">{comp.staff_code}</p>
+                      </div>
+                      {comp.has_changes && (
+                        <Badge variant="destructive">Changed</Badge>
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <p className="text-muted-foreground font-medium mb-1">Original Bank</p>
+                        <p className="font-mono">{comp.original_bank}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-medium mb-1">Latest Bank</p>
+                        <p className={`font-mono ${comp.original_bank !== comp.latest_bank ? 'text-orange-600 font-semibold' : ''}`}>
+                          {comp.latest_bank}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-medium mb-1">Original IFSC</p>
+                        <p className="font-mono">{comp.original_ifsc}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-medium mb-1">Latest IFSC</p>
+                        <p className={`font-mono ${comp.original_ifsc !== comp.latest_ifsc ? 'text-orange-600 font-semibold' : ''}`}>
+                          {comp.latest_ifsc}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-medium mb-1">Original Account</p>
+                        <p className="font-mono">{comp.original_account}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground font-medium mb-1">Latest Account</p>
+                        <p className={`font-mono ${comp.original_account !== comp.latest_account ? 'text-orange-600 font-semibold' : ''}`}>
+                          {comp.latest_account}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      {/* Payment Details Dialog */}
+      <Dialog open={detailsDialog} onOpenChange={setDetailsDialog}>
+        <DialogContent className="max-w-2xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Staff Payment Details</DialogTitle>
+          </DialogHeader>
+          {selectedPaymentDetails && (
+            <ScrollArea className="max-h-[60vh]">
+              <div className="space-y-4 p-1">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-muted-foreground">Staff Code</Label>
+                    <p className="font-medium">{selectedPaymentDetails.staff?.staff_code}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Staff Name</Label>
+                    <p className="font-medium">{selectedPaymentDetails.staff?.full_name}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Payment Date</Label>
+                    <p>{format(new Date(selectedPaymentDetails.payment_date), 'dd/MM/yyyy')}</p>
+                  </div>
+                  <div>
+                    <Label className="text-muted-foreground">Amount</Label>
+                    <p className="font-semibold text-lg">{formatCurrency(selectedPaymentDetails.amount)}</p>
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                <div>
+                  <h4 className="font-semibold mb-3">Bank Details (at time of payment)</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-muted-foreground">Bank Name</Label>
+                      <p>{selectedPaymentDetails.bank_name || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Account Holder</Label>
+                      <p>{selectedPaymentDetails.account_holder_name || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Account Number</Label>
+                      <p className="font-mono">{selectedPaymentDetails.account_number || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">IFSC Code</Label>
+                      <p className="font-mono">{selectedPaymentDetails.ifsc_code || '-'}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Branch</Label>
+                      <p>{selectedPaymentDetails.branch_name || '-'}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                <div>
+                  <h4 className="font-semibold mb-3">Bank Advice Information</h4>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-muted-foreground">Status</Label>
+                      <div>
+                        <Badge variant={selectedPaymentDetails.bank_advice_generated ? "default" : "secondary"}>
+                          {selectedPaymentDetails.bank_advice_generated ? 'Generated' : 'Pending'}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Reference</Label>
+                      <p className="font-mono text-sm">{selectedPaymentDetails.bank_advice_reference || '-'}</p>
+                    </div>
+                    {selectedPaymentDetails.bank_advice_generated_at && (
+                      <div>
+                        <Label className="text-muted-foreground">Generated At</Label>
+                        <p>{format(new Date(selectedPaymentDetails.bank_advice_generated_at), 'dd/MM/yyyy HH:mm')}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                {selectedPaymentDetails.payment_notes && (
+                  <>
+                    <Separator />
+                    <div>
+                      <Label className="text-muted-foreground">Notes</Label>
+                      <p className="text-sm mt-1">{selectedPaymentDetails.payment_notes}</p>
+                    </div>
+                  </>
+                )}
+              </div>
+            </ScrollArea>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
