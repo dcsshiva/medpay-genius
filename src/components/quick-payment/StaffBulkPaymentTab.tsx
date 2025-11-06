@@ -223,6 +223,15 @@ export const StaffBulkPaymentTab = () => {
   };
 
   const generateStaffBankAdvice = async () => {
+    // Helper to sanitize GEFU fields
+    const sanitizeGEFUField = (val: unknown): string => {
+      return String(val ?? '')
+        .replace(/[\r\n]+/g, ' ')
+        .replace(/~/g, '-')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
+
     const validSelections = selectedStaff.filter(staffId => {
       const amount = parseInt(staffPaymentAmounts[staffId] || '0');
       const staff = staffList.find(s => s.id === staffId);
@@ -271,7 +280,11 @@ export const StaffBulkPaymentTab = () => {
 
       const dateStr = `${String(selectedPaymentDate.getDate()).padStart(2, '0')}/${String(selectedPaymentDate.getMonth() + 1).padStart(2, '0')}/${selectedPaymentDate.getFullYear()}`;
       
-      let fileContent = `H~${dateStr}~${websiteSettings?.hospital_institution_code || 'ABC07112007'}\n`;
+      const hospAcc = sanitizeGEFUField(websiteSettings?.hospital_bank_account_number || '120000794291');
+      const hospName = sanitizeGEFUField(websiteSettings?.hospital_bank_account_holder_name || 'WESTMED HEALTHCARE PRIVATE LIMITED');
+      const hospCode = sanitizeGEFUField(websiteSettings?.hospital_institution_code || 'ABC07112007');
+
+      let fileContent = `H~${dateStr}~${hospCode}\n`;
 
       validSelections.forEach((staffId, index) => {
         const staff = staffList.find(s => s.id === staffId)!;
@@ -280,14 +293,14 @@ export const StaffBulkPaymentTab = () => {
         const detailLine = [
           'D',
           'N06',
-          websiteSettings?.hospital_bank_account_number || '120000794291',
-          websiteSettings?.hospital_bank_account_holder_name || 'WESTMED HEALTHCARE PRIVATE LIMITED',
-          'ADDRESS1',
-          'ADDRESS2',
-          'ADDRESS3',
-          staff.ifsc_code || '',
-          staff.bank_account_number || '',
-          staff.account_holder_name || staff.full_name,
+          hospAcc,
+          hospName,
+          sanitizeGEFUField('ADDRESS1'),
+          sanitizeGEFUField('ADDRESS2'),
+          sanitizeGEFUField('ADDRESS3'),
+          sanitizeGEFUField(staff.ifsc_code),
+          sanitizeGEFUField(staff.bank_account_number),
+          sanitizeGEFUField(staff.account_holder_name || staff.full_name),
           '', '', '', '',
           (index + 1).toString(),
           dateStr,

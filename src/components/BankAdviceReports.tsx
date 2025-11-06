@@ -316,6 +316,15 @@ const BankAdviceReports = () => {
           description: "Bank advice regenerated with latest bank details"
         });
       } else if (record.payment_source === 'staff_payment') {
+        // Helper to sanitize GEFU fields
+        const sanitizeGEFUField = (val: unknown): string => {
+          return String(val ?? '')
+            .replace(/[\r\n]+/g, ' ')
+            .replace(/~/g, '-')
+            .replace(/\s+/g, ' ')
+            .trim();
+        };
+
         // Fetch website settings for hospital details
         const { data: websiteSettings } = await supabase
           .from('website_settings')
@@ -339,7 +348,11 @@ const BankAdviceReports = () => {
         const yyyy = today.getFullYear();
         const dateStr = `${dd}/${mm}/${yyyy}`;
 
-        let gefuContent = `H~${dateStr}~${websiteSettings?.hospital_institution_code || 'ABC07112007'}\n`;
+        const hospAcc = sanitizeGEFUField(websiteSettings?.hospital_bank_account_number || '120000794291');
+        const hospName = sanitizeGEFUField(websiteSettings?.hospital_bank_account_holder_name || 'WESTMED HEALTHCARE PRIVATE LIMITED');
+        const hospCode = sanitizeGEFUField(websiteSettings?.hospital_institution_code || 'ABC07112007');
+
+        let gefuContent = `H~${dateStr}~${hospCode}\n`;
         
         let totalAmount = 0;
         payments.forEach((payment: any, index: number) => {
@@ -349,14 +362,14 @@ const BankAdviceReports = () => {
           const detailLine = [
             'D',
             'N06',
-            websiteSettings?.hospital_bank_account_number || '120000794291',
-            websiteSettings?.hospital_bank_account_holder_name || 'WESTMED HEALTHCARE PRIVATE LIMITED',
-            'ADDRESS1',
-            'ADDRESS2',
-            'ADDRESS3',
-            payment.ifsc_code || '',
-            payment.account_number || '',
-            payment.account_holder_name || '',
+            hospAcc,
+            hospName,
+            sanitizeGEFUField('ADDRESS1'),
+            sanitizeGEFUField('ADDRESS2'),
+            sanitizeGEFUField('ADDRESS3'),
+            sanitizeGEFUField(payment.ifsc_code),
+            sanitizeGEFUField(payment.account_number),
+            sanitizeGEFUField(payment.account_holder_name),
             '', '', '', '',  // Four empty fields
             (index + 1).toString(),
             dateStr,
