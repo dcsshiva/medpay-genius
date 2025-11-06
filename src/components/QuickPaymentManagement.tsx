@@ -745,7 +745,7 @@ const QuickPaymentManagement = () => {
       const { data, error } = await supabase
         .from('quick_payment_bank_advice_history')
         .select('file_content, filename')
-        .contains('payment_ids', [payment.id])
+        .eq('filename', payment.bank_advice_reference)
         .single();
 
       if (error) throw error;
@@ -779,7 +779,7 @@ const QuickPaymentManagement = () => {
       const { data: historyData, error: historyError } = await supabase
         .from('quick_payment_bank_advice_history')
         .select('file_content, filename')
-        .contains('payment_ids', [payment.id])
+        .eq('filename', payment.bank_advice_reference)
         .single();
 
       if (historyError) throw historyError;
