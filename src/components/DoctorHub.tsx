@@ -5,7 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronUp, CheckCircle2, Clock, Receipt, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { ChevronDown, ChevronUp, CheckCircle2, Clock, Receipt, ArrowUpDown, ArrowUp, ArrowDown, Search, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateIST } from '@/lib/dateUtils';
 import { getFinancialYearStart } from '@/lib/tdsUtils';
@@ -60,9 +61,8 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [sortField, setSortField] = useState<SortField>('doctor_code');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
-
-  const currentFYStart = getFinancialYearStart(new Date());
 
   useEffect(() => {
     fetchDoctorSummaries();
@@ -90,13 +90,12 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
       // For each doctor, calculate paid and unpaid amounts
       const summaries: DoctorSummary[] = await Promise.all(
         (doctorsData || []).map(async (doctor) => {
-          // Paid: bank_advice_generated = true in current FY
+          // Paid: bank_advice_generated = true (all time)
           const { data: paidPayments } = await supabase
             .from('payments')
             .select('net_amount')
             .eq('doctor_id', doctor.id)
-            .eq('bank_advice_generated', true)
-            .gte('period_end', currentFYStart.toISOString().split('T')[0]);
+            .eq('bank_advice_generated', true);
 
           const paid_amount = (paidPayments || []).reduce((sum, p) => sum + Number(p.net_amount || 0), 0);
           const paid_count = paidPayments?.length || 0;
@@ -157,6 +156,26 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
     return ((aValue as number) - (bValue as number)) * modifier;
   });
 
+  // Filter doctors by name with Dr. prefix handling
+  const filteredAndSortedDoctors = sortedDoctors.filter(doctor => {
+    if (!searchTerm.trim()) return true;
+    
+    let searchableName = doctor.full_name.toLowerCase();
+    let searchQuery = searchTerm.toLowerCase().trim();
+    
+    // If the name starts with "dr." or "dr ", search from the 3rd character onwards
+    if (searchableName.startsWith('dr.') || searchableName.startsWith('dr ')) {
+      searchableName = searchableName.substring(3).trim();
+    }
+    
+    // If search term starts with "dr." or "dr ", also strip it from search query
+    if (searchQuery.startsWith('dr.') || searchQuery.startsWith('dr ')) {
+      searchQuery = searchQuery.substring(3).trim();
+    }
+    
+    return searchableName.includes(searchQuery);
+  });
+
   const getSortIcon = (field: SortField) => {
     if (sortField !== field) return <ArrowUpDown className="h-4 w-4 ml-1" />;
     return sortDirection === 'asc' ? 
@@ -173,7 +192,6 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
         .select('id, period_start, period_end, gross_amount, tds_amount, net_amount, bank_advice_generated_at')
         .eq('doctor_id', doctorId)
         .eq('bank_advice_generated', true)
-        .gte('period_end', currentFYStart.toISOString().split('T')[0])
         .order('bank_advice_generated_at', { ascending: false });
 
       if (error) throw error;
@@ -302,12 +320,39 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
           </h1>
           <p className="text-muted-foreground">
             {filterDoctorId 
-              ? 'Your payment and visit information for the current financial year'
-              : 'Track payments and visits for all doctors (Current Financial Year)'
+              ? 'Your payment and visit information (All Time)'
+              : 'Track payments and visits for all doctors (All Time)'
             }
           </p>
         </div>
       </div>
+
+      {!filterDoctorId && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search by doctor name..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 pr-9"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {!filterDoctorId && filteredAndSortedDoctors.length < doctors.length && (
+        <p className="text-sm text-muted-foreground">
+          Showing {filteredAndSortedDoctors.length} of {doctors.length} doctors
+        </p>
+      )}
 
       <Card>
         <CardContent className="p-0">
@@ -368,7 +413,14 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sortedDoctors.map((doctor) => (
+              {filteredAndSortedDoctors.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                    No doctors found matching "{searchTerm}"
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredAndSortedDoctors.map((doctor) => (
                 <React.Fragment key={doctor.id}>
                   <TableRow className="hover:bg-muted/50">
                     <TableCell className="font-medium">
@@ -537,7 +589,7 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
                     </TableRow>
                   )}
                 </React.Fragment>
-              ))}
+              )))}
             </TableBody>
           </Table>
         </CardContent>
