@@ -30,17 +30,15 @@ const Auth = () => {
   useEffect(() => {
     const checkUserTypeAndNavigate = async () => {
       if (user) {
-        // Check user type from session
-        const { data: sessionData } = await supabase
-          .from('user_sessions')
-          .select('user_type')
+        // Check if user is a doctor by querying doctors table directly
+        const { data: doctorData } = await supabase
+          .from('doctors')
+          .select('id')
           .eq('user_id', user.id)
           .eq('is_active', true)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single();
+          .limit(1);
 
-        if (sessionData?.user_type === 'doctor') {
+        if (doctorData && doctorData.length > 0) {
           navigate('/dashboard?view=doctor');
         } else {
           navigate('/dashboard');
