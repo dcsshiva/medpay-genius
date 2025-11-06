@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
@@ -1012,193 +1013,197 @@ const StaffManagement = () => {
                 Add Staff Member
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh]">
             <DialogHeader>
               <DialogTitle>Add New Staff Member</DialogTitle>
               <DialogDescription>
                 Create a new staff member account with login credentials and role assignment.
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="staff_code">Staff Code (Optional)</Label>
-                  <Input
-                    id="staff_code"
-                    value={formData.staff_code}
-                    onChange={(e) => setFormData({ ...formData, staff_code: e.target.value })}
-                    placeholder="Auto-generated if empty"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="username">Username *</Label>
-                  <Input
-                    id="username"
-                    value={formData.username}
-                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                    placeholder="anand.kumar"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password {!editingStaff && '*'}</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    placeholder={editingStaff ? "Leave blank to keep current password" : "Minimum 6 characters"}
-                    required={!editingStaff}
-                  />
-                  {editingStaff && (
-                    <p className="text-xs text-muted-foreground">
-                      Leave blank to keep current password
-                    </p>
-                  )}
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="full_name">Full Name *</Label>
-                  <Input
-                    id="full_name"
-                    value={formData.full_name}
-                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                    placeholder="Anand Kumar"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="anand.kumar@hospital.com"
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+91 98765 43210"
-                  />
-                </div>
-              </div>
-
-              {/* Bank Details Section */}
-              <div className="space-y-4 border-t pt-4">
-                <h3 className="text-sm font-semibold text-foreground">Bank Details (Required for Payments)</h3>
-                
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="account_holder_name">Account Holder Name</Label>
-                    <Input
-                      id="account_holder_name"
-                      value={formData.account_holder_name}
-                      onChange={(e) => setFormData({ ...formData, account_holder_name: e.target.value })}
-                      placeholder="As per bank records"
-                    />
+            <form onSubmit={handleSubmit} className="space-y-3">
+              <ScrollArea className="max-h-[calc(90vh-180px)] pr-4">
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="staff_code">Staff Code (Optional)</Label>
+                      <Input
+                        id="staff_code"
+                        value={formData.staff_code}
+                        onChange={(e) => setFormData({ ...formData, staff_code: e.target.value })}
+                        placeholder="Auto-generated if empty"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="username">Username *</Label>
+                      <Input
+                        id="username"
+                        value={formData.username}
+                        onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                        placeholder="anand.kumar"
+                        required
+                      />
+                    </div>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="bank_account_number">Account Number *</Label>
-                    <Input
-                      id="bank_account_number"
-                      value={formData.bank_account_number}
-                      onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value.replace(/\D/g, '') })}
-                      placeholder="1234567890123456"
-                      maxLength={20}
-                    />
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="password">Password {!editingStaff && '*'}</Label>
+                      <Input
+                        id="password"
+                        type="password"
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        placeholder={editingStaff ? "Leave blank to keep current password" : "Minimum 6 characters"}
+                        required={!editingStaff}
+                      />
+                      {editingStaff && (
+                        <p className="text-xs text-muted-foreground">
+                          Leave blank to keep current password
+                        </p>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="full_name">Full Name *</Label>
+                      <Input
+                        id="full_name"
+                        value={formData.full_name}
+                        onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                        placeholder="Anand Kumar"
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={formData.email}
+                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        placeholder="anand.kumar@hospital.com"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone</Label>
+                      <Input
+                        id="phone"
+                        value={formData.phone}
+                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        placeholder="+91 98765 43210"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Bank Details Section */}
+                  <div className="space-y-3 border-t pt-3 mt-1">
+                    <h3 className="text-sm font-semibold text-foreground">Bank Details (Required for Payments)</h3>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="account_holder_name">Account Holder Name</Label>
+                        <Input
+                          id="account_holder_name"
+                          value={formData.account_holder_name}
+                          onChange={(e) => setFormData({ ...formData, account_holder_name: e.target.value })}
+                          placeholder="As per bank records"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="bank_account_number">Account Number *</Label>
+                        <Input
+                          id="bank_account_number"
+                          value={formData.bank_account_number}
+                          onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value.replace(/\D/g, '') })}
+                          placeholder="1234567890123456"
+                          maxLength={20}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="ifsc_code">IFSC Code *</Label>
+                        <Input
+                          id="ifsc_code"
+                          value={formData.ifsc_code}
+                          onChange={(e) => setFormData({ ...formData, ifsc_code: e.target.value.toUpperCase() })}
+                          placeholder="SBIN0001234"
+                          maxLength={11}
+                        />
+                        <p className="text-xs text-muted-foreground">11-character code (e.g., SBIN0001234)</p>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="bank_name">Bank Name</Label>
+                        <Input
+                          id="bank_name"
+                          value={formData.bank_name}
+                          onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
+                          placeholder="State Bank of India"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="branch_name">Branch Name</Label>
+                      <Input
+                        id="branch_name"
+                        value={formData.branch_name}
+                        onChange={(e) => setFormData({ ...formData, branch_name: e.target.value })}
+                        placeholder="Main Branch"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="role">Role</Label>
+                      <Select 
+                        value={formData.role} 
+                        onValueChange={(value) => setFormData({ ...formData, role: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {rolesMaster.map((role) => (
+                            <SelectItem key={role.id} value={role.role_code}>
+                              {role.role_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="department">Department</Label>
+                      <Select 
+                        value={formData.department} 
+                        onValueChange={(value) => setFormData({ ...formData, department: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select department" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {departmentsMaster.map((dept) => (
+                            <SelectItem key={dept.id} value={dept.department_code}>
+                              {dept.department_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </div>
+              </ScrollArea>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="ifsc_code">IFSC Code *</Label>
-                    <Input
-                      id="ifsc_code"
-                      value={formData.ifsc_code}
-                      onChange={(e) => setFormData({ ...formData, ifsc_code: e.target.value.toUpperCase() })}
-                      placeholder="SBIN0001234"
-                      maxLength={11}
-                    />
-                    <p className="text-xs text-muted-foreground">11-character code (e.g., SBIN0001234)</p>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="bank_name">Bank Name</Label>
-                    <Input
-                      id="bank_name"
-                      value={formData.bank_name}
-                      onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
-                      placeholder="State Bank of India"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="branch_name">Branch Name</Label>
-                  <Input
-                    id="branch_name"
-                    value={formData.branch_name}
-                    onChange={(e) => setFormData({ ...formData, branch_name: e.target.value })}
-                    placeholder="Main Branch"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Select 
-                    value={formData.role} 
-                    onValueChange={(value) => setFormData({ ...formData, role: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {rolesMaster.map((role) => (
-                        <SelectItem key={role.id} value={role.role_code}>
-                          {role.role_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="department">Department</Label>
-                  <Select 
-                    value={formData.department} 
-                    onValueChange={(value) => setFormData({ ...formData, department: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {departmentsMaster.map((dept) => (
-                        <SelectItem key={dept.id} value={dept.department_code}>
-                          {dept.department_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="flex justify-end space-x-2">
+              <div className="flex justify-end space-x-2 pt-4 border-t">
                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancel
                 </Button>
