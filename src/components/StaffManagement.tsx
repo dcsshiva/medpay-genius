@@ -1013,16 +1013,16 @@ const StaffManagement = () => {
                 Add Staff Member
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh]">
-            <DialogHeader>
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle>Add New Staff Member</DialogTitle>
               <DialogDescription>
                 Create a new staff member account with login credentials and role assignment.
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-3">
-              <ScrollArea className="max-h-[calc(90vh-180px)] pr-4">
-                <div className="space-y-3">
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+              <ScrollArea className="flex-1 pr-4">
+                <div className="space-y-3 pb-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label htmlFor="staff_code">Staff Code (Optional)</Label>
@@ -1031,6 +1031,7 @@ const StaffManagement = () => {
                         value={formData.staff_code}
                         onChange={(e) => setFormData({ ...formData, staff_code: e.target.value })}
                         placeholder="Auto-generated if empty"
+                        className="hover:border-primary/50 focus-visible:border-primary transition-colors"
                       />
                     </div>
                     
@@ -1042,6 +1043,7 @@ const StaffManagement = () => {
                         onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                         placeholder="anand.kumar"
                         required
+                        className="hover:border-primary/50 focus-visible:border-primary transition-colors"
                       />
                     </div>
                   </div>
@@ -1056,6 +1058,7 @@ const StaffManagement = () => {
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                         placeholder={editingStaff ? "Leave blank to keep current password" : "Minimum 6 characters"}
                         required={!editingStaff}
+                        className="hover:border-primary/50 focus-visible:border-primary transition-colors"
                       />
                       {editingStaff && (
                         <p className="text-xs text-muted-foreground">
@@ -1072,6 +1075,7 @@ const StaffManagement = () => {
                         onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
                         placeholder="Anand Kumar"
                         required
+                        className="hover:border-primary/50 focus-visible:border-primary transition-colors"
                       />
                     </div>
                   </div>
@@ -1085,6 +1089,7 @@ const StaffManagement = () => {
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         placeholder="anand.kumar@hospital.com"
+                        className="hover:border-primary/50 focus-visible:border-primary transition-colors"
                       />
                     </div>
                     
@@ -1095,6 +1100,7 @@ const StaffManagement = () => {
                         value={formData.phone}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                         placeholder="+91 98765 43210"
+                        className="hover:border-primary/50 focus-visible:border-primary transition-colors"
                       />
                     </div>
                   </div>
@@ -1111,6 +1117,7 @@ const StaffManagement = () => {
                           value={formData.account_holder_name}
                           onChange={(e) => setFormData({ ...formData, account_holder_name: e.target.value })}
                           placeholder="As per bank records"
+                          className="hover:border-primary/50 focus-visible:border-primary transition-colors"
                         />
                       </div>
                       
@@ -1122,6 +1129,7 @@ const StaffManagement = () => {
                           onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value.replace(/\D/g, '') })}
                           placeholder="1234567890123456"
                           maxLength={20}
+                          className="hover:border-primary/50 focus-visible:border-primary transition-colors"
                         />
                       </div>
                     </div>
@@ -1135,6 +1143,7 @@ const StaffManagement = () => {
                           onChange={(e) => setFormData({ ...formData, ifsc_code: e.target.value.toUpperCase() })}
                           placeholder="SBIN0001234"
                           maxLength={11}
+                          className="hover:border-primary/50 focus-visible:border-primary transition-colors"
                         />
                         <p className="text-xs text-muted-foreground">11-character code (e.g., SBIN0001234)</p>
                       </div>
@@ -1146,6 +1155,7 @@ const StaffManagement = () => {
                           value={formData.bank_name}
                           onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
                           placeholder="State Bank of India"
+                          className="hover:border-primary/50 focus-visible:border-primary transition-colors"
                         />
                       </div>
                     </div>
@@ -1157,6 +1167,7 @@ const StaffManagement = () => {
                         value={formData.branch_name}
                         onChange={(e) => setFormData({ ...formData, branch_name: e.target.value })}
                         placeholder="Main Branch"
+                        className="hover:border-primary/50 focus-visible:border-primary transition-colors"
                       />
                     </div>
                   </div>
@@ -1203,7 +1214,7 @@ const StaffManagement = () => {
                 </div>
               </ScrollArea>
 
-              <div className="flex justify-end space-x-2 pt-4 border-t">
+              <div className="flex justify-end space-x-2 pt-4 border-t flex-shrink-0 bg-background">
                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancel
                 </Button>
@@ -1263,7 +1274,7 @@ const StaffManagement = () => {
           placeholder="Search by staff name, code, or username..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-10"
+          className="pl-10 hover:border-primary/50 focus-visible:border-primary transition-colors"
         />
       </div>
 
