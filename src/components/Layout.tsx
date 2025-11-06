@@ -61,6 +61,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
     if (userRole === 'manager' || userDesignation === 'manager') {
       return [
         ...baseItems,
+        { id: 'staff', label: 'Staff Management', icon: UserCog },
+        { id: 'visits', label: 'Visit Management', icon: Calendar },
         { id: 'doctors', label: 'Doctors', icon: Users },
         { id: 'doctor-hub', label: 'Doctor Hub', icon: Stethoscope },
         { id: 'payments', label: 'Payment Approvals', icon: CreditCard },
