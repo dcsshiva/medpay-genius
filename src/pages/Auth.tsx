@@ -28,9 +28,27 @@ const Auth = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (user) {
-      navigate('/dashboard');
-    }
+    const checkUserTypeAndNavigate = async () => {
+      if (user) {
+        // Check user type from session
+        const { data: sessionData } = await supabase
+          .from('user_sessions')
+          .select('user_type')
+          .eq('user_id', user.id)
+          .eq('is_active', true)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .single();
+
+        if (sessionData?.user_type === 'doctor') {
+          navigate('/dashboard?view=doctor');
+        } else {
+          navigate('/dashboard');
+        }
+      }
+    };
+
+    checkUserTypeAndNavigate();
   }, [user, navigate]);
 
   // Auto-verify OTP when all 6 digits are entered
