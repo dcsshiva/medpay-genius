@@ -102,7 +102,6 @@ const BankAdviceGeneration = () => {
         `)
         .eq('bank_advice_generated', false)
         .or('cash_approval_status.eq.approved,insurance_approval_status.eq.approved')
-        .gt('paid_amount', 0)
         .order('created_at', { ascending: false });
 
       if (doctorError) throw doctorError;
