@@ -10,6 +10,7 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import ReportGeneration from '@/components/ReportGeneration';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 import { 
   FileText, 
   Calendar,
@@ -50,6 +51,13 @@ const BankAdviceReports = () => {
     dateTo: '',
     doctorSearch: ''
   });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [recordsPerPage, setRecordsPerPage] = useState<number | 'all'>(20);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters.dateFrom, filters.dateTo, filters.doctorSearch]);
 
   // Quick date filters
   const setQuickFilter = (days: number) => {
@@ -420,6 +428,15 @@ const BankAdviceReports = () => {
     return true;
   });
 
+  // Calculate pagination
+  const indexOfLastRecord = recordsPerPage === 'all' 
+    ? filteredRecords.length 
+    : currentPage * recordsPerPage;
+  const indexOfFirstRecord = recordsPerPage === 'all' 
+    ? 0 
+    : indexOfLastRecord - recordsPerPage;
+  const currentRecords = filteredRecords.slice(indexOfFirstRecord, indexOfLastRecord);
+
   // Calculate statistics
   const totalGenerated = filteredRecords.length;
   const totalAmount = filteredRecords.reduce((sum, r) => sum + r.total_amount, 0);
@@ -620,14 +637,25 @@ const BankAdviceReports = () => {
           <CardTitle>Bank Advice Records ({filteredRecords.length})</CardTitle>
         </CardHeader>
         <CardContent>
+          {filteredRecords.length > 0 && (
+            <PaginationControls
+              totalRecords={filteredRecords.length}
+              recordsPerPage={recordsPerPage}
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
+              onRecordsPerPageChange={setRecordsPerPage}
+              className="mb-4"
+            />
+          )}
+          
           <div className="space-y-3">
-            {filteredRecords.map((record, index) => (
+            {currentRecords.map((record, index) => (
               <Card key={record.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary font-bold">
-                        {index + 1}
+                        {recordsPerPage === 'all' ? index + 1 : indexOfFirstRecord + index + 1}
                       </div>
                       
                       <div>
@@ -699,6 +727,17 @@ const BankAdviceReports = () => {
               </Card>
             ))}
           </div>
+
+          {filteredRecords.length > 0 && (
+            <PaginationControls
+              totalRecords={filteredRecords.length}
+              recordsPerPage={recordsPerPage}
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
+              onRecordsPerPageChange={setRecordsPerPage}
+              className="mt-4"
+            />
+          )}
 
           {filteredRecords.length === 0 && (
             <div className="text-center py-12">
