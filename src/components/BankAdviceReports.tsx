@@ -316,6 +316,13 @@ const BankAdviceReports = () => {
           description: "Bank advice regenerated with latest bank details"
         });
       } else if (record.payment_source === 'staff_payment') {
+        // Fetch website settings for hospital details
+        const { data: websiteSettings } = await supabase
+          .from('website_settings')
+          .select('*')
+          .eq('is_active', true)
+          .single();
+
         // For staff payments
         const { data: payments } = await supabase
           .from('staff_payments')
@@ -329,20 +336,39 @@ const BankAdviceReports = () => {
         const today = new Date();
         const dd = String(today.getDate()).padStart(2, '0');
         const mm = String(today.getMonth() + 1).padStart(2, '0');
-        const yy = String(today.getFullYear()).slice(-2);
+        const yyyy = today.getFullYear();
+        const dateStr = `${dd}/${mm}/${yyyy}`;
 
-        let gefuContent = `H~${dd}/${mm}/20${yy}~WESTMED\n`;
+        let gefuContent = `H~${dateStr}~${websiteSettings?.hospital_institution_code || 'ABC07112007'}\n`;
         
         let totalAmount = 0;
         payments.forEach((payment: any, index: number) => {
-          const seq = String(index + 1).padStart(6, '0');
-          const amount = Number(payment.amount).toFixed(2);
-          totalAmount += Number(payment.amount);
+          const amount = Number(payment.amount);
+          totalAmount += amount;
 
-          gefuContent += `D~N06~HOSPITAL_ACCOUNT~HOSPITAL_NAME~ADDRESS1~ADDRESS2~ADDRESS3~${payment.ifsc_code}~${payment.account_number}~${payment.account_holder_name}~~~~~${seq}~${dd}/${mm}/20${yy}~${amount}~${seq}~~~~\n`;
+          const detailLine = [
+            'D',
+            'N06',
+            websiteSettings?.hospital_bank_account_number || '120000794291',
+            websiteSettings?.hospital_bank_account_holder_name || 'WESTMED HEALTHCARE PRIVATE LIMITED',
+            'ADDRESS1',
+            'ADDRESS2',
+            'ADDRESS3',
+            payment.ifsc_code || '',
+            payment.account_number || '',
+            payment.account_holder_name || '',
+            '', '', '', '',  // Four empty fields
+            (index + 1).toString(),
+            dateStr,
+            amount.toFixed(2),
+            (index + 1).toString(),
+            '', '', '', ''  // Four empty fields at the end
+          ].join('~');
+          
+          gefuContent += detailLine + '\n';
         });
 
-        gefuContent += `F~${payments.length}~${totalAmount.toFixed(2)}\n`;
+        gefuContent += `F~${payments.length}~${totalAmount.toFixed(2)}`;
 
         const blob = new Blob([gefuContent], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
