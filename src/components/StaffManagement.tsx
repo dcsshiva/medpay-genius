@@ -370,11 +370,9 @@ const StaffManagement = () => {
 
       const staffCode = formData.staff_code || generateStaffCode();
 
-      // Validate uniqueness for new staff (only username, email can be duplicate)
-      const [usernameCheck, staffCodeCheck] = await Promise.all([
-        supabase.from('staff').select('id').eq('username', formData.username).maybeSingle(),
-        supabase.from('staff').select('id').eq('staff_code', staffCode).maybeSingle()
-      ]);
+      // Validate uniqueness for new staff (username and email if provided)
+      const usernameCheck = await supabase.from('staff').select('id').eq('username', formData.username).maybeSingle();
+      const staffCodeCheck = await supabase.from('staff').select('id').eq('staff_code', staffCode).maybeSingle();
 
       if (usernameCheck.data) {
         toast({
@@ -382,6 +380,7 @@ const StaffManagement = () => {
           title: "Validation Error",
           description: `Username "${formData.username}" is already in use`
         });
+        setSubmitting(false);
         return;
       }
 
@@ -389,6 +388,21 @@ const StaffManagement = () => {
         // Generate a new code if collision
         const newStaffCode = generateStaffCode();
         console.log(`Staff code collision, using ${newStaffCode} instead of ${staffCode}`);
+      }
+
+      // If user provided an email, check if it already exists
+      if (formData.email.trim()) {
+        const emailCheck = await supabase.from('staff').select('id, email').eq('email', formData.email.trim()).maybeSingle();
+        
+        if (emailCheck.data) {
+          toast({
+            variant: "destructive",
+            title: "Email Already Exists",
+            description: `The email "${formData.email.trim()}" is already registered in the system. Please use a different email address or leave it blank to auto-generate one.`
+          });
+          setSubmitting(false);
+          return;
+        }
       }
 
       // Generate unique email if none provided
