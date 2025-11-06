@@ -97,8 +97,7 @@ const Auth = () => {
           description: "Successfully signed in.",
         });
         
-        // Redirect to doctor dashboard - use window.location for full reload
-        window.location.href = '/dashboard?view=doctor';
+        // Session created, auth context will handle navigation
         return;
       }
 
@@ -147,14 +146,7 @@ const Auth = () => {
           description: "Successfully signed in.",
         });
 
-        // Redirect based on designation - use window.location for full reload
-        if (userDesignation === 'admin' || userDesignation === 'super_admin') {
-          window.location.href = '/dashboard?view=admin';
-        } else if (userDesignation === 'manager') {
-          window.location.href = '/dashboard?view=manager';
-        } else {
-          window.location.href = '/dashboard?view=staff';
-        }
+        // Session created, auth context will handle navigation
         return;
       }
 
@@ -194,14 +186,7 @@ const Auth = () => {
           description: "Successfully signed in.",
         });
 
-        // Redirect based on designation - use window.location for full reload
-        if (designationOnly.designation === 'admin' || designationOnly.designation === 'super_admin') {
-          window.location.href = '/dashboard?view=admin';
-        } else if (designationOnly.designation === 'manager') {
-          window.location.href = '/dashboard?view=manager';
-        } else {
-          window.location.href = '/dashboard?view=staff';
-        }
+        // Session created, auth context will handle navigation
         return;
       }
 
@@ -309,7 +294,7 @@ const Auth = () => {
             });
             
             window.sessionStorage.setItem('supabase_session_token', sessionToken);
-            window.location.href = '/dashboard?view=doctor';
+            // Session created, auth context will handle navigation
             return;
           }
 
@@ -350,14 +335,7 @@ const Auth = () => {
             });
             
             window.sessionStorage.setItem('supabase_session_token', sessionToken);
-
-            if (userDesignation === 'admin' || userDesignation === 'super_admin') {
-              window.location.href = '/dashboard?view=admin';
-            } else if (userDesignation === 'manager') {
-              window.location.href = '/dashboard?view=manager';
-            } else {
-              window.location.href = '/dashboard?view=staff';
-            }
+            // Session created, auth context will handle navigation
           }
         }
       } catch (err) {
@@ -391,7 +369,7 @@ const Auth = () => {
 
   return (
     <div 
-      className="min-h-screen bg-background flex items-center justify-center p-4 relative"
+      className="min-h-screen bg-background flex flex-col p-4 relative"
       style={{
         backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url(${westmedBanner})`,
         backgroundSize: 'cover',
@@ -399,7 +377,8 @@ const Auth = () => {
         backgroundRepeat: 'no-repeat'
       }}
     >
-      <div className="w-full max-w-md">
+      <div className="flex-1 flex items-center justify-center">
+        <div className="w-full max-w-md">
         <Button
           variant="ghost"
           onClick={() => navigate('/')}
@@ -425,22 +404,7 @@ const Auth = () => {
           <CardContent>
             <form onSubmit={handleUnifiedLogin}>
               <div className="space-y-4">
-                {/* Email Input - Always visible at top */}
-                <div>
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email"
-                    required
-                    disabled={otpSent}
-                    autoComplete="email"
-                  />
-                </div>
-
-                {/* Login Method Tabs */}
+                {/* Login Method Tabs - Now at top */}
                 <Tabs value={useOTP ? 'otp' : 'password'} onValueChange={(v) => setUseOTP(v === 'otp')} className="w-full">
                   <TabsList className="grid w-full grid-cols-2">
                     <TabsTrigger value="password" disabled={otpSent}>
@@ -455,6 +419,22 @@ const Auth = () => {
 
                   {/* Password Tab Content */}
                   <TabsContent value="password" className="space-y-4 mt-4">
+                    {/* Email Input */}
+                    <div>
+                      <Label htmlFor="email">Email Address</Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Enter your email"
+                        required
+                        disabled={otpSent}
+                        autoComplete="email"
+                      />
+                    </div>
+
+                    {/* Password Input */}
                     <div>
                       <Label htmlFor="password">Password</Label>
                       <Input
@@ -493,6 +473,21 @@ const Auth = () => {
 
                   {/* OTP Tab Content */}
                   <TabsContent value="otp" className="space-y-4 mt-4">
+                    {/* Email Input */}
+                    <div>
+                      <Label htmlFor="email-otp">Email Address</Label>
+                      <Input
+                        id="email-otp"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Enter your email"
+                        required
+                        disabled={otpSent}
+                        autoComplete="email"
+                      />
+                    </div>
+
                     {!otpSent ? (
                       <Button 
                         type="button" 
@@ -580,9 +575,10 @@ const Auth = () => {
             </form>
           </CardContent>
         </Card>
+        </div>
       </div>
       
-      <Footer />
+      <Footer variant="light" className="mt-auto" />
     </div>
   );
 };
