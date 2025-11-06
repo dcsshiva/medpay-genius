@@ -179,7 +179,8 @@ const Auth = () => {
           refresh_token: refreshToken,
           username: authData.user.email,
           full_name: authData.user.email,
-          role: 'admin',
+          role: designationOnly.designation === 'super_admin' ? 'super_admin' : 
+               designationOnly.designation === 'manager' ? 'manager' : 'admin',
           expires_at: expiresAt.toISOString(),
           idle_timeout_seconds: 300,
           last_activity_at: new Date().toISOString(),
