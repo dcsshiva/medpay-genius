@@ -46,7 +46,11 @@ interface UnpaidVisit {
 type SortField = 'doctor_code' | 'full_name' | 'paid_amount' | 'unpaid_amount' | 'total_amount';
 type SortDirection = 'asc' | 'desc';
 
-const DoctorHub: React.FC = () => {
+interface DoctorHubProps {
+  filterDoctorId?: string;
+}
+
+const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
   const [doctors, setDoctors] = useState<DoctorSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedDoctor, setExpandedDoctor] = useState<string | null>(null);
@@ -68,12 +72,18 @@ const DoctorHub: React.FC = () => {
     try {
       setLoading(true);
 
-      // Fetch all active doctors
-      const { data: doctorsData, error: doctorsError } = await supabase
+      // Build query with optional doctor filter
+      let query = supabase
         .from('doctors')
         .select('id, doctor_code, full_name')
-        .eq('is_active', true)
-        .order('doctor_code');
+        .eq('is_active', true);
+
+      // If filterDoctorId is provided, only fetch that doctor
+      if (filterDoctorId) {
+        query = query.eq('id', filterDoctorId);
+      }
+
+      const { data: doctorsData, error: doctorsError } = await query.order('doctor_code');
 
       if (doctorsError) throw doctorsError;
 
@@ -287,9 +297,14 @@ const DoctorHub: React.FC = () => {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Doctor Hub</h1>
+          <h1 className="text-3xl font-bold">
+            {filterDoctorId ? 'My Payment Summary' : 'Doctor Hub'}
+          </h1>
           <p className="text-muted-foreground">
-            Track payments and visits for all doctors (Current Financial Year)
+            {filterDoctorId 
+              ? 'Your payment and visit information for the current financial year'
+              : 'Track payments and visits for all doctors (Current Financial Year)'
+            }
           </p>
         </div>
       </div>

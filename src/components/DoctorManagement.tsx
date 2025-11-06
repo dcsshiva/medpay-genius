@@ -214,18 +214,22 @@ const DoctorManagement = () => {
           if (formData.email.trim()) updateBody.email = formData.email.trim();
           if (formData.password.trim()) updateBody.password = formData.password.trim();
           
-          const { error: credUpdateError } = await supabase.functions.invoke('update-user-credentials', {
+          const { data: credUpdateData, error: credUpdateError } = await supabase.functions.invoke('update-user-credentials', {
             body: updateBody,
             headers: getSessionAuthHeaders()
           });
 
-          if (credUpdateError) {
-            console.error('Failed to update credentials:', credUpdateError);
+          // Check both error object AND response data for errors
+          if (credUpdateError || (credUpdateData && credUpdateData.error)) {
+            const errorMsg = credUpdateError?.message || credUpdateData?.error || 'Unknown error';
+            console.error('Failed to update credentials:', errorMsg);
             toast({
               variant: "destructive",
-              title: "Credential Sync Warning",
-              description: "Doctor record updated but authentication credentials may not be synced. Please use the Auth Synchronization tool."
+              title: "Credential Update Failed",
+              description: errorMsg
             });
+            setSubmitting(false);
+            return;
           }
         }
 

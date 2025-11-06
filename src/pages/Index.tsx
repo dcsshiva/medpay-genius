@@ -37,21 +37,31 @@ import DoctorHub from '@/components/DoctorHub';
 
 // Bank Advice Payment Report Component
 const Index = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, userProfile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [activeSubTab, setActiveSubTab] = useState<string | undefined>(undefined);
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<'all' | 'cash' | 'insurance' | 'mixed'>('all');
 
-  // Handle navigation from location state
+  // Handle navigation from location state and URL parameters
   useEffect(() => {
     if (location.state?.activeTab) {
       setActiveTab(location.state.activeTab);
       // Clear the state after navigation
       navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [location.state, navigate, location.pathname]);
+    
+    // Check for view parameter in URL
+    const params = new URLSearchParams(location.search);
+    const view = params.get('view');
+    
+    if (view === 'doctor') {
+      setActiveTab('doctor-hub');
+    } else if (view === 'admin' || view === 'manager' || view === 'staff') {
+      setActiveTab('dashboard');
+    }
+  }, [location.state, location.search, navigate, location.pathname]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -148,7 +158,9 @@ const Index = () => {
       case 'payment-hub':
         return <PaymentHub />;
       case 'doctor-hub':
-        return <DoctorHub />;
+        // Check if user is a doctor
+        const isDoctorUser = userProfile?.user_type === 'doctor';
+        return <DoctorHub filterDoctorId={isDoctorUser ? userProfile?.id : undefined} />;
       case 'leave-permission':
         return <LeavePermissionManagement />;
       case 'leave-approvals':

@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
-import { LogIn, Shield, UserCheck, ArrowLeft, Mail, KeyRound } from 'lucide-react';
+import { ArrowLeft, Mail, KeyRound } from 'lucide-react';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { supabase } from '@/integrations/supabase/client';
 import westmedBanner from '@/assets/westmed-banner.png';
@@ -15,147 +15,324 @@ import westmedLogo from '@/assets/westmed-logo.png';
 import Footer from '@/components/Footer';
 
 const Auth = () => {
-  const [staffLoading, setStaffLoading] = useState(false);
-  const [doctorLoading, setDoctorLoading] = useState(false);
-  const [adminLoading, setAdminLoading] = useState(false);
-  const [staffData, setStaffData] = useState({ username: '', password: '' });
-  const [doctorData, setDoctorData] = useState({ doctorCode: '', password: '' });
-  const [adminData, setAdminData] = useState({ email: '', password: '' });
+  const [loading, setLoading] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [useOTP, setUseOTP] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [resendCooldown, setResendCooldown] = useState(0);
   
-  // OTP states for Staff
-  const [staffUseOTP, setStaffUseOTP] = useState(true);
-  const [staffOTPSent, setStaffOTPSent] = useState(false);
-  const [staffOTPCode, setStaffOTPCode] = useState('');
-  const [staffEmail, setStaffEmail] = useState('');
-  const [staffResendCooldown, setStaffResendCooldown] = useState(0);
-  const [staffOTPType, setStaffOTPType] = useState<'email' | 'mobile'>('email');
-  const [staffMobile, setStaffMobile] = useState('');
-
-  // OTP states for Doctor
-  const [doctorUseOTP, setDoctorUseOTP] = useState(true);
-  const [doctorOTPSent, setDoctorOTPSent] = useState(false);
-  const [doctorOTPCode, setDoctorOTPCode] = useState('');
-  const [doctorEmail, setDoctorEmail] = useState('');
-  const [doctorResendCooldown, setDoctorResendCooldown] = useState(0);
-  const [doctorOTPType, setDoctorOTPType] = useState<'email' | 'mobile'>('email');
-  const [doctorMobile, setDoctorMobile] = useState('');
-
-  // OTP states for Admin
-  const [adminUseOTP, setAdminUseOTP] = useState(true);
-  const [adminOTPSent, setAdminOTPSent] = useState(false);
-  const [adminOTPCode, setAdminOTPCode] = useState('');
-  const [adminResendCooldown, setAdminResendCooldown] = useState(0);
-  
-  const { signInWithUsername, signInWithEmail, signInWithOTP, verifyOTP, sendMobileOTP, verifyMobileOTP, getUserEmail, user } = useAuth();
+  const { signInWithOTP, verifyOTP, user } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
-    console.log('Auth useEffect - user exists:', !!user);
     if (user) {
-      console.log('Navigating to dashboard from useEffect...');
       navigate('/dashboard');
     }
   }, [user, navigate]);
 
   useEffect(() => {
-    const intervals: NodeJS.Timeout[] = [];
-    
-    if (staffResendCooldown > 0) {
-      intervals.push(setInterval(() => {
-        setStaffResendCooldown(prev => Math.max(0, prev - 1));
-      }, 1000));
+    if (resendCooldown > 0) {
+      const interval = setInterval(() => {
+        setResendCooldown(prev => Math.max(0, prev - 1));
+      }, 1000);
+      return () => clearInterval(interval);
     }
-    
-    if (doctorResendCooldown > 0) {
-      intervals.push(setInterval(() => {
-        setDoctorResendCooldown(prev => Math.max(0, prev - 1));
-      }, 1000));
-    }
-    
-    if (adminResendCooldown > 0) {
-      intervals.push(setInterval(() => {
-        setAdminResendCooldown(prev => Math.max(0, prev - 1));
-      }, 1000));
-    }
-    
-    return () => intervals.forEach(clearInterval);
-  }, [staffResendCooldown, doctorResendCooldown, adminResendCooldown]);
+  }, [resendCooldown]);
 
-  const handleStaffLogin = async (e: React.FormEvent) => {
+  const handleUnifiedLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setStaffLoading(true);
+    setLoading(true);
 
-    const { error } = await signInWithUsername(staffData.username, staffData.password);
-    
-    if (error) {
+    try {
+      // Step 1: Try Supabase auth login
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
+
+      if (authError) throw authError;
+
+      if (!authData.user) {
+        throw new Error('Invalid credentials');
+      }
+
+      const userId = authData.user.id;
+
+      // Step 2: Determine user type and role
+      // Check if user is a doctor
+      const { data: doctorData } = await supabase
+        .from('doctors')
+        .select('id, doctor_code, full_name')
+        .eq('user_id', userId)
+        .single();
+
+      if (doctorData) {
+        // Create session for doctor
+        const sessionToken = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const refreshToken = `refresh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        
+        await supabase.from('user_sessions').insert({
+          user_id: userId,
+          user_type: 'doctor',
+          original_id: doctorData.id,
+          session_token: sessionToken,
+          refresh_token: refreshToken,
+          username: doctorData.doctor_code,
+          full_name: doctorData.full_name,
+          role: 'doctor',
+          expires_at: expiresAt.toISOString(),
+          idle_timeout_seconds: 180,
+          last_activity_at: new Date().toISOString(),
+          is_active: true
+        });
+        
+        window.sessionStorage.setItem('supabase_session_token', sessionToken);
+        
+        toast({
+          title: "Welcome Doctor!",
+          description: "Successfully signed in.",
+        });
+        
+        // Redirect to doctor dashboard
+        navigate('/dashboard?view=doctor');
+        return;
+      }
+
+      // Check if user is staff
+      const { data: staffData } = await supabase
+        .from('staff')
+        .select('id, staff_code, full_name, role')
+        .eq('user_id', userId)
+        .single();
+
+      if (staffData) {
+        // Check designation
+        const { data: designation } = await supabase
+          .from('user_designations')
+          .select('designation')
+          .eq('user_id', userId)
+          .single();
+
+        const userDesignation = designation?.designation || 'staff';
+
+        // Create session for staff
+        const sessionToken = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const refreshToken = `refresh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        const timeoutDuration = ['admin', 'manager'].includes(staffData.role) ? 300 : 180;
+        
+        await supabase.from('user_sessions').insert({
+          user_id: userId,
+          user_type: 'staff',
+          original_id: staffData.id,
+          session_token: sessionToken,
+          refresh_token: refreshToken,
+          username: staffData.staff_code,
+          full_name: staffData.full_name,
+          role: staffData.role,
+          expires_at: expiresAt.toISOString(),
+          idle_timeout_seconds: timeoutDuration,
+          last_activity_at: new Date().toISOString(),
+          is_active: true
+        });
+        
+        window.sessionStorage.setItem('supabase_session_token', sessionToken);
+
+        toast({
+          title: "Welcome back!",
+          description: "Successfully signed in.",
+        });
+
+        // Redirect based on designation
+        if (userDesignation === 'admin' || userDesignation === 'super_admin') {
+          navigate('/dashboard?view=admin');
+        } else if (userDesignation === 'manager') {
+          navigate('/dashboard?view=manager');
+        } else {
+          navigate('/dashboard?view=staff');
+        }
+        return;
+      }
+
+      // If no profile found, show error
+      throw new Error('No profile found for this user');
+    } catch (error: any) {
+      console.error('Login error:', error);
       toast({
         variant: "destructive",
-        title: "Staff Login Failed",
-        description: error.message,
+        title: "Login Failed",
+        description: error.message || "Invalid credentials"
       });
-    } else {
-      toast({
-        title: "Welcome back!",
-        description: "Successfully signed in as staff.",
-      });
+    } finally {
+      setLoading(false);
     }
-    
-    setStaffLoading(false);
   };
 
-  const handleDoctorLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setDoctorLoading(true);
+  const handleSendOTP = async () => {
+    if (!email) {
+      toast({
+        variant: "destructive",
+        title: "Email Required",
+        description: "Please enter your email address first.",
+      });
+      return;
+    }
 
-    const { error } = await signInWithUsername(doctorData.doctorCode, doctorData.password);
+    setLoading(true);
+    
+    const { error } = await signInWithOTP(email);
     
     if (error) {
       toast({
         variant: "destructive",
-        title: "Doctor Login Failed",
+        title: "Failed to Send OTP",
         description: error.message,
       });
     } else {
+      setOtpSent(true);
+      setResendCooldown(60);
       toast({
-        title: "Welcome Doctor!",
+        title: "6-Digit Code Sent!",
+        description: `We've sent a 6-digit code to ${email}. Check your inbox.`,
+      });
+    }
+    
+    setLoading(false);
+  };
+
+  const handleVerifyOTP = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    if (otpCode.length !== 6) {
+      toast({
+        variant: "destructive",
+        title: "Invalid OTP",
+        description: "Please enter the complete 6-digit code.",
+      });
+      setLoading(false);
+      return;
+    }
+    
+    const { error } = await verifyOTP(email, otpCode);
+    
+    if (error) {
+      toast({
+        variant: "destructive",
+        title: "OTP Verification Failed",
+        description: error.message || "Invalid or expired OTP code.",
+      });
+      setLoading(false);
+    } else {
+      // After OTP verification, determine user type
+      try {
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          const userId = authUser.id;
+
+          // Check doctor
+          const { data: doctorData } = await supabase
+            .from('doctors')
+            .select('id, doctor_code, full_name')
+            .eq('user_id', userId)
+            .single();
+
+          if (doctorData) {
+            const sessionToken = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const refreshToken = `refresh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+            
+            await supabase.from('user_sessions').insert({
+              user_id: userId,
+              user_type: 'doctor',
+              original_id: doctorData.id,
+              session_token: sessionToken,
+              refresh_token: refreshToken,
+              username: doctorData.doctor_code,
+              full_name: doctorData.full_name,
+              role: 'doctor',
+              expires_at: expiresAt.toISOString(),
+              idle_timeout_seconds: 180,
+              last_activity_at: new Date().toISOString(),
+              is_active: true
+            });
+            
+            window.sessionStorage.setItem('supabase_session_token', sessionToken);
+            navigate('/dashboard?view=doctor');
+            return;
+          }
+
+          // Check staff
+          const { data: staffData } = await supabase
+            .from('staff')
+            .select('id, staff_code, full_name, role')
+            .eq('user_id', userId)
+            .single();
+
+          if (staffData) {
+            const { data: designation } = await supabase
+              .from('user_designations')
+              .select('designation')
+              .eq('user_id', userId)
+              .single();
+
+            const userDesignation = designation?.designation || 'staff';
+
+            const sessionToken = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const refreshToken = `refresh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+            const timeoutDuration = ['admin', 'manager'].includes(staffData.role) ? 300 : 180;
+            
+            await supabase.from('user_sessions').insert({
+              user_id: userId,
+              user_type: 'staff',
+              original_id: staffData.id,
+              session_token: sessionToken,
+              refresh_token: refreshToken,
+              username: staffData.staff_code,
+              full_name: staffData.full_name,
+              role: staffData.role,
+              expires_at: expiresAt.toISOString(),
+              idle_timeout_seconds: timeoutDuration,
+              last_activity_at: new Date().toISOString(),
+              is_active: true
+            });
+            
+            window.sessionStorage.setItem('supabase_session_token', sessionToken);
+
+            if (userDesignation === 'admin' || userDesignation === 'super_admin') {
+              navigate('/dashboard?view=admin');
+            } else if (userDesignation === 'manager') {
+              navigate('/dashboard?view=manager');
+            } else {
+              navigate('/dashboard?view=staff');
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error determining user type:', err);
+        navigate('/dashboard');
+      }
+      
+      toast({
+        title: "Welcome!",
         description: "Successfully signed in.",
       });
     }
-    
-    setDoctorLoading(false);
   };
 
-  const handleAdminLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAdminLoading(true);
-
-    const { error } = await signInWithEmail(adminData.email, adminData.password);
-    
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "Admin Login Failed",
-        description: error.message,
-      });
-    } else {
-      toast({
-        title: "Welcome back Admin!",
-        description: "Successfully signed in as administrator.",
-      });
-    }
-    
-    setAdminLoading(false);
-  };
-
-  const handleAdminResetPassword = async () => {
-    if (!adminData.email) {
-      toast({ variant: 'destructive', title: 'Email required', description: 'Enter your admin email first.' });
+  const handleResetPassword = async () => {
+    if (!email) {
+      toast({ variant: 'destructive', title: 'Email required', description: 'Enter your email first.' });
       return;
     }
     try {
       const redirectUrl = `${window.location.origin}/auth`;
-      const { error } = await supabase.auth.resetPasswordForEmail(adminData.email, {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: redirectUrl,
       });
       if (error) throw error;
@@ -163,290 +340,6 @@ const Auth = () => {
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Reset failed', description: err?.message || 'Could not send reset email.' });
     }
-  };
-
-  // Staff OTP Handlers
-  const handleStaffSendOTP = async () => {
-    setStaffLoading(true);
-    
-    const { email, error: emailError } = await getUserEmail(staffData.username, 'staff');
-    
-    if (emailError || !email) {
-      toast({
-        variant: "destructive",
-        title: "Email Not Found",
-        description: "No email registered for this username. Please contact admin.",
-      });
-      setStaffLoading(false);
-      return;
-    }
-    
-    setStaffEmail(email);
-    
-    const { error } = await signInWithOTP(email);
-    
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "Failed to Send OTP",
-        description: error.message,
-      });
-    } else {
-      setStaffOTPSent(true);
-      setStaffResendCooldown(60);
-      toast({
-        title: "6-Digit Code Sent!",
-        description: `We've sent a 6-digit code (not a link) to ${email.substring(0, 3)}***@${email.split('@')[1]}. Check your inbox.`,
-      });
-    }
-    
-    setStaffLoading(false);
-  };
-
-  const handleStaffVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setStaffLoading(true);
-    
-    if (staffOTPCode.length !== 6) {
-      toast({
-        variant: "destructive",
-        title: "Invalid OTP",
-        description: "Please enter the complete 6-digit code.",
-      });
-      setStaffLoading(false);
-      return;
-    }
-    
-    const { error } = await verifyOTP(staffEmail, staffOTPCode);
-    
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "OTP Verification Failed",
-        description: error.message || "Invalid or expired OTP code.",
-      });
-    } else {
-      toast({
-        title: "Welcome back!",
-        description: "Successfully signed in as staff.",
-      });
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 100);
-    }
-    
-    setStaffLoading(false);
-  };
-
-  const handleStaffResendOTP = async () => {
-    await handleStaffSendOTP();
-  };
-
-  const handleStaffSendMobileOTP = async () => {
-    setStaffLoading(true);
-    
-    const { error } = await sendMobileOTP(staffMobile);
-    
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "Failed to Send OTP",
-        description: error.message,
-      });
-    } else {
-      setStaffOTPSent(true);
-      setStaffResendCooldown(300); // 5 minutes for mobile OTP
-      toast({
-        title: "OTP Sent!",
-        description: `We've sent a 6-digit OTP to ${staffMobile.substring(0, 3)}****${staffMobile.substring(7)}`,
-      });
-    }
-    
-    setStaffLoading(false);
-  };
-
-  const handleStaffVerifyMobileOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setStaffLoading(true);
-    
-    if (staffOTPCode.length !== 6) {
-      toast({
-        variant: "destructive",
-        title: "Invalid OTP",
-        description: "Please enter the complete 6-digit code.",
-      });
-      setStaffLoading(false);
-      return;
-    }
-    
-    const { error } = await verifyMobileOTP(staffMobile, staffOTPCode);
-    
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "OTP Verification Failed",
-        description: error.message || "Invalid or expired OTP code.",
-      });
-    } else {
-      toast({
-        title: "Welcome back!",
-        description: "Successfully signed in as staff.",
-      });
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 100);
-    }
-    
-    setStaffLoading(false);
-  };
-
-  // Doctor OTP Handlers
-  const handleDoctorSendOTP = async () => {
-    setDoctorLoading(true);
-    
-    const { email, error: emailError } = await getUserEmail(doctorData.doctorCode, 'doctor');
-    
-    if (emailError || !email) {
-      toast({
-        variant: "destructive",
-        title: "Email Not Found",
-        description: "No email registered for this doctor code. Please contact admin.",
-      });
-      setDoctorLoading(false);
-      return;
-    }
-    
-    setDoctorEmail(email);
-    
-    const { error } = await signInWithOTP(email);
-    
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "Failed to Send OTP",
-        description: error.message,
-      });
-    } else {
-      setDoctorOTPSent(true);
-      setDoctorResendCooldown(60);
-      toast({
-        title: "6-Digit Code Sent!",
-        description: `We've sent a 6-digit code (not a link) to ${email.substring(0, 3)}***@${email.split('@')[1]}. Check your inbox.`,
-      });
-    }
-    
-    setDoctorLoading(false);
-  };
-
-  const handleDoctorVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setDoctorLoading(true);
-    
-    if (doctorOTPCode.length !== 6) {
-      toast({
-        variant: "destructive",
-        title: "Invalid OTP",
-        description: "Please enter the complete 6-digit code.",
-      });
-      setDoctorLoading(false);
-      return;
-    }
-    
-    const { error } = await verifyOTP(doctorEmail, doctorOTPCode);
-    
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "OTP Verification Failed",
-        description: error.message || "Invalid or expired OTP code.",
-      });
-    } else {
-      toast({
-        title: "Welcome Doctor!",
-        description: "Successfully signed in.",
-      });
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 100);
-    }
-    
-    setDoctorLoading(false);
-  };
-
-  const handleDoctorResendOTP = async () => {
-    await handleDoctorSendOTP();
-  };
-
-  // Admin OTP Handlers
-  const handleAdminSendOTP = async () => {
-    if (!adminData.email) {
-      toast({
-        variant: "destructive",
-        title: "Email Required",
-        description: "Please enter your admin email first.",
-      });
-      return;
-    }
-    
-    setAdminLoading(true);
-    
-    const { error } = await signInWithOTP(adminData.email);
-    
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "Failed to Send OTP",
-        description: error.message,
-      });
-    } else {
-      setAdminOTPSent(true);
-      setAdminResendCooldown(60);
-      toast({
-        title: "6-Digit Code Sent!",
-        description: `We've sent a 6-digit code (not a link) to ${adminData.email}. Check your inbox.`,
-      });
-    }
-    
-    setAdminLoading(false);
-  };
-
-  const handleAdminVerifyOTP = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAdminLoading(true);
-    
-    if (adminOTPCode.length !== 6) {
-      toast({
-        variant: "destructive",
-        title: "Invalid OTP",
-        description: "Please enter the complete 6-digit code.",
-      });
-      setAdminLoading(false);
-      return;
-    }
-    
-    const { error } = await verifyOTP(adminData.email, adminOTPCode);
-    
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "OTP Verification Failed",
-        description: error.message || "Invalid or expired OTP code.",
-      });
-    } else {
-      toast({
-        title: "Welcome back Admin!",
-        description: "Successfully signed in as administrator.",
-      });
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 100);
-    }
-    
-    setAdminLoading(false);
-  };
-
-  const handleAdminResendOTP = async () => {
-    await handleAdminSendOTP();
   };
 
   return (
@@ -478,440 +371,82 @@ const Auth = () => {
         </div>
 
         <Card>
-          <CardContent className="pt-6">
-            <Tabs defaultValue="doctor" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="staff" className="flex items-center gap-2">
-                  <LogIn className="h-4 w-4" />
-                  Hospital Staff
-                </TabsTrigger>
-                <TabsTrigger value="doctor" className="flex items-center gap-2">
-                  <UserCheck className="h-4 w-4" />
-                  Doctor
-                </TabsTrigger>
-                <TabsTrigger value="admin" className="flex items-center gap-2">
-                  <Shield className="h-4 w-4" />
-                  Admin
-                </TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="staff" className="space-y-4">
-                <div className="text-center mb-6">
-                  <h2 className="text-xl font-semibold mb-2">Hospital Staff Login</h2>
-                  <p className="text-sm text-muted-foreground">
-                    {staffUseOTP ? 'Sign in with one-time password' : 'Use your username and password'}
-                  </p>
-                </div>
-                
-                <div className="flex gap-2 mb-4">
-                  <Button 
-                    type="button"
-                    variant={!staffUseOTP ? "default" : "outline"}
-                    className="flex-1"
-                    onClick={() => {
-                      setStaffUseOTP(false);
-                      setStaffOTPSent(false);
-                      setStaffOTPCode('');
-                    }}
-                  >
-                    <KeyRound className="mr-2 h-4 w-4" />
-                    Password
-                  </Button>
-                  <Button 
-                    type="button"
-                    variant={staffUseOTP ? "default" : "outline"}
-                    className="flex-1"
-                    onClick={() => setStaffUseOTP(true)}
-                  >
-                    <Mail className="mr-2 h-4 w-4" />
-                    OTP
-                  </Button>
-                </div>
-                
-                {!staffUseOTP ? (
-                  <form onSubmit={handleStaffLogin} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="staff-username">Username</Label>
-                      <Input
-                        id="staff-username"
-                        type="text"
-                        placeholder="Enter your username"
-                        value={staffData.username}
-                        onChange={(e) => setStaffData({ ...staffData, username: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="staff-password">Password</Label>
-                      <Input
-                        id="staff-password"
-                        type="password"
-                        value={staffData.password}
-                        onChange={(e) => setStaffData({ ...staffData, password: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <Button type="submit" className="w-full" disabled={staffLoading}>
-                      {staffLoading ? 'Signing In...' : 'Sign In as Staff'}
-                    </Button>
-                  </form>
-                ) : (
-                  <div className="space-y-4">
-                    {!staffOTPSent ? (
-                      <>
-                        <div className="flex gap-2 mb-2">
-                          <Button 
-                            type="button"
-                            size="sm"
-                            variant={staffOTPType === 'email' ? "default" : "outline"}
-                            className="flex-1"
-                            onClick={() => setStaffOTPType('email')}
-                          >
-                            Email OTP
-                          </Button>
-                          <Button 
-                            type="button"
-                            size="sm"
-                            variant={staffOTPType === 'mobile' ? "default" : "outline"}
-                            className="flex-1"
-                            onClick={() => setStaffOTPType('mobile')}
-                          >
-                            Mobile OTP
-                          </Button>
-                        </div>
-
-                        {staffOTPType === 'email' ? (
-                          <div className="space-y-2">
-                            <Label htmlFor="staff-username-otp">Username</Label>
-                            <Input
-                              id="staff-username-otp"
-                              type="text"
-                              placeholder="Enter your username"
-                              value={staffData.username}
-                              onChange={(e) => setStaffData({ ...staffData, username: e.target.value })}
-                              required
-                            />
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            <Label htmlFor="staff-mobile">Mobile Number</Label>
-                            <Input
-                              id="staff-mobile"
-                              type="tel"
-                              placeholder="Enter 10-digit mobile number"
-                              value={staffMobile}
-                              onChange={(e) => {
-                                const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                                setStaffMobile(value);
-                              }}
-                              maxLength={10}
-                              required
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              Enter your registered mobile number
-                            </p>
-                          </div>
-                        )}
-                        
-                        <Button 
-                          type="button"
-                          onClick={staffOTPType === 'email' ? handleStaffSendOTP : handleStaffSendMobileOTP} 
-                          className="w-full" 
-                          disabled={staffLoading || (staffOTPType === 'email' ? !staffData.username : !staffMobile || staffMobile.length !== 10)}
-                        >
-                          {staffLoading ? 'Sending OTP...' : 'Send 6-Digit OTP'}
-                        </Button>
-                      </>
-                    ) : (
-                      <form onSubmit={staffOTPType === 'email' ? handleStaffVerifyOTP : handleStaffVerifyMobileOTP} className="space-y-4">
-                        <div className="space-y-2">
-                          <Label>Enter 6-Digit OTP</Label>
-                          <p className="text-xs text-muted-foreground text-center">
-                            {staffOTPType === 'email' 
-                              ? `Code sent to ${staffEmail.substring(0, 3)}***@${staffEmail.split('@')[1]}`
-                              : `Code sent to ${staffMobile.substring(0, 3)}****${staffMobile.substring(7)}`
-                            }
-                          </p>
-                          <div className="flex justify-center">
-                            <InputOTP 
-                              maxLength={6} 
-                              value={staffOTPCode} 
-                              onChange={setStaffOTPCode}
-                            >
-                              <InputOTPGroup>
-                                <InputOTPSlot index={0} />
-                                <InputOTPSlot index={1} />
-                                <InputOTPSlot index={2} />
-                                <InputOTPSlot index={3} />
-                                <InputOTPSlot index={4} />
-                                <InputOTPSlot index={5} />
-                              </InputOTPGroup>
-                            </InputOTP>
-                          </div>
-                          <p className="text-xs text-muted-foreground text-center mt-2">
-                            {staffOTPType === 'email' && staffEmail
-                              ? `Code sent to ${staffEmail.substring(0, 3)}***@${staffEmail.split('@')[1]}`
-                              : staffOTPType === 'mobile' && staffMobile
-                              ? `Code sent to ${staffMobile.substring(0, 3)}****${staffMobile.substring(7)}`
-                              : 'Code sent successfully'
-                            }
-                          </p>
-                        </div>
-                        
-                        <Button 
-                          type="submit" 
-                          className="w-full" 
-                          disabled={staffLoading || staffOTPCode.length !== 6}
-                        >
-                          {staffLoading ? 'Verifying...' : 'Verify & Sign In'}
-                        </Button>
-                        
-                        <Button 
-                          type="button"
-                          variant="ghost" 
-                          className="w-full" 
-                          onClick={staffOTPType === 'email' ? handleStaffResendOTP : handleStaffSendMobileOTP}
-                          disabled={staffResendCooldown > 0 || staffLoading}
-                        >
-                          {staffResendCooldown > 0 
-                            ? `Resend OTP (${staffResendCooldown}s)` 
-                            : 'Resend OTP'}
-                        </Button>
-                      </form>
-                    )}
-                  </div>
-                )}
-              </TabsContent>
-              
-              <TabsContent value="doctor" className="space-y-4">
-                <div className="text-center mb-6">
-                  <h2 className="text-xl font-semibold mb-2">Doctor Login</h2>
-                  <p className="text-sm text-muted-foreground">
-                    {doctorUseOTP ? 'Sign in with one-time password' : 'Sign in with your doctor code and password'}
-                  </p>
-                </div>
-                
-                <div className="flex gap-2 mb-4">
-                  <Button 
-                    type="button"
-                    variant={!doctorUseOTP ? "default" : "outline"}
-                    className="flex-1"
-                    onClick={() => {
-                      setDoctorUseOTP(false);
-                      setDoctorOTPSent(false);
-                      setDoctorOTPCode('');
-                    }}
-                  >
-                    <KeyRound className="mr-2 h-4 w-4" />
-                    Password
-                  </Button>
-                  <Button 
-                    type="button"
-                    variant={doctorUseOTP ? "default" : "outline"}
-                    className="flex-1"
-                    onClick={() => setDoctorUseOTP(true)}
-                  >
-                    <Mail className="mr-2 h-4 w-4" />
-                    OTP
-                  </Button>
-                </div>
-                
-                {!doctorUseOTP ? (
-                  <form onSubmit={handleDoctorLogin} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="doctor-code">Doctor Code</Label>
-                      <Input
-                        id="doctor-code"
-                        type="text"
-                        placeholder="Enter your doctor code (e.g., DOC001)"
-                        value={doctorData.doctorCode}
-                        onChange={(e) => setDoctorData({ ...doctorData, doctorCode: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="doctor-password">Password</Label>
-                      <Input
-                        id="doctor-password"
-                        type="password"
-                        placeholder="Enter your password"
-                        value={doctorData.password}
-                        onChange={(e) => setDoctorData({ ...doctorData, password: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <Button type="submit" className="w-full" disabled={doctorLoading}>
-                      {doctorLoading ? 'Signing In...' : 'Sign In as Doctor'}
-                    </Button>
-                  </form>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="doctor-code-otp">Doctor Code</Label>
-                      <Input
-                        id="doctor-code-otp"
-                        type="text"
-                        placeholder="Enter your doctor code"
-                        value={doctorData.doctorCode}
-                        onChange={(e) => setDoctorData({ ...doctorData, doctorCode: e.target.value })}
-                        disabled={doctorOTPSent}
-                        required
-                      />
-                    </div>
-                    
-                    {!doctorOTPSent ? (
-                      <Button 
-                        type="button"
-                        onClick={handleDoctorSendOTP} 
-                        className="w-full" 
-                        disabled={doctorLoading || !doctorData.doctorCode}
-                      >
-                        {doctorLoading ? 'Sending OTP...' : 'Send 6-Digit OTP'}
-                      </Button>
-                    ) : (
-                      <form onSubmit={handleDoctorVerifyOTP} className="space-y-4">
-                        <div className="space-y-2">
-                          <Label>Enter 6-Digit OTP</Label>
-                          <p className="text-xs text-muted-foreground text-center">
-                            Enter the 6-digit code emailed to you
-                          </p>
-                          <div className="flex justify-center">
-                            <InputOTP 
-                              maxLength={6} 
-                              value={doctorOTPCode} 
-                              onChange={setDoctorOTPCode}
-                            >
-                              <InputOTPGroup>
-                                <InputOTPSlot index={0} />
-                                <InputOTPSlot index={1} />
-                                <InputOTPSlot index={2} />
-                                <InputOTPSlot index={3} />
-                                <InputOTPSlot index={4} />
-                                <InputOTPSlot index={5} />
-                              </InputOTPGroup>
-                            </InputOTP>
-                          </div>
-                          <p className="text-xs text-muted-foreground text-center mt-2">
-                            Code sent to {doctorEmail.substring(0, 3)}***@{doctorEmail.split('@')[1]}
-                          </p>
-                        </div>
-                        
-                        <Button 
-                          type="submit" 
-                          className="w-full" 
-                          disabled={doctorLoading || doctorOTPCode.length !== 6}
-                        >
-                          {doctorLoading ? 'Verifying...' : 'Verify & Sign In'}
-                        </Button>
-                        
-                        <Button 
-                          type="button"
-                          variant="ghost" 
-                          className="w-full" 
-                          onClick={handleDoctorResendOTP}
-                          disabled={doctorResendCooldown > 0 || doctorLoading}
-                        >
-                          {doctorResendCooldown > 0 
-                            ? `Resend OTP (${doctorResendCooldown}s)` 
-                            : 'Resend OTP'}
-                        </Button>
-                      </form>
-                    )}
-                  </div>
-                )}
-              </TabsContent>
-              
-              <TabsContent value="admin" className="space-y-4">
-                <div className="text-center mb-6">
-                  <h2 className="text-xl font-semibold mb-2">Administrator Login</h2>
-                  <p className="text-sm text-muted-foreground">
-                    {adminUseOTP ? 'Sign in with one-time password' : 'Sign in with email and password'}
-                  </p>
-                </div>
-                
-                <div className="flex gap-2 mb-4">
-                  <Button 
-                    type="button"
-                    variant={!adminUseOTP ? "default" : "outline"}
-                    className="flex-1"
-                    onClick={() => {
-                      setAdminUseOTP(false);
-                      setAdminOTPSent(false);
-                      setAdminOTPCode('');
-                    }}
-                  >
-                    <KeyRound className="mr-2 h-4 w-4" />
-                    Password
-                  </Button>
-                  <Button 
-                    type="button"
-                    variant={adminUseOTP ? "default" : "outline"}
-                    className="flex-1"
-                    onClick={() => setAdminUseOTP(true)}
-                  >
-                    <Mail className="mr-2 h-4 w-4" />
-                    OTP
-                  </Button>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="admin-email">Email</Label>
+          <CardHeader>
+            <CardTitle>Hospital Login</CardTitle>
+            <CardDescription>Sign in to access your dashboard</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={useOTP ? handleVerifyOTP : handleUnifiedLogin}>
+              <div className="space-y-4">
+                <div>
+                  <Label>Email Address</Label>
                   <Input
-                    id="admin-email"
                     type="email"
-                    placeholder="Enter your admin email"
-                    value={adminData.email}
-                    onChange={(e) => setAdminData({ ...adminData, email: e.target.value })}
-                    disabled={adminOTPSent}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="Enter your email"
                     required
+                    disabled={otpSent}
                   />
                 </div>
-                
-                {!adminUseOTP ? (
-                  <form onSubmit={handleAdminLogin} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="admin-password">Password</Label>
+
+                <Tabs value={useOTP ? 'otp' : 'password'} onValueChange={(v) => setUseOTP(v === 'otp')}>
+                  <TabsList className="grid w-full grid-cols-2">
+                    <TabsTrigger value="password">
+                      <KeyRound className="mr-2 h-4 w-4" />
+                      Password
+                    </TabsTrigger>
+                    <TabsTrigger value="otp">
+                      <Mail className="mr-2 h-4 w-4" />
+                      OTP
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="password" className="space-y-4">
+                    <div>
+                      <Label>Password</Label>
                       <Input
-                        id="admin-password"
                         type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
                         placeholder="Enter your password"
-                        value={adminData.password}
-                        onChange={(e) => setAdminData({ ...adminData, password: e.target.value })}
-                        required
+                        required={!useOTP}
                       />
                     </div>
-                    <Button type="submit" className="w-full" disabled={adminLoading}>
-                      {adminLoading ? 'Signing In...' : 'Sign In as Admin'}
+                    <Button type="submit" className="w-full" disabled={loading}>
+                      {loading ? 'Signing in...' : 'Sign In'}
                     </Button>
-                    <div className="flex items-center justify-center text-xs text-muted-foreground mt-2">
-                      <button type="button" onClick={handleAdminResetPassword} className="underline hover:opacity-80">
-                        Forgot password?
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  <div className="space-y-4">
-                    {!adminOTPSent ? (
-                      <Button 
+                    <div className="text-center">
+                      <Button
                         type="button"
-                        onClick={handleAdminSendOTP} 
-                        className="w-full" 
-                        disabled={adminLoading || !adminData.email}
+                        variant="link"
+                        onClick={handleResetPassword}
+                        className="text-sm"
                       >
-                        {adminLoading ? 'Sending OTP...' : 'Send 6-Digit OTP'}
+                        Forgot password?
+                      </Button>
+                    </div>
+                  </TabsContent>
+
+                  <TabsContent value="otp" className="space-y-4">
+                    {!otpSent ? (
+                      <Button 
+                        type="button" 
+                        onClick={handleSendOTP} 
+                        className="w-full"
+                        disabled={loading}
+                      >
+                        {loading ? 'Sending...' : 'Send 6-Digit OTP'}
                       </Button>
                     ) : (
-                      <form onSubmit={handleAdminVerifyOTP} className="space-y-4">
-                        <div className="space-y-2">
+                      <div className="space-y-4">
+                        <div>
                           <Label>Enter 6-Digit OTP</Label>
-                          <p className="text-xs text-muted-foreground text-center">
-                            Enter the 6-digit code emailed to you
-                          </p>
-                          <div className="flex justify-center">
-                            <InputOTP 
-                              maxLength={6} 
-                              value={adminOTPCode} 
-                              onChange={setAdminOTPCode}
+                          <div className="flex justify-center mt-2">
+                            <InputOTP
+                              maxLength={6}
+                              value={otpCode}
+                              onChange={setOtpCode}
                             >
                               <InputOTPGroup>
                                 <InputOTPSlot index={0} />
@@ -923,40 +458,32 @@ const Auth = () => {
                               </InputOTPGroup>
                             </InputOTP>
                           </div>
-                          <p className="text-xs text-muted-foreground text-center mt-2">
-                            Code sent to {adminData.email}
-                          </p>
                         </div>
-                        
-                        <Button 
-                          type="submit" 
-                          className="w-full" 
-                          disabled={adminLoading || adminOTPCode.length !== 6}
-                        >
-                          {adminLoading ? 'Verifying...' : 'Verify & Sign In'}
+                        <Button type="submit" className="w-full" disabled={loading || otpCode.length !== 6}>
+                          {loading ? 'Verifying...' : 'Verify OTP'}
                         </Button>
-                        
-                        <Button 
-                          type="button"
-                          variant="ghost" 
-                          className="w-full" 
-                          onClick={handleAdminResendOTP}
-                          disabled={adminResendCooldown > 0 || adminLoading}
-                        >
-                          {adminResendCooldown > 0 
-                            ? `Resend OTP (${adminResendCooldown}s)` 
-                            : 'Resend OTP'}
-                        </Button>
-                      </form>
+                        <div className="text-center">
+                          <Button
+                            type="button"
+                            variant="link"
+                            onClick={handleSendOTP}
+                            disabled={resendCooldown > 0}
+                            className="text-sm"
+                          >
+                            {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend OTP'}
+                          </Button>
+                        </div>
+                      </div>
                     )}
-                  </div>
-                )}
-              </TabsContent>
-            </Tabs>
+                  </TabsContent>
+                </Tabs>
+              </div>
+            </form>
           </CardContent>
         </Card>
-        <Footer variant="light" className="mt-8" />
       </div>
+      
+      <Footer />
     </div>
   );
 };

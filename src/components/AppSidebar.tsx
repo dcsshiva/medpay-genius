@@ -58,7 +58,7 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
-  const { userRole, userDesignation } = useAuth();
+  const { userRole, userDesignation, userProfile } = useAuth();
   const { open } = useSidebar();
   const [stats, setStats] = useState<NavigationStats>({
     pendingRequests: 0,
@@ -142,14 +142,10 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
       ];
     }
 
-    if (userRole === 'doctor') {
+    if (userRole === 'doctor' || userProfile?.user_type === 'doctor') {
       return [
         ...baseItems,
-        { id: 'visits', label: 'My Visits', icon: Calendar },
-        { id: 'cash-payments', label: 'Cash Payments', icon: CreditCard },
-        { id: 'insurance-payments', label: 'Insurance Payments', icon: CreditCard },
-        { id: 'tasks', label: 'My Tasks', icon: ClipboardList },
-        { id: 'complaints', label: 'Complaints', icon: MessageCircle },
+        { id: 'doctor-hub', label: 'My Dashboard', icon: Stethoscope },
       ];
     }
 
