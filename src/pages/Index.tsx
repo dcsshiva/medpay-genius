@@ -32,7 +32,6 @@ import BankAdviceGeneration from '@/components/BankAdviceGeneration';
 import BankAdviceGenerationBeta from '@/components/BankAdviceGenerationBeta';
 import BankAdviceReport from '@/components/BankAdviceReport';
 import BankAdviceReports from '@/components/BankAdviceReports';
-import PaymentHub from '@/components/PaymentHub';
 import DoctorHub from '@/components/DoctorHub';
 
 // Bank Advice Payment Report Component
@@ -162,8 +161,6 @@ const Index = () => {
         return <BankAdviceReports />;
       case 'bank-advice-records':
         return <BankAdviceReport />;
-      case 'payment-hub':
-        return <PaymentHub />;
       case 'doctor-hub':
         // Check if user is a doctor
         const isDoctorUser = userProfile?.user_type === 'doctor';
