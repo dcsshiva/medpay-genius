@@ -204,81 +204,104 @@ export const StaffPaymentHistoryTab = () => {
     setRegenerating(payment.id);
     
     try {
-      // Fetch the original bank advice history
+      // Fetch the original bank advice history to get all payments in that batch
       const { data: historyData, error: historyError } = await supabase
         .from('staff_payment_bank_advice_history')
-        .select('file_content, filename')
+        .select('file_content, filename, payment_ids')
         .eq('filename', payment.bank_advice_reference)
         .single();
 
       if (historyError) throw historyError;
 
-      // Fetch latest staff bank details
-      const { data: latestStaff, error: staffError } = await supabase
-        .from('staff')
-        .select('staff_code, full_name, bank_account_number, ifsc_code, bank_name, account_holder_name')
-        .eq('id', payment.staff_id)
-        .single();
+      // Get all payment IDs from the batch
+      const paymentIds = (historyData.payment_ids || []) as string[];
+      
+      // Fetch all payments from this batch with latest staff details
+      const { data: batchPayments, error: batchError } = await supabase
+        .from('staff_payments')
+        .select(`
+          *,
+          staff:staff_id (
+            staff_code,
+            full_name,
+            bank_account_number,
+            ifsc_code,
+            bank_name,
+            account_holder_name
+          )
+        `)
+        .in('id', paymentIds)
+        .order('created_at');
 
-      if (staffError) throw staffError;
+      if (batchError) throw batchError;
 
-      // Parse original GEFU file to extract bank details
+      // Build comparison for all payments
+      const comparisons: BankDetailsComparison[] = [];
       const lines = historyData.file_content.split('\n');
-      const detailLine = lines.find(line => line.startsWith('D~'));
-      
-      let originalIfsc = '';
-      let originalAccount = '';
-      let originalBank = payment.bank_name || '';
-      
-      if (detailLine) {
-        const parts = detailLine.split('~');
-        originalIfsc = parts[7] || '';
-        originalAccount = parts[8] || '';
-      }
+      const detailLines = lines.filter(line => line.startsWith('D~'));
 
-      // Build comparison
-      const comp: BankDetailsComparison = {
-        staff_name: latestStaff.full_name,
-        staff_code: latestStaff.staff_code,
-        original_ifsc: originalIfsc,
-        latest_ifsc: latestStaff.ifsc_code || '',
-        original_account: originalAccount,
-        latest_account: latestStaff.bank_account_number || '',
-        original_bank: originalBank,
-        latest_bank: latestStaff.bank_name || '',
-        has_changes: (originalIfsc !== latestStaff.ifsc_code) || 
-                     (originalAccount !== latestStaff.bank_account_number) ||
-                     (originalBank !== latestStaff.bank_name),
-      };
+      batchPayments?.forEach((bp, index) => {
+        const originalLine = detailLines[index];
+        let originalIfsc = '';
+        let originalAccount = '';
+        let originalBank = bp.bank_name || '';
+        
+        if (originalLine) {
+          const parts = originalLine.split('~');
+          originalIfsc = parts[7] || '';
+          originalAccount = parts[8] || '';
+        }
 
-      setComparison([comp]);
+        comparisons.push({
+          staff_name: bp.staff?.full_name || '',
+          staff_code: bp.staff?.staff_code || '',
+          original_ifsc: originalIfsc,
+          latest_ifsc: bp.staff?.ifsc_code || '',
+          original_account: originalAccount,
+          latest_account: bp.staff?.bank_account_number || '',
+          original_bank: originalBank,
+          latest_bank: bp.staff?.bank_name || '',
+          has_changes: (originalIfsc !== bp.staff?.ifsc_code) || 
+                       (originalAccount !== bp.staff?.bank_account_number) ||
+                       (originalBank !== bp.staff?.bank_name),
+        });
+      });
+
+      setComparison(comparisons);
       setComparisonDialog(true);
 
-      // Regenerate GEFU file with EXACT format
+      // Regenerate GEFU file with ALL payments in correct format
       const dateStr = format(new Date(payment.payment_date), 'dd/MM/yyyy');
       let gefuContent = `H~${dateStr}~${websiteSettings?.hospital_institution_code || 'ABC07112007'}\n`;
 
-      const detailLineNew = [
-        'D',
-        'N06',
-        websiteSettings?.hospital_bank_account_number || '120000794291',
-        websiteSettings?.hospital_bank_account_holder_name || 'Westmed Healthcare Pvt Ltd',
-        'ADDRESS1',
-        'ADDRESS2',
-        'ADDRESS3',
-        latestStaff.ifsc_code || '',
-        latestStaff.bank_account_number || '',
-        latestStaff.account_holder_name || latestStaff.full_name,
-        '', '', '', '',
-        '1',
-        dateStr,
-        payment.amount.toFixed(2),
-        '1',
-        '', '', '', ''
-      ].join('~');
+      let totalAmount = 0;
 
-      gefuContent += detailLineNew + '\n';
-      gefuContent += `F~1~${payment.amount.toFixed(2)}`;
+      batchPayments?.forEach((bp, index) => {
+        totalAmount += bp.amount;
+        
+        const detailLine = [
+          'D',
+          'N06',
+          websiteSettings?.hospital_bank_account_number || '120000794291',
+          websiteSettings?.hospital_bank_account_holder_name || 'WESTMED HEALTHCARE PRIVATE LIMITED',
+          'ADDRESS1',
+          'ADDRESS2',
+          'ADDRESS3',
+          bp.staff?.ifsc_code || '',
+          bp.staff?.bank_account_number || '',
+          bp.staff?.account_holder_name || bp.staff?.full_name || '',
+          '', '', '', '',
+          (index + 1).toString(),
+          dateStr,
+          bp.amount.toFixed(2),
+          (index + 1).toString(),
+          '', '', '', ''
+        ].join('~');
+        
+        gefuContent += detailLine + '\n';
+      });
+
+      gefuContent += `F~${batchPayments?.length || 0}~${totalAmount.toFixed(2)}`;
 
       // Download regenerated file
       const blob = new Blob([gefuContent], { type: 'text/plain' });
@@ -291,7 +314,7 @@ export const StaffPaymentHistoryTab = () => {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
 
-      toast.success('Bank advice regenerated with latest details');
+      toast.success('Bank advice regenerated with latest details for all payments in batch');
     } catch (error: any) {
       toast.error('Failed to regenerate bank advice');
       console.error('Error:', error);

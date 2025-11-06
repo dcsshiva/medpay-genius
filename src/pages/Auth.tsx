@@ -158,7 +158,53 @@ const Auth = () => {
         return;
       }
 
-      // If no profile found, show error
+      // If no profile found, check if user has designation only (admins without staff records)
+      const { data: designationOnly } = await supabase
+        .from('user_designations')
+        .select('designation')
+        .eq('user_id', userId)
+        .single();
+
+      if (designationOnly) {
+        // Create session for designation-only users
+        const sessionToken = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const refreshToken = `refresh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+        
+        await supabase.from('user_sessions').insert({
+          user_id: userId,
+          user_type: 'staff',
+          original_id: userId,
+          session_token: sessionToken,
+          refresh_token: refreshToken,
+          username: authData.user.email,
+          full_name: authData.user.email,
+          role: 'admin',
+          expires_at: expiresAt.toISOString(),
+          idle_timeout_seconds: 300,
+          last_activity_at: new Date().toISOString(),
+          is_active: true
+        });
+        
+        window.sessionStorage.setItem('supabase_session_token', sessionToken);
+
+        toast({
+          title: "Welcome!",
+          description: "Successfully signed in.",
+        });
+
+        // Redirect based on designation
+        if (designationOnly.designation === 'admin' || designationOnly.designation === 'super_admin') {
+          navigate('/dashboard?view=admin');
+        } else if (designationOnly.designation === 'manager') {
+          navigate('/dashboard?view=manager');
+        } else {
+          navigate('/dashboard?view=staff');
+        }
+        return;
+      }
+
+      // Only show error if no designation found
       throw new Error('No profile found for this user');
     } catch (error: any) {
       console.error('Login error:', error);
@@ -376,23 +422,27 @@ const Auth = () => {
             <CardDescription>Sign in to access your dashboard</CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={useOTP ? handleVerifyOTP : handleUnifiedLogin}>
+            <form onSubmit={handleUnifiedLogin}>
               <div className="space-y-4">
+                {/* Email Input - Always visible at top */}
                 <div>
-                  <Label>Email Address</Label>
+                  <Label htmlFor="email">Email Address</Label>
                   <Input
+                    id="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter your email"
                     required
                     disabled={otpSent}
+                    autoComplete="email"
                   />
                 </div>
 
-                <Tabs value={useOTP ? 'otp' : 'password'} onValueChange={(v) => setUseOTP(v === 'otp')}>
+                {/* Login Method Tabs */}
+                <Tabs value={useOTP ? 'otp' : 'password'} onValueChange={(v) => setUseOTP(v === 'otp')} className="w-full">
                   <TabsList className="grid w-full grid-cols-2">
-                    <TabsTrigger value="password">
+                    <TabsTrigger value="password" disabled={otpSent}>
                       <KeyRound className="mr-2 h-4 w-4" />
                       Password
                     </TabsTrigger>
@@ -402,20 +452,32 @@ const Auth = () => {
                     </TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="password" className="space-y-4">
+                  {/* Password Tab Content */}
+                  <TabsContent value="password" className="space-y-4 mt-4">
                     <div>
-                      <Label>Password</Label>
+                      <Label htmlFor="password">Password</Label>
                       <Input
+                        id="password"
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Enter your password"
                         required={!useOTP}
+                        autoComplete="current-password"
                       />
                     </div>
+                    
                     <Button type="submit" className="w-full" disabled={loading}>
-                      {loading ? 'Signing in...' : 'Sign In'}
+                      {loading ? (
+                        <>
+                          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                          Signing in...
+                        </>
+                      ) : (
+                        'Sign In'
+                      )}
                     </Button>
+                    
                     <div className="text-center">
                       <Button
                         type="button"
@@ -428,20 +490,31 @@ const Auth = () => {
                     </div>
                   </TabsContent>
 
-                  <TabsContent value="otp" className="space-y-4">
+                  {/* OTP Tab Content */}
+                  <TabsContent value="otp" className="space-y-4 mt-4">
                     {!otpSent ? (
                       <Button 
                         type="button" 
                         onClick={handleSendOTP} 
                         className="w-full"
-                        disabled={loading}
+                        disabled={loading || !email}
                       >
-                        {loading ? 'Sending...' : 'Send 6-Digit OTP'}
+                        {loading ? (
+                          <>
+                            <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                            Sending...
+                          </>
+                        ) : (
+                          'Send 6-Digit OTP'
+                        )}
                       </Button>
                     ) : (
-                      <div className="space-y-4">
-                        <div>
+                      <>
+                        <div className="space-y-2">
                           <Label>Enter 6-Digit OTP</Label>
+                          <p className="text-xs text-muted-foreground">
+                            OTP sent to {email}
+                          </p>
                           <div className="flex justify-center mt-2">
                             <InputOTP
                               maxLength={6}
@@ -459,10 +532,35 @@ const Auth = () => {
                             </InputOTP>
                           </div>
                         </div>
-                        <Button type="submit" className="w-full" disabled={loading || otpCode.length !== 6}>
-                          {loading ? 'Verifying...' : 'Verify OTP'}
+                        
+                        <Button 
+                          type="button" 
+                          onClick={handleVerifyOTP} 
+                          className="w-full" 
+                          disabled={loading || otpCode.length !== 6}
+                        >
+                          {loading ? (
+                            <>
+                              <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                              Verifying...
+                            </>
+                          ) : (
+                            'Verify OTP'
+                          )}
                         </Button>
-                        <div className="text-center">
+                        
+                        <div className="text-center space-x-2">
+                          <Button
+                            type="button"
+                            variant="link"
+                            onClick={() => {
+                              setOtpSent(false);
+                              setOtpCode('');
+                            }}
+                            className="text-sm"
+                          >
+                            Change Email
+                          </Button>
                           <Button
                             type="button"
                             variant="link"
@@ -473,7 +571,7 @@ const Auth = () => {
                             {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend OTP'}
                           </Button>
                         </div>
-                      </div>
+                      </>
                     )}
                   </TabsContent>
                 </Tabs>

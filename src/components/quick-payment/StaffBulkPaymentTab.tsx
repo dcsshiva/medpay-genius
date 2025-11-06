@@ -281,25 +281,19 @@ export const StaffBulkPaymentTab = () => {
           'D',
           'N06',
           websiteSettings?.hospital_bank_account_number || '120000794291',
-          websiteSettings?.hospital_bank_account_holder_name || 'Westmed Healthcare Pvt Ltd',
+          websiteSettings?.hospital_bank_account_holder_name || 'WESTMED HEALTHCARE PRIVATE LIMITED',
           'ADDRESS1',
           'ADDRESS2',
           'ADDRESS3',
           staff.ifsc_code || '',
           staff.bank_account_number || '',
           staff.account_holder_name || staff.full_name,
-          '',
-          '',
-          '',
-          '',
-          index + 1,
+          '', '', '', '',
+          (index + 1).toString(),
           dateStr,
           amount.toFixed(2),
-          index + 1,
-          '',
-          '',
-          '',
-          ''
+          (index + 1).toString(),
+          '', '', '', ''
         ].join('~');
         
         fileContent += detailLine + '\n';
