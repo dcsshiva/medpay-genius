@@ -25,6 +25,7 @@ import {
 import { getSessionAuthHeaders } from '@/lib/sessionAuth';
 import { handleCreateUserError } from '@/lib/utils';
 import { PaginationControls } from '@/components/ui/pagination-controls';
+import { validateIFSCCode } from '@/lib/validators';
 
 interface Staff {
   id: string;
@@ -39,6 +40,11 @@ interface Staff {
   last_login?: string;
   created_at: string;
   user_id?: string;
+  bank_account_number?: string;
+  ifsc_code?: string;
+  account_holder_name?: string;
+  bank_name?: string;
+  branch_name?: string;
 }
 
 const StaffManagement = () => {
@@ -67,7 +73,12 @@ const StaffManagement = () => {
     email: '',
     phone: '',
     role: 'nurse',
-    department: ''
+    department: '',
+    bank_account_number: '',
+    ifsc_code: '',
+    account_holder_name: '',
+    bank_name: '',
+    branch_name: ''
   });
   const [importing, setImporting] = useState(false);
   const [importResults, setImportResults] = useState<ImportResults | null>(null);
@@ -175,6 +186,39 @@ const StaffManagement = () => {
         title: "Validation Error",
         description: "Username and full name are required"
       });
+      setSubmitting(false);
+      return;
+    }
+
+    // Validate bank details if provided
+    if (formData.bank_account_number.trim() && !formData.ifsc_code.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "IFSC Code is required when Account Number is provided"
+      });
+      setSubmitting(false);
+      return;
+    }
+
+    if (formData.ifsc_code.trim() && !formData.bank_account_number.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Account Number is required when IFSC Code is provided"
+      });
+      setSubmitting(false);
+      return;
+    }
+
+    // Validate IFSC code format if provided
+    if (formData.ifsc_code.trim() && !validateIFSCCode(formData.ifsc_code.trim())) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Invalid IFSC Code format. It should be 11 characters (e.g., SBIN0001234)"
+      });
+      setSubmitting(false);
       return;
     }
 
@@ -230,7 +274,12 @@ const StaffManagement = () => {
             email: formData.email.trim() || null,
             phone: formData.phone.trim() || null,
             role: formData.role as any,
-            department: formData.department.trim() || null
+            department: formData.department.trim() || null,
+            bank_account_number: formData.bank_account_number.trim() || null,
+            ifsc_code: formData.ifsc_code.trim().toUpperCase() || null,
+            account_holder_name: formData.account_holder_name.trim() || null,
+            bank_name: formData.bank_name.trim() || null,
+            branch_name: formData.branch_name.trim() || null
           })
           .eq('id', editingStaff.id);
 
@@ -449,7 +498,12 @@ const StaffManagement = () => {
           email: createdUser.email, // Store the actual email used for auth
           phone: formData.phone.trim() || null,
           role: formData.role as any,
-          department: formData.department.trim() || null
+          department: formData.department.trim() || null,
+          bank_account_number: formData.bank_account_number.trim() || null,
+          ifsc_code: formData.ifsc_code.trim().toUpperCase() || null,
+          account_holder_name: formData.account_holder_name.trim() || null,
+          bank_name: formData.bank_name.trim() || null,
+          branch_name: formData.branch_name.trim() || null
         });
 
       if (error) throw error;
@@ -554,7 +608,12 @@ const StaffManagement = () => {
       email: '',
       phone: '',
       role: 'nurse',
-      department: ''
+      department: '',
+      bank_account_number: '',
+      ifsc_code: '',
+      account_holder_name: '',
+      bank_name: '',
+      branch_name: ''
     });
     setEditingStaff(null);
   };
@@ -569,7 +628,12 @@ const StaffManagement = () => {
       email: staffMember.email || '',
       phone: staffMember.phone || '',
       role: staffMember.role,
-      department: staffMember.department || ''
+      department: staffMember.department || '',
+      bank_account_number: staffMember.bank_account_number || '',
+      ifsc_code: staffMember.ifsc_code || '',
+      account_holder_name: staffMember.account_holder_name || '',
+      bank_name: staffMember.bank_name || '',
+      branch_name: staffMember.branch_name || ''
     });
     setDialogOpen(true);
   };
@@ -1028,6 +1092,68 @@ const StaffManagement = () => {
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     placeholder="+91 98765 43210"
+                  />
+                </div>
+              </div>
+
+              {/* Bank Details Section */}
+              <div className="space-y-4 border-t pt-4">
+                <h3 className="text-sm font-semibold text-foreground">Bank Details (Required for Payments)</h3>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="account_holder_name">Account Holder Name</Label>
+                    <Input
+                      id="account_holder_name"
+                      value={formData.account_holder_name}
+                      onChange={(e) => setFormData({ ...formData, account_holder_name: e.target.value })}
+                      placeholder="As per bank records"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="bank_account_number">Account Number *</Label>
+                    <Input
+                      id="bank_account_number"
+                      value={formData.bank_account_number}
+                      onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value.replace(/\D/g, '') })}
+                      placeholder="1234567890123456"
+                      maxLength={20}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ifsc_code">IFSC Code *</Label>
+                    <Input
+                      id="ifsc_code"
+                      value={formData.ifsc_code}
+                      onChange={(e) => setFormData({ ...formData, ifsc_code: e.target.value.toUpperCase() })}
+                      placeholder="SBIN0001234"
+                      maxLength={11}
+                    />
+                    <p className="text-xs text-muted-foreground">11-character code (e.g., SBIN0001234)</p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="bank_name">Bank Name</Label>
+                    <Input
+                      id="bank_name"
+                      value={formData.bank_name}
+                      onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
+                      placeholder="State Bank of India"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="branch_name">Branch Name</Label>
+                  <Input
+                    id="branch_name"
+                    value={formData.branch_name}
+                    onChange={(e) => setFormData({ ...formData, branch_name: e.target.value })}
+                    placeholder="Main Branch"
                   />
                 </div>
               </div>
