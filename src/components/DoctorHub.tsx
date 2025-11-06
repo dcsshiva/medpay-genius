@@ -59,7 +59,7 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
   const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
   const [unpaidVisits, setUnpaidVisits] = useState<UnpaidVisit[]>([]);
   const [detailsLoading, setDetailsLoading] = useState(false);
-  const [sortField, setSortField] = useState<SortField>('doctor_code');
+  const [sortField, setSortField] = useState<SortField>('total_amount');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
@@ -145,16 +145,30 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
     }
   };
 
-  const sortedDoctors = [...doctors].sort((a, b) => {
-    const aValue = a[sortField];
-    const bValue = b[sortField];
-    const modifier = sortDirection === 'asc' ? 1 : -1;
+  const sortedDoctors = (() => {
+    // Separate doctors into two groups
+    const nonZeroDoctors = doctors.filter(d => d.total_amount !== 0);
+    const zeroDoctors = doctors.filter(d => d.total_amount === 0);
+    
+    // Sort function
+    const sortFn = (a: DoctorSummary, b: DoctorSummary) => {
+      const aValue = a[sortField];
+      const bValue = b[sortField];
+      const modifier = sortDirection === 'asc' ? 1 : -1;
 
-    if (typeof aValue === 'string' && typeof bValue === 'string') {
-      return aValue.localeCompare(bValue) * modifier;
-    }
-    return ((aValue as number) - (bValue as number)) * modifier;
-  });
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return aValue.localeCompare(bValue) * modifier;
+      }
+      return ((aValue as number) - (bValue as number)) * modifier;
+    };
+    
+    // Sort both groups
+    const sortedNonZero = [...nonZeroDoctors].sort(sortFn);
+    const sortedZero = [...zeroDoctors].sort(sortFn);
+    
+    // Combine: non-zero first, then zero at the bottom
+    return [...sortedNonZero, ...sortedZero];
+  })();
 
   // Filter doctors by name with Dr. prefix handling
   const filteredAndSortedDoctors = sortedDoctors.filter(doctor => {
