@@ -144,7 +144,6 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
 
     if (userRole === 'doctor' || userProfile?.user_type === 'doctor') {
       return [
-        ...baseItems,
         { id: 'doctor-hub', label: 'My Dashboard', icon: Stethoscope },
       ];
     }

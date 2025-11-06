@@ -33,6 +33,13 @@ const Auth = () => {
     }
   }, [user, navigate]);
 
+  // Auto-verify OTP when all 6 digits are entered
+  useEffect(() => {
+    if (otpCode.length === 6 && otpSent && !loading) {
+      handleVerifyOTP(new Event('submit') as any);
+    }
+  }, [otpCode]);
+
   useEffect(() => {
     if (resendCooldown > 0) {
       const interval = setInterval(() => {
