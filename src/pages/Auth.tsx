@@ -164,6 +164,16 @@ const Auth = () => {
         
         window.sessionStorage.setItem('supabase_session_token', sessionToken);
 
+        // Redirect managers and admins to Doctor Hub
+        if (userDesignation === 'manager' || userDesignation === 'admin' || staffData.role === 'manager' || staffData.role === 'admin') {
+          toast({
+            title: `Welcome ${userDesignation === 'manager' || staffData.role === 'manager' ? 'Manager' : 'Admin'}!`,
+            description: "Successfully signed in.",
+          });
+          navigate('/dashboard?view=doctor-hub');
+          return;
+        }
+
         toast({
           title: "Welcome back!",
           description: "Successfully signed in.",
@@ -358,6 +368,17 @@ const Auth = () => {
             });
             
             window.sessionStorage.setItem('supabase_session_token', sessionToken);
+            
+            // Redirect managers and admins to Doctor Hub
+            if (userDesignation === 'manager' || userDesignation === 'admin' || staffData.role === 'manager' || staffData.role === 'admin') {
+              toast({
+                title: `Welcome ${userDesignation === 'manager' || staffData.role === 'manager' ? 'Manager' : 'Admin'}!`,
+                description: "Successfully signed in.",
+              });
+              navigate('/dashboard?view=doctor-hub');
+              return;
+            }
+            
             // Session created, auth context will handle navigation
           }
         }

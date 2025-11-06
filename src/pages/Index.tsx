@@ -55,7 +55,7 @@ const Index = () => {
     const params = new URLSearchParams(location.search);
     const view = params.get('view');
     
-    if (view === 'doctor') {
+    if (view === 'doctor' || view === 'doctor-hub') {
       setActiveTab('doctor-hub');
     } else if (view === 'admin' || view === 'manager' || view === 'staff') {
       setActiveTab('dashboard');
@@ -73,9 +73,13 @@ const Index = () => {
     }
   }, [user, loading, navigate]);
 
-  // Automatically redirect doctors to their Doctor Hub
+  // Automatically redirect doctors, managers, and admins to Doctor Hub
   useEffect(() => {
     if (!loading && userProfile?.user_type === 'doctor' && activeTab === 'dashboard') {
+      setActiveTab('doctor-hub');
+    }
+    // Also redirect managers and admins to Doctor Hub
+    if (!loading && (userProfile?.designation === 'manager' || userProfile?.designation === 'admin' || userProfile?.role === 'manager' || userProfile?.role === 'admin') && activeTab === 'dashboard') {
       setActiveTab('doctor-hub');
     }
   }, [userProfile, loading, activeTab]);
