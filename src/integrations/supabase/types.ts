@@ -2382,6 +2382,7 @@ export type Database = {
         }
         Returns: number
       }
+      get_user_complete_profile: { Args: { _user_id: string }; Returns: Json }
       get_user_payments: {
         Args: { _user_id: string; _user_role: string; _user_type: string }
         Returns: {
