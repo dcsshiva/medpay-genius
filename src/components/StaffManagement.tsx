@@ -81,6 +81,7 @@ const StaffManagement = () => {
     bank_name: '',
     branch_name: ''
   });
+  const [emailError, setEmailError] = useState('');
   const [importing, setImporting] = useState(false);
   const [importResults, setImportResults] = useState<ImportResults | null>(null);
   const [showImportResults, setShowImportResults] = useState(false);
@@ -95,6 +96,30 @@ const StaffManagement = () => {
       fetchDepartmentsMaster();
     }
   }, [userRole, userDesignation]);
+
+  // Real-time email validation with debouncing
+  useEffect(() => {
+    if (!formData.email.trim() || formData.email === editingStaff?.email) {
+      setEmailError('');
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      const { data } = await supabase
+        .from('staff')
+        .select('id, email')
+        .eq('email', formData.email.trim())
+        .maybeSingle();
+      
+      if (data) {
+        setEmailError('This email is already registered');
+      } else {
+        setEmailError('');
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [formData.email, editingStaff]);
 
   const fetchStaff = async () => {
     try {
@@ -390,19 +415,16 @@ const StaffManagement = () => {
         console.log(`Staff code collision, using ${newStaffCode} instead of ${staffCode}`);
       }
 
-      // If user provided an email, check if it already exists
-      if (formData.email.trim()) {
-        const emailCheck = await supabase.from('staff').select('id, email').eq('email', formData.email.trim()).maybeSingle();
-        
-        if (emailCheck.data) {
-          toast({
-            variant: "destructive",
-            title: "Email Already Exists",
-            description: `The email "${formData.email.trim()}" is already registered in the system. Please use a different email address or leave it blank to auto-generate one.`
-          });
-          setSubmitting(false);
-          return;
-        }
+      // Email validation now handled by real-time useEffect
+      // Additional check for safety (should never trigger due to button disable)
+      if (emailError) {
+        toast({
+          variant: "destructive",
+          title: "Email Already Exists",
+          description: emailError
+        });
+        setSubmitting(false);
+        return;
       }
 
       // Generate unique email if none provided
@@ -1103,8 +1125,14 @@ const StaffManagement = () => {
                         value={formData.email}
                         onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                         placeholder="anand.kumar@hospital.com"
-                        className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                        className={`hover:border-primary/50 focus-visible:border-primary transition-colors ${emailError ? 'border-destructive' : ''}`}
                       />
+                      {emailError && (
+                        <p className="text-sm text-destructive flex items-center gap-1 mt-1">
+                          <span className="text-xs">⚠️</span>
+                          {emailError}
+                        </p>
+                      )}
                     </div>
                     
                     <div className="space-y-2">
@@ -1232,7 +1260,7 @@ const StaffManagement = () => {
                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={submitting}>
+                <Button type="submit" disabled={submitting || !!emailError}>
                   {submitting ? (editingStaff ? 'Updating...' : 'Creating...') : (editingStaff ? 'Update Staff Member' : 'Create Staff Member')}
                 </Button>
               </div>

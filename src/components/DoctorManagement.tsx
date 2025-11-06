@@ -73,6 +73,7 @@ const DoctorManagement = () => {
     branch_name: '',
     ifsc_code: ''
   });
+  const [emailError, setEmailError] = useState('');
   const [importing, setImporting] = useState(false);
   const [importResults, setImportResults] = useState<ImportResults | null>(null);
   const [showImportResults, setShowImportResults] = useState(false);
@@ -81,6 +82,44 @@ const DoctorManagement = () => {
   useEffect(() => {
     fetchDoctors();
   }, []);
+
+  // Real-time email validation with debouncing for doctors
+  useEffect(() => {
+    if (!formData.email.trim()) {
+      setEmailError('');
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      // Simple check: look for existing doctor emails in auth users
+      // Since we can't directly query auth.users, we check against all doctors' user_ids
+      const { data: existingDoctors } = await supabase
+        .from('doctors')
+        .select('id, user_id')
+        .not('user_id', 'is', null);
+      
+      if (existingDoctors && existingDoctors.length > 0) {
+        // If editing, exclude current doctor from check
+        const filteredDoctors = editingDoctor 
+          ? existingDoctors.filter(d => d.id !== editingDoctor.id)
+          : existingDoctors;
+        
+        // Note: We can't directly query auth.users emails from client
+        // So we'll just do a basic validation that email format is correct
+        // The actual duplicate check will happen server-side in the edge function
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(formData.email.trim())) {
+          setEmailError('Invalid email format');
+        } else {
+          setEmailError('');
+        }
+      } else {
+        setEmailError('');
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [formData.email, editingDoctor]);
 
   // Add a key to force re-render when dialog closes
   const handleDialogClose = () => {
@@ -894,8 +933,15 @@ const DoctorManagement = () => {
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="ravi.kumar@hospital.com"
                     required={!editingDoctor}
+                    className={`hover:border-primary/50 focus-visible:border-primary transition-colors ${emailError ? 'border-destructive' : ''}`}
                   />
-                  {editingDoctor && (
+                  {emailError && (
+                    <p className="text-sm text-destructive flex items-center gap-1 mt-1">
+                      <span className="text-xs">⚠️</span>
+                      {emailError}
+                    </p>
+                  )}
+                  {editingDoctor && !emailError && (
                     <p className="text-xs text-muted-foreground">
                       Update email address if needed
                     </p>
@@ -993,7 +1039,7 @@ const DoctorManagement = () => {
                   <Button type="button" variant="outline" onClick={handleDialogClose}>
                     Cancel
                   </Button>
-                  <Button type="submit" disabled={submitting}>
+                   <Button type="submit" disabled={submitting || !!emailError}>
                     {submitting ? (editingDoctor ? 'Updating...' : 'Creating...') : (editingDoctor ? 'Update' : 'Create')}
                   </Button>
                 </div>
