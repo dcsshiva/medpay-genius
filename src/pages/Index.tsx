@@ -74,6 +74,13 @@ const Index = () => {
     }
   }, [user, loading, navigate]);
 
+  // Automatically redirect doctors to their Doctor Hub
+  useEffect(() => {
+    if (!loading && userProfile?.user_type === 'doctor' && activeTab === 'dashboard') {
+      setActiveTab('doctor-hub');
+    }
+  }, [userProfile, loading, activeTab]);
+
   const handleTabChange = (params: string | { tab: string; subTab?: string; paymentTypeFilter?: 'all' | 'cash' | 'insurance' | 'mixed' }) => {
     if (typeof params === 'string') {
       setActiveTab(params);
