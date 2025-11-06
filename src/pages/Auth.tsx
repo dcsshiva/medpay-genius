@@ -97,8 +97,8 @@ const Auth = () => {
           description: "Successfully signed in.",
         });
         
-        // Redirect to doctor dashboard
-        navigate('/dashboard?view=doctor');
+        // Redirect to doctor dashboard - use window.location for full reload
+        window.location.href = '/dashboard?view=doctor';
         return;
       }
 
@@ -147,13 +147,13 @@ const Auth = () => {
           description: "Successfully signed in.",
         });
 
-        // Redirect based on designation
+        // Redirect based on designation - use window.location for full reload
         if (userDesignation === 'admin' || userDesignation === 'super_admin') {
-          navigate('/dashboard?view=admin');
+          window.location.href = '/dashboard?view=admin';
         } else if (userDesignation === 'manager') {
-          navigate('/dashboard?view=manager');
+          window.location.href = '/dashboard?view=manager';
         } else {
-          navigate('/dashboard?view=staff');
+          window.location.href = '/dashboard?view=staff';
         }
         return;
       }
@@ -194,13 +194,13 @@ const Auth = () => {
           description: "Successfully signed in.",
         });
 
-        // Redirect based on designation
+        // Redirect based on designation - use window.location for full reload
         if (designationOnly.designation === 'admin' || designationOnly.designation === 'super_admin') {
-          navigate('/dashboard?view=admin');
+          window.location.href = '/dashboard?view=admin';
         } else if (designationOnly.designation === 'manager') {
-          navigate('/dashboard?view=manager');
+          window.location.href = '/dashboard?view=manager';
         } else {
-          navigate('/dashboard?view=staff');
+          window.location.href = '/dashboard?view=staff';
         }
         return;
       }
@@ -309,7 +309,7 @@ const Auth = () => {
             });
             
             window.sessionStorage.setItem('supabase_session_token', sessionToken);
-            navigate('/dashboard?view=doctor');
+            window.location.href = '/dashboard?view=doctor';
             return;
           }
 
@@ -352,11 +352,11 @@ const Auth = () => {
             window.sessionStorage.setItem('supabase_session_token', sessionToken);
 
             if (userDesignation === 'admin' || userDesignation === 'super_admin') {
-              navigate('/dashboard?view=admin');
+              window.location.href = '/dashboard?view=admin';
             } else if (userDesignation === 'manager') {
-              navigate('/dashboard?view=manager');
+              window.location.href = '/dashboard?view=manager';
             } else {
-              navigate('/dashboard?view=staff');
+              window.location.href = '/dashboard?view=staff';
             }
           }
         }
