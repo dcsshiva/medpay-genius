@@ -35,7 +35,7 @@ interface BankAdviceHistory {
   file_content: string;
   created_at: string;
   generator_name?: string;
-  payment_source: 'doctor' | 'quick_payment';
+  payment_source: 'doctor' | 'quick_payment' | 'staff_payment';
 }
 
 const BankAdviceReports = () => {
@@ -102,13 +102,29 @@ const BankAdviceReports = () => {
         quickQuery = quickQuery.lte('generation_date', filters.dateTo);
       }
 
-      const [doctorResult, quickResult] = await Promise.all([
+      // Fetch from staff_payment_bank_advice_history (staff payments)
+      let staffQuery = supabase
+        .from('staff_payment_bank_advice_history')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      // Apply same date filters
+      if (filters.dateFrom) {
+        staffQuery = staffQuery.gte('generation_date', filters.dateFrom);
+      }
+      if (filters.dateTo) {
+        staffQuery = staffQuery.lte('generation_date', filters.dateTo);
+      }
+
+      const [doctorResult, quickResult, staffResult] = await Promise.all([
         doctorQuery,
-        quickQuery
+        quickQuery,
+        staffQuery
       ]);
 
       if (doctorResult.error) throw doctorResult.error;
       if (quickResult.error) throw quickResult.error;
+      if (staffResult.error) throw staffResult.error;
 
       // Map doctor payments with payment_source
       const doctorRecords = (doctorResult.data || []).map((record: any) => ({
@@ -125,8 +141,15 @@ const BankAdviceReports = () => {
         payment_ids: record.payment_ids || []
       }));
 
+      // Map staff payments with payment_source
+      const staffRecords = (staffResult.data || []).map((record: any) => ({
+        ...record,
+        payment_source: 'staff_payment' as const,
+        payment_ids: record.payment_ids || []
+      }));
+
       // Merge and sort by created_at
-      const allRecords = [...doctorRecords, ...quickRecords].sort((a, b) => 
+      const allRecords = [...doctorRecords, ...quickRecords, ...staffRecords].sort((a, b) => 
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
 
@@ -249,7 +272,7 @@ const BankAdviceReports = () => {
           title: "Success",
           description: "Bank advice regenerated with latest bank details"
         });
-      } else {
+      } else if (record.payment_source === 'quick_payment') {
         // For quick payments
         const { data: payments } = await supabase
           .from('quick_payments')
@@ -277,6 +300,49 @@ const BankAdviceReports = () => {
         });
 
         gefuContent += `F~${payments.length}~${totalNetAmount.toFixed(2)}\n`;
+
+        const blob = new Blob([gefuContent], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = record.filename.replace('.txt', '-updated.txt');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        toast({
+          title: "Success",
+          description: "Bank advice regenerated with latest bank details"
+        });
+      } else if (record.payment_source === 'staff_payment') {
+        // For staff payments
+        const { data: payments } = await supabase
+          .from('staff_payments')
+          .select('*')
+          .in('id', record.payment_ids);
+
+        if (!payments || payments.length === 0) {
+          throw new Error('No payment records found');
+        }
+
+        const today = new Date();
+        const dd = String(today.getDate()).padStart(2, '0');
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const yy = String(today.getFullYear()).slice(-2);
+
+        let gefuContent = `H~${dd}/${mm}/20${yy}~WESTMED\n`;
+        
+        let totalAmount = 0;
+        payments.forEach((payment: any, index: number) => {
+          const seq = String(index + 1).padStart(6, '0');
+          const amount = Number(payment.amount).toFixed(2);
+          totalAmount += Number(payment.amount);
+
+          gefuContent += `D~N06~HOSPITAL_ACCOUNT~HOSPITAL_NAME~ADDRESS1~ADDRESS2~ADDRESS3~${payment.ifsc_code}~${payment.account_number}~${payment.account_holder_name}~~~~~${seq}~${dd}/${mm}/20${yy}~${amount}~${seq}~~~~\n`;
+        });
+
+        gefuContent += `F~${payments.length}~${totalAmount.toFixed(2)}\n`;
 
         const blob = new Blob([gefuContent], { type: 'text/plain' });
         const url = URL.createObjectURL(blob);
@@ -529,8 +595,14 @@ const BankAdviceReports = () => {
                         <div className="flex items-center gap-2 mb-1">
                           <p className="font-semibold">{record.filename}</p>
                           <Badge variant="outline">{record.payment_count} payments</Badge>
-                          <Badge variant={record.payment_source === 'doctor' ? 'default' : 'secondary'}>
-                            {record.payment_source === 'doctor' ? 'Doctor Payments' : 'Quick Payments'}
+                          <Badge variant={
+                            record.payment_source === 'doctor' ? 'default' : 
+                            record.payment_source === 'quick_payment' ? 'secondary' : 
+                            'outline'
+                          }>
+                            {record.payment_source === 'doctor' ? 'Doctor Payments' : 
+                             record.payment_source === 'quick_payment' ? 'Quick Payments' : 
+                             'Staff Payments'}
                           </Badge>
                         </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
