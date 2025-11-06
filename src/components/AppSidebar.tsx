@@ -150,6 +150,8 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
     if (userRole === 'manager' || userDesignation === 'manager') {
       return [
         ...baseItems,
+        { id: 'staff', label: 'Staff Management', icon: UserCog },
+        { id: 'visits', label: 'Visit Management', icon: Calendar },
         { id: 'doctors', label: 'Doctors', icon: Users },
         { id: 'doctor-hub', label: 'Doctor Hub', icon: Stethoscope },
         { id: 'cash-payments-lite', label: 'Cash Payments (Lite)', icon: CreditCard },
