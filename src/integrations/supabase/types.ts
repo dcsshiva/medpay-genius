@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      app_downloads: {
+        Row: {
+          created_at: string | null
+          download_count: number | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          id: string
+          is_active: boolean | null
+          release_notes: string | null
+          release_notes_tamil: string | null
+          updated_at: string | null
+          version: string
+          version_code: number
+        }
+        Insert: {
+          created_at?: string | null
+          download_count?: number | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          id?: string
+          is_active?: boolean | null
+          release_notes?: string | null
+          release_notes_tamil?: string | null
+          updated_at?: string | null
+          version: string
+          version_code: number
+        }
+        Update: {
+          created_at?: string | null
+          download_count?: number | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          id?: string
+          is_active?: boolean | null
+          release_notes?: string | null
+          release_notes_tamil?: string | null
+          updated_at?: string | null
+          version?: string
+          version_code?: number
+        }
+        Relationships: []
+      }
       appraisal_reasons: {
         Row: {
           created_at: string
