@@ -212,8 +212,9 @@ const DoctorHistoryExport: React.FC<DoctorHistoryExportProps> = ({
       const periodSuffix = periodFilter === 'custom' && customDateRange 
         ? `_${customDateRange.start}_to_${customDateRange.end}`
         : '_AllTime';
+      const sanitizedName = doctorName.replace(/[^a-zA-Z0-9]/g, '_');
       
-      XLSX.writeFile(wb, `Doctor_History_${doctorCode}_${timestamp}${periodSuffix}.xlsx`);
+      XLSX.writeFile(wb, `Doctor_History_${sanitizedName}_${timestamp}${periodSuffix}.xlsx`);
       
       toast({
         title: 'Export Successful',
@@ -316,8 +317,9 @@ const DoctorHistoryExport: React.FC<DoctorHistoryExportProps> = ({
       const periodSuffix = periodFilter === 'custom' && customDateRange 
         ? `_${customDateRange.start}_to_${customDateRange.end}`
         : '_AllTime';
+      const sanitizedName = doctorName.replace(/[^a-zA-Z0-9]/g, '_');
       
-      doc.save(`Doctor_History_${doctorCode}_${timestamp}${periodSuffix}.pdf`);
+      doc.save(`Doctor_History_${sanitizedName}_${timestamp}${periodSuffix}.pdf`);
       
       toast({
         title: 'Export Successful',
