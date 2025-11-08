@@ -31,6 +31,7 @@ interface Doctor {
   doctor_code: string;
   specialization: string;
   is_active: boolean;
+  email?: string;
   pan_number?: string;
   bank_account_number?: string;
   account_holder_name?: string;
@@ -151,15 +152,32 @@ const DoctorManagement = () => {
           .order('created_at', { ascending: false });
 
       if (error) throw error;
-      // Transform data to match old structure for backward compatibility
-      const transformedData = (data || []).map(doc => ({
-        ...doc,
-        profiles: {
-          id: doc.user_id,
-          full_name: doc.full_name
-        }
-      }));
-      setDoctors(transformedData);
+      
+      // Fetch emails from auth.users for doctors with user_id
+      const doctorsWithEmails = await Promise.all(
+        (data || []).map(async (doc) => {
+          let email = '';
+          if (doc.user_id) {
+            try {
+              const { data: { user } } = await supabase.auth.admin.getUserById(doc.user_id);
+              email = user?.email || '';
+            } catch (err) {
+              console.error(`Failed to fetch email for doctor ${doc.id}:`, err);
+            }
+          }
+          
+          return {
+            ...doc,
+            email,
+            profiles: {
+              id: doc.user_id,
+              full_name: doc.full_name
+            }
+          };
+        })
+      );
+      
+      setDoctors(doctorsWithEmails);
     } catch (error) {
       console.error('Error fetching doctors:', error);
       toast({
@@ -383,7 +401,7 @@ const DoctorManagement = () => {
       doctor_code: doctor.doctor_code,
       specialization: doctor.specialization,
       is_active: doctor.is_active,
-      email: '', // Don't pre-fill for security
+      email: doctor.email || '', // Show current email
       password: '', // Don't pre-fill for security
       pan_number: doctor.pan_number || '',
       bank_account_number: doctor.bank_account_number || '',
