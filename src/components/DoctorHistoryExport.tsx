@@ -42,6 +42,7 @@ interface DoctorHistoryExportProps {
   paymentVisitsData: Map<string, any[]>;
   periodFilter: 'all' | 'custom';
   customDateRange?: { start: string; end: string };
+  fetchVisitDetails: (paymentId: string) => Promise<any[]>;
 }
 
 const DoctorHistoryExport: React.FC<DoctorHistoryExportProps> = ({
@@ -51,11 +52,37 @@ const DoctorHistoryExport: React.FC<DoctorHistoryExportProps> = ({
   unpaidVisits,
   paymentVisitsData,
   periodFilter,
-  customDateRange
+  customDateRange,
+  fetchVisitDetails
 }) => {
   const { toast } = useToast();
 
-  const preparePaymentData = () => {
+  const fetchAllVisitDetailsForExport = async (): Promise<Map<string, any[]>> => {
+    const allVisitsData = new Map<string, any[]>();
+    
+    toast({
+      title: 'Preparing Export',
+      description: 'Fetching all visit details...',
+    });
+    
+    for (const payment of paymentHistory) {
+      try {
+        if (paymentVisitsData.has(payment.id)) {
+          allVisitsData.set(payment.id, paymentVisitsData.get(payment.id)!);
+        } else {
+          const visitDetails = await fetchVisitDetails(payment.id);
+          allVisitsData.set(payment.id, visitDetails);
+        }
+      } catch (error) {
+        console.error(`Error fetching visits for payment ${payment.id}:`, error);
+        allVisitsData.set(payment.id, []);
+      }
+    }
+    
+    return allVisitsData;
+  };
+
+  const preparePaymentData = (allVisitsData: Map<string, any[]>) => {
     const rows: any[] = [];
     
     paymentHistory.forEach(payment => {
@@ -73,7 +100,7 @@ const DoctorHistoryExport: React.FC<DoctorHistoryExportProps> = ({
         generated_on: formatDateIST(payment.bank_advice_generated_at)
       });
       
-      const visits = paymentVisitsData.get(payment.id) || [];
+      const visits = allVisitsData.get(payment.id) || [];
       visits.forEach(visit => {
         rows.push({
           type: 'Visit Detail',
@@ -105,12 +132,14 @@ const DoctorHistoryExport: React.FC<DoctorHistoryExportProps> = ({
     }));
   };
 
-  const exportToExcel = () => {
+  const exportToExcel = async () => {
     try {
+      const allVisitsData = await fetchAllVisitDetailsForExport();
+      
       const wb = XLSX.utils.book_new();
       
       if (paymentHistory.length > 0) {
-        const paidData = preparePaymentData();
+        const paidData = preparePaymentData(allVisitsData);
         
         const totalGross = paymentHistory.reduce((sum, p) => sum + Number(p.gross_amount), 0);
         const totalTDS = paymentHistory.reduce((sum, p) => sum + Number(p.tds_amount), 0);
@@ -200,8 +229,10 @@ const DoctorHistoryExport: React.FC<DoctorHistoryExportProps> = ({
     }
   };
 
-  const exportToPDF = () => {
+  const exportToPDF = async () => {
     try {
+      const allVisitsData = await fetchAllVisitDetailsForExport();
+      
       const doc = new jsPDF('l', 'mm', 'a4');
       
       doc.setFontSize(16);
@@ -222,7 +253,7 @@ const DoctorHistoryExport: React.FC<DoctorHistoryExportProps> = ({
         doc.text('Paid Payment History', 14, currentY);
         currentY += 3;
         
-        const paidData = preparePaymentData().map(row => [
+        const paidData = preparePaymentData(allVisitsData).map(row => [
           row.type,
           row.period,
           row.visit_code,

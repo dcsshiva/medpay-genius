@@ -682,15 +682,16 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
                                     <CheckCircle2 className="h-5 w-5 text-green-600" />
                                     Payment History (Bank Advice Generated)
                                   </h3>
-                                  <DoctorHistoryExport
-                                    doctorName={filteredAndSortedDoctors.find(d => d.id === expandedDoctor)?.full_name || ''}
-                                    doctorCode={filteredAndSortedDoctors.find(d => d.id === expandedDoctor)?.doctor_code || ''}
-                                    paymentHistory={paymentHistory}
-                                    unpaidVisits={unpaidVisits}
-                                    paymentVisitsData={paymentVisitsData}
-                                    periodFilter={selectedPeriod}
-                                    customDateRange={customDateRange}
-                                  />
+                  <DoctorHistoryExport
+                    doctorName={filteredAndSortedDoctors.find(d => d.id === expandedDoctor)?.full_name || ''}
+                    doctorCode={filteredAndSortedDoctors.find(d => d.id === expandedDoctor)?.doctor_code || ''}
+                    paymentHistory={paymentHistory}
+                    unpaidVisits={unpaidVisits}
+                    paymentVisitsData={paymentVisitsData}
+                    periodFilter={selectedPeriod}
+                    customDateRange={customDateRange}
+                    fetchVisitDetails={fetchPaymentVisitDetails}
+                  />
                                 </div>
                                 {paymentHistory.length === 0 ? (
                                   <p className="text-sm text-muted-foreground py-4">No payment history found</p>
