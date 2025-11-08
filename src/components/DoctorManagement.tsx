@@ -153,29 +153,46 @@ const DoctorManagement = () => {
 
       if (error) throw error;
       
-      // Fetch emails from auth.users for doctors with user_id
-      const doctorsWithEmails = await Promise.all(
-        (data || []).map(async (doc) => {
-          let email = '';
-          if (doc.user_id) {
-            try {
-              const { data: { user } } = await supabase.auth.admin.getUserById(doc.user_id);
-              email = user?.email || '';
-            } catch (err) {
-              console.error(`Failed to fetch email for doctor ${doc.id}:`, err);
+      // Collect user IDs for email fetching
+      const userIds = (data || [])
+        .filter(doc => doc.user_id)
+        .map(doc => doc.user_id as string);
+      
+      // Fetch emails via Edge Function if there are user IDs
+      let emailMap = new Map<string, string>();
+      if (userIds.length > 0) {
+        try {
+          const { data: emailData, error: emailError } = await supabase.functions.invoke(
+            'get-user-emails',
+            {
+              body: { userIds },
+              headers: getSessionAuthHeaders()
             }
-          }
+          );
           
-          return {
-            ...doc,
-            email,
-            profiles: {
-              id: doc.user_id,
-              full_name: doc.full_name
-            }
-          };
-        })
-      );
+          if (emailError) {
+            console.error('Error fetching emails:', emailError);
+          } else if (emailData?.emails) {
+            emailData.emails.forEach((item: { user_id: string; email: string | null }) => {
+              if (item.email) {
+                emailMap.set(item.user_id, item.email);
+              }
+            });
+          }
+        } catch (err) {
+          console.error('Failed to fetch emails:', err);
+        }
+      }
+      
+      // Transform data with emails
+      const doctorsWithEmails = (data || []).map(doc => ({
+        ...doc,
+        email: doc.user_id ? emailMap.get(doc.user_id) || '' : '',
+        profiles: {
+          id: doc.user_id,
+          full_name: doc.full_name
+        }
+      }));
       
       setDoctors(doctorsWithEmails);
     } catch (error) {
