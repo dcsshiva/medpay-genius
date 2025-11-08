@@ -7,10 +7,12 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, ChevronUp, CheckCircle2, Clock, Receipt, ArrowUpDown, ArrowUp, ArrowDown, Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateIST } from '@/lib/dateUtils';
 import { getFinancialYearStart } from '@/lib/tdsUtils';
 import { useToast } from '@/hooks/use-toast';
+import DoctorHistoryExport from './DoctorHistoryExport';
 
 interface DoctorSummary {
   id: string;
@@ -44,6 +46,16 @@ interface UnpaidVisit {
   payment_status?: string;
 }
 
+interface PaymentVisitDetail {
+  id: string;
+  visit_code: string;
+  visit_date: string;
+  patient_name: string;
+  payment_type: string;
+  visit_payment: number;
+  status: string;
+}
+
 type SortField = 'doctor_code' | 'full_name' | 'paid_amount' | 'unpaid_amount' | 'total_amount';
 type SortDirection = 'asc' | 'desc';
 
@@ -62,6 +74,14 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
   const [sortField, setSortField] = useState<SortField>('total_amount');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [searchTerm, setSearchTerm] = useState('');
+  const [expandedPaymentIds, setExpandedPaymentIds] = useState<Set<string>>(new Set());
+  const [paymentVisitsData, setPaymentVisitsData] = useState<Map<string, PaymentVisitDetail[]>>(new Map());
+  const [paymentVisitsLoading, setPaymentVisitsLoading] = useState<Set<string>>(new Set());
+  const [selectedPeriod, setSelectedPeriod] = useState<'all' | 'custom'>('all');
+  const [customDateRange, setCustomDateRange] = useState<{start: string, end: string}>({
+    start: '',
+    end: ''
+  });
   const { toast } = useToast();
 
   useEffect(() => {
@@ -197,16 +217,78 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
       <ArrowDown className="h-4 w-4 ml-1" />;
   };
 
+  const fetchPaymentVisitDetails = async (paymentId: string) => {
+    if (paymentVisitsData.has(paymentId)) {
+      return paymentVisitsData.get(paymentId);
+    }
+
+    try {
+      setPaymentVisitsLoading(prev => new Set(prev).add(paymentId));
+
+      const { data, error } = await supabase
+        .from('payment_visits')
+        .select(`
+          visit_id,
+          visits (
+            id,
+            visit_code,
+            visit_date,
+            patient_name,
+            payment_type,
+            visit_payment,
+            is_processed
+          )
+        `)
+        .eq('payment_id', paymentId);
+
+      if (error) throw error;
+
+      const visitDetails: PaymentVisitDetail[] = (data || []).map((pv: any) => ({
+        id: pv.visits.id,
+        visit_code: pv.visits.visit_code,
+        visit_date: pv.visits.visit_date,
+        patient_name: pv.visits.patient_name,
+        payment_type: pv.visits.payment_type,
+        visit_payment: pv.visits.visit_payment,
+        status: pv.visits.is_processed ? 'Processed' : 'Pending'
+      }));
+
+      setPaymentVisitsData(prev => new Map(prev).set(paymentId, visitDetails));
+      return visitDetails;
+    } catch (error) {
+      console.error('Error fetching payment visit details:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load visit details',
+        variant: 'destructive',
+      });
+      return [];
+    } finally {
+      setPaymentVisitsLoading(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(paymentId);
+        return newSet;
+      });
+    }
+  };
+
   const fetchPaymentHistory = async (doctorId: string) => {
     try {
       setDetailsLoading(true);
 
-      const { data, error } = await supabase
+      let query = supabase
         .from('payments')
         .select('id, period_start, period_end, gross_amount, tds_amount, net_amount, bank_advice_generated_at')
         .eq('doctor_id', doctorId)
-        .eq('bank_advice_generated', true)
-        .order('bank_advice_generated_at', { ascending: false });
+        .eq('bank_advice_generated', true);
+
+      if (selectedPeriod === 'custom' && customDateRange.start && customDateRange.end) {
+        query = query
+          .gte('period_start', customDateRange.start)
+          .lte('period_end', customDateRange.end);
+      }
+
+      const { data, error } = await query.order('bank_advice_generated_at', { ascending: false });
 
       if (error) throw error;
       setPaymentHistory(data || []);
@@ -226,13 +308,19 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
     try {
       setDetailsLoading(true);
 
-      // Get unprocessed visits
-      const { data: visitsData, error: visitsError } = await supabase
+      let query = supabase
         .from('visits')
         .select('id, visit_code, visit_date, patient_name, visit_payment, payment_type, is_processed')
         .eq('doctor_id', doctorId)
-        .eq('is_processed', false)
-        .order('visit_date', { ascending: false });
+        .eq('is_processed', false);
+
+      if (selectedPeriod === 'custom' && customDateRange.start && customDateRange.end) {
+        query = query
+          .gte('visit_date', customDateRange.start)
+          .lte('visit_date', customDateRange.end);
+      }
+
+      const { data: visitsData, error: visitsError } = await query.order('visit_date', { ascending: false });
 
       if (visitsError) throw visitsError;
 
@@ -292,9 +380,21 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
     }
   };
 
+  const handlePaymentRowExpand = async (paymentId: string) => {
+    const newExpandedIds = new Set(expandedPaymentIds);
+    
+    if (newExpandedIds.has(paymentId)) {
+      newExpandedIds.delete(paymentId);
+    } else {
+      newExpandedIds.add(paymentId);
+      await fetchPaymentVisitDetails(paymentId);
+    }
+    
+    setExpandedPaymentIds(newExpandedIds);
+  };
+
   const handleDoctorClick = async (doctorId: string, tab: 'paid' | 'unpaid' | 'total') => {
     if (expandedDoctor === doctorId && expandedTab === tab) {
-      // Collapse if same doctor and tab clicked
       setExpandedDoctor(null);
       setExpandedTab(null);
       return;
@@ -304,6 +404,8 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
     setExpandedTab(tab);
     setPaymentHistory([]);
     setUnpaidVisits([]);
+    setExpandedPaymentIds(new Set());
+    setPaymentVisitsData(new Map());
 
     if (tab === 'paid') {
       await fetchPaymentHistory(doctorId);
@@ -510,13 +612,86 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
                           </div>
                         ) : (
                           <div className="space-y-6">
+                            {/* Period Filter */}
+                            {(expandedTab === 'paid' || expandedTab === 'total') && (
+                              <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end p-4 bg-muted/50 rounded-lg border">
+                                <div className="flex-1 space-y-2">
+                                  <label className="text-sm font-medium">Filter Period</label>
+                                  <Select value={selectedPeriod} onValueChange={(value: 'all' | 'custom') => {
+                                    setSelectedPeriod(value);
+                                    if (value === 'all') {
+                                      setCustomDateRange({ start: '', end: '' });
+                                    }
+                                  }}>
+                                    <SelectTrigger className="w-full sm:w-[180px]">
+                                      <SelectValue placeholder="Select period" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="all">All Time</SelectItem>
+                                      <SelectItem value="custom">Custom Date Range</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+
+                                {selectedPeriod === 'custom' && (
+                                  <>
+                                    <div className="flex-1 space-y-2">
+                                      <label className="text-sm font-medium">From Date</label>
+                                      <Input
+                                        type="date"
+                                        value={customDateRange.start}
+                                        onChange={(e) => setCustomDateRange(prev => ({ ...prev, start: e.target.value }))}
+                                        className="w-full"
+                                      />
+                                    </div>
+                                    <div className="flex-1 space-y-2">
+                                      <label className="text-sm font-medium">To Date</label>
+                                      <Input
+                                        type="date"
+                                        value={customDateRange.end}
+                                        onChange={(e) => setCustomDateRange(prev => ({ ...prev, end: e.target.value }))}
+                                        className="w-full"
+                                      />
+                                    </div>
+                                  </>
+                                )}
+
+                                <Button 
+                                  onClick={() => {
+                                    if (expandedDoctor) {
+                                      fetchPaymentHistory(expandedDoctor);
+                                      if (expandedTab === 'total') {
+                                        fetchUnpaidVisits(expandedDoctor);
+                                      }
+                                    }
+                                  }}
+                                  variant="default"
+                                  className="whitespace-nowrap"
+                                >
+                                  <Search className="h-4 w-4 mr-2" />
+                                  Apply Filter
+                                </Button>
+                              </div>
+                            )}
+
                             {/* Paid History */}
                             {(expandedTab === 'paid' || expandedTab === 'total') && (
                               <div className="space-y-3">
-                                <h3 className="font-semibold text-lg flex items-center gap-2">
-                                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                                  Payment History (Bank Advice Generated)
-                                </h3>
+                                <div className="flex items-center justify-between">
+                                  <h3 className="font-semibold text-lg flex items-center gap-2">
+                                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                    Payment History (Bank Advice Generated)
+                                  </h3>
+                                  <DoctorHistoryExport
+                                    doctorName={filteredAndSortedDoctors.find(d => d.id === expandedDoctor)?.full_name || ''}
+                                    doctorCode={filteredAndSortedDoctors.find(d => d.id === expandedDoctor)?.doctor_code || ''}
+                                    paymentHistory={paymentHistory}
+                                    unpaidVisits={unpaidVisits}
+                                    paymentVisitsData={paymentVisitsData}
+                                    periodFilter={selectedPeriod}
+                                    customDateRange={customDateRange}
+                                  />
+                                </div>
                                 {paymentHistory.length === 0 ? (
                                   <p className="text-sm text-muted-foreground py-4">No payment history found</p>
                                 ) : (
@@ -524,27 +699,92 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
                                     <Table>
                                       <TableHeader>
                                         <TableRow>
+                                          <TableHead className="w-12"></TableHead>
                                           <TableHead>Period</TableHead>
                                           <TableHead>Gross Amount</TableHead>
                                           <TableHead>TDS</TableHead>
                                           <TableHead>Net Amount</TableHead>
                                           <TableHead>Generated On</TableHead>
+                                          <TableHead>Visit Count</TableHead>
                                         </TableRow>
                                       </TableHeader>
                                       <TableBody>
-                                        {paymentHistory.map((payment) => (
-                                          <TableRow key={payment.id}>
-                                            <TableCell className="font-medium">
-                                              {formatDateIST(payment.period_start)} - {formatDateIST(payment.period_end)}
-                                            </TableCell>
-                                            <TableCell>{formatCurrency(payment.gross_amount)}</TableCell>
-                                            <TableCell>{formatCurrency(payment.tds_amount)}</TableCell>
-                                            <TableCell className="font-semibold text-green-600">
-                                              {formatCurrency(payment.net_amount)}
-                                            </TableCell>
-                                            <TableCell>{formatDateIST(payment.bank_advice_generated_at)}</TableCell>
-                                          </TableRow>
-                                        ))}
+                                        {paymentHistory.map((payment) => {
+                                          const isExpanded = expandedPaymentIds.has(payment.id);
+                                          const visitDetails = paymentVisitsData.get(payment.id) || [];
+                                          const isLoadingVisits = paymentVisitsLoading.has(payment.id);
+                                          
+                                          return (
+                                            <React.Fragment key={payment.id}>
+                                              <TableRow className="hover:bg-muted/30">
+                                                <TableCell onClick={() => handlePaymentRowExpand(payment.id)} className="cursor-pointer">
+                                                  {isExpanded ? 
+                                                    <ChevronUp className="h-4 w-4 text-muted-foreground" /> : 
+                                                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                                                  }
+                                                </TableCell>
+                                                <TableCell className="font-medium">
+                                                  {formatDateIST(payment.period_start)} - {formatDateIST(payment.period_end)}
+                                                </TableCell>
+                                                <TableCell>{formatCurrency(payment.gross_amount)}</TableCell>
+                                                <TableCell>{formatCurrency(payment.tds_amount)}</TableCell>
+                                                <TableCell className="font-semibold text-green-600">
+                                                  {formatCurrency(payment.net_amount)}
+                                                </TableCell>
+                                                <TableCell>{formatDateIST(payment.bank_advice_generated_at)}</TableCell>
+                                                <TableCell>
+                                                  <Badge variant="secondary">{visitDetails.length || '...'} visits</Badge>
+                                                </TableCell>
+                                              </TableRow>
+                                              
+                                              {isExpanded && (
+                                                <TableRow>
+                                                  <TableCell colSpan={7} className="bg-muted/10 p-0">
+                                                    {isLoadingVisits ? (
+                                                      <div className="py-6 text-center">
+                                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary mx-auto"></div>
+                                                        <p className="text-xs text-muted-foreground mt-2">Loading visit details...</p>
+                                                      </div>
+                                                    ) : visitDetails.length === 0 ? (
+                                                      <p className="text-sm text-muted-foreground py-4 px-6">No visit details found</p>
+                                                    ) : (
+                                                      <div className="px-6 py-4">
+                                                        <Table>
+                                                          <TableHeader>
+                                                            <TableRow className="bg-muted/30">
+                                                              <TableHead className="text-xs">Visit Code</TableHead>
+                                                              <TableHead className="text-xs">Date</TableHead>
+                                                              <TableHead className="text-xs">Patient</TableHead>
+                                                              <TableHead className="text-xs">Type</TableHead>
+                                                              <TableHead className="text-xs">Visit Amount</TableHead>
+                                                              <TableHead className="text-xs">Status</TableHead>
+                                                            </TableRow>
+                                                          </TableHeader>
+                                                          <TableBody>
+                                                            {visitDetails.map((visit: PaymentVisitDetail) => (
+                                                              <TableRow key={visit.id} className="text-sm">
+                                                                <TableCell className="font-mono text-xs">{visit.visit_code}</TableCell>
+                                                                <TableCell>{formatDateIST(visit.visit_date)}</TableCell>
+                                                                <TableCell>{visit.patient_name}</TableCell>
+                                                                <TableCell>
+                                                                  <Badge variant="outline" className="text-xs">{visit.payment_type}</Badge>
+                                                                </TableCell>
+                                                                <TableCell className="font-semibold">{formatCurrency(visit.visit_payment)}</TableCell>
+                                                                <TableCell>
+                                                                  <Badge variant="secondary" className="text-xs">{visit.status}</Badge>
+                                                                </TableCell>
+                                                              </TableRow>
+                                                            ))}
+                                                          </TableBody>
+                                                        </Table>
+                                                      </div>
+                                                    )}
+                                                  </TableCell>
+                                                </TableRow>
+                                              )}
+                                            </React.Fragment>
+                                          );
+                                        })}
                                       </TableBody>
                                     </Table>
                                   </div>
