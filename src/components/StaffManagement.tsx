@@ -1049,15 +1049,15 @@ const StaffManagement = () => {
                 Add Staff Member
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+          <DialogContent className="max-w-2xl max-h-[90vh] grid grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
             <DialogHeader className="flex-shrink-0">
               <DialogTitle>{editingStaff ? 'Update Staff Member' : 'Add New Staff Member'}</DialogTitle>
               <DialogDescription>
                 {editingStaff ? 'Update staff member information and credentials.' : 'Create a new staff member account with login credentials and role assignment.'}
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
-              <ScrollArea className="flex-1 h-[calc(90vh-180px)]">
+            <form onSubmit={handleSubmit} className="grid grid-rows-[minmax(0,1fr)_auto] overflow-hidden min-h-0">
+              <ScrollArea className="h-full pr-4 -mr-4">
                 <div className="space-y-3 pb-4 pr-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
@@ -1258,7 +1258,7 @@ const StaffManagement = () => {
                 </div>
               </ScrollArea>
 
-              <div className="flex justify-end space-x-2 pt-4 border-t flex-shrink-0 bg-background mt-4">
+              <div className="flex justify-end space-x-2 pt-4 border-t flex-shrink-0 bg-background">
                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancel
                 </Button>
