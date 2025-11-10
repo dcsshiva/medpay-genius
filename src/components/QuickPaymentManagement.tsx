@@ -272,13 +272,15 @@ const QuickPaymentManagement = () => {
         .not('payment_type_id', 'in', `(${excludedTypes.join(',')})`)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) {
-        // No previous records found - this is OK, not an error
-        if (error.code === 'PGRST116') {
-          console.log('No previous payment records found for this mobile number');
-        }
+        console.error('Error fetching bank details:', error);
+        return;
+      }
+      
+      if (!data) {
+        console.log('No previous payment records found for this mobile number');
         return;
       }
 
@@ -1123,19 +1125,8 @@ const QuickPaymentManagement = () => {
                   </div>
                 )}
 
-                {/* Basic Details */}
+                {/* Basic Details - Mobile Number First */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="name">Name / Company Name *</Label>
-                      <Input
-                        id="name"
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        placeholder="Enter name"
-                        required
-                        disabled={isVendorPayment || isStaffAdvance}
-                      />
-                  </div>
                   <div>
                     <Label htmlFor="mobile_number">Mobile Number *</Label>
                       <Input
@@ -1170,6 +1161,17 @@ const QuickPaymentManagement = () => {
                         Mobile number must be exactly 10 digits
                       </p>
                     )}
+                  </div>
+                  <div>
+                    <Label htmlFor="name">Name / Company Name *</Label>
+                      <Input
+                        id="name"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder="Enter name"
+                        required
+                        disabled={isVendorPayment || isStaffAdvance}
+                      />
                   </div>
                 </div>
 
