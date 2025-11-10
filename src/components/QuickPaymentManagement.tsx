@@ -155,6 +155,8 @@ const QuickPaymentManagement = () => {
   } | null>(null);
   const [isDocumentPreviewOpen, setIsDocumentPreviewOpen] = useState(false);
   const [loadingDocument, setLoadingDocument] = useState(false);
+  const [autoFilledFromHistory, setAutoFilledFromHistory] = useState(false);
+  const [loadingBankDetails, setLoadingBankDetails] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -236,6 +238,71 @@ const QuickPaymentManagement = () => {
     } catch (error: any) {
       toast.error('Failed to fetch staff members');
       console.error('Error:', error);
+    }
+  };
+
+  const fetchBankDetailsByMobile = async (mobileNumber: string) => {
+    // Only proceed if mobile number is valid and not in vendor or staff advance mode
+    if (!validateMobileNumber(mobileNumber) || isVendorPayment || isStaffAdvance) {
+      return;
+    }
+
+    setLoadingBankDetails(true);
+    setAutoFilledFromHistory(false);
+
+    try {
+      // Get payment type codes to exclude
+      const vendorTypes = types.filter(t => 
+        t.type_code?.toLowerCase() === 'vendor' || 
+        t.type_name?.toLowerCase().includes('vendor')
+      ).map(t => t.id);
+      
+      const staffTypes = types.filter(t => 
+        t.type_name?.toLowerCase().includes('staff advance')
+      ).map(t => t.id);
+      
+      const excludedTypes = [...vendorTypes, ...staffTypes];
+
+      const { data, error } = await supabase
+        .from('quick_payments')
+        .select('bank_name, account_number, ifsc_code, branch_name, account_holder_name, name, payment_type_id')
+        .eq('mobile_number', mobileNumber)
+        .not('bank_name', 'is', null)
+        .not('account_number', 'is', null)
+        .not('payment_type_id', 'in', `(${excludedTypes.join(',')})`)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) {
+        // No previous records found - this is OK, not an error
+        if (error.code === 'PGRST116') {
+          console.log('No previous payment records found for this mobile number');
+        }
+        return;
+      }
+
+      if (data) {
+        // Auto-fill the bank details
+        setFormData(prev => ({
+          ...prev,
+          bank_name: data.bank_name || '',
+          account_number: data.account_number || '',
+          ifsc_code: data.ifsc_code || '',
+          branch_name: data.branch_name || '',
+          account_holder_name: data.account_holder_name || '',
+          // Optionally pre-fill name if current name is empty
+          name: prev.name || data.name || '',
+        }));
+        
+        setAutoFilledFromHistory(true);
+        toast.success('Bank details loaded from previous payment');
+      }
+    } catch (error) {
+      console.error('Error fetching bank details:', error);
+      // Silent fail - don't show error to user
+    } finally {
+      setLoadingBankDetails(false);
     }
   };
 
@@ -621,6 +688,7 @@ const QuickPaymentManagement = () => {
     
     setIsVendorPayment(isVendor);
     setIsStaffAdvance(isStaff);
+    setAutoFilledFromHistory(false);
     
     if (!isVendor && !isStaff) {
       setSelectedVendor('');
@@ -697,6 +765,8 @@ const QuickPaymentManagement = () => {
     setIsStaffAdvance(false);
     setSelectedFile(null);
     setFilePreview(null);
+    setAutoFilledFromHistory(false);
+    setLoadingBankDetails(false);
   };
 
   const pendingPayments = payments.filter(p => !p.bank_advice_generated);
@@ -1071,10 +1141,25 @@ const QuickPaymentManagement = () => {
                       <Input
                         id="mobile_number"
                         value={formData.mobile_number}
-                        onChange={(e) => setFormData({ 
-                          ...formData, 
-                          mobile_number: formatMobileNumber(e.target.value) 
-                        })}
+                        onChange={(e) => {
+                          const formatted = formatMobileNumber(e.target.value);
+                          setFormData({ 
+                            ...formData, 
+                            mobile_number: formatted
+                          });
+                          
+                          // Trigger auto-fill when 10 digits are entered
+                          if (formatted.length === 10 && validateMobileNumber(formatted)) {
+                            fetchBankDetailsByMobile(formatted);
+                          }
+                        }}
+                        onBlur={(e) => {
+                          // Also trigger on blur in case user pastes the number
+                          const mobile = e.target.value;
+                          if (mobile.length === 10 && validateMobileNumber(mobile) && !isVendorPayment && !isStaffAdvance) {
+                            fetchBankDetailsByMobile(mobile);
+                          }
+                        }}
                         placeholder="10-digit mobile number"
                         maxLength={10}
                         required
@@ -1086,6 +1171,37 @@ const QuickPaymentManagement = () => {
                       </p>
                     )}
                   </div>
+                </div>
+
+                {/* Auto-fill notification */}
+                {autoFilledFromHistory && (
+                  <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-md p-3 flex items-center justify-between">
+                    <p className="text-sm text-green-800 dark:text-green-200">
+                      ✓ Bank details loaded from previous payment for this mobile number
+                    </p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setFormData(prev => ({
+                          ...prev,
+                          bank_name: '',
+                          account_number: '',
+                          ifsc_code: '',
+                          branch_name: '',
+                          account_holder_name: '',
+                        }));
+                        setAutoFilledFromHistory(false);
+                      }}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                )}
+
+                {/* Basic Details Grid End */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 </div>
 
                 {/* Amount and TDS */}
@@ -1151,7 +1267,10 @@ const QuickPaymentManagement = () => {
 
                 {/* Bank Details */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Bank Details *</h3>
+                  <h3 className="text-lg font-semibold">
+                    Bank Details *
+                    {loadingBankDetails && <span className="text-sm font-normal text-muted-foreground ml-2">(Loading...)</span>}
+                  </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="bank_name">Bank Name *</Label>
