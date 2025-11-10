@@ -1049,16 +1049,16 @@ const StaffManagement = () => {
                 Add Staff Member
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
             <DialogHeader className="flex-shrink-0">
-              <DialogTitle>Add New Staff Member</DialogTitle>
+              <DialogTitle>{editingStaff ? 'Update Staff Member' : 'Add New Staff Member'}</DialogTitle>
               <DialogDescription>
-                Create a new staff member account with login credentials and role assignment.
+                {editingStaff ? 'Update staff member information and credentials.' : 'Create a new staff member account with login credentials and role assignment.'}
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-              <ScrollArea className="flex-1 pr-4">
-                <div className="space-y-3 pb-4">
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <ScrollArea className="flex-1 pr-4 -mr-4">
+                <div className="space-y-3 pb-4 pr-4">
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
                       <Label htmlFor="staff_code">Staff Code (Optional)</Label>

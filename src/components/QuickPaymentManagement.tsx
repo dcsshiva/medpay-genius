@@ -69,6 +69,18 @@ interface Vendor {
   account_holder_name: string | null;
 }
 
+interface StaffMember {
+  id: string;
+  staff_code: string;
+  full_name: string;
+  phone: string | null;
+  bank_name: string | null;
+  account_number: string | null;
+  ifsc_code: string | null;
+  branch_name: string | null;
+  account_holder_name: string | null;
+}
+
 interface QuickPayment {
   id: string;
   name: string;
@@ -115,6 +127,9 @@ const QuickPaymentManagement = () => {
   const [vendors, setVendors] = useState<Vendor[]>([]);
   const [selectedVendor, setSelectedVendor] = useState<string>('');
   const [isVendorPayment, setIsVendorPayment] = useState(false);
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
+  const [selectedStaff, setSelectedStaff] = useState<string>('');
+  const [isStaffAdvance, setIsStaffAdvance] = useState(false);
   const [loading, setLoading] = useState(false);
   const [selectedPayments, setSelectedPayments] = useState<string[]>([]);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
@@ -160,6 +175,7 @@ const QuickPaymentManagement = () => {
     fetchTypes();
     fetchPayments();
     fetchVendors();
+    fetchStaffMembers();
   }, []);
 
   // Calculate TDS and net amount when gross amount or TDS percentage changes
@@ -200,6 +216,25 @@ const QuickPaymentManagement = () => {
       setVendors(data || []);
     } catch (error: any) {
       toast.error('Failed to fetch vendors');
+      console.error('Error:', error);
+    }
+  };
+
+  const fetchStaffMembers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('staff')
+        .select('id, staff_code, full_name, phone, bank_name, bank_account_number, ifsc_code, branch_name, account_holder_name')
+        .eq('is_active', true)
+        .order('full_name');
+
+      if (error) throw error;
+      setStaffMembers(data?.map(s => ({
+        ...s,
+        account_number: s.bank_account_number
+      })) || []);
+    } catch (error: any) {
+      toast.error('Failed to fetch staff members');
       console.error('Error:', error);
     }
   };
@@ -582,17 +617,24 @@ const QuickPaymentManagement = () => {
     const selectedType = types.find(t => t.id === value);
     const isVendor = selectedType?.type_code?.toLowerCase() === 'vendor' || 
                      selectedType?.type_name?.toLowerCase().includes('vendor');
+    const isStaff = selectedType?.type_name?.toLowerCase().includes('staff advance');
     
     setIsVendorPayment(isVendor);
+    setIsStaffAdvance(isStaff);
     
-    if (!isVendor) {
+    if (!isVendor && !isStaff) {
       setSelectedVendor('');
+      setSelectedStaff('');
       setFormData(prev => ({
         ...prev,
         name: '',
         mobile_number: '',
         gst_number: '',
       }));
+    } else if (!isVendor) {
+      setSelectedVendor('');
+    } else if (!isStaff) {
+      setSelectedStaff('');
     }
   };
 
@@ -615,6 +657,24 @@ const QuickPaymentManagement = () => {
     }
   };
 
+  const handleStaffChange = (staffId: string) => {
+    setSelectedStaff(staffId);
+    
+    const staff = staffMembers.find(s => s.id === staffId);
+    if (staff) {
+      setFormData(prev => ({
+        ...prev,
+        name: staff.full_name,
+        mobile_number: staff.phone || '',
+        bank_name: staff.bank_name || '',
+        account_number: staff.account_number || '',
+        ifsc_code: staff.ifsc_code || '',
+        branch_name: staff.branch_name || '',
+        account_holder_name: staff.account_holder_name || '',
+      }));
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       name: '',
@@ -632,7 +692,9 @@ const QuickPaymentManagement = () => {
     });
     setSelectedPayment(null);
     setSelectedVendor('');
+    setSelectedStaff('');
     setIsVendorPayment(false);
+    setIsStaffAdvance(false);
     setSelectedFile(null);
     setFilePreview(null);
   };
@@ -883,6 +945,7 @@ const QuickPaymentManagement = () => {
     const hasGrossAmount = parseFloat(formData.gross_amount) > 0;
     
     const vendorValid = !isVendorPayment || selectedVendor.length > 0;
+    const staffValid = !isStaffAdvance || selectedStaff.length > 0;
     
     // All bank details are now required
     const hasBankName = formData.bank_name.trim().length > 0;
@@ -891,7 +954,7 @@ const QuickPaymentManagement = () => {
     const hasBranchName = formData.branch_name.trim().length > 0;
     const hasAccountHolder = formData.account_holder_name.trim().length > 0;
     
-    return hasName && hasMobile && hasType && hasGrossAmount && vendorValid &&
+    return hasName && hasMobile && hasType && hasGrossAmount && vendorValid && staffValid &&
            hasBankName && hasAccountNumber && hasIFSC && hasBranchName && hasAccountHolder;
   };
 
@@ -958,6 +1021,28 @@ const QuickPaymentManagement = () => {
                       </Select>
                     </div>
                   )}
+
+                  {isStaffAdvance && (
+                    <div>
+                      <Label htmlFor="staff_id">Select Staff Member *</Label>
+                      <Select
+                        value={selectedStaff}
+                        onValueChange={handleStaffChange}
+                        required
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select staff member" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {staffMembers.map((staff) => (
+                            <SelectItem key={staff.id} value={staff.id}>
+                              {staff.staff_code} - {staff.full_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
 
                 {isVendorPayment && formData.gst_number && (
@@ -972,29 +1057,29 @@ const QuickPaymentManagement = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="name">Name / Company Name *</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      placeholder="Enter name"
-                      required
-                      disabled={isVendorPayment}
-                    />
+                      <Input
+                        id="name"
+                        value={formData.name}
+                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        placeholder="Enter name"
+                        required
+                        disabled={isVendorPayment || isStaffAdvance}
+                      />
                   </div>
                   <div>
                     <Label htmlFor="mobile_number">Mobile Number *</Label>
-                    <Input
-                      id="mobile_number"
-                      value={formData.mobile_number}
-                      onChange={(e) => setFormData({ 
-                        ...formData, 
-                        mobile_number: formatMobileNumber(e.target.value) 
-                      })}
-                      placeholder="10-digit mobile number"
-                      maxLength={10}
-                      required
-                      disabled={isVendorPayment}
-                    />
+                      <Input
+                        id="mobile_number"
+                        value={formData.mobile_number}
+                        onChange={(e) => setFormData({ 
+                          ...formData, 
+                          mobile_number: formatMobileNumber(e.target.value) 
+                        })}
+                        placeholder="10-digit mobile number"
+                        maxLength={10}
+                        required
+                        disabled={isVendorPayment || isStaffAdvance}
+                      />
                     {formData.mobile_number && !validateMobileNumber(formData.mobile_number) && (
                       <p className="text-sm text-destructive mt-1">
                         Mobile number must be exactly 10 digits
@@ -1070,58 +1155,63 @@ const QuickPaymentManagement = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="bank_name">Bank Name *</Label>
-                      <Input
-                        id="bank_name"
-                        value={formData.bank_name}
-                        onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
-                        placeholder="Enter bank name"
-                        required
-                      />
+                        <Input
+                          id="bank_name"
+                          value={formData.bank_name}
+                          onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
+                          placeholder="Enter bank name"
+                          required
+                          disabled={isStaffAdvance}
+                        />
                     </div>
                     <div>
                       <Label htmlFor="account_holder_name">Account Holder Name *</Label>
-                      <Input
-                        id="account_holder_name"
-                        value={formData.account_holder_name}
-                        onChange={(e) => setFormData({ ...formData, account_holder_name: e.target.value })}
-                        placeholder="Enter account holder name"
-                        required
-                      />
+                        <Input
+                          id="account_holder_name"
+                          value={formData.account_holder_name}
+                          onChange={(e) => setFormData({ ...formData, account_holder_name: e.target.value })}
+                          placeholder="Enter account holder name"
+                          required
+                          disabled={isStaffAdvance}
+                        />
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="account_number">Account Number *</Label>
-                      <Input
-                        id="account_number"
-                        value={formData.account_number}
-                        onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
-                        placeholder="Enter account number"
-                        required
-                      />
+                        <Input
+                          id="account_number"
+                          value={formData.account_number}
+                          onChange={(e) => setFormData({ ...formData, account_number: e.target.value })}
+                          placeholder="Enter account number"
+                          required
+                          disabled={isStaffAdvance}
+                        />
                     </div>
                     <div>
                       <Label htmlFor="ifsc_code">IFSC Code *</Label>
-                      <Input
-                        id="ifsc_code"
-                        value={formData.ifsc_code}
-                        onChange={(e) => setFormData({ ...formData, ifsc_code: e.target.value.toUpperCase() })}
-                        placeholder="e.g., SBIN0001234"
-                        required
-                      />
+                        <Input
+                          id="ifsc_code"
+                          value={formData.ifsc_code}
+                          onChange={(e) => setFormData({ ...formData, ifsc_code: e.target.value.toUpperCase() })}
+                          placeholder="e.g., SBIN0001234"
+                          required
+                          disabled={isStaffAdvance}
+                        />
                     </div>
                   </div>
 
                   <div>
                     <Label htmlFor="branch_name">Branch Name *</Label>
-                    <Input
-                      id="branch_name"
-                      value={formData.branch_name}
-                      onChange={(e) => setFormData({ ...formData, branch_name: e.target.value })}
-                      placeholder="Enter branch name"
-                      required
-                    />
+                      <Input
+                        id="branch_name"
+                        value={formData.branch_name}
+                        onChange={(e) => setFormData({ ...formData, branch_name: e.target.value })}
+                        placeholder="Enter branch name"
+                        required
+                        disabled={isStaffAdvance}
+                      />
                   </div>
                 </div>
 
