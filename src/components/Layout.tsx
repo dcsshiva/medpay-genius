@@ -142,9 +142,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
         <div className="hidden md:flex w-full">
           <AppSidebar activeTab={activeTab} onTabChange={onTabChange} />
           
-          <SidebarInset>
+          <SidebarInset className="flex flex-col h-screen overflow-hidden">
             {/* Desktop Header */}
-            <header className="bg-card border-b border-border shadow-sm">
+            <header className="bg-card border-b border-border shadow-sm flex-shrink-0">
               <div className="flex items-center justify-between px-6 py-4">
                 <div className="flex items-center space-x-3">
                   <SidebarTrigger />
@@ -179,8 +179,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
               </div>
             </header>
 
-            {/* Main Content */}
-            <main className="p-6">
+            {/* Main Content with Scroll */}
+            <main className="flex-1 overflow-y-auto p-6">
               {children}
             </main>
           </SidebarInset>
