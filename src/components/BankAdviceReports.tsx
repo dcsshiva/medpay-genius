@@ -20,10 +20,12 @@ import {
   Download,
   Eye,
   Building2,
-  DollarSign
+  DollarSign,
+  CheckSquare
 } from 'lucide-react';
 import { formatDateTimeIST, formatDateIST } from '@/lib/dateUtils';
 import { formatCurrency } from '@/lib/currency';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface BankAdviceHistory {
   id: string;
@@ -37,10 +39,13 @@ interface BankAdviceHistory {
   created_at: string;
   generator_name?: string;
   payment_source: 'doctor' | 'quick_payment' | 'staff_payment';
+  bank_processed: boolean;
+  bank_processed_at?: string;
+  bank_processed_by?: string;
 }
 
 const BankAdviceReports = () => {
-  const { userRole } = useAuth();
+  const { userRole, user } = useAuth();
   const { toast } = useToast();
   const [records, setRecords] = useState<BankAdviceHistory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -85,7 +90,7 @@ const BankAdviceReports = () => {
       // Fetch from bank_advice_history (doctor payments)
       let doctorQuery = supabase
         .from('bank_advice_history')
-        .select('*')
+        .select('*, bank_processed, bank_processed_at, bank_processed_by')
         .order('created_at', { ascending: false });
 
       // Apply date filters
@@ -99,7 +104,7 @@ const BankAdviceReports = () => {
       // Fetch from quick_payment_bank_advice_history (quick payments)
       let quickQuery = supabase
         .from('quick_payment_bank_advice_history')
-        .select('*')
+        .select('*, bank_processed, bank_processed_at, bank_processed_by')
         .order('created_at', { ascending: false });
 
       // Apply same date filters
@@ -113,7 +118,7 @@ const BankAdviceReports = () => {
       // Fetch from staff_payment_bank_advice_history (staff payments)
       let staffQuery = supabase
         .from('staff_payment_bank_advice_history')
-        .select('*')
+        .select('*, bank_processed, bank_processed_at, bank_processed_by')
         .order('created_at', { ascending: false });
 
       // Apply same date filters
@@ -220,6 +225,44 @@ const BankAdviceReports = () => {
       title: "Success",
       description: `Downloaded ${record.filename}`
     });
+  };
+
+  const handleBankProcessedToggle = async (record: BankAdviceHistory, checked: boolean) => {
+    try {
+      const table = record.payment_source === 'doctor' 
+        ? 'bank_advice_history' 
+        : record.payment_source === 'quick_payment' 
+        ? 'quick_payment_bank_advice_history' 
+        : 'staff_payment_bank_advice_history';
+
+      const { error } = await supabase
+        .from(table)
+        .update({
+          bank_processed: checked,
+          bank_processed_at: checked ? new Date().toISOString() : null,
+          bank_processed_by: checked ? user?.id : null
+        })
+        .eq('id', record.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: checked 
+          ? "Payment marked as processed in bank" 
+          : "Payment marked as not processed"
+      });
+
+      // Refresh the data
+      fetchBankAdviceHistory();
+    } catch (error) {
+      console.error('Error updating bank processed status:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to update payment status"
+      });
+    }
   };
 
   const handleRegenerate = async (record: BankAdviceHistory) => {
@@ -671,6 +714,12 @@ const BankAdviceReports = () => {
                              record.payment_source === 'quick_payment' ? 'Quick Payments' : 
                              'Staff Payments'}
                           </Badge>
+                          {record.bank_processed && (
+                            <Badge variant="default" className="bg-green-600">
+                              <CheckSquare className="h-3 w-3 mr-1" />
+                              Bank Processed
+                            </Badge>
+                          )}
                         </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
@@ -691,6 +740,20 @@ const BankAdviceReports = () => {
                       </div>
                       
                       <div className="flex flex-col gap-2">
+                        <div className="flex items-center gap-3 p-2 border rounded-md bg-muted/30">
+                          <Checkbox
+                            id={`processed-${record.id}`}
+                            checked={record.bank_processed}
+                            onCheckedChange={(checked) => handleBankProcessedToggle(record, checked as boolean)}
+                          />
+                          <label
+                            htmlFor={`processed-${record.id}`}
+                            className="text-sm font-medium leading-none cursor-pointer"
+                          >
+                            Bank Processed
+                          </label>
+                        </div>
+                        
                         <Button
                           variant="outline"
                           size="sm"

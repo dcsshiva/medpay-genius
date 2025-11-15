@@ -94,6 +94,9 @@ export type Database = {
       }
       bank_advice_history: {
         Row: {
+          bank_processed: boolean | null
+          bank_processed_at: string | null
+          bank_processed_by: string | null
           created_at: string
           file_content: string | null
           filename: string
@@ -106,6 +109,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bank_processed?: boolean | null
+          bank_processed_at?: string | null
+          bank_processed_by?: string | null
           created_at?: string
           file_content?: string | null
           filename: string
@@ -118,6 +124,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bank_processed?: boolean | null
+          bank_processed_at?: string | null
+          bank_processed_by?: string | null
           created_at?: string
           file_content?: string | null
           filename?: string
@@ -129,7 +138,15 @@ export type Database = {
           total_amount?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "bank_advice_history_bank_processed_by_fkey"
+            columns: ["bank_processed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       complaint_categories: {
         Row: {
@@ -893,6 +910,9 @@ export type Database = {
       }
       quick_payment_bank_advice_history: {
         Row: {
+          bank_processed: boolean | null
+          bank_processed_at: string | null
+          bank_processed_by: string | null
           created_at: string
           file_content: string | null
           filename: string
@@ -907,6 +927,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bank_processed?: boolean | null
+          bank_processed_at?: string | null
+          bank_processed_by?: string | null
           created_at?: string
           file_content?: string | null
           filename: string
@@ -921,6 +944,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bank_processed?: boolean | null
+          bank_processed_at?: string | null
+          bank_processed_by?: string | null
           created_at?: string
           file_content?: string | null
           filename?: string
@@ -934,7 +960,15 @@ export type Database = {
           total_tds_amount?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "quick_payment_bank_advice_history_bank_processed_by_fkey"
+            columns: ["bank_processed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       quick_payment_types: {
         Row: {
@@ -1360,6 +1394,9 @@ export type Database = {
       }
       staff_payment_bank_advice_history: {
         Row: {
+          bank_processed: boolean | null
+          bank_processed_at: string | null
+          bank_processed_by: string | null
           created_at: string
           file_content: string | null
           filename: string
@@ -1372,6 +1409,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          bank_processed?: boolean | null
+          bank_processed_at?: string | null
+          bank_processed_by?: string | null
           created_at?: string
           file_content?: string | null
           filename: string
@@ -1384,6 +1424,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          bank_processed?: boolean | null
+          bank_processed_at?: string | null
+          bank_processed_by?: string | null
           created_at?: string
           file_content?: string | null
           filename?: string
@@ -1395,7 +1438,15 @@ export type Database = {
           total_amount?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "staff_payment_bank_advice_history_bank_processed_by_fkey"
+            columns: ["bank_processed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       staff_payments: {
         Row: {
