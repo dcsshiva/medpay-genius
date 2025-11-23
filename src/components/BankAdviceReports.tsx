@@ -78,6 +78,8 @@ const BankAdviceReports = () => {
     });
   };
 
+  const [processingRecords, setProcessingRecords] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     if (userRole === 'admin' || userRole === 'manager') {
       fetchBankAdviceHistory();
@@ -239,12 +241,29 @@ const BankAdviceReports = () => {
       return;
     }
 
+    // Prevent multiple clicks on the same record
+    if (processingRecords.has(record.id)) {
+      return;
+    }
+
+    // Mark as processing
+    setProcessingRecords(prev => new Set(prev).add(record.id));
+
     try {
       const table = record.payment_source === 'doctor' 
         ? 'bank_advice_history' 
         : record.payment_source === 'quick_payment' 
         ? 'quick_payment_bank_advice_history' 
         : 'staff_payment_bank_advice_history';
+
+      // Optimistic UI update
+      setRecords(prevRecords => 
+        prevRecords.map(r => 
+          r.id === record.id 
+            ? { ...r, bank_processed: checked, bank_processed_at: new Date().toISOString(), bank_processed_by: user?.id }
+            : r
+        )
+      );
 
       const { error } = await supabase
         .from(table)
@@ -262,14 +281,31 @@ const BankAdviceReports = () => {
         description: "Payment marked as processed in bank"
       });
 
-      // Refresh the data
+      // Refresh the data to get latest state
       fetchBankAdviceHistory();
     } catch (error) {
       console.error('Error updating bank processed status:', error);
+      
+      // Revert optimistic update on error
+      setRecords(prevRecords => 
+        prevRecords.map(r => 
+          r.id === record.id 
+            ? { ...r, bank_processed: !checked }
+            : r
+        )
+      );
+      
       toast({
         variant: "destructive",
         title: "Error",
         description: "Failed to update payment status"
+      });
+    } finally {
+      // Remove from processing
+      setProcessingRecords(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(record.id);
+        return newSet;
       });
     }
   };
@@ -756,11 +792,14 @@ const BankAdviceReports = () => {
                       </div>
                       
                       <div className="flex flex-col gap-2">
-                        <div className="flex items-center gap-3 p-2 border rounded-md bg-muted/30">
+                        <div className={cn(
+                          "flex items-center gap-3 p-2 border rounded-md",
+                          processingRecords.has(record.id) ? "bg-muted/50 animate-pulse" : "bg-muted/30"
+                        )}>
                           <Checkbox
                             id={`processed-${record.id}`}
                             checked={record.bank_processed}
-                            disabled={record.bank_processed}
+                            disabled={record.bank_processed || processingRecords.has(record.id)}
                             onCheckedChange={(checked) => handleBankProcessedToggle(record, checked as boolean)}
                           />
                           <div className="flex-1">
@@ -859,12 +898,15 @@ const BankAdviceReports = () => {
                       </p>
                     </div>
                     
-                    <div className="flex flex-col gap-1 p-2 border rounded-md bg-muted/30">
+                    <div className={cn(
+                      "flex flex-col gap-1 p-2 border rounded-md",
+                      processingRecords.has(record.id) ? "bg-muted/50 animate-pulse" : "bg-muted/30"
+                    )}>
                       <div className="flex items-center gap-2">
                         <Checkbox
                           id={`processed-mobile-${record.id}`}
                           checked={record.bank_processed}
-                          disabled={record.bank_processed}
+                          disabled={record.bank_processed || processingRecords.has(record.id)}
                           onCheckedChange={(checked) => handleBankProcessedToggle(record, checked as boolean)}
                         />
                         <label
