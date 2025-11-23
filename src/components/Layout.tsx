@@ -3,7 +3,6 @@ import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import MobileHeader from '@/components/MobileHeader';
 import { AppSidebar } from '@/components/AppSidebar';
-import { isStaffRole } from '@/lib/staffUtils';
 import VersionDisplay from '@/components/VersionDisplay';
 import Footer from '@/components/Footer';
 import { 
@@ -11,27 +10,9 @@ import {
   SidebarInset, 
   SidebarTrigger 
 } from '@/components/ui/sidebar';
-import { 
-  Stethoscope, 
-  LogOut, 
-  Users, 
-  Calendar, 
-  CreditCard, 
-  Settings,
-  Home,
-  ClipboardList,
-  MessageCircle,
-  UserCog,
-  MessageSquare,
-  History as HistoryIcon,
-  BookOpen,
-  ClipboardCheck,
-  Database,
-  CalendarCheck,
-  Zap,
-  LayoutDashboard
-} from 'lucide-react';
+import { LogOut } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
+import { getNavigationItems } from '@/lib/navigationItems';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -40,93 +21,13 @@ interface LayoutProps {
 }
 
 const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => {
-  const { user, userRole, userDesignation, signOut } = useAuth();
+  const { user, userRole, userDesignation, userProfile, signOut } = useAuth();
 
-  const getNavigationItems = () => {
-    const baseItems = [
-      { id: 'dashboard', label: 'Dashboard', icon: Home },
-      { id: 'user-guide', label: 'User Guide', icon: BookOpen },
-    ];
-
-    if (userRole === 'doctor' || userDesignation === 'doctor') {
-      return [
-        ...baseItems,
-        { id: 'visits', label: 'My Visits', icon: Calendar },
-        { id: 'payments', label: 'My Payments', icon: CreditCard },
-        { id: 'tasks', label: 'My Tasks', icon: ClipboardList },
-        { id: 'complaints', label: 'Complaints', icon: MessageCircle },
-      ];
-    }
-
-    if (userRole === 'manager' || userDesignation === 'manager') {
-      return [
-        ...baseItems,
-        { id: 'staff', label: 'Staff Management', icon: UserCog },
-        { id: 'visits', label: 'Visit Management', icon: Calendar },
-        { id: 'doctors', label: 'Doctors', icon: Users },
-        { id: 'doctor-hub', label: 'Doctor Hub', icon: Stethoscope },
-        { id: 'payments', label: 'Payment Approvals', icon: CreditCard },
-        { id: 'tasks', label: 'Task Management', icon: ClipboardList },
-        { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
-        { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
-        { id: 'complaints', label: 'Complaints', icon: MessageCircle },
-        { id: 'chat', label: 'Team Chat', icon: MessageSquare },
-      ];
-    }
-
-  if (userRole === 'admin' || userDesignation === 'admin') {
-    return [
-      ...baseItems,
-      { id: 'staff', label: 'Staff Management', icon: UserCog },
-      { id: 'masters', label: 'Masters', icon: Database },
-      { id: 'doctors', label: 'Doctor Management', icon: Users },
-        { id: 'doctor-hub', label: 'Doctor Hub', icon: Stethoscope },
-        { id: 'visits', label: 'Visit Management', icon: Calendar },
-        { id: 'payments', label: 'Payment Management', icon: CreditCard },
-        { id: 'tasks', label: 'Task Management', icon: ClipboardList },
-        { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
-        { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
-        { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
-        { id: 'chat', label: 'Team Chat', icon: MessageSquare },
-        { id: 'version', label: 'Version Management', icon: HistoryIcon },
-        { id: 'settings', label: 'Settings', icon: Settings },
-      ];
-    }
-
-    // Super admin - full access (same as admin + settings)
-    if (userRole === 'super_admin' || userDesignation === 'super_admin') {
-      return [
-        ...baseItems,
-        { id: 'staff', label: 'Staff Management', icon: UserCog },
-        { id: 'masters', label: 'Masters', icon: Database },
-        { id: 'doctors', label: 'Doctor Management', icon: Users },
-        { id: 'doctor-hub', label: 'Doctor Hub', icon: Stethoscope },
-        { id: 'visits', label: 'Visit Management', icon: Calendar },
-        { id: 'payments', label: 'Payment Management', icon: CreditCard },
-        { id: 'tasks', label: 'Task Management', icon: ClipboardList },
-        { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
-        { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
-        { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
-        { id: 'chat', label: 'Team Chat', icon: MessageSquare },
-        { id: 'version', label: 'Version Management', icon: HistoryIcon },
-        { id: 'settings', label: 'Settings', icon: Settings },
-      ];
-    }
-
-    // Staff users (nurse, technician, receptionist, pharmacist, cleaner, security, etc.)
-    if (isStaffRole(userRole)) {
-      return [
-        ...baseItems,
-        { id: 'leave-permission', label: 'Leave & Permission', icon: CalendarCheck },
-        { id: 'tasks', label: 'My Tasks', icon: ClipboardList },
-        { id: 'complaints', label: 'Complaints', icon: MessageCircle },
-      ];
-    }
-
-    return baseItems;
-  };
-
-  const navigationItems = getNavigationItems();
+  const navigationItems = getNavigationItems({
+    userRole,
+    userDesignation,
+    userProfile
+  });
 
   return (
     <SidebarProvider>

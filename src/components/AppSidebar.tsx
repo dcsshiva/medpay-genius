@@ -1,31 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Users, 
-  Calendar, 
   CreditCard, 
-  Settings,
-  Home,
-  ClipboardList,
-  MessageCircle,
-  UserCog,
-  MessageSquare,
   Clock,
   CheckCircle,
-  TrendingUp,
-  History as HistoryIcon,
-  Globe,
-  BookOpen,
-  ClipboardCheck,
-  Database,
-  FileText,
-  CalendarCheck,
-  Zap,
-  Building2,
-  FolderOpen,
-  LayoutDashboard,
-  Stethoscope
 } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
+import { getNavigationItems } from '@/lib/navigationItems';
 import {
   Sidebar,
   SidebarContent,
@@ -102,126 +82,11 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
     return () => clearInterval(interval);
   }, [userRole]);
 
-  const getNavigationItems = () => {
-    const baseItems = [
-      { id: 'dashboard', label: 'Dashboard', icon: Home },
-      { id: 'user-guide', label: 'User Guide', icon: BookOpen },
-    ];
-
-    // Super Admin - Full access to everything
-    if (userDesignation === 'super_admin' || userRole === 'super_admin') {
-      return [
-        ...baseItems,
-        { id: 'masters', label: 'Masters', icon: Database },
-        { id: 'staff', label: 'Staff Management', icon: UserCog },
-        { id: 'doctors', label: 'Doctor Management', icon: Users },
-        { id: 'visits', label: 'Visit Management', icon: Calendar },
-        { id: 'doctor-hub', label: 'Doctor Hub', icon: Stethoscope },
-        { id: 'cash-payments-lite', label: 'Cash Payments (Lite)', icon: CreditCard },
-        { id: 'insurance-payments-lite', label: 'Insurance Payments (Lite)', icon: CreditCard },
-        { id: 'quick-payment', label: 'Quick Payment', icon: Zap },
-        { id: 'bank-advice-generation-beta', label: 'Bank Advice (Beta)', icon: Building2 },
-        { id: 'bank-advice-generation', label: 'Bank Advice (Legacy)', icon: Building2 },
-        { id: 'bank-advice-history', label: 'BANK ADVICE HUB', icon: FolderOpen },
-        { id: 'bank-advice-records', label: 'Bank Advice Records', icon: FileText },
-        { id: 'tds-reports', label: 'TDS Reports', icon: FileText },
-        { id: 'cash-payments', label: 'Cash Payments', icon: CreditCard },
-        { id: 'insurance-payments', label: 'Insurance Payments', icon: CreditCard },
-        { id: 'bank-advice-payment-report', label: 'BA Payment Report', icon: FileText },
-        { id: 'quick-payment-bank-advice-report', label: 'Quick Payment BA Report', icon: FileText },
-        { id: 'tasks', label: 'Task Management', icon: ClipboardList },
-        { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
-        { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
-        { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
-        { id: 'login-reports', label: 'Login Reports', icon: TrendingUp },
-        { id: 'chat', label: 'Team Chat', icon: MessageSquare },
-        { id: 'version', label: 'Version Management', icon: HistoryIcon },
-        { id: 'website-settings', label: 'Website Settings', icon: Globe },
-        { id: 'settings', label: 'Settings', icon: Settings },
-      ];
-    }
-
-    if (userRole === 'doctor' || userProfile?.user_type === 'doctor') {
-      return [
-        { id: 'doctor-hub', label: 'My Dashboard', icon: Stethoscope },
-      ];
-    }
-
-    if (userRole === 'manager' || userDesignation === 'manager') {
-      return [
-        ...baseItems,
-        { id: 'masters', label: 'Masters', icon: Database },
-        { id: 'staff', label: 'Staff Management', icon: UserCog },
-        { id: 'visits', label: 'Visit Management', icon: Calendar },
-        { id: 'doctors', label: 'Doctors', icon: Users },
-        { id: 'doctor-hub', label: 'Doctor Hub', icon: Stethoscope },
-        { id: 'cash-payments-lite', label: 'Cash Payments (Lite)', icon: CreditCard },
-        { id: 'insurance-payments-lite', label: 'Insurance Payments (Lite)', icon: CreditCard },
-        { id: 'quick-payment', label: 'Quick Payment', icon: Zap },
-        { id: 'bank-advice-generation-beta', label: 'Bank Advice (Beta)', icon: Building2 },
-        { id: 'bank-advice-generation', label: 'Bank Advice (Legacy)', icon: Building2 },
-        { id: 'bank-advice-history', label: 'BANK ADVICE HUB', icon: FolderOpen },
-        { id: 'bank-advice-records', label: 'Bank Advice Records', icon: FileText },
-        { id: 'tds-reports', label: 'TDS Reports', icon: FileText },
-        { id: 'cash-payments', label: 'Cash Payments', icon: CreditCard },
-        { id: 'insurance-payments', label: 'Insurance Payments', icon: CreditCard },
-        { id: 'bank-advice-payment-report', label: 'BA Payment Report', icon: FileText },
-        { id: 'quick-payment-bank-advice-report', label: 'Quick Payment BA Report', icon: FileText },
-        { id: 'tasks', label: 'Task Management', icon: ClipboardList },
-        { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
-        { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
-        { id: 'complaints', label: 'Complaints', icon: MessageCircle },
-        { id: 'chat', label: 'Team Chat', icon: MessageSquare },
-      ];
-    }
-
-    // Admin designation also gets full access
-    if (userRole === 'admin' || userDesignation === 'admin') {
-      return [
-        ...baseItems,
-        { id: 'masters', label: 'Masters', icon: Database },
-        { id: 'staff', label: 'Staff Management', icon: UserCog },
-        { id: 'doctors', label: 'Doctor Management', icon: Users },
-        { id: 'doctor-hub', label: 'Doctor Hub', icon: Stethoscope },
-        { id: 'visits', label: 'Visit Management', icon: Calendar },
-        { id: 'cash-payments-lite', label: 'Cash Payments (Lite)', icon: CreditCard },
-        { id: 'insurance-payments-lite', label: 'Insurance Payments (Lite)', icon: CreditCard },
-        { id: 'quick-payment', label: 'Quick Payment', icon: Zap },
-        { id: 'bank-advice-generation-beta', label: 'Bank Advice (Beta)', icon: Building2 },
-        { id: 'bank-advice-generation', label: 'Bank Advice (Legacy)', icon: Building2 },
-        { id: 'bank-advice-history', label: 'BANK ADVICE HUB', icon: FolderOpen },
-        { id: 'bank-advice-records', label: 'Bank Advice Records', icon: FileText },
-        { id: 'tds-reports', label: 'TDS Reports', icon: FileText },
-        { id: 'cash-payments', label: 'Cash Payments', icon: CreditCard },
-        { id: 'insurance-payments', label: 'Insurance Payments', icon: CreditCard },
-        { id: 'bank-advice-payment-report', label: 'BA Payment Report', icon: FileText },
-        { id: 'quick-payment-bank-advice-report', label: 'Quick Payment BA Report', icon: FileText },
-        { id: 'tasks', label: 'Task Management', icon: ClipboardList },
-        { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
-        { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
-        { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
-        { id: 'login-reports', label: 'Login Reports', icon: TrendingUp },
-        { id: 'chat', label: 'Team Chat', icon: MessageSquare },
-        { id: 'version', label: 'Version Management', icon: HistoryIcon },
-        { id: 'website-settings', label: 'Website Settings', icon: Globe },
-        { id: 'settings', label: 'Settings', icon: Settings },
-      ];
-    }
-
-    // Staff users (nurse, technician, receptionist, pharmacist, cleaner, security, etc.)
-    if (isStaffRole(userRole)) {
-      return [
-        ...baseItems,
-        { id: 'leave-permission', label: 'Leave & Permission', icon: CalendarCheck },
-        { id: 'tasks', label: 'My Tasks', icon: ClipboardList },
-        { id: 'complaints', label: 'Complaints', icon: MessageCircle },
-      ];
-    }
-
-    return baseItems;
-  };
-
-  const navigationItems = getNavigationItems();
+  const navigationItems = getNavigationItems({
+    userRole,
+    userDesignation,
+    userProfile
+  });
   const isCollapsed = !open;
 
   return (
