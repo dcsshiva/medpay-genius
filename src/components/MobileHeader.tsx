@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Menu, LogOut } from 'lucide-react';
@@ -21,6 +21,7 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
   onTabChange 
 }) => {
   const { user, userRole, signOut } = useAuth();
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
     <header className="bg-card border-b border-border shadow-sm md:hidden">
@@ -33,7 +34,7 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
           </div>
         </div>
         
-        <Sheet>
+        <Sheet open={isOpen} onOpenChange={setIsOpen}>
           <SheetTrigger asChild>
             <Button variant="ghost" size="sm">
               <Menu className="h-5 w-5" />
@@ -57,7 +58,10 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
                   return (
                     <button
                       key={item.id}
-                      onClick={() => onTabChange(item.id)}
+                      onClick={() => {
+                        onTabChange(item.id);
+                        setIsOpen(false);
+                      }}
                       className={`w-full flex items-center space-x-3 px-3 py-3 rounded-lg text-left transition-colors ${
                         activeTab === item.id
                           ? 'bg-primary text-primary-foreground'
@@ -75,7 +79,10 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
             <div className="flex-shrink-0 border-t p-6 bg-background">
               <Button 
                 variant="outline" 
-                onClick={signOut}
+                onClick={() => {
+                  signOut();
+                  setIsOpen(false);
+                }}
                 className="w-full flex items-center justify-center space-x-2"
               >
                 <LogOut className="h-4 w-4" />
