@@ -91,6 +91,13 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
     fetchDoctorSummaries();
   }, []);
 
+  // Auto-load data for mobile doctor view
+  useEffect(() => {
+    if (isMobile === true && filterDoctorId && doctors.length > 0 && !expandedDoctor) {
+      handleDoctorClick(doctors[0].id, 'total');
+    }
+  }, [isMobile, filterDoctorId, doctors, expandedDoctor]);
+
   const fetchDoctorSummaries = async () => {
     try {
       setLoading(true);
@@ -419,7 +426,8 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
     }
   };
 
-  if (loading) {
+  // Handle initial isMobile undefined state
+  if (isMobile === undefined || loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
@@ -431,13 +439,7 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
   }
 
   // Show mobile view for doctors viewing their own dashboard
-  if (isMobile && filterDoctorId && doctors.length > 0) {
-    // Auto-load data for mobile view on first render
-    useEffect(() => {
-      if (doctors.length > 0 && !expandedDoctor) {
-        handleDoctorClick(doctors[0].id, 'total');
-      }
-    }, [doctors]);
+  if (isMobile === true && filterDoctorId && doctors.length > 0) {
 
     const handleMobileTabChange = (tab: 'paid' | 'unpaid' | 'all') => {
       if (tab === 'paid') {
