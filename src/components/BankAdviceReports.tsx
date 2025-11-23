@@ -317,6 +317,14 @@ const BankAdviceReports = () => {
       const fileName = `reconciliation_${selectedRecord.id}_${timestamp}.${fileExt}`;
       const filePath = `${selectedRecord.payment_source}/${fileName}`;
 
+      console.log('Attempting to upload file:', {
+        fileName,
+        filePath,
+        fileSize: file.size,
+        fileType: file.type,
+        bucket: 'bank-reconciliation-proofs'
+      });
+
       // Upload to Supabase Storage
       const { data, error } = await supabase.storage
         .from('bank-reconciliation-proofs')
@@ -325,7 +333,12 @@ const BankAdviceReports = () => {
           upsert: false
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Storage upload error details:', error);
+        throw error;
+      }
+
+      console.log('File uploaded successfully:', data);
 
       return filePath;
     } catch (error) {
@@ -435,11 +448,24 @@ const BankAdviceReports = () => {
 
       // Upload file if selected
       if (selectedFile) {
-        uploadedFilePath = await handleFileUpload(selectedFile);
-        if (!uploadedFilePath) {
-          return; // Upload failed, abort update
+        console.log('Starting file upload for reconciliation...');
+        try {
+          uploadedFilePath = await handleFileUpload(selectedFile);
+          if (!uploadedFilePath) {
+            console.error('File upload returned null');
+            return; // Upload failed, error already shown
+          }
+          uploadedFileName = selectedFile.name;
+          console.log('File upload successful, path:', uploadedFilePath);
+        } catch (uploadError) {
+          console.error('File upload exception:', uploadError);
+          toast({
+            variant: "destructive",
+            title: "Upload Failed",
+            description: "Could not upload reconciliation proof file. Please try again."
+          });
+          return;
         }
-        uploadedFileName = selectedFile.name;
       }
 
       const updateData: any = {
@@ -449,25 +475,36 @@ const BankAdviceReports = () => {
         reconciliation_notes: reconciliationForm.reconciliation_notes || null
       };
 
-      // Add file info if uploaded
       if (uploadedFilePath) {
         updateData.reconciliation_proof_file_path = uploadedFilePath;
         updateData.reconciliation_proof_file_name = uploadedFileName;
       }
 
-      // Lock record when status is completed
       if (reconciliationForm.status === 'completed') {
         updateData.reconciled_by = user?.id;
         updateData.reconciled_at = new Date().toISOString();
       }
 
-      const { error } = await supabase
+      console.log('Updating database with data:', { table, updateData, recordId: selectedRecord.id });
+
+      const { data, error } = await supabase
         .from(table)
         .update(updateData)
-        .eq('id', selectedRecord.id);
+        .eq('id', selectedRecord.id)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database update error:', error);
+        throw new Error(`Database error: ${error.message}`);
+      }
 
+      if (!data || data.length === 0) {
+        console.error('Database update affected 0 rows');
+        throw new Error('No records were updated. Please check permissions.');
+      }
+
+      console.log('Reconciliation updated successfully');
+      
       toast({
         title: "Success",
         description: `Reconciliation status updated to ${reconciliationForm.status.replace('_', ' ')}`
@@ -477,12 +514,13 @@ const BankAdviceReports = () => {
       setSelectedFile(null);
       setFilePreviewUrl(null);
       fetchBankAdviceHistory();
-    } catch (error) {
-      console.error('Error updating reconciliation status:', error);
+      
+    } catch (error: any) {
+      console.error('Error in handleReconciliationUpdate:', error);
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Failed to update reconciliation status"
+        title: "Update Failed",
+        description: error.message || "Failed to update reconciliation status. Check console for details."
       });
     }
   };
@@ -1205,7 +1243,7 @@ const BankAdviceReports = () => {
 
       {/* Reconciliation Dialog */}
       <Dialog open={reconciliationDialog} onOpenChange={setReconciliationDialog}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Update Reconciliation Status</DialogTitle>
           </DialogHeader>
