@@ -94,9 +94,8 @@ export type Database = {
       }
       bank_advice_history: {
         Row: {
-          bank_processed: boolean | null
-          bank_processed_at: string | null
-          bank_processed_by: string | null
+          bank_confirmation_date: string | null
+          bank_reference_number: string | null
           created_at: string
           file_content: string | null
           filename: string
@@ -105,13 +104,16 @@ export type Database = {
           id: string
           payment_count: number
           payment_ids: Json
+          reconciled_at: string | null
+          reconciled_by: string | null
+          reconciliation_notes: string | null
+          reconciliation_status: string | null
           total_amount: number
           updated_at: string
         }
         Insert: {
-          bank_processed?: boolean | null
-          bank_processed_at?: string | null
-          bank_processed_by?: string | null
+          bank_confirmation_date?: string | null
+          bank_reference_number?: string | null
           created_at?: string
           file_content?: string | null
           filename: string
@@ -120,13 +122,16 @@ export type Database = {
           id?: string
           payment_count: number
           payment_ids?: Json
+          reconciled_at?: string | null
+          reconciled_by?: string | null
+          reconciliation_notes?: string | null
+          reconciliation_status?: string | null
           total_amount: number
           updated_at?: string
         }
         Update: {
-          bank_processed?: boolean | null
-          bank_processed_at?: string | null
-          bank_processed_by?: string | null
+          bank_confirmation_date?: string | null
+          bank_reference_number?: string | null
           created_at?: string
           file_content?: string | null
           filename?: string
@@ -135,13 +140,17 @@ export type Database = {
           id?: string
           payment_count?: number
           payment_ids?: Json
+          reconciled_at?: string | null
+          reconciled_by?: string | null
+          reconciliation_notes?: string | null
+          reconciliation_status?: string | null
           total_amount?: number
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "bank_advice_history_bank_processed_by_fkey"
-            columns: ["bank_processed_by"]
+            foreignKeyName: "bank_advice_history_reconciled_by_fkey"
+            columns: ["reconciled_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -910,9 +919,8 @@ export type Database = {
       }
       quick_payment_bank_advice_history: {
         Row: {
-          bank_processed: boolean | null
-          bank_processed_at: string | null
-          bank_processed_by: string | null
+          bank_confirmation_date: string | null
+          bank_reference_number: string | null
           created_at: string
           file_content: string | null
           filename: string
@@ -921,15 +929,18 @@ export type Database = {
           id: string
           payment_count: number
           payment_ids: Json
+          reconciled_at: string | null
+          reconciled_by: string | null
+          reconciliation_notes: string | null
+          reconciliation_status: string | null
           total_gross_amount: number
           total_net_amount: number
           total_tds_amount: number
           updated_at: string
         }
         Insert: {
-          bank_processed?: boolean | null
-          bank_processed_at?: string | null
-          bank_processed_by?: string | null
+          bank_confirmation_date?: string | null
+          bank_reference_number?: string | null
           created_at?: string
           file_content?: string | null
           filename: string
@@ -938,15 +949,18 @@ export type Database = {
           id?: string
           payment_count: number
           payment_ids?: Json
+          reconciled_at?: string | null
+          reconciled_by?: string | null
+          reconciliation_notes?: string | null
+          reconciliation_status?: string | null
           total_gross_amount?: number
           total_net_amount?: number
           total_tds_amount?: number
           updated_at?: string
         }
         Update: {
-          bank_processed?: boolean | null
-          bank_processed_at?: string | null
-          bank_processed_by?: string | null
+          bank_confirmation_date?: string | null
+          bank_reference_number?: string | null
           created_at?: string
           file_content?: string | null
           filename?: string
@@ -955,6 +969,10 @@ export type Database = {
           id?: string
           payment_count?: number
           payment_ids?: Json
+          reconciled_at?: string | null
+          reconciled_by?: string | null
+          reconciliation_notes?: string | null
+          reconciliation_status?: string | null
           total_gross_amount?: number
           total_net_amount?: number
           total_tds_amount?: number
@@ -962,8 +980,8 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "quick_payment_bank_advice_history_bank_processed_by_fkey"
-            columns: ["bank_processed_by"]
+            foreignKeyName: "quick_payment_bank_advice_history_reconciled_by_fkey"
+            columns: ["reconciled_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -1394,9 +1412,8 @@ export type Database = {
       }
       staff_payment_bank_advice_history: {
         Row: {
-          bank_processed: boolean | null
-          bank_processed_at: string | null
-          bank_processed_by: string | null
+          bank_confirmation_date: string | null
+          bank_reference_number: string | null
           created_at: string
           file_content: string | null
           filename: string
@@ -1405,13 +1422,16 @@ export type Database = {
           id: string
           payment_count: number
           payment_ids: Json
+          reconciled_at: string | null
+          reconciled_by: string | null
+          reconciliation_notes: string | null
+          reconciliation_status: string | null
           total_amount: number
           updated_at: string
         }
         Insert: {
-          bank_processed?: boolean | null
-          bank_processed_at?: string | null
-          bank_processed_by?: string | null
+          bank_confirmation_date?: string | null
+          bank_reference_number?: string | null
           created_at?: string
           file_content?: string | null
           filename: string
@@ -1420,13 +1440,16 @@ export type Database = {
           id?: string
           payment_count: number
           payment_ids?: Json
+          reconciled_at?: string | null
+          reconciled_by?: string | null
+          reconciliation_notes?: string | null
+          reconciliation_status?: string | null
           total_amount?: number
           updated_at?: string
         }
         Update: {
-          bank_processed?: boolean | null
-          bank_processed_at?: string | null
-          bank_processed_by?: string | null
+          bank_confirmation_date?: string | null
+          bank_reference_number?: string | null
           created_at?: string
           file_content?: string | null
           filename?: string
@@ -1435,13 +1458,17 @@ export type Database = {
           id?: string
           payment_count?: number
           payment_ids?: Json
+          reconciled_at?: string | null
+          reconciled_by?: string | null
+          reconciliation_notes?: string | null
+          reconciliation_status?: string | null
           total_amount?: number
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "staff_payment_bank_advice_history_bank_processed_by_fkey"
-            columns: ["bank_processed_by"]
+            foreignKeyName: "staff_payment_bank_advice_history_reconciled_by_fkey"
+            columns: ["reconciled_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
