@@ -21,12 +21,18 @@ import {
   Eye,
   Building2,
   DollarSign,
-  CheckSquare
+  RefreshCw,
+  CheckCircle,
+  Clock,
+  XCircle,
+  AlertCircle
 } from 'lucide-react';
 import { formatDateTimeIST, formatDateIST } from '@/lib/dateUtils';
 import { formatCurrency } from '@/lib/currency';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
+
+type ReconciliationStatus = 'pending' | 'in_process' | 'completed' | 'failed' | 'partial';
 
 interface BankAdviceHistory {
   id: string;
@@ -40,9 +46,13 @@ interface BankAdviceHistory {
   created_at: string;
   generator_name?: string;
   payment_source: 'doctor' | 'quick_payment' | 'staff_payment';
-  bank_processed: boolean;
-  bank_processed_at?: string;
-  bank_processed_by?: string;
+  reconciliation_status: ReconciliationStatus;
+  bank_confirmation_date?: string;
+  bank_reference_number?: string;
+  reconciliation_notes?: string;
+  reconciled_by?: string;
+  reconciled_at?: string;
+  reconciler_name?: string;
 }
 
 const BankAdviceReports = () => {
@@ -59,6 +69,13 @@ const BankAdviceReports = () => {
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [recordsPerPage, setRecordsPerPage] = useState<number | 'all'>(20);
+  const [reconciliationDialog, setReconciliationDialog] = useState(false);
+  const [reconciliationForm, setReconciliationForm] = useState({
+    status: 'completed' as ReconciliationStatus,
+    bank_confirmation_date: '',
+    bank_reference_number: '',
+    reconciliation_notes: ''
+  });
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -78,8 +95,6 @@ const BankAdviceReports = () => {
     });
   };
 
-  const [processingRecords, setProcessingRecords] = useState<Set<string>>(new Set());
-
   useEffect(() => {
     if (userRole === 'admin' || userRole === 'manager') {
       fetchBankAdviceHistory();
@@ -93,7 +108,7 @@ const BankAdviceReports = () => {
       // Fetch from bank_advice_history (doctor payments)
       let doctorQuery = supabase
         .from('bank_advice_history')
-        .select('*, bank_processed, bank_processed_at, bank_processed_by')
+        .select('*')
         .order('created_at', { ascending: false });
 
       // Apply date filters
@@ -107,7 +122,7 @@ const BankAdviceReports = () => {
       // Fetch from quick_payment_bank_advice_history (quick payments)
       let quickQuery = supabase
         .from('quick_payment_bank_advice_history')
-        .select('*, bank_processed, bank_processed_at, bank_processed_by')
+        .select('*')
         .order('created_at', { ascending: false });
 
       // Apply same date filters
@@ -121,7 +136,7 @@ const BankAdviceReports = () => {
       // Fetch from staff_payment_bank_advice_history (staff payments)
       let staffQuery = supabase
         .from('staff_payment_bank_advice_history')
-        .select('*, bank_processed, bank_processed_at, bank_processed_by')
+        .select('*')
         .order('created_at', { ascending: false });
 
       // Apply same date filters
@@ -169,10 +184,11 @@ const BankAdviceReports = () => {
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
       );
 
-      // Fetch generator names for all records
-      const recordsWithGenerators = await Promise.all(
+      // Fetch generator and reconciler names for all records
+      const recordsWithNames = await Promise.all(
         allRecords.map(async (record: any) => {
           let generatorName = 'Unknown';
+          let reconcilerName = '';
           
           if (record.generated_by) {
             const { data: profile } = await supabase
@@ -184,14 +200,25 @@ const BankAdviceReports = () => {
             if (profile) generatorName = profile.full_name;
           }
 
+          if (record.reconciled_by) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('full_name')
+              .eq('id', record.reconciled_by)
+              .single();
+            
+            if (profile) reconcilerName = profile.full_name;
+          }
+
           return {
             ...record,
-            generator_name: generatorName
+            generator_name: generatorName,
+            reconciler_name: reconcilerName
           };
         })
       );
 
-      setRecords(recordsWithGenerators);
+      setRecords(recordsWithNames);
     } catch (error) {
       console.error('Error fetching bank advice history:', error);
       toast({
@@ -230,84 +257,92 @@ const BankAdviceReports = () => {
     });
   };
 
-  const handleBankProcessedToggle = async (record: BankAdviceHistory, checked: boolean) => {
-    // Prevent unchecking once processed
-    if (record.bank_processed && !checked) {
+  const openReconciliationDialog = (record: BankAdviceHistory) => {
+    setSelectedRecord(record);
+    setReconciliationForm({
+      status: record.reconciliation_status || 'pending',
+      bank_confirmation_date: record.bank_confirmation_date || '',
+      bank_reference_number: record.bank_reference_number || '',
+      reconciliation_notes: record.reconciliation_notes || ''
+    });
+    setReconciliationDialog(true);
+  };
+
+  const handleReconciliationUpdate = async () => {
+    if (!selectedRecord) return;
+
+    // Prevent updating locked records
+    if (selectedRecord.reconciliation_status === 'completed') {
       toast({
         variant: "destructive",
         title: "Action Not Allowed",
-        description: "Bank processed status cannot be unmarked once set. This is for reconciliation purposes."
+        description: "Completed reconciliations cannot be modified. This is for audit trail protection."
       });
       return;
     }
 
-    // Prevent multiple clicks on the same record
-    if (processingRecords.has(record.id)) {
-      return;
-    }
-
-    // Mark as processing
-    setProcessingRecords(prev => new Set(prev).add(record.id));
-
     try {
-      const table = record.payment_source === 'doctor' 
+      const table = selectedRecord.payment_source === 'doctor' 
         ? 'bank_advice_history' 
-        : record.payment_source === 'quick_payment' 
+        : selectedRecord.payment_source === 'quick_payment' 
         ? 'quick_payment_bank_advice_history' 
         : 'staff_payment_bank_advice_history';
 
-      // Optimistic UI update
-      setRecords(prevRecords => 
-        prevRecords.map(r => 
-          r.id === record.id 
-            ? { ...r, bank_processed: checked, bank_processed_at: new Date().toISOString(), bank_processed_by: user?.id }
-            : r
-        )
-      );
+      const updateData: any = {
+        reconciliation_status: reconciliationForm.status,
+        bank_confirmation_date: reconciliationForm.bank_confirmation_date || null,
+        bank_reference_number: reconciliationForm.bank_reference_number || null,
+        reconciliation_notes: reconciliationForm.reconciliation_notes || null
+      };
+
+      // Lock record when status is completed
+      if (reconciliationForm.status === 'completed') {
+        updateData.reconciled_by = user?.id;
+        updateData.reconciled_at = new Date().toISOString();
+      }
 
       const { error } = await supabase
         .from(table)
-        .update({
-          bank_processed: checked,
-          bank_processed_at: checked ? new Date().toISOString() : null,
-          bank_processed_by: checked ? user?.id : null
-        })
-        .eq('id', record.id);
+        .update(updateData)
+        .eq('id', selectedRecord.id);
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: "Payment marked as processed in bank"
+        description: `Reconciliation status updated to ${reconciliationForm.status.replace('_', ' ')}`
       });
 
-      // Refresh the data to get latest state
+      setReconciliationDialog(false);
       fetchBankAdviceHistory();
     } catch (error) {
-      console.error('Error updating bank processed status:', error);
-      
-      // Revert optimistic update on error
-      setRecords(prevRecords => 
-        prevRecords.map(r => 
-          r.id === record.id 
-            ? { ...r, bank_processed: !checked }
-            : r
-        )
-      );
-      
+      console.error('Error updating reconciliation status:', error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to update payment status"
-      });
-    } finally {
-      // Remove from processing
-      setProcessingRecords(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(record.id);
-        return newSet;
+        description: "Failed to update reconciliation status"
       });
     }
+  };
+
+  const getStatusBadge = (status: ReconciliationStatus) => {
+    const statusConfig = {
+      pending: { icon: Clock, color: 'bg-yellow-100 text-yellow-800 border-yellow-300', label: 'Pending' },
+      in_process: { icon: RefreshCw, color: 'bg-blue-100 text-blue-800 border-blue-300', label: 'In Process' },
+      completed: { icon: CheckCircle, color: 'bg-green-100 text-green-800 border-green-300', label: 'Completed' },
+      failed: { icon: XCircle, color: 'bg-red-100 text-red-800 border-red-300', label: 'Failed' },
+      partial: { icon: AlertCircle, color: 'bg-orange-100 text-orange-800 border-orange-300', label: 'Partial' }
+    };
+
+    const config = statusConfig[status];
+    const Icon = config.icon;
+
+    return (
+      <Badge variant="outline" className={cn(config.color, "border")}>
+        <Icon className="h-3 w-3 mr-1" />
+        {config.label}
+      </Badge>
+    );
   };
 
   const handleRegenerate = async (record: BankAdviceHistory) => {
@@ -766,12 +801,7 @@ const BankAdviceReports = () => {
                              record.payment_source === 'quick_payment' ? 'Quick Payments' : 
                              'Staff Payments'}
                           </Badge>
-                          {record.bank_processed && (
-                            <Badge variant="default" className="bg-green-600">
-                              <CheckSquare className="h-3 w-3 mr-1" />
-                              Bank Processed
-                            </Badge>
-                          )}
+                          {getStatusBadge(record.reconciliation_status)}
                         </div>
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
@@ -792,33 +822,14 @@ const BankAdviceReports = () => {
                       </div>
                       
                       <div className="flex flex-col gap-2">
-                        <div className={cn(
-                          "flex items-center gap-3 p-2 border rounded-md",
-                          processingRecords.has(record.id) ? "bg-muted/50 animate-pulse" : "bg-muted/30"
-                        )}>
-                          <Checkbox
-                            id={`processed-${record.id}`}
-                            checked={record.bank_processed}
-                            disabled={record.bank_processed || processingRecords.has(record.id)}
-                            onCheckedChange={(checked) => handleBankProcessedToggle(record, checked as boolean)}
-                          />
-                          <div className="flex-1">
-                            <label
-                              htmlFor={`processed-${record.id}`}
-                              className={cn(
-                                "text-sm font-medium leading-none",
-                                record.bank_processed ? "text-muted-foreground" : "cursor-pointer"
-                              )}
-                            >
-                              {record.bank_processed ? "Bank Processed ✓" : "Mark as Bank Processed"}
-                            </label>
-                            {record.bank_processed && record.bank_processed_at && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Processed on {formatDateTimeIST(record.bank_processed_at)}
-                              </p>
-                            )}
-                          </div>
-                        </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openReconciliationDialog(record)}
+                          disabled={record.reconciliation_status === 'completed'}
+                        >
+                          {record.reconciliation_status === 'completed' ? 'Reconciled ✓' : 'Update Status'}
+                        </Button>
                         
                         <Button
                           variant="outline"
@@ -862,12 +873,7 @@ const BankAdviceReports = () => {
                         </Badge>
                         <p className="font-semibold text-sm">{record.filename}</p>
                       </div>
-                      {record.bank_processed && (
-                        <Badge variant="default" className="bg-green-600 text-xs">
-                          <CheckSquare className="h-3 w-3 mr-1" />
-                          Processed
-                        </Badge>
-                      )}
+                      {getStatusBadge(record.reconciliation_status)}
                     </div>
                     
                     <div className="flex flex-wrap gap-1.5">
@@ -898,35 +904,17 @@ const BankAdviceReports = () => {
                       </p>
                     </div>
                     
-                    <div className={cn(
-                      "flex flex-col gap-1 p-2 border rounded-md",
-                      processingRecords.has(record.id) ? "bg-muted/50 animate-pulse" : "bg-muted/30"
-                    )}>
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id={`processed-mobile-${record.id}`}
-                          checked={record.bank_processed}
-                          disabled={record.bank_processed || processingRecords.has(record.id)}
-                          onCheckedChange={(checked) => handleBankProcessedToggle(record, checked as boolean)}
-                        />
-                        <label
-                          htmlFor={`processed-mobile-${record.id}`}
-                          className={cn(
-                            "text-xs font-medium leading-none",
-                            record.bank_processed ? "text-muted-foreground" : "cursor-pointer"
-                          )}
-                        >
-                          {record.bank_processed ? "Bank Processed ✓" : "Mark as Bank Processed"}
-                        </label>
-                      </div>
-                      {record.bank_processed && record.bank_processed_at && (
-                        <p className="text-[10px] text-muted-foreground">
-                          {formatDateTimeIST(record.bank_processed_at)}
-                        </p>
-                      )}
-                    </div>
-                    
                     <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openReconciliationDialog(record)}
+                        disabled={record.reconciliation_status === 'completed'}
+                        className="text-xs"
+                      >
+                        {record.reconciliation_status === 'completed' ? 'Reconciled ✓' : 'Update Status'}
+                      </Button>
+                      
                       <Button
                         variant="outline"
                         size="sm"
@@ -1049,6 +1037,114 @@ const BankAdviceReports = () => {
               <Download className="h-4 w-4 mr-2" />
               Download File
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reconciliation Dialog */}
+      <Dialog open={reconciliationDialog} onOpenChange={setReconciliationDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Update Reconciliation Status</DialogTitle>
+          </DialogHeader>
+          
+          {selectedRecord && (
+            <div className="space-y-4">
+              <div>
+                <Label className="text-muted-foreground text-sm">Bank Advice File</Label>
+                <p className="font-medium">{selectedRecord.filename}</p>
+                <p className="text-sm text-muted-foreground">
+                  {selectedRecord.payment_count} payments • {formatCurrency(selectedRecord.total_amount)}
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="reconciliation-status">Reconciliation Status</Label>
+                <Select 
+                  value={reconciliationForm.status}
+                  onValueChange={(value) => setReconciliationForm({ ...reconciliationForm, status: value as ReconciliationStatus })}
+                  disabled={selectedRecord.reconciliation_status === 'completed'}
+                >
+                  <SelectTrigger id="reconciliation-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">🟡 Pending</SelectItem>
+                    <SelectItem value="in_process">🔵 In Process</SelectItem>
+                    <SelectItem value="completed">🟢 Completed</SelectItem>
+                    <SelectItem value="failed">🔴 Failed</SelectItem>
+                    <SelectItem value="partial">⚠️ Partial</SelectItem>
+                  </SelectContent>
+                </Select>
+                {selectedRecord.reconciliation_status === 'completed' && (
+                  <p className="text-xs text-muted-foreground">
+                    ✓ Completed reconciliations are locked for audit trail protection
+                  </p>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="confirmation-date">Bank Confirmation Date</Label>
+                <Input
+                  id="confirmation-date"
+                  type="date"
+                  value={reconciliationForm.bank_confirmation_date}
+                  onChange={(e) => setReconciliationForm({ ...reconciliationForm, bank_confirmation_date: e.target.value })}
+                  disabled={selectedRecord.reconciliation_status === 'completed'}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="reference-number">Bank Reference Number</Label>
+                <Input
+                  id="reference-number"
+                  type="text"
+                  placeholder="UTR/Transaction ID"
+                  value={reconciliationForm.bank_reference_number}
+                  onChange={(e) => setReconciliationForm({ ...reconciliationForm, bank_reference_number: e.target.value })}
+                  disabled={selectedRecord.reconciliation_status === 'completed'}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="notes">Reconciliation Notes</Label>
+                <Textarea
+                  id="notes"
+                  placeholder="Any discrepancies or additional remarks..."
+                  value={reconciliationForm.reconciliation_notes}
+                  onChange={(e) => setReconciliationForm({ ...reconciliationForm, reconciliation_notes: e.target.value })}
+                  disabled={selectedRecord.reconciliation_status === 'completed'}
+                  rows={3}
+                />
+              </div>
+
+              {selectedRecord.reconciliation_status === 'completed' && selectedRecord.reconciled_at && (
+                <div className="border-t pt-4">
+                  <Label className="text-muted-foreground text-sm">Reconciliation Info</Label>
+                  <div className="text-sm space-y-1 mt-2">
+                    <p>✓ Reconciled by: {selectedRecord.reconciler_name || 'Unknown'}</p>
+                    <p>✓ Reconciled on: {formatDateTimeIST(selectedRecord.reconciled_at)}</p>
+                    {selectedRecord.bank_confirmation_date && (
+                      <p>✓ Bank confirmed: {formatDateIST(selectedRecord.bank_confirmation_date)}</p>
+                    )}
+                    {selectedRecord.bank_reference_number && (
+                      <p>✓ Reference: {selectedRecord.bank_reference_number}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReconciliationDialog(false)}>
+              Cancel
+            </Button>
+            {selectedRecord && selectedRecord.reconciliation_status !== 'completed' && (
+              <Button onClick={handleReconciliationUpdate}>
+                Update Status
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
