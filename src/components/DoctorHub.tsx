@@ -12,7 +12,9 @@ import { formatCurrency } from '@/lib/currency';
 import { formatDateIST } from '@/lib/dateUtils';
 import { getFinancialYearStart } from '@/lib/tdsUtils';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 import DoctorHistoryExport from './DoctorHistoryExport';
+import DoctorHubMobile from './DoctorHubMobile';
 
 interface DoctorSummary {
   id: string;
@@ -83,6 +85,7 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
     end: ''
   });
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     fetchDoctorSummaries();
@@ -424,6 +427,61 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
           <p className="mt-2 text-muted-foreground">Loading doctor data...</p>
         </div>
       </div>
+    );
+  }
+
+  // Show mobile view for doctors viewing their own dashboard
+  if (isMobile && filterDoctorId && doctors.length > 0) {
+    // Auto-load data for mobile view on first render
+    useEffect(() => {
+      if (doctors.length > 0 && !expandedDoctor) {
+        handleDoctorClick(doctors[0].id, 'total');
+      }
+    }, [doctors]);
+
+    const handleMobileTabChange = (tab: 'paid' | 'unpaid' | 'all') => {
+      if (tab === 'paid') {
+        handleDoctorClick(doctors[0].id, 'paid');
+      } else if (tab === 'unpaid') {
+        handleDoctorClick(doctors[0].id, 'unpaid');
+      } else {
+        handleDoctorClick(doctors[0].id, 'total');
+      }
+    };
+
+    const handlePeriodChange = (period: 'all' | 'custom') => {
+      setSelectedPeriod(period);
+      // Re-fetch data with new period
+      if (expandedTab === 'paid') {
+        fetchPaymentHistory(doctors[0].id);
+      } else if (expandedTab === 'unpaid') {
+        fetchUnpaidVisits(doctors[0].id);
+      } else if (expandedTab === 'total') {
+        Promise.all([fetchPaymentHistory(doctors[0].id), fetchUnpaidVisits(doctors[0].id)]);
+      }
+    };
+
+    const handleCustomDateChange = (start: string, end: string) => {
+      setCustomDateRange({ start, end });
+    };
+
+    return (
+      <DoctorHubMobile
+        doctor={doctors[0]}
+        paymentHistory={paymentHistory}
+        unpaidVisits={unpaidVisits}
+        detailsLoading={detailsLoading}
+        expandedPaymentIds={expandedPaymentIds}
+        paymentVisitsData={paymentVisitsData}
+        paymentVisitsLoading={paymentVisitsLoading}
+        onTabChange={handleMobileTabChange}
+        onPaymentRowExpand={handlePaymentRowExpand}
+        onPeriodChange={handlePeriodChange}
+        onCustomDateChange={handleCustomDateChange}
+        selectedPeriod={selectedPeriod}
+        customDateRange={customDateRange}
+        fetchVisitDetails={fetchPaymentVisitDetails}
+      />
     );
   }
 
