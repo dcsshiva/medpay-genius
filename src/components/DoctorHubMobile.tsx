@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
-import { StatsCard } from '@/components/ui/stats-card';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronUp, DollarSign, Clock, TrendingUp, Receipt, Calendar, FileText } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, Receipt, Calendar, FileText } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateIST } from '@/lib/dateUtils';
 import DoctorHistoryExport from './DoctorHistoryExport';
@@ -106,36 +105,8 @@ const DoctorHubMobile: React.FC<DoctorHubMobileProps> = ({
         </div>
       </div>
 
-      {/* Financial Summary Cards */}
-      <div className="px-4 -mt-4 space-y-3 mb-6">
-        <StatsCard
-          title="Total Paid"
-          value={formatCurrency(doctor.paid_amount)}
-          subtitle={`${doctor.paid_count} payment${doctor.paid_count !== 1 ? 's' : ''}`}
-          icon={DollarSign}
-          variant="success"
-          className="hover-lift"
-        />
-        <StatsCard
-          title="Pending Amount"
-          value={formatCurrency(doctor.unpaid_amount)}
-          subtitle={`${doctor.unpaid_visits_count} unpaid visit${doctor.unpaid_visits_count !== 1 ? 's' : ''}`}
-          icon={Clock}
-          variant="warning"
-          className="hover-lift"
-        />
-        <StatsCard
-          title="Total Earnings"
-          value={formatCurrency(doctor.total_amount)}
-          subtitle="All time earnings"
-          icon={TrendingUp}
-          variant="info"
-          className="hover-lift"
-        />
-      </div>
-
       {/* Quick Actions & Filters */}
-      <div className="px-4 space-y-4">
+      <div className="px-4 space-y-4 mt-6">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-foreground">Payment History</h2>
           <Sheet>
