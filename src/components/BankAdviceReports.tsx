@@ -81,6 +81,26 @@ const BankAdviceReports = () => {
   const [uploadingFile, setUploadingFile] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+  const [userProfileId, setUserProfileId] = useState<string | null>(null);
+
+  // Fetch user's profile ID
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user?.id) return;
+      
+      const { data } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (data) {
+        setUserProfileId(data.id);
+      }
+    };
+    
+    fetchUserProfile();
+  }, [user?.id]);
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -481,7 +501,7 @@ const BankAdviceReports = () => {
       }
 
       if (reconciliationForm.status === 'completed') {
-        updateData.reconciled_by = user?.id;
+        updateData.reconciled_by = userProfileId;
         updateData.reconciled_at = new Date().toISOString();
       }
 
