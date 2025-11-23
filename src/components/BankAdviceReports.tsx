@@ -26,6 +26,7 @@ import {
 import { formatDateTimeIST, formatDateIST } from '@/lib/dateUtils';
 import { formatCurrency } from '@/lib/currency';
 import { Checkbox } from '@/components/ui/checkbox';
+import { cn } from '@/lib/utils';
 
 interface BankAdviceHistory {
   id: string;
@@ -228,6 +229,16 @@ const BankAdviceReports = () => {
   };
 
   const handleBankProcessedToggle = async (record: BankAdviceHistory, checked: boolean) => {
+    // Prevent unchecking once processed
+    if (record.bank_processed && !checked) {
+      toast({
+        variant: "destructive",
+        title: "Action Not Allowed",
+        description: "Bank processed status cannot be unmarked once set. This is for reconciliation purposes."
+      });
+      return;
+    }
+
     try {
       const table = record.payment_source === 'doctor' 
         ? 'bank_advice_history' 
@@ -248,9 +259,7 @@ const BankAdviceReports = () => {
 
       toast({
         title: "Success",
-        description: checked 
-          ? "Payment marked as processed in bank" 
-          : "Payment marked as not processed"
+        description: "Payment marked as processed in bank"
       });
 
       // Refresh the data
@@ -751,14 +760,25 @@ const BankAdviceReports = () => {
                           <Checkbox
                             id={`processed-${record.id}`}
                             checked={record.bank_processed}
+                            disabled={record.bank_processed}
                             onCheckedChange={(checked) => handleBankProcessedToggle(record, checked as boolean)}
                           />
-                          <label
-                            htmlFor={`processed-${record.id}`}
-                            className="text-sm font-medium leading-none cursor-pointer"
-                          >
-                            Bank Processed
-                          </label>
+                          <div className="flex-1">
+                            <label
+                              htmlFor={`processed-${record.id}`}
+                              className={cn(
+                                "text-sm font-medium leading-none",
+                                record.bank_processed ? "text-muted-foreground" : "cursor-pointer"
+                              )}
+                            >
+                              {record.bank_processed ? "Bank Processed ✓" : "Mark as Bank Processed"}
+                            </label>
+                            {record.bank_processed && record.bank_processed_at && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Processed on {formatDateTimeIST(record.bank_processed_at)}
+                              </p>
+                            )}
+                          </div>
                         </div>
                         
                         <Button
@@ -839,18 +859,29 @@ const BankAdviceReports = () => {
                       </p>
                     </div>
                     
-                    <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/30">
-                      <Checkbox
-                        id={`processed-mobile-${record.id}`}
-                        checked={record.bank_processed}
-                        onCheckedChange={(checked) => handleBankProcessedToggle(record, checked as boolean)}
-                      />
-                      <label
-                        htmlFor={`processed-mobile-${record.id}`}
-                        className="text-xs font-medium leading-none cursor-pointer"
-                      >
-                        Mark as Bank Processed
-                      </label>
+                    <div className="flex flex-col gap-1 p-2 border rounded-md bg-muted/30">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id={`processed-mobile-${record.id}`}
+                          checked={record.bank_processed}
+                          disabled={record.bank_processed}
+                          onCheckedChange={(checked) => handleBankProcessedToggle(record, checked as boolean)}
+                        />
+                        <label
+                          htmlFor={`processed-mobile-${record.id}`}
+                          className={cn(
+                            "text-xs font-medium leading-none",
+                            record.bank_processed ? "text-muted-foreground" : "cursor-pointer"
+                          )}
+                        >
+                          {record.bank_processed ? "Bank Processed ✓" : "Mark as Bank Processed"}
+                        </label>
+                      </div>
+                      {record.bank_processed && record.bank_processed_at && (
+                        <p className="text-[10px] text-muted-foreground">
+                          {formatDateTimeIST(record.bank_processed_at)}
+                        </p>
+                      )}
                     </div>
                     
                     <div className="grid grid-cols-2 gap-2">
