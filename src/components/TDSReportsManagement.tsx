@@ -42,7 +42,7 @@ export function TDSReportsManagement() {
     try {
       const { startDate, endDate } = getQuarterDateRange(quarterFY, quarter);
       
-      const { data, error } = await supabase.rpc('get_doctor_tds_summary', {
+      const { data, error } = await supabase.rpc('get_comprehensive_tds_summary', {
         _start_date: format(startDate, 'yyyy-MM-dd'),
         _end_date: format(endDate, 'yyyy-MM-dd')
       });
@@ -66,8 +66,10 @@ export function TDSReportsManagement() {
 
       // Prepare Excel data
       const excelData = data.map((row: any) => ({
-        'Doctor Code': row.doctor_code,
-        'Doctor Name': row.doctor_name,
+        'Beneficiary Type': row.beneficiary_type,
+        'Code': row.beneficiary_code,
+        'Name': row.beneficiary_name,
+        'Payment Type': row.payment_type,
         'Total Payments': row.total_payments,
         'Gross Amount': parseFloat(row.total_gross_amount || 0),
         'TDS @ 10%': parseFloat(row.total_tds_amount || 0),
@@ -76,8 +78,10 @@ export function TDSReportsManagement() {
 
       // Add total row
       excelData.push({
-        'Doctor Code': 'TOTAL',
-        'Doctor Name': '',
+        'Beneficiary Type': 'TOTAL',
+        'Code': '',
+        'Name': '',
+        'Payment Type': '',
         'Total Payments': data.reduce((sum: number, d: any) => sum + parseInt(d.total_payments || 0), 0),
         'Gross Amount': grandTotal.total_gross,
         'TDS @ 10%': grandTotal.total_tds,
@@ -135,7 +139,7 @@ export function TDSReportsManagement() {
       for (const q of quarters) {
         const { startDate, endDate } = getQuarterDateRange(annualFY, q);
         
-        const { data, error } = await supabase.rpc('get_doctor_tds_summary', {
+        const { data, error } = await supabase.rpc('get_comprehensive_tds_summary', {
           _start_date: format(startDate, 'yyyy-MM-dd'),
           _end_date: format(endDate, 'yyyy-MM-dd')
         });
@@ -144,25 +148,35 @@ export function TDSReportsManagement() {
         quarterData[q] = data || [];
       }
 
-      // Get all unique doctors
-      const allDoctors = new Set<string>();
+      // Get all unique beneficiaries
+      const allBeneficiaries = new Set<string>();
       Object.values(quarterData).forEach((data: any) => {
-        data.forEach((row: any) => allDoctors.add(row.doctor_code));
+        data.forEach((row: any) => {
+          const key = `${row.beneficiary_type}|${row.beneficiary_code}|${row.beneficiary_name}|${row.payment_type}`;
+          allBeneficiaries.add(key);
+        });
       });
 
       // Prepare Excel data
-      const excelData = Array.from(allDoctors).map(doctorCode => {
+      const excelData = Array.from(allBeneficiaries).map(key => {
+        const [beneficiaryType, beneficiaryCode, beneficiaryName, paymentType] = key.split('|');
         const row: any = {
-          'Doctor Code': doctorCode,
-          'Doctor Name': ''
+          'Beneficiary Type': beneficiaryType,
+          'Code': beneficiaryCode,
+          'Name': beneficiaryName,
+          'Payment Type': paymentType
         };
 
         quarters.forEach(q => {
-          const doctorData = quarterData[q].find((d: any) => d.doctor_code === doctorCode);
-          row['Doctor Name'] = doctorData?.doctor_name || row['Doctor Name'];
-          row[`${q} Gross`] = parseFloat(doctorData?.total_gross_amount || 0);
-          row[`${q} TDS`] = parseFloat(doctorData?.total_tds_amount || 0);
-          row[`${q} Net`] = parseFloat(doctorData?.total_net_amount || 0);
+          const beneficiaryData = quarterData[q].find((d: any) => 
+            d.beneficiary_type === beneficiaryType && 
+            d.beneficiary_code === beneficiaryCode &&
+            d.beneficiary_name === beneficiaryName &&
+            d.payment_type === paymentType
+          );
+          row[`${q} Gross`] = parseFloat(beneficiaryData?.total_gross_amount || 0);
+          row[`${q} TDS`] = parseFloat(beneficiaryData?.total_tds_amount || 0);
+          row[`${q} Net`] = parseFloat(beneficiaryData?.total_net_amount || 0);
         });
 
         // Calculate totals
@@ -175,8 +189,10 @@ export function TDSReportsManagement() {
 
       // Add grand total row
       const grandTotal: any = {
-        'Doctor Code': 'GRAND TOTAL',
-        'Doctor Name': ''
+        'Beneficiary Type': 'GRAND TOTAL',
+        'Code': '',
+        'Name': '',
+        'Payment Type': ''
       };
       
       quarters.forEach(q => {
@@ -227,7 +243,7 @@ export function TDSReportsManagement() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.rpc('get_doctor_tds_summary', {
+      const { data, error } = await supabase.rpc('get_comprehensive_tds_summary', {
         _start_date: customStartDate,
         _end_date: customEndDate
       });
@@ -251,8 +267,10 @@ export function TDSReportsManagement() {
 
       // Prepare Excel data
       const excelData = data.map((row: any) => ({
-        'Doctor Code': row.doctor_code,
-        'Doctor Name': row.doctor_name,
+        'Beneficiary Type': row.beneficiary_type,
+        'Code': row.beneficiary_code,
+        'Name': row.beneficiary_name,
+        'Payment Type': row.payment_type,
         'Total Payments': row.total_payments,
         'Gross Amount': parseFloat(row.total_gross_amount || 0),
         'TDS @ 10%': parseFloat(row.total_tds_amount || 0),
@@ -261,8 +279,10 @@ export function TDSReportsManagement() {
 
       // Add total row
       excelData.push({
-        'Doctor Code': 'TOTAL',
-        'Doctor Name': '',
+        'Beneficiary Type': 'TOTAL',
+        'Code': '',
+        'Name': '',
+        'Payment Type': '',
         'Total Payments': data.reduce((sum: number, d: any) => sum + parseInt(d.total_payments || 0), 0),
         'Gross Amount': grandTotal.total_gross,
         'TDS @ 10%': grandTotal.total_tds,

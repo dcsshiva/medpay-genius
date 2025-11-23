@@ -2406,6 +2406,19 @@ export type Database = {
           staff_code: string
         }[]
       }
+      get_comprehensive_tds_summary: {
+        Args: { _end_date: string; _start_date: string }
+        Returns: {
+          beneficiary_code: string
+          beneficiary_name: string
+          beneficiary_type: string
+          payment_type: string
+          total_gross_amount: number
+          total_net_amount: number
+          total_payments: number
+          total_tds_amount: number
+        }[]
+      }
       get_doctor_auth_email: { Args: { _doctor_code: string }; Returns: string }
       get_doctor_tds_summary: {
         Args: { _doctor_id?: string; _end_date: string; _start_date: string }
