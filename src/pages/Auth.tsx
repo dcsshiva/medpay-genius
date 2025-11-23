@@ -98,10 +98,10 @@ const Auth: React.FC = () => {
     const refreshToken = `refresh_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
-    await supabase.from("user_sessions").insert({
+    await supabase.from("user_sessions").insert([{
       user_id: userId,
       user_type: userType,
-      original_id: originalId,
+      original_id: String(originalId),
       session_token: sessionToken,
       refresh_token: refreshToken,
       username,
@@ -111,7 +111,7 @@ const Auth: React.FC = () => {
       idle_timeout_seconds: idleTimeoutSeconds,
       last_activity_at: new Date().toISOString(),
       is_active: true,
-    });
+    }]);
 
     window.sessionStorage.setItem("supabase_session_token", sessionToken);
   };
