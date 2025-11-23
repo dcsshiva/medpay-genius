@@ -5,6 +5,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/lib/auth";
 import { SessionTimeoutWrapper } from "@/components/SessionTimeoutWrapper";
+import { initializeMobileFeatures, setupDeepLinks } from "@/lib/capacitor";
+import { useEffect } from "react";
 import Landing from "./pages/Landing";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
@@ -24,6 +26,11 @@ const SimpleApp = () => (
 );
 
 const App = () => {
+  useEffect(() => {
+    initializeMobileFeatures();
+    setupDeepLinks();
+  }, []);
+
   try {
     return (
       <QueryClientProvider client={queryClient}>
