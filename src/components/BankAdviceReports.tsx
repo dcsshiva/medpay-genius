@@ -529,11 +529,11 @@ const BankAdviceReports = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 pb-20 md:pb-6">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Bank Advice History</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">Bank Advice History</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
             View and analyze all generated bank advice files
           </p>
         </div>
@@ -554,50 +554,50 @@ const BankAdviceReports = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6">
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 md:p-6">
             <div className="flex items-center">
-              <FileText className="h-8 w-8 text-blue-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Total Files Generated</p>
-                <p className="text-2xl font-bold">{totalGenerated}</p>
+              <FileText className="h-6 w-6 md:h-8 md:w-8 text-blue-600" />
+              <div className="ml-3 md:ml-4">
+                <p className="text-xs md:text-sm font-medium text-muted-foreground">Total Files</p>
+                <p className="text-lg md:text-2xl font-bold">{totalGenerated}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 md:p-6">
             <div className="flex items-center">
-              <DollarSign className="h-8 w-8 text-green-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Total Amount Processed</p>
-                <p className="text-2xl font-bold">{formatCurrency(totalAmount)}</p>
+              <DollarSign className="h-6 w-6 md:h-8 md:w-8 text-green-600" />
+              <div className="ml-3 md:ml-4">
+                <p className="text-xs md:text-sm font-medium text-muted-foreground">Total Amount</p>
+                <p className="text-lg md:text-2xl font-bold">{formatCurrency(totalAmount)}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 md:p-6">
             <div className="flex items-center">
-              <FileText className="h-8 w-8 text-purple-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Total Payments</p>
-                <p className="text-2xl font-bold">{totalPayments}</p>
+              <FileText className="h-6 w-6 md:h-8 md:w-8 text-purple-600" />
+              <div className="ml-3 md:ml-4">
+                <p className="text-xs md:text-sm font-medium text-muted-foreground">Payments</p>
+                <p className="text-lg md:text-2xl font-bold">{totalPayments}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 md:p-6">
             <div className="flex items-center">
-              <TrendingUp className="h-8 w-8 text-orange-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">This Month</p>
-                <p className="text-2xl font-bold">{thisMonthRecords.length}</p>
+              <TrendingUp className="h-6 w-6 md:h-8 md:w-8 text-orange-600" />
+              <div className="ml-3 md:ml-4">
+                <p className="text-xs md:text-sm font-medium text-muted-foreground">This Month</p>
+                <p className="text-lg md:text-2xl font-bold">{thisMonthRecords.length}</p>
               </div>
             </div>
           </CardContent>
@@ -606,69 +606,75 @@ const BankAdviceReports = () => {
 
       {/* Filters */}
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
+        <CardHeader className="p-4 md:p-6">
+          <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
+            <Filter className="h-4 w-4 md:h-5 md:w-5" />
             Filters
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-4 md:p-6 pt-0">
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="doctorSearch">Search Filename</Label>
+                <Label htmlFor="doctorSearch" className="text-xs md:text-sm">Search Filename</Label>
                 <Input
                   id="doctorSearch"
                   type="text"
                   placeholder="Search by filename..."
                   value={filters.doctorSearch}
                   onChange={(e) => setFilters({ ...filters, doctorSearch: e.target.value })}
+                  className="text-sm"
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="dateFrom">From Date</Label>
+                <Label htmlFor="dateFrom" className="text-xs md:text-sm">From Date</Label>
                 <Input
                   id="dateFrom"
                   type="date"
                   value={filters.dateFrom}
                   onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+                  className="text-sm"
                 />
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="dateTo">To Date</Label>
+                <Label htmlFor="dateTo" className="text-xs md:text-sm">To Date</Label>
                 <Input
                   id="dateTo"
                   type="date"
                   value={filters.dateTo}
                   onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+                  className="text-sm"
                 />
               </div>
             </div>
             
             {/* Quick Filters */}
-            <div className="flex items-center gap-2">
-              <Label className="text-sm text-muted-foreground">Quick Filters:</Label>
-              <Button variant="outline" size="sm" onClick={() => setQuickFilter(0)}>
-                Today
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setQuickFilter(7)}>
-                Last 7 Days
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setQuickFilter(30)}>
-                Last 30 Days
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => setQuickFilter(90)}>
-                Last 3 Months
-              </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setFilters({ dateFrom: '', dateTo: '', doctorSearch: '' })}
-              >
-                Clear All
-              </Button>
+            <div className="space-y-2">
+              <Label className="text-xs md:text-sm text-muted-foreground">Quick Filters:</Label>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" size="sm" onClick={() => setQuickFilter(0)} className="text-xs">
+                  Today
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setQuickFilter(7)} className="text-xs">
+                  Last 7 Days
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setQuickFilter(30)} className="text-xs">
+                  Last 30 Days
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setQuickFilter(90)} className="text-xs">
+                  Last 3 Months
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setFilters({ dateFrom: '', dateTo: '', doctorSearch: '' })}
+                  className="text-xs"
+                >
+                  Clear All
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>
@@ -694,8 +700,9 @@ const BankAdviceReports = () => {
           <div className="space-y-3">
             {currentRecords.map((record, index) => (
               <Card key={record.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
+                <CardContent className="p-3 md:p-4">
+                  {/* Desktop Layout */}
+                  <div className="hidden md:flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary font-bold">
                         {recordsPerPage === 'all' ? index + 1 : indexOfFirstRecord + index + 1}
@@ -784,6 +791,101 @@ const BankAdviceReports = () => {
                           View Details
                         </Button>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Mobile Layout */}
+                  <div className="flex md:hidden flex-col space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="text-xs">
+                          #{recordsPerPage === 'all' ? index + 1 : indexOfFirstRecord + index + 1}
+                        </Badge>
+                        <p className="font-semibold text-sm">{record.filename}</p>
+                      </div>
+                      {record.bank_processed && (
+                        <Badge variant="default" className="bg-green-600 text-xs">
+                          <CheckSquare className="h-3 w-3 mr-1" />
+                          Processed
+                        </Badge>
+                      )}
+                    </div>
+                    
+                    <div className="flex flex-wrap gap-1.5">
+                      <Badge variant="outline" className="text-xs">{record.payment_count} payments</Badge>
+                      <Badge variant={
+                        record.payment_source === 'doctor' ? 'default' : 
+                        record.payment_source === 'quick_payment' ? 'secondary' : 
+                        'outline'
+                      } className="text-xs">
+                        {record.payment_source === 'doctor' ? 'Doctor' : 
+                         record.payment_source === 'quick_payment' ? 'Quick' : 
+                         'Staff'}
+                      </Badge>
+                    </div>
+                    
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        {formatDateTimeIST(record.created_at)}
+                      </div>
+                      <div>by {record.generator_name}</div>
+                    </div>
+                    
+                    <div className="py-2 px-3 bg-primary/5 rounded-md">
+                      <p className="text-xs text-muted-foreground">Total Amount</p>
+                      <p className="text-xl font-bold text-primary">
+                        {formatCurrency(record.total_amount)}
+                      </p>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/30">
+                      <Checkbox
+                        id={`processed-mobile-${record.id}`}
+                        checked={record.bank_processed}
+                        onCheckedChange={(checked) => handleBankProcessedToggle(record, checked as boolean)}
+                      />
+                      <label
+                        htmlFor={`processed-mobile-${record.id}`}
+                        className="text-xs font-medium leading-none cursor-pointer"
+                      >
+                        Mark as Bank Processed
+                      </label>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDownload(record)}
+                        className="text-xs"
+                      >
+                        <Download className="h-3 w-3 mr-1" />
+                        Download
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRegenerate(record)}
+                        className="text-xs"
+                      >
+                        <Download className="h-3 w-3 mr-1" />
+                        Regenerate
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedRecord(record);
+                          setDetailsDialog(true);
+                        }}
+                        className="text-xs col-span-2"
+                      >
+                        <Eye className="h-3 w-3 mr-1" />
+                        View Details
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
