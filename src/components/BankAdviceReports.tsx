@@ -53,6 +53,8 @@ interface BankAdviceHistory {
   reconciled_by?: string;
   reconciled_at?: string;
   reconciler_name?: string;
+  reconciliation_proof_file_path?: string;
+  reconciliation_proof_file_name?: string;
 }
 
 const BankAdviceReports = () => {
@@ -76,6 +78,9 @@ const BankAdviceReports = () => {
     bank_reference_number: '',
     reconciliation_notes: ''
   });
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -258,14 +263,151 @@ const BankAdviceReports = () => {
   };
 
   const openReconciliationDialog = (record: BankAdviceHistory) => {
+    const today = new Date().toISOString().split('T')[0]; // Today's date in YYYY-MM-DD format
+    
     setSelectedRecord(record);
     setReconciliationForm({
-      status: record.reconciliation_status || 'pending',
-      bank_confirmation_date: record.bank_confirmation_date || '',
+      status: record.reconciliation_status || 'completed', // Default to completed
+      bank_confirmation_date: record.bank_confirmation_date || today, // Default to today
       bank_reference_number: record.bank_reference_number || '',
       reconciliation_notes: record.reconciliation_notes || ''
     });
+    
+    // Load existing file if available
+    if (record.reconciliation_proof_file_path) {
+      setFilePreviewUrl(record.reconciliation_proof_file_path);
+    } else {
+      setFilePreviewUrl(null);
+    }
+    
+    setSelectedFile(null);
     setReconciliationDialog(true);
+  };
+
+  const handleFileUpload = async (file: File): Promise<string | null> => {
+    if (!selectedRecord) return null;
+
+    try {
+      setUploadingFile(true);
+      
+      // Validate file type
+      const allowedTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+      if (!allowedTypes.includes(file.type)) {
+        toast({
+          variant: "destructive",
+          title: "Invalid File Type",
+          description: "Only PDF, PNG, and JPEG files are allowed"
+        });
+        return null;
+      }
+
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast({
+          variant: "destructive",
+          title: "File Too Large",
+          description: "File size must be less than 5MB"
+        });
+        return null;
+      }
+
+      // Generate unique filename
+      const timestamp = Date.now();
+      const fileExt = file.name.split('.').pop();
+      const fileName = `reconciliation_${selectedRecord.id}_${timestamp}.${fileExt}`;
+      const filePath = `${selectedRecord.payment_source}/${fileName}`;
+
+      // Upload to Supabase Storage
+      const { data, error } = await supabase.storage
+        .from('bank-reconciliation-proofs')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (error) throw error;
+
+      return filePath;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      toast({
+        variant: "destructive",
+        title: "Upload Failed",
+        description: "Failed to upload reconciliation proof file"
+      });
+      return null;
+    } finally {
+      setUploadingFile(false);
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      
+      // Create preview URL for images
+      if (file.type.startsWith('image/')) {
+        const previewUrl = URL.createObjectURL(file);
+        setFilePreviewUrl(previewUrl);
+      } else {
+        setFilePreviewUrl(null);
+      }
+    }
+  };
+
+  const handleDownloadProofFile = async (record: BankAdviceHistory) => {
+    if (!record.reconciliation_proof_file_path) return;
+
+    try {
+      const { data, error } = await supabase.storage
+        .from('bank-reconciliation-proofs')
+        .download(record.reconciliation_proof_file_path);
+
+      if (error) throw error;
+
+      const url = URL.createObjectURL(data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = record.reconciliation_proof_file_name || 'reconciliation_proof';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Success",
+        description: "Reconciliation proof downloaded successfully"
+      });
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      toast({
+        variant: "destructive",
+        title: "Download Failed",
+        description: "Failed to download reconciliation proof"
+      });
+    }
+  };
+
+  const handleViewProofFile = async (record: BankAdviceHistory) => {
+    if (!record.reconciliation_proof_file_path) return;
+
+    try {
+      const { data, error } = await supabase.storage
+        .from('bank-reconciliation-proofs')
+        .createSignedUrl(record.reconciliation_proof_file_path, 60);
+
+      if (error) throw error;
+
+      window.open(data.signedUrl, '_blank');
+    } catch (error) {
+      console.error('Error viewing file:', error);
+      toast({
+        variant: "destructive",
+        title: "View Failed",
+        description: "Failed to view reconciliation proof"
+      });
+    }
   };
 
   const handleReconciliationUpdate = async () => {
@@ -288,12 +430,30 @@ const BankAdviceReports = () => {
         ? 'quick_payment_bank_advice_history' 
         : 'staff_payment_bank_advice_history';
 
+      let uploadedFilePath: string | null = null;
+      let uploadedFileName: string | null = null;
+
+      // Upload file if selected
+      if (selectedFile) {
+        uploadedFilePath = await handleFileUpload(selectedFile);
+        if (!uploadedFilePath) {
+          return; // Upload failed, abort update
+        }
+        uploadedFileName = selectedFile.name;
+      }
+
       const updateData: any = {
         reconciliation_status: reconciliationForm.status,
         bank_confirmation_date: reconciliationForm.bank_confirmation_date || null,
         bank_reference_number: reconciliationForm.bank_reference_number || null,
         reconciliation_notes: reconciliationForm.reconciliation_notes || null
       };
+
+      // Add file info if uploaded
+      if (uploadedFilePath) {
+        updateData.reconciliation_proof_file_path = uploadedFilePath;
+        updateData.reconciliation_proof_file_name = uploadedFileName;
+      }
 
       // Lock record when status is completed
       if (reconciliationForm.status === 'completed') {
@@ -314,6 +474,8 @@ const BankAdviceReports = () => {
       });
 
       setReconciliationDialog(false);
+      setSelectedFile(null);
+      setFilePreviewUrl(null);
       fetchBankAdviceHistory();
     } catch (error) {
       console.error('Error updating reconciliation status:', error);
@@ -1116,6 +1278,85 @@ const BankAdviceReports = () => {
                   disabled={selectedRecord.reconciliation_status === 'completed'}
                   rows={3}
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="proof-file">Reconciliation Proof (PDF/Image)</Label>
+                <div className="space-y-2">
+                  <Input
+                    id="proof-file"
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg"
+                    onChange={handleFileSelect}
+                    disabled={selectedRecord.reconciliation_status === 'completed' || uploadingFile}
+                    className="cursor-pointer"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Upload bank statement screenshot, PDF, or confirmation image (Max 5MB)
+                  </p>
+                  
+                  {/* Show existing file */}
+                  {selectedRecord.reconciliation_proof_file_path && !selectedFile && (
+                    <div className="flex items-center gap-2 p-2 border rounded-md bg-muted/30">
+                      <FileText className="h-4 w-4 text-primary" />
+                      <span className="text-sm flex-1 truncate">
+                        {selectedRecord.reconciliation_proof_file_name || 'Reconciliation Proof'}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleViewProofFile(selectedRecord)}
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDownloadProofFile(selectedRecord)}
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {/* Show selected file preview */}
+                  {selectedFile && (
+                    <div className="flex items-center gap-2 p-2 border rounded-md bg-primary/10">
+                      <FileText className="h-4 w-4 text-primary" />
+                      <span className="text-sm flex-1 truncate">
+                        {selectedFile.name}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setSelectedFile(null);
+                          setFilePreviewUrl(null);
+                        }}
+                      >
+                        <XCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                  
+                  {/* Image preview */}
+                  {filePreviewUrl && selectedFile?.type.startsWith('image/') && (
+                    <div className="border rounded-md overflow-hidden">
+                      <img 
+                        src={filePreviewUrl} 
+                        alt="Preview" 
+                        className="w-full h-auto max-h-48 object-contain bg-muted"
+                      />
+                    </div>
+                  )}
+                  
+                  {uploadingFile && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      Uploading file...
+                    </div>
+                  )}
+                </div>
               </div>
 
               {selectedRecord.reconciliation_status === 'completed' && selectedRecord.reconciled_at && (

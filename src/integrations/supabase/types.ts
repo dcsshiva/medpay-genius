@@ -107,6 +107,8 @@ export type Database = {
           reconciled_at: string | null
           reconciled_by: string | null
           reconciliation_notes: string | null
+          reconciliation_proof_file_name: string | null
+          reconciliation_proof_file_path: string | null
           reconciliation_status: string | null
           total_amount: number
           updated_at: string
@@ -125,6 +127,8 @@ export type Database = {
           reconciled_at?: string | null
           reconciled_by?: string | null
           reconciliation_notes?: string | null
+          reconciliation_proof_file_name?: string | null
+          reconciliation_proof_file_path?: string | null
           reconciliation_status?: string | null
           total_amount: number
           updated_at?: string
@@ -143,6 +147,8 @@ export type Database = {
           reconciled_at?: string | null
           reconciled_by?: string | null
           reconciliation_notes?: string | null
+          reconciliation_proof_file_name?: string | null
+          reconciliation_proof_file_path?: string | null
           reconciliation_status?: string | null
           total_amount?: number
           updated_at?: string
@@ -932,6 +938,8 @@ export type Database = {
           reconciled_at: string | null
           reconciled_by: string | null
           reconciliation_notes: string | null
+          reconciliation_proof_file_name: string | null
+          reconciliation_proof_file_path: string | null
           reconciliation_status: string | null
           total_gross_amount: number
           total_net_amount: number
@@ -952,6 +960,8 @@ export type Database = {
           reconciled_at?: string | null
           reconciled_by?: string | null
           reconciliation_notes?: string | null
+          reconciliation_proof_file_name?: string | null
+          reconciliation_proof_file_path?: string | null
           reconciliation_status?: string | null
           total_gross_amount?: number
           total_net_amount?: number
@@ -972,6 +982,8 @@ export type Database = {
           reconciled_at?: string | null
           reconciled_by?: string | null
           reconciliation_notes?: string | null
+          reconciliation_proof_file_name?: string | null
+          reconciliation_proof_file_path?: string | null
           reconciliation_status?: string | null
           total_gross_amount?: number
           total_net_amount?: number
@@ -1425,6 +1437,8 @@ export type Database = {
           reconciled_at: string | null
           reconciled_by: string | null
           reconciliation_notes: string | null
+          reconciliation_proof_file_name: string | null
+          reconciliation_proof_file_path: string | null
           reconciliation_status: string | null
           total_amount: number
           updated_at: string
@@ -1443,6 +1457,8 @@ export type Database = {
           reconciled_at?: string | null
           reconciled_by?: string | null
           reconciliation_notes?: string | null
+          reconciliation_proof_file_name?: string | null
+          reconciliation_proof_file_path?: string | null
           reconciliation_status?: string | null
           total_amount?: number
           updated_at?: string
@@ -1461,6 +1477,8 @@ export type Database = {
           reconciled_at?: string | null
           reconciled_by?: string | null
           reconciliation_notes?: string | null
+          reconciliation_proof_file_name?: string | null
+          reconciliation_proof_file_path?: string | null
           reconciliation_status?: string | null
           total_amount?: number
           updated_at?: string
