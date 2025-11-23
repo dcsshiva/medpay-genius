@@ -167,7 +167,7 @@ const Index = () => {
         return <BankAdviceReport />;
       case 'doctor-hub':
         // Check if user is a doctor
-        const isDoctorUser = userProfile?.user_type === 'doctor';
+        const isDoctorUser = userProfile?.user_type === 'doctor' || userProfile?.role === 'doctor';
         return <DoctorHub filterDoctorId={isDoctorUser ? userProfile?.id : undefined} />;
       case 'leave-permission':
         return <LeavePermissionManagement />;
