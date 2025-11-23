@@ -6,6 +6,18 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
+import { 
+  Tooltip, 
+  TooltipContent, 
+  TooltipProvider, 
+  TooltipTrigger 
+} from '@/components/ui/tooltip';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -25,7 +37,9 @@ import {
   CheckCircle,
   Clock,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  MoreVertical,
+  Edit
 } from 'lucide-react';
 import { formatDateTimeIST, formatDateIST } from '@/lib/dateUtils';
 import { formatCurrency } from '@/lib/currency';
@@ -547,11 +561,11 @@ const BankAdviceReports = () => {
 
   const getStatusBadge = (status: ReconciliationStatus) => {
     const statusConfig = {
-      pending: { icon: Clock, color: 'bg-yellow-100 text-yellow-800 border-yellow-300', label: 'Pending' },
-      in_process: { icon: RefreshCw, color: 'bg-blue-100 text-blue-800 border-blue-300', label: 'In Process' },
-      completed: { icon: CheckCircle, color: 'bg-green-100 text-green-800 border-green-300', label: 'Completed' },
-      failed: { icon: XCircle, color: 'bg-red-100 text-red-800 border-red-300', label: 'Failed' },
-      partial: { icon: AlertCircle, color: 'bg-orange-100 text-orange-800 border-orange-300', label: 'Partial' }
+      pending: { icon: Clock, color: 'bg-yellow-100 text-yellow-800 border-yellow-200', label: 'Pending', animate: 'animate-pulse' },
+      in_process: { icon: RefreshCw, color: 'bg-blue-100 text-blue-800 border-blue-200', label: 'In Process', animate: 'animate-spin' },
+      completed: { icon: CheckCircle, color: 'bg-green-100 text-green-800 border-green-200', label: 'Completed', animate: '' },
+      failed: { icon: XCircle, color: 'bg-red-100 text-red-800 border-red-200', label: 'Failed', animate: '' },
+      partial: { icon: AlertCircle, color: 'bg-orange-100 text-orange-800 border-orange-200', label: 'Partial', animate: '' }
     };
 
     const config = statusConfig[status];
@@ -559,7 +573,7 @@ const BankAdviceReports = () => {
 
     return (
       <Badge variant="outline" className={cn(config.color, "border")}>
-        <Icon className="h-3 w-3 mr-1" />
+        <Icon className={cn("h-3 w-3 mr-1", config.animate)} />
         {config.label}
       </Badge>
     );
@@ -1011,12 +1025,12 @@ const BankAdviceReports = () => {
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <p className="font-semibold">{record.filename}</p>
-                          <Badge variant="outline">{record.payment_count} payments</Badge>
+                          <Badge variant="outline" className="text-xs">{record.payment_count} payments</Badge>
                           <Badge variant={
                             record.payment_source === 'doctor' ? 'default' : 
                             record.payment_source === 'quick_payment' ? 'secondary' : 
                             'outline'
-                          }>
+                          } className="text-xs">
                             {record.payment_source === 'doctor' ? 'Doctor Payments' : 
                              record.payment_source === 'quick_payment' ? 'Quick Payments' : 
                              'Staff Payments'}
@@ -1026,61 +1040,114 @@ const BankAdviceReports = () => {
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
-                            Generated: {formatDateTimeIST(record.created_at)}
+                            {formatDateTimeIST(record.created_at)}
                           </span>
                           <span>by {record.generator_name}</span>
                         </div>
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-6">
-                      <div className="text-right">
-                        <p className="text-sm text-muted-foreground">Amount</p>
-                        <p className="text-lg font-bold text-primary">
+                    <div className="flex items-center gap-3">
+                      {/* Amount Display */}
+                      <div className="text-right mr-4">
+                        <p className="text-sm font-bold text-primary">
                           {formatCurrency(record.total_amount)}
                         </p>
                       </div>
                       
-                      <div className="flex flex-col gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openReconciliationDialog(record)}
-                          disabled={record.reconciliation_status === 'completed'}
-                        >
-                          {record.reconciliation_status === 'completed' ? 'Reconciled ✓' : 'Update Status'}
-                        </Button>
-                        
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleDownload(record)}
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          Download
-                        </Button>
-                        
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleRegenerate(record)}
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          Regenerate
-                        </Button>
-                        
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedRecord(record);
-                            setDetailsDialog(true);
-                          }}
-                        >
-                          <Eye className="h-4 w-4 mr-2" />
-                          View Details
-                        </Button>
-                      </div>
+                      {/* Action Icons with Tooltips */}
+                      <TooltipProvider>
+                        <div className="flex items-center gap-1">
+                          {/* Update Status Button */}
+                          {record.reconciliation_status !== 'completed' ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9 hover:bg-primary/10 hover:text-primary"
+                                  onClick={() => openReconciliationDialog(record)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Update Status</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9 text-green-600 cursor-default"
+                                  disabled
+                                >
+                                  <CheckCircle className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Reconciled ✓</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                          
+                          {/* Download Button */}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9 hover:bg-blue-50 hover:text-blue-600"
+                                onClick={() => handleDownload(record)}
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Download</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          
+                          {/* Regenerate Button */}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9 hover:bg-orange-50 hover:text-orange-600"
+                                onClick={() => handleRegenerate(record)}
+                              >
+                                <RefreshCw className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Regenerate</p>
+                            </TooltipContent>
+                          </Tooltip>
+                          
+                          {/* View Details Button */}
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-9 w-9 hover:bg-purple-50 hover:text-purple-600"
+                                onClick={() => {
+                                  setSelectedRecord(record);
+                                  setDetailsDialog(true);
+                                }}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>View Details</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                      </TooltipProvider>
                     </div>
                   </div>
 
@@ -1117,56 +1184,66 @@ const BankAdviceReports = () => {
                       <div>by {record.generator_name}</div>
                     </div>
                     
-                    <div className="py-2 px-3 bg-primary/5 rounded-md">
-                      <p className="text-xs text-muted-foreground">Total Amount</p>
-                      <p className="text-xl font-bold text-primary">
-                        {formatCurrency(record.total_amount)}
-                      </p>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openReconciliationDialog(record)}
-                        disabled={record.reconciliation_status === 'completed'}
-                        className="text-xs"
-                      >
-                        {record.reconciliation_status === 'completed' ? 'Reconciled ✓' : 'Update Status'}
-                      </Button>
+                    {/* Amount and Actions Row */}
+                    <div className="flex items-center justify-between">
+                      <div className="py-2 px-3 bg-primary/5 rounded-md">
+                        <p className="text-xs text-muted-foreground">Total</p>
+                        <p className="text-lg font-bold text-primary">
+                          {formatCurrency(record.total_amount)}
+                        </p>
+                      </div>
                       
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDownload(record)}
-                        className="text-xs"
-                      >
-                        <Download className="h-3 w-3 mr-1" />
-                        Download
-                      </Button>
-                      
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleRegenerate(record)}
-                        className="text-xs"
-                      >
-                        <Download className="h-3 w-3 mr-1" />
-                        Regenerate
-                      </Button>
-                      
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedRecord(record);
-                          setDetailsDialog(true);
-                        }}
-                        className="text-xs col-span-2"
-                      >
-                        <Eye className="h-3 w-3 mr-1" />
-                        View Details
-                      </Button>
+                      {/* Dropdown Menu */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-9 w-9">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48 bg-background z-50">
+                          {record.reconciliation_status !== 'completed' ? (
+                            <DropdownMenuItem
+                              onClick={() => openReconciliationDialog(record)}
+                              className="cursor-pointer"
+                            >
+                              <Edit className="h-4 w-4 mr-2" />
+                              Update Status
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem disabled className="text-green-600">
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Reconciled ✓
+                            </DropdownMenuItem>
+                          )}
+                          
+                          <DropdownMenuItem
+                            onClick={() => handleDownload(record)}
+                            className="cursor-pointer"
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Download
+                          </DropdownMenuItem>
+                          
+                          <DropdownMenuItem
+                            onClick={() => handleRegenerate(record)}
+                            className="cursor-pointer"
+                          >
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Regenerate
+                          </DropdownMenuItem>
+                          
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedRecord(record);
+                              setDetailsDialog(true);
+                            }}
+                            className="cursor-pointer"
+                          >
+                            <Eye className="h-4 w-4 mr-2" />
+                            View Details
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 </CardContent>
