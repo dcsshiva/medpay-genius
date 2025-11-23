@@ -39,10 +39,9 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
               <Menu className="h-5 w-5" />
             </Button>
           </SheetTrigger>
-          <SheetContent side="right" className="w-80">
-            <div className="space-y-6">
-              {/* User Info */}
-              <div className="border-b pb-4">
+          <SheetContent side="right" className="w-80 p-0 flex flex-col h-full">
+            {/* User Info */}
+            <div className="flex-shrink-0 border-b p-6 bg-background">
                 <p className="font-medium text-foreground">
                   {user?.user_metadata?.full_name || user?.email}
                 </p>
@@ -51,8 +50,8 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
                 </p>
               </div>
 
-              {/* Navigation */}
-              <nav className="space-y-2">
+            {/* Navigation */}
+            <nav className="flex-1 overflow-y-auto p-6 space-y-2">
                 {navigationItems.map((item) => {
                   const Icon = item.icon;
                   return (
@@ -70,19 +69,18 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
                     </button>
                   );
                 })}
-              </nav>
+            </nav>
 
-              {/* Logout */}
-              <div className="border-t pt-4">
-                <Button 
-                  variant="outline" 
-                  onClick={signOut}
-                  className="w-full flex items-center space-x-2"
-                >
-                  <LogOut className="h-4 w-4" />
-                  <span>Logout</span>
-                </Button>
-              </div>
+            {/* Logout */}
+            <div className="flex-shrink-0 border-t p-6 bg-background">
+              <Button 
+                variant="outline" 
+                onClick={signOut}
+                className="w-full flex items-center justify-center space-x-2"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Logout</span>
+              </Button>
             </div>
           </SheetContent>
         </Sheet>
