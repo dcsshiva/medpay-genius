@@ -6,6 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   DropdownMenu, 
   DropdownMenuContent, 
@@ -96,6 +98,8 @@ const BankAdviceReports = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [userProfileId, setUserProfileId] = useState<string | null>(null);
+  const [paymentDetails, setPaymentDetails] = useState<any[]>([]);
+  const [loadingPaymentDetails, setLoadingPaymentDetails] = useState(false);
 
   // Fetch user's profile ID
   useEffect(() => {
@@ -267,6 +271,128 @@ const BankAdviceReports = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPaymentDetails = async (record: BankAdviceHistory) => {
+    setLoadingPaymentDetails(true);
+    try {
+      let details: any[] = [];
+
+      if (record.payment_source === 'doctor') {
+        // Fetch doctor payment details
+        const { data: payments } = await supabase
+          .from('payments')
+          .select(`
+            id,
+            total_amount,
+            paid_amount,
+            net_amount,
+            tds_amount,
+            doctors (
+              id,
+              full_name,
+              doctor_code,
+              bank_name,
+              account_holder_name,
+              bank_account_number,
+              ifsc_code,
+              branch_name
+            )
+          `)
+          .in('id', record.payment_ids);
+
+        details = (payments || []).map((p: any) => ({
+          id: p.id,
+          beneficiary_name: p.doctors?.full_name || 'N/A',
+          beneficiary_code: p.doctors?.doctor_code || '',
+          account_holder: p.doctors?.account_holder_name || 'N/A',
+          bank_name: p.doctors?.bank_name || 'N/A',
+          account_number: p.doctors?.bank_account_number || 'N/A',
+          ifsc_code: p.doctors?.ifsc_code || 'N/A',
+          branch_name: p.doctors?.branch_name || '',
+          amount: p.net_amount || p.paid_amount || p.total_amount,
+          payment_type: 'Doctor Payment'
+        }));
+      } 
+      else if (record.payment_source === 'quick_payment') {
+        // Fetch quick payment details
+        const { data: payments } = await supabase
+          .from('quick_payments')
+          .select(`
+            id,
+            name,
+            account_holder_name,
+            bank_name,
+            account_number,
+            ifsc_code,
+            branch_name,
+            gross_amount,
+            tds_amount,
+            net_amount,
+            quick_payment_types (type_name)
+          `)
+          .in('id', record.payment_ids);
+
+        details = (payments || []).map((p: any) => ({
+          id: p.id,
+          beneficiary_name: p.name || 'N/A',
+          beneficiary_code: '',
+          account_holder: p.account_holder_name || 'N/A',
+          bank_name: p.bank_name || 'N/A',
+          account_number: p.account_number || 'N/A',
+          ifsc_code: p.ifsc_code || 'N/A',
+          branch_name: p.branch_name || '',
+          amount: p.net_amount,
+          gross_amount: p.gross_amount,
+          tds_amount: p.tds_amount,
+          payment_type: p.quick_payment_types?.type_name || 'Quick Payment'
+        }));
+      }
+      else if (record.payment_source === 'staff_payment') {
+        // Fetch staff payment details
+        const { data: payments } = await supabase
+          .from('staff_payments')
+          .select(`
+            id,
+            amount,
+            account_holder_name,
+            bank_name,
+            account_number,
+            ifsc_code,
+            branch_name,
+            staff (
+              id,
+              full_name,
+              staff_code
+            )
+          `)
+          .in('id', record.payment_ids);
+
+        details = (payments || []).map((p: any) => ({
+          id: p.id,
+          beneficiary_name: p.staff?.full_name || 'N/A',
+          beneficiary_code: p.staff?.staff_code || '',
+          account_holder: p.account_holder_name || 'N/A',
+          bank_name: p.bank_name || 'N/A',
+          account_number: p.account_number || 'N/A',
+          ifsc_code: p.ifsc_code || 'N/A',
+          branch_name: p.branch_name || '',
+          amount: p.amount,
+          payment_type: 'Staff Payment'
+        }));
+      }
+
+      setPaymentDetails(details);
+    } catch (error) {
+      console.error('Error fetching payment details:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to fetch payment details"
+      });
+    } finally {
+      setLoadingPaymentDetails(false);
     }
   };
 
@@ -1137,6 +1263,7 @@ const BankAdviceReports = () => {
                                 onClick={() => {
                                   setSelectedRecord(record);
                                   setDetailsDialog(true);
+                                  fetchPaymentDetails(record);
                                 }}
                               >
                                 <Eye className="h-4 w-4" />
@@ -1236,6 +1363,7 @@ const BankAdviceReports = () => {
                             onClick={() => {
                               setSelectedRecord(record);
                               setDetailsDialog(true);
+                              fetchPaymentDetails(record);
                             }}
                             className="cursor-pointer"
                           >
@@ -1276,7 +1404,7 @@ const BankAdviceReports = () => {
 
       {/* Details Dialog */}
       <Dialog open={detailsDialog} onOpenChange={setDetailsDialog}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle>Bank Advice Details</DialogTitle>
           </DialogHeader>
@@ -1311,17 +1439,80 @@ const BankAdviceReports = () => {
                 </div>
                 
                 <div className="border-t pt-4">
-                  <Label className="text-muted-foreground mb-2 block">Payment IDs Included</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {selectedRecord.payment_ids.map((id: string) => (
-                      <Badge key={id} variant="secondary" className="font-mono text-xs">
-                        {id.slice(0, 8)}...
-                      </Badge>
-                    ))}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-2">
-                    {selectedRecord.payment_ids.length} payment(s) included in this file
-                  </p>
+                  <Label className="text-muted-foreground mb-3 block">
+                    Payment Details ({selectedRecord.payment_ids.length} payments)
+                  </Label>
+                  
+                  {loadingPaymentDetails ? (
+                    <div className="text-center py-8">
+                      <RefreshCw className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground mt-2">Loading payment details...</p>
+                    </div>
+                  ) : (
+                    <ScrollArea className="h-[400px] pr-4">
+                      <div className="space-y-3">
+                        {paymentDetails.map((payment, index) => (
+                          <Card key={payment.id} className="p-4 hover:bg-muted/50 transition-colors">
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <Label className="text-xs text-muted-foreground">Payment #{index + 1}</Label>
+                                <p className="font-semibold text-sm">{payment.beneficiary_name}</p>
+                                {payment.beneficiary_code && (
+                                  <p className="text-xs text-muted-foreground">Code: {payment.beneficiary_code}</p>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <Label className="text-xs text-muted-foreground">Amount</Label>
+                                <p className="font-bold text-primary">{formatCurrency(payment.amount)}</p>
+                                {payment.tds_amount > 0 && (
+                                  <p className="text-xs text-muted-foreground">
+                                    Gross: {formatCurrency(payment.gross_amount)} | TDS: {formatCurrency(payment.tds_amount)}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <Separator className="my-2" />
+                            
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div>
+                                <Label className="text-muted-foreground">Account Holder</Label>
+                                <p className="font-medium">{payment.account_holder}</p>
+                              </div>
+                              <div>
+                                <Label className="text-muted-foreground">Bank</Label>
+                                <p className="font-medium">{payment.bank_name}</p>
+                              </div>
+                              <div>
+                                <Label className="text-muted-foreground">Account Number</Label>
+                                <p className="font-mono">{payment.account_number}</p>
+                              </div>
+                              <div>
+                                <Label className="text-muted-foreground">IFSC Code</Label>
+                                <p className="font-mono">{payment.ifsc_code}</p>
+                              </div>
+                              {payment.branch_name && (
+                                <div className="col-span-2">
+                                  <Label className="text-muted-foreground">Branch</Label>
+                                  <p className="font-medium">{payment.branch_name}</p>
+                                </div>
+                              )}
+                            </div>
+                            
+                            <Badge variant="outline" className="mt-2 text-xs">
+                              {payment.payment_type}
+                            </Badge>
+                          </Card>
+                        ))}
+                        
+                        {paymentDetails.length === 0 && !loadingPaymentDetails && (
+                          <div className="text-center py-8 text-muted-foreground">
+                            <p className="text-sm">No payment details available</p>
+                          </div>
+                        )}
+                      </div>
+                    </ScrollArea>
+                  )}
                 </div>
               </div>
             )}
