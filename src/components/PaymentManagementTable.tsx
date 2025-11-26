@@ -22,6 +22,7 @@ import {
   AlertCircle, 
   X, 
   Edit,
+  Split,
   Trash2,
   AlertTriangle,
   History,
@@ -64,6 +65,12 @@ interface Payment {
   insurance_approval_status?: string;
   patient_names?: string[]; // Array of all patient names in this payment
   insurance_company_names?: string[]; // Array of unique insurance company names
+  // Part payment fields
+  total_released_gross?: number;
+  total_released_tds?: number;
+  total_released_net?: number;
+  release_count?: number;
+  release_status?: string;
 }
 
 interface PaymentManagementTableProps {
@@ -76,6 +83,8 @@ interface PaymentManagementTableProps {
   onMarkSuspect?: (payment: Payment) => void;
   onRecordPayment?: (payment: Payment) => void;
   onViewTransactions?: (payment: Payment) => void;
+  onPartPayment?: (payment: Payment) => void;
+  onViewReleaseHistory?: (payment: Payment) => void;
   showBankAdviceCheckbox?: boolean;
   selectedPayments?: Set<string>;
   onSelectPayment?: (paymentId: string, checked: boolean) => void;
@@ -94,6 +103,8 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   onMarkSuspect,
   onRecordPayment,
   onViewTransactions,
+  onPartPayment,
+  onViewReleaseHistory,
   showBankAdviceCheckbox,
   selectedPayments,
   onSelectPayment,
@@ -357,6 +368,16 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                       </Badge>
                     )}
                     {getStatusBadge(payment.status)}
+                    {/* Show release status if partial */}
+                    {payment.release_status && payment.release_status !== 'not_started' && (
+                      <Badge 
+                        variant={payment.release_status === 'fully_released' ? 'default' : 'secondary'}
+                        className="text-xs mt-1"
+                      >
+                        {payment.release_status === 'fully_released' ? 'Fully Released' : 
+                         `Released ${payment.release_count || 0}x`}
+                      </Badge>
+                    )}
                   </div>
                 </TableCell>
                 <TableCell>
@@ -469,6 +490,46 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                         </TooltipTrigger>
                         <TooltipContent>
                           <p>Record payment transaction - {formatCurrency(payment.remaining_amount)} remaining</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                    {/* Part Payment Button - Show for approved payments with remaining amount */}
+                    {(payment.status === 'admin_approved' || 
+                      payment.cash_approval_status === 'approved' || 
+                      payment.insurance_approval_status === 'approved') && 
+                     onPartPayment && 
+                     payment.release_status !== 'fully_released' && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => onPartPayment(payment)}
+                            className="h-8 px-2"
+                          >
+                            <Split className="h-4 w-4 text-primary" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Release part payment</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                    {/* Release History Button - Show if there are any releases */}
+                    {(payment.release_count && payment.release_count > 0) && onViewReleaseHistory && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => onViewReleaseHistory(payment)}
+                            className="h-8 px-2"
+                          >
+                            <History className="h-4 w-4 text-blue-500" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>View release history ({payment.release_count} releases)</p>
                         </TooltipContent>
                       </Tooltip>
                     )}
