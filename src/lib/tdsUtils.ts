@@ -11,6 +11,12 @@ export interface TDSCalculation {
   netAmount: number;
 }
 
+export interface PartPaymentCalculation extends TDSCalculation {
+  releasePercentage: number;
+  remainingGross: number;
+  remainingAfterRelease: number;
+}
+
 /**
  * Calculate TDS breakdown for a given amount
  */
@@ -24,6 +30,66 @@ export const calculateTDS = (amount: number, tdsRate: number = TDS_RATE): TDSCal
     tdsAmount,
     tdsPercentage: tdsRate * 100,
     netAmount
+  };
+};
+
+/**
+ * Calculate part payment (partial release) with TDS
+ * @param totalGross - Total gross amount of the payment
+ * @param alreadyReleasedGross - Amount already released
+ * @param releasePercentage - Percentage of remaining to release (1-100)
+ * @param tdsRate - TDS rate (default 10%)
+ */
+export const calculatePartPayment = (
+  totalGross: number,
+  alreadyReleasedGross: number,
+  releasePercentage: number,
+  tdsRate: number = TDS_RATE
+): PartPaymentCalculation => {
+  const remainingGross = totalGross - alreadyReleasedGross;
+  const releaseGross = remainingGross * (releasePercentage / 100);
+  const tdsAmount = releaseGross * tdsRate;
+  const netAmount = releaseGross - tdsAmount;
+  
+  return {
+    grossAmount: releaseGross,
+    tdsAmount,
+    tdsPercentage: tdsRate * 100,
+    netAmount,
+    releasePercentage,
+    remainingGross,
+    remainingAfterRelease: remainingGross - releaseGross
+  };
+};
+
+/**
+ * Calculate part payment by fixed amount
+ * @param totalGross - Total gross amount of the payment
+ * @param alreadyReleasedGross - Amount already released  
+ * @param releaseAmount - Fixed amount to release
+ * @param tdsRate - TDS rate (default 10%)
+ */
+export const calculatePartPaymentByAmount = (
+  totalGross: number,
+  alreadyReleasedGross: number,
+  releaseAmount: number,
+  tdsRate: number = TDS_RATE
+): PartPaymentCalculation => {
+  const remainingGross = totalGross - alreadyReleasedGross;
+  // Ensure release amount doesn't exceed remaining
+  const releaseGross = Math.min(releaseAmount, remainingGross);
+  const releasePercentage = remainingGross > 0 ? (releaseGross / remainingGross) * 100 : 0;
+  const tdsAmount = releaseGross * tdsRate;
+  const netAmount = releaseGross - tdsAmount;
+  
+  return {
+    grossAmount: releaseGross,
+    tdsAmount,
+    tdsPercentage: tdsRate * 100,
+    netAmount,
+    releasePercentage,
+    remainingGross,
+    remainingAfterRelease: remainingGross - releaseGross
   };
 };
 

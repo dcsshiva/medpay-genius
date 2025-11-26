@@ -40,6 +40,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import ReportGeneration from './ReportGeneration';
 import PaymentManagementTable from './PaymentManagementTable';
 import BankAdviceReports from './BankAdviceReports';
+import PartPaymentDialog from './PartPaymentDialog';
+import PaymentReleaseHistory from './PaymentReleaseHistory';
 import { useWebsiteSettings } from '@/hooks/useWebsiteSettings';
 import { StatsCard } from '@/components/ui/stats-card';
 import { LoadingScreen } from '@/components/ui/loading-skeleton';
@@ -100,6 +102,12 @@ interface Payment {
   insurance_visits?: number;
   patient_names?: string[]; // Array of all patient names in this payment
   insurance_company_names?: string[]; // Array of unique insurance company names
+  // Part payment fields
+  total_released_gross?: number;
+  total_released_tds?: number;
+  total_released_net?: number;
+  release_count?: number;
+  release_status?: string;
 }
 
 interface PaymentTransaction {
@@ -179,6 +187,11 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<'all' | 'cash' | 'insurance' | 'mixed'>('all');
   
   const [showBankAdviceReviewDialog, setShowBankAdviceReviewDialog] = useState(false);
+  
+  // Part payment dialogs
+  const [showPartPaymentDialog, setShowPartPaymentDialog] = useState(false);
+  const [showReleaseHistoryDialog, setShowReleaseHistoryDialog] = useState(false);
+  const [partPaymentTarget, setPartPaymentTarget] = useState<Payment | null>(null);
   
   const { data: websiteSettings } = useWebsiteSettings();
   const [transactionTypeSelections, setTransactionTypeSelections] = useState<Map<string, string>>(new Map());
@@ -1549,6 +1562,22 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
     setSelectedVisitIds(new Set()); // Clear visit selections
     setExistingPendingPayments([]);
     setTargetPaymentChoice('new');
+  };
+
+  // Part Payment Handlers
+  const handleOpenPartPayment = (payment: Payment) => {
+    setPartPaymentTarget(payment);
+    setShowPartPaymentDialog(true);
+  };
+
+  const handleOpenReleaseHistory = (payment: Payment) => {
+    setPartPaymentTarget(payment);
+    setShowReleaseHistoryDialog(true);
+  };
+
+  const handlePartPaymentSuccess = () => {
+    fetchPayments();
+    fetchGlobalTotals();
   };
 
   // Transaction Type Constants
@@ -3113,6 +3142,8 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                 fetchTransactions(payment.id);
                 setTransactionsDialog(true);
               }}
+              onPartPayment={handleOpenPartPayment}
+              onViewReleaseHistory={handleOpenReleaseHistory}
               showApprovalCheckbox={(userRole === 'admin' || userRole === 'manager')}
               selectedForApproval={selectedForApproval}
               onSelectForApproval={handleSelectForApproval}
@@ -3162,6 +3193,8 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                 fetchTransactions(payment.id);
                 setTransactionsDialog(true);
               }}
+              onPartPayment={handleOpenPartPayment}
+              onViewReleaseHistory={handleOpenReleaseHistory}
             />
             
             {fullyPaidPayments.length === 0 && !loading && (
@@ -3207,6 +3240,8 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                   fetchTransactions(payment.id);
                   setTransactionsDialog(true);
                 }}
+                onPartPayment={handleOpenPartPayment}
+                onViewReleaseHistory={handleOpenReleaseHistory}
               />
               
               {processedPayments.length === 0 && !loading && (
@@ -3256,6 +3291,8 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                   fetchTransactions(payment.id);
                   setTransactionsDialog(true);
                 }}
+                onPartPayment={handleOpenPartPayment}
+                onViewReleaseHistory={handleOpenReleaseHistory}
                 showBankAdviceCheckbox={true}
                 selectedPayments={selectedPaymentsForBankAdvice}
                 onSelectPayment={handleSelectPaymentForBankAdvice}
@@ -3647,6 +3684,21 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Part Payment Dialog */}
+        <PartPaymentDialog
+          open={showPartPaymentDialog}
+          onOpenChange={setShowPartPaymentDialog}
+          payment={partPaymentTarget}
+          onSuccess={handlePartPaymentSuccess}
+        />
+
+        {/* Release History Dialog */}
+        <PaymentReleaseHistory
+          open={showReleaseHistoryDialog}
+          onOpenChange={setShowReleaseHistoryDialog}
+          payment={partPaymentTarget}
+        />
       </div>
    );
 };

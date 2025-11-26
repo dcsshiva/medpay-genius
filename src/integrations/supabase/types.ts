@@ -614,6 +614,91 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_releases: {
+        Row: {
+          bank_advice_generated: boolean
+          bank_advice_generated_at: string | null
+          bank_advice_generated_by: string | null
+          bank_advice_reference: string | null
+          created_at: string
+          gross_amount: number
+          id: string
+          net_amount: number
+          notes: string | null
+          payment_id: string
+          release_number: number
+          release_percentage: number
+          release_status: string
+          released_at: string | null
+          released_by: string | null
+          tds_amount: number
+          tds_percentage: number
+          updated_at: string
+        }
+        Insert: {
+          bank_advice_generated?: boolean
+          bank_advice_generated_at?: string | null
+          bank_advice_generated_by?: string | null
+          bank_advice_reference?: string | null
+          created_at?: string
+          gross_amount?: number
+          id?: string
+          net_amount?: number
+          notes?: string | null
+          payment_id: string
+          release_number?: number
+          release_percentage: number
+          release_status?: string
+          released_at?: string | null
+          released_by?: string | null
+          tds_amount?: number
+          tds_percentage?: number
+          updated_at?: string
+        }
+        Update: {
+          bank_advice_generated?: boolean
+          bank_advice_generated_at?: string | null
+          bank_advice_generated_by?: string | null
+          bank_advice_reference?: string | null
+          created_at?: string
+          gross_amount?: number
+          id?: string
+          net_amount?: number
+          notes?: string | null
+          payment_id?: string
+          release_number?: number
+          release_percentage?: number
+          release_status?: string
+          released_at?: string | null
+          released_by?: string | null
+          tds_amount?: number
+          tds_percentage?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_releases_bank_advice_generated_by_fkey"
+            columns: ["bank_advice_generated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_releases_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_releases_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       payment_transactions: {
         Row: {
           amount: number
@@ -734,12 +819,17 @@ export type Database = {
           rejected_at: string | null
           rejected_by: string | null
           rejection_reason: string | null
+          release_count: number | null
+          release_status: string | null
           remaining_amount: number | null
           status: Database["public"]["Enums"]["payment_status"]
           suspect_reason: string | null
           tds_amount: number | null
           tds_percentage: number | null
           total_amount: number
+          total_released_gross: number | null
+          total_released_net: number | null
+          total_released_tds: number | null
           total_visits: number
           updated_at: string
         }
@@ -775,12 +865,17 @@ export type Database = {
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
+          release_count?: number | null
+          release_status?: string | null
           remaining_amount?: number | null
           status?: Database["public"]["Enums"]["payment_status"]
           suspect_reason?: string | null
           tds_amount?: number | null
           tds_percentage?: number | null
           total_amount: number
+          total_released_gross?: number | null
+          total_released_net?: number | null
+          total_released_tds?: number | null
           total_visits: number
           updated_at?: string
         }
@@ -816,12 +911,17 @@ export type Database = {
           rejected_at?: string | null
           rejected_by?: string | null
           rejection_reason?: string | null
+          release_count?: number | null
+          release_status?: string | null
           remaining_amount?: number | null
           status?: Database["public"]["Enums"]["payment_status"]
           suspect_reason?: string | null
           tds_amount?: number | null
           tds_percentage?: number | null
           total_amount?: number
+          total_released_gross?: number | null
+          total_released_net?: number | null
+          total_released_tds?: number | null
           total_visits?: number
           updated_at?: string
         }
