@@ -1,7 +1,7 @@
 // inspired UI/UX improved version of your Landing.jsx
 // Clean, premium, medical-grade design with enhanced layout, spacing, colors, and components.
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -22,11 +22,24 @@ import {
 import westmedBanner from "@/assets/westmed-banner.png";
 import westmedLogo from "@/assets/westmed-logo.png";
 import { useWebsiteSettings } from "@/hooks/useWebsiteSettings";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Capacitor } from '@capacitor/core';
 
 const Landing = () => {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
   const { data: settings, isLoading } = useWebsiteSettings();
+  const isMobile = useIsMobile();
+  
+  // Auto-redirect to auth page on mobile/webview/native app
+  useEffect(() => {
+    const isNativeApp = Capacitor.isNativePlatform();
+    const isWebView = /wv|WebView/i.test(navigator.userAgent);
+    
+    if (isMobile || isNativeApp || isWebView) {
+      navigate('/auth', { replace: true });
+    }
+  }, [isMobile, navigate]);
 
   const handleNavClick = () => setMobileMenuOpen(false);
 
