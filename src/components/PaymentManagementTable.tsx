@@ -362,7 +362,15 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                 <TableCell className="text-right text-warning">
                   <div className="text-sm">
                     <div className="font-medium">
-                      {formatCurrency((payment.gross_amount || payment.total_amount) - (payment.total_released_gross || 0))}
+                      {formatCurrency(
+                        // Use new part payment fields if available
+                        payment.total_released_gross 
+                          ? (payment.gross_amount || payment.total_amount) - payment.total_released_gross
+                          // Fallback for old payments: convert net paid to gross (divide by 0.9 as TDS is 10%)
+                          : payment.paid_amount && payment.paid_amount > 0
+                            ? (payment.gross_amount || payment.total_amount) - (payment.paid_amount / 0.9)
+                            : (payment.gross_amount || payment.total_amount)
+                      )}
                     </div>
                     <div className="text-xs text-muted-foreground">Gross Remaining</div>
                   </div>
