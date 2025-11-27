@@ -105,6 +105,7 @@ const PaymentReleaseHistory: React.FC<PaymentReleaseHistoryProps> = ({
   const [editingRelease, setEditingRelease] = useState<PaymentRelease | null>(null);
   const [editNotes, setEditNotes] = useState('');
   const [deleteConfirmRelease, setDeleteConfirmRelease] = useState<PaymentRelease | null>(null);
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
   useEffect(() => {
@@ -226,6 +227,53 @@ const PaymentReleaseHistory: React.FC<PaymentReleaseHistoryProps> = ({
         variant: "destructive",
         title: "Error",
         description: error.message || "Failed to cancel release"
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleResetAllReleases = async () => {
+    if (!payment) return;
+
+    setActionLoading(true);
+    try {
+      // Delete all releases for this payment
+      const { error: deleteError } = await supabase
+        .from('payment_releases')
+        .delete()
+        .eq('payment_id', payment.id);
+
+      if (deleteError) throw deleteError;
+
+      // Reset the payment back to initial state
+      const { error: updateError } = await supabase
+        .from('payments')
+        .update({
+          total_released_gross: 0,
+          total_released_tds: 0,
+          total_released_net: 0,
+          release_count: 0,
+          release_status: 'not_started',
+        })
+        .eq('id', payment.id);
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: "Payment Reset",
+        description: "All releases have been cancelled and the payment has been reset"
+      });
+
+      setResetConfirmOpen(false);
+      setReleases([]);
+      onRefresh?.();
+      onOpenChange(false);
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to reset payment"
       });
     } finally {
       setActionLoading(false);
@@ -411,25 +459,26 @@ const PaymentReleaseHistory: React.FC<PaymentReleaseHistoryProps> = ({
                                   </TooltipTrigger>
                                   <TooltipContent>Edit notes</TooltipContent>
                                 </Tooltip>
-                                {/* Delete button - only if bank advice not generated */}
-                                {!release.bank_advice_generated ? (
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setDeleteConfirmRelease(release);
-                                        }}
-                                        className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                                      >
-                                        <Trash2 className="h-3.5 w-3.5" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Cancel release</TooltipContent>
-                                  </Tooltip>
-                                ) : (
+                                {/* Delete button - available for all releases */}
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDeleteConfirmRelease(release);
+                                      }}
+                                      className={`h-7 w-7 p-0 ${release.bank_advice_generated ? 'text-orange-500 hover:text-orange-600' : 'text-destructive hover:text-destructive'}`}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    {release.bank_advice_generated ? 'Undo release (bank advice generated)' : 'Cancel release'}
+                                  </TooltipContent>
+                                </Tooltip>
+                                {release.bank_advice_generated && (
                                   <Badge variant="secondary" className="text-xs">
                                     <CheckCircle className="h-3 w-3 mr-1" />
                                     Paid
@@ -445,9 +494,19 @@ const PaymentReleaseHistory: React.FC<PaymentReleaseHistoryProps> = ({
                 </TooltipProvider>
               )}
 
-              {/* Footer with totals */}
+              {/* Footer with totals and reset button */}
               {releases.length > 0 && (
-                <div className="flex justify-end gap-4 text-sm p-3 bg-muted rounded-lg">
+                <div className="flex justify-between items-center text-sm p-3 bg-muted rounded-lg">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setResetConfirmOpen(true)}
+                    className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground"
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Reset All Releases
+                  </Button>
+                  <div className="flex gap-4">
                   <div>
                     <span className="text-muted-foreground">Total Gross: </span>
                     <span className="font-medium">{formatCurrency(releasedGross)}</span>
@@ -458,11 +517,12 @@ const PaymentReleaseHistory: React.FC<PaymentReleaseHistoryProps> = ({
                       -{formatCurrency(payment.total_released_tds || 0)}
                     </span>
                   </div>
-                  <div>
-                    <span className="text-muted-foreground">Total Net: </span>
-                    <span className="font-bold text-success">
-                      {formatCurrency(payment.total_released_net || 0)}
-                    </span>
+                    <div>
+                      <span className="text-muted-foreground">Total Net: </span>
+                      <span className="font-bold text-success">
+                        {formatCurrency(payment.total_released_net || 0)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
@@ -503,24 +563,37 @@ const PaymentReleaseHistory: React.FC<PaymentReleaseHistoryProps> = ({
       <AlertDialog open={!!deleteConfirmRelease} onOpenChange={(open) => !open && setDeleteConfirmRelease(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Cancel Release #{deleteConfirmRelease?.release_number}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will cancel this release and restore the following amounts back to the payment:
-              <div className="mt-3 p-3 bg-muted rounded-lg space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span>Gross Amount:</span>
-                  <span className="font-medium">{formatCurrency(deleteConfirmRelease?.gross_amount || 0)}</span>
+            <AlertDialogTitle>
+              {deleteConfirmRelease?.bank_advice_generated 
+                ? `⚠️ Undo Paid Release #${deleteConfirmRelease?.release_number}?`
+                : `Cancel Release #${deleteConfirmRelease?.release_number}?`
+              }
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div>
+                {deleteConfirmRelease?.bank_advice_generated && (
+                  <div className="mb-3 p-3 bg-orange-100 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-700 rounded-lg text-orange-800 dark:text-orange-200">
+                    <strong>Warning:</strong> Bank advice has already been generated for this release. 
+                    Undoing this will require manual bank reconciliation adjustments.
+                  </div>
+                )}
+                <p>This will cancel this release and restore the following amounts back to the payment:</p>
+                <div className="mt-3 p-3 bg-muted rounded-lg space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span>Gross Amount:</span>
+                    <span className="font-medium">{formatCurrency(deleteConfirmRelease?.gross_amount || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>TDS Amount:</span>
+                    <span className="font-medium">{formatCurrency(deleteConfirmRelease?.tds_amount || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Net Amount:</span>
+                    <span className="font-medium">{formatCurrency(deleteConfirmRelease?.net_amount || 0)}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span>TDS Amount:</span>
-                  <span className="font-medium">{formatCurrency(deleteConfirmRelease?.tds_amount || 0)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Net Amount:</span>
-                  <span className="font-medium">{formatCurrency(deleteConfirmRelease?.net_amount || 0)}</span>
-                </div>
+                <p className="mt-3 text-destructive">This action cannot be undone.</p>
               </div>
-              <p className="mt-3 text-destructive">This action cannot be undone.</p>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -530,7 +603,51 @@ const PaymentReleaseHistory: React.FC<PaymentReleaseHistoryProps> = ({
               disabled={actionLoading}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {actionLoading ? 'Cancelling...' : 'Cancel Release'}
+              {actionLoading ? 'Undoing...' : deleteConfirmRelease?.bank_advice_generated ? 'Yes, Undo Release' : 'Cancel Release'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reset All Releases Confirmation Dialog */}
+      <AlertDialog open={resetConfirmOpen} onOpenChange={setResetConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>⚠️ Reset All Releases?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div>
+                <div className="mb-3 p-3 bg-orange-100 dark:bg-orange-900/30 border border-orange-300 dark:border-orange-700 rounded-lg text-orange-800 dark:text-orange-200">
+                  <strong>Critical Warning:</strong> This will delete ALL {releases.length} release(s) 
+                  {releases.some(r => r.bank_advice_generated) && ' including those with bank advice already generated'}.
+                  You will need to manually handle any bank reconciliation adjustments.
+                </div>
+                <p>The following totals will be restored to the payment:</p>
+                <div className="mt-3 p-3 bg-muted rounded-lg space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span>Total Gross:</span>
+                    <span className="font-medium">{formatCurrency(payment?.total_released_gross || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Total TDS:</span>
+                    <span className="font-medium">{formatCurrency(payment?.total_released_tds || 0)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Total Net:</span>
+                    <span className="font-medium">{formatCurrency(payment?.total_released_net || 0)}</span>
+                  </div>
+                </div>
+                <p className="mt-3 text-destructive font-medium">This action cannot be undone!</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleResetAllReleases}
+              disabled={actionLoading}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {actionLoading ? 'Resetting...' : 'Yes, Reset All'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
