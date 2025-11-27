@@ -3698,6 +3698,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
           open={showReleaseHistoryDialog}
           onOpenChange={setShowReleaseHistoryDialog}
           payment={partPaymentTarget}
+          onRefresh={fetchPayments}
         />
       </div>
    );

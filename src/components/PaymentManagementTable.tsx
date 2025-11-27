@@ -354,10 +354,18 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                   </div>
                 </TableCell>
                 <TableCell className="text-right text-success">
-                  {formatCurrency(payment.paid_amount)}
+                  <div className="text-sm">
+                    <div className="font-medium">{formatCurrency(payment.total_released_net || payment.paid_amount || 0)}</div>
+                    <div className="text-xs text-muted-foreground">Net Paid</div>
+                  </div>
                 </TableCell>
                 <TableCell className="text-right text-warning">
-                  {formatCurrency(payment.remaining_amount)}
+                  <div className="text-sm">
+                    <div className="font-medium">
+                      {formatCurrency((payment.gross_amount || payment.total_amount) - (payment.total_released_gross || 0))}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Gross Remaining</div>
+                  </div>
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-col items-center gap-1">

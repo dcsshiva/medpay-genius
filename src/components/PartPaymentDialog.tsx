@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { Card, CardContent } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatCurrency } from '@/lib/currency';
 import { calculateTDS, TDS_RATE } from '@/lib/tdsUtils';
 import { 
@@ -182,15 +183,16 @@ const PartPaymentDialog: React.FC<PartPaymentDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogHeader>
+      <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Calculator className="h-5 w-5" />
             Part Payment Release
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <ScrollArea className="flex-1 pr-4 -mr-4">
+          <div className="space-y-4 pb-2">
           {/* Doctor Info */}
           <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
             <div>
@@ -347,9 +349,10 @@ const PartPaymentDialog: React.FC<PartPaymentDialogProps> = ({
               rows={2}
             />
           </div>
-        </div>
+          </div>
+        </ScrollArea>
 
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
