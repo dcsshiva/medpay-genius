@@ -393,27 +393,35 @@ const PaymentReleaseHistory: React.FC<PaymentReleaseHistoryProps> = ({
                               {getStatusBadge(release.release_status, release.bank_advice_generated)}
                             </TableCell>
                             <TableCell className="text-center">
-                              {!release.bank_advice_generated ? (
-                                <div className="flex items-center justify-center gap-1">
+                              <div className="flex items-center justify-center gap-1">
+                                {/* Edit button - always available for notes */}
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleEditRelease(release);
+                                      }}
+                                      className="h-7 w-7 p-0"
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent>Edit notes</TooltipContent>
+                                </Tooltip>
+                                {/* Delete button - only if bank advice not generated */}
+                                {!release.bank_advice_generated ? (
                                   <Tooltip>
                                     <TooltipTrigger asChild>
                                       <Button
                                         size="sm"
                                         variant="ghost"
-                                        onClick={() => handleEditRelease(release)}
-                                        className="h-7 w-7 p-0"
-                                      >
-                                        <Pencil className="h-3.5 w-3.5" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>Edit notes</TooltipContent>
-                                  </Tooltip>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => setDeleteConfirmRelease(release)}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setDeleteConfirmRelease(release);
+                                        }}
                                         className="h-7 w-7 p-0 text-destructive hover:text-destructive"
                                       >
                                         <Trash2 className="h-3.5 w-3.5" />
@@ -421,10 +429,13 @@ const PaymentReleaseHistory: React.FC<PaymentReleaseHistoryProps> = ({
                                     </TooltipTrigger>
                                     <TooltipContent>Cancel release</TooltipContent>
                                   </Tooltip>
-                                </div>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">Locked</span>
-                              )}
+                                ) : (
+                                  <Badge variant="secondary" className="text-xs">
+                                    <CheckCircle className="h-3 w-3 mr-1" />
+                                    Paid
+                                  </Badge>
+                                )}
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))}
