@@ -1454,67 +1454,106 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
         </>
       )}
 
-      {/* Enhanced Summary Cards with Gradients and Animation */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6 animate-fade-in">
-        <StatsCard
-          title="Total Visits"
-          value={visits.length}
-          subtitle="Recorded visits"
-          icon={Calendar}
-          variant="default"
-        />
-        
-        <StatsCard
-          title="Total Patients"
-          value={getTotalPatients()}
-          subtitle="Patients seen"
-          icon={Users}
-          variant="success"
-        />
-        
-        <StatsCard
-          title="Processed Visits"
-          value={`${getProcessedCount()}/${visits.length}`}
-          subtitle={`${visits.length > 0 ? ((getProcessedCount() / visits.length) * 100).toFixed(0) : 0}% completed`}
-          icon={CheckCircle}
-          variant="info"
-        />
-        
-        <StatsCard
-          title="Payment Split"
-          value={
-            <div className="flex flex-col gap-1">
-              <div className="text-3xl font-bold text-success">
-                {getCashVisits()} CASH
-              </div>
-              <div className="border-t border-border/30 pt-1"></div>
-              <div className="text-3xl font-bold text-info">
-                {getInsuranceVisits()} INS
+      {/* Enhanced Summary Cards with Better Shadows and Borders */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8 animate-fade-in">
+        <Card className="bg-gradient-to-br from-background to-muted/30 border-2 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-primary/10 rounded-lg">
+                <Calendar className="h-6 w-6 text-primary" />
               </div>
             </div>
-          }
-          subtitle="Payment Type Breakdown"
-          icon={Activity}
-          variant="warning"
-        />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Total Visits</p>
+              <p className="text-3xl font-bold text-foreground">{visits.length}</p>
+              <p className="text-xs text-muted-foreground">Recorded visits</p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-gradient-to-br from-background to-green-50 dark:to-green-950/20 border-2 border-green-200 dark:border-green-800 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                <Users className="h-6 w-6 text-green-600 dark:text-green-400" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Total Patients</p>
+              <p className="text-3xl font-bold text-green-700 dark:text-green-400">{getTotalPatients()}</p>
+              <p className="text-xs text-muted-foreground">Patients seen</p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-gradient-to-br from-background to-blue-50 dark:to-blue-950/20 border-2 border-blue-200 dark:border-blue-800 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                <CheckCircle className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Processed Visits</p>
+              <p className="text-3xl font-bold text-blue-700 dark:text-blue-400">{getProcessedCount()}/{visits.length}</p>
+              <p className="text-xs text-muted-foreground">{visits.length > 0 ? ((getProcessedCount() / visits.length) * 100).toFixed(0) : 0}% completed</p>
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-gradient-to-br from-background to-amber-50 dark:to-amber-950/20 border-2 border-amber-200 dark:border-amber-800 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-3 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                <Activity className="h-6 w-6 text-amber-600 dark:text-amber-400" />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-muted-foreground">Payment Split</p>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-green-600 dark:text-green-400">{getCashVisits()}</span>
+                <span className="text-sm text-muted-foreground">CASH</span>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="text-2xl font-bold text-blue-600 dark:text-blue-400">{getInsuranceVisits()}</span>
+                <span className="text-sm text-muted-foreground">INS</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Visits Dashboard with Tabs */}
+      {/* Visits Dashboard with Enhanced Tabs */}
       <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="space-y-6">
-        <div className="flex justify-between items-center mb-4">
-          <TabsList className="grid w-full max-w-2xl grid-cols-2">
-            <TabsTrigger value="unprocessed" className="flex items-center gap-2">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+          <TabsList className="grid w-full lg:w-auto lg:min-w-[500px] grid-cols-2 h-auto p-1.5 bg-muted/50 border-2 shadow-sm">
+            <TabsTrigger 
+              value="unprocessed" 
+              className="flex items-center gap-2 px-6 py-3 text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:border data-[state=active]:border-border transition-all duration-200"
+            >
               <Clock className="h-4 w-4" />
-              Unprocessed Visits ({visits.filter(v => !v.is_processed).length})
+              <span className="hidden sm:inline">Unprocessed Visits</span>
+              <span className="sm:hidden">Unprocessed</span>
+              <Badge variant="secondary" className="ml-1 font-bold">
+                {visits.filter(v => !v.is_processed).length}
+              </Badge>
             </TabsTrigger>
-            <TabsTrigger value="processed" className="flex items-center gap-2">
+            <TabsTrigger 
+              value="processed" 
+              className="flex items-center gap-2 px-6 py-3 text-sm font-semibold data-[state=active]:bg-background data-[state=active]:shadow-md data-[state=active]:border data-[state=active]:border-border transition-all duration-200"
+            >
               <CheckCircle className="h-4 w-4" />
-              Processed Visits ({visits.filter(v => v.is_processed).length})
+              <span className="hidden sm:inline">Processed Visits</span>
+              <span className="sm:hidden">Processed</span>
+              <Badge variant="secondary" className="ml-1 font-bold">
+                {visits.filter(v => v.is_processed).length}
+              </Badge>
             </TabsTrigger>
           </TabsList>
           
-          {/* Generate Report button aligned to right */}
-          <ReportGeneration
+          {/* Generate Report button with enhanced styling */}
+          <div className="w-full lg:w-auto">
+            <ReportGeneration
             title="Visit Management Report"
             data={visits}
             columns={[
@@ -1576,19 +1615,17 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
             ]}
             filename="visit_management_report"
           />
+          </div>
         </div>
 
         <TabsContent value="unprocessed" className="space-y-4">
-          {/* Enhanced Search Box with Gradient Border */}
-          <Card className="relative overflow-hidden">
-            {/* Gradient border effect */}
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 rounded-lg blur-sm" />
-            
-            <CardContent className="pt-6 relative bg-card">
+          {/* Enhanced Search Box with Better Visibility */}
+          <Card className="border-2 shadow-md bg-background">
+            <CardContent className="pt-6">
               <div className="flex flex-col gap-4">
-                {/* Enhanced Search Input */}
+                {/* Enhanced Search Input with Better Contrast */}
                 <div className="relative group">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors duration-300" />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors duration-300" />
                   <Input
                     type="text"
                     placeholder={
@@ -1598,7 +1635,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     }
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="h-12 pl-11 pr-10 text-base border-2 bg-background/50 backdrop-blur-sm focus-visible:ring-primary focus-visible:border-primary transition-all duration-300"
+                    className="h-14 pl-12 pr-12 text-base border-2 font-medium bg-background shadow-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary transition-all duration-300"
                   />
                   {searchQuery && (
                     <button
@@ -1606,21 +1643,26 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                         setSearchQuery('');
                         setSearchFilter('all');
                       }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-5 w-5" />
                     </button>
                   )}
                 </div>
                 
-                {/* Filter Buttons */}
-                <div className="flex flex-wrap gap-2 items-center">
-                  <span className="text-sm text-muted-foreground mr-2">Filter by:</span>
+                {/* Filter Buttons with Better Styling */}
+                <div className="flex flex-wrap gap-2 items-center p-3 bg-muted/30 rounded-lg border">
+                  <span className="text-sm font-semibold text-foreground mr-2">Filter by:</span>
                   <Button
                     variant={searchFilter === 'all' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSearchFilter('all')}
-                    className="transition-all duration-200"
+                    className={cn(
+                      "font-semibold transition-all duration-200 border-2",
+                      searchFilter === 'all' 
+                        ? "shadow-md" 
+                        : "hover:bg-accent hover:border-primary/50"
+                    )}
                   >
                     All Fields
                   </Button>
@@ -1628,7 +1670,12 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     variant={searchFilter === 'doctor_name' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSearchFilter('doctor_name')}
-                    className="transition-all duration-200"
+                    className={cn(
+                      "font-semibold transition-all duration-200 border-2",
+                      searchFilter === 'doctor_name' 
+                        ? "shadow-md" 
+                        : "hover:bg-accent hover:border-primary/50"
+                    )}
                   >
                     Doctor Name
                   </Button>
@@ -1636,7 +1683,12 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     variant={searchFilter === 'doctor_code' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSearchFilter('doctor_code')}
-                    className="transition-all duration-200"
+                    className={cn(
+                      "font-semibold transition-all duration-200 border-2",
+                      searchFilter === 'doctor_code' 
+                        ? "shadow-md" 
+                        : "hover:bg-accent hover:border-primary/50"
+                    )}
                   >
                     Doctor Code
                   </Button>
@@ -1644,7 +1696,12 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     variant={searchFilter === 'patient_name' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSearchFilter('patient_name')}
-                    className="transition-all duration-200"
+                    className={cn(
+                      "font-semibold transition-all duration-200 border-2",
+                      searchFilter === 'patient_name' 
+                        ? "shadow-md" 
+                        : "hover:bg-accent hover:border-primary/50"
+                    )}
                   >
                     Patient Name
                   </Button>
@@ -1652,7 +1709,12 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     variant={searchFilter === 'insurance_company' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSearchFilter('insurance_company')}
-                    className="transition-all duration-200"
+                    className={cn(
+                      "font-semibold transition-all duration-200 border-2",
+                      searchFilter === 'insurance_company' 
+                        ? "shadow-md" 
+                        : "hover:bg-accent hover:border-primary/50"
+                    )}
                   >
                     Insurance Company
                   </Button>
@@ -1806,16 +1868,13 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
         </TabsContent>
 
         <TabsContent value="processed" className="space-y-4">
-          {/* Enhanced Search Box with Gradient Border */}
-          <Card className="relative overflow-hidden">
-            {/* Gradient border effect */}
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/20 via-accent/20 to-primary/20 rounded-lg blur-sm" />
-            
-            <CardContent className="pt-6 relative bg-card">
+          {/* Enhanced Search Box with Better Visibility */}
+          <Card className="border-2 shadow-md bg-background">
+            <CardContent className="pt-6">
               <div className="flex flex-col gap-4">
-                {/* Enhanced Search Input */}
+                {/* Enhanced Search Input with Better Contrast */}
                 <div className="relative group">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors duration-300" />
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors duration-300" />
                   <Input
                     type="text"
                     placeholder={
@@ -1825,7 +1884,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     }
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="h-12 pl-11 pr-10 text-base border-2 bg-background/50 backdrop-blur-sm focus-visible:ring-primary focus-visible:border-primary transition-all duration-300"
+                    className="h-14 pl-12 pr-12 text-base border-2 font-medium bg-background shadow-sm focus-visible:ring-2 focus-visible:ring-primary focus-visible:border-primary transition-all duration-300"
                   />
                   {searchQuery && (
                     <button
@@ -1833,21 +1892,26 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                         setSearchQuery('');
                         setSearchFilter('all');
                       }}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-all"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-5 w-5" />
                     </button>
                   )}
                 </div>
                 
-                {/* Filter Buttons */}
-                <div className="flex flex-wrap gap-2 items-center">
-                  <span className="text-sm text-muted-foreground mr-2">Filter by:</span>
+                {/* Filter Buttons with Better Styling */}
+                <div className="flex flex-wrap gap-2 items-center p-3 bg-muted/30 rounded-lg border">
+                  <span className="text-sm font-semibold text-foreground mr-2">Filter by:</span>
                   <Button
                     variant={searchFilter === 'all' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSearchFilter('all')}
-                    className="transition-all duration-200"
+                    className={cn(
+                      "font-semibold transition-all duration-200 border-2",
+                      searchFilter === 'all' 
+                        ? "shadow-md" 
+                        : "hover:bg-accent hover:border-primary/50"
+                    )}
                   >
                     All Fields
                   </Button>
@@ -1855,7 +1919,12 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     variant={searchFilter === 'doctor_name' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSearchFilter('doctor_name')}
-                    className="transition-all duration-200"
+                    className={cn(
+                      "font-semibold transition-all duration-200 border-2",
+                      searchFilter === 'doctor_name' 
+                        ? "shadow-md" 
+                        : "hover:bg-accent hover:border-primary/50"
+                    )}
                   >
                     Doctor Name
                   </Button>
@@ -1863,7 +1932,12 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     variant={searchFilter === 'doctor_code' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSearchFilter('doctor_code')}
-                    className="transition-all duration-200"
+                    className={cn(
+                      "font-semibold transition-all duration-200 border-2",
+                      searchFilter === 'doctor_code' 
+                        ? "shadow-md" 
+                        : "hover:bg-accent hover:border-primary/50"
+                    )}
                   >
                     Doctor Code
                   </Button>
@@ -1871,7 +1945,12 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     variant={searchFilter === 'patient_name' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSearchFilter('patient_name')}
-                    className="transition-all duration-200"
+                    className={cn(
+                      "font-semibold transition-all duration-200 border-2",
+                      searchFilter === 'patient_name' 
+                        ? "shadow-md" 
+                        : "hover:bg-accent hover:border-primary/50"
+                    )}
                   >
                     Patient Name
                   </Button>
@@ -1879,7 +1958,12 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     variant={searchFilter === 'insurance_company' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setSearchFilter('insurance_company')}
-                    className="transition-all duration-200"
+                    className={cn(
+                      "font-semibold transition-all duration-200 border-2",
+                      searchFilter === 'insurance_company' 
+                        ? "shadow-md" 
+                        : "hover:bg-accent hover:border-primary/50"
+                    )}
                   >
                     Insurance Company
                   </Button>
