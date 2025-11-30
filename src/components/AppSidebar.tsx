@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  CreditCard, 
+  Wallet, 
   Clock,
   CheckCircle,
 } from 'lucide-react';
@@ -27,9 +27,9 @@ import { formatCurrency } from '@/lib/currency';
 import { isStaffRole } from '@/lib/staffUtils';
 
 interface NavigationStats {
-  pendingRequests: number;
-  pendingAmount: number;
   paidAmount: number;
+  unpaidAmount: number;
+  totalAmount: number;
 }
 
 interface AppSidebarProps {
@@ -41,34 +41,30 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const { userRole, userDesignation, userProfile } = useAuth();
   const { open } = useSidebar();
   const [stats, setStats] = useState<NavigationStats>({
-    pendingRequests: 0,
-    pendingAmount: 0,
-    paidAmount: 0
+    paidAmount: 0,
+    unpaidAmount: 0,
+    totalAmount: 0
   });
 
   const fetchStats = async () => {
     if (!(userRole === 'manager' || userRole === 'admin' || userDesignation === 'super_admin' || userDesignation === 'admin' || userDesignation === 'manager')) return;
     
     try {
-      const [visitsRes, transactionsRes, paymentsRes] = await Promise.all([
-        supabase.from('visits').select('visit_payment'),
-        supabase.from('payment_transactions').select('amount'),
-        supabase.from('payments').select('status').eq('status', 'pending')
+      const [paymentsRes, visitsRes] = await Promise.all([
+        supabase.from('payments').select('net_amount').eq('bank_advice_generated', true),
+        supabase.from('visits').select('visit_payment').eq('is_processed', false)
       ]);
 
-      const totalVisitAmount = (visitsRes.data || []).reduce((sum: number, v: any) => 
-        sum + (Number(v.visit_payment) || 0), 0);
+      const paidAmount = (paymentsRes.data || []).reduce((sum: number, p: any) => 
+        sum + (Number(p.net_amount) || 0), 0);
       
-      const totalPaidAmount = (transactionsRes.data || []).reduce((sum: number, t: any) => 
-        sum + (Number(t.amount) || 0), 0);
-
-      const pendingAmount = Math.max(0, totalVisitAmount - totalPaidAmount);
-      const pendingRequests = paymentsRes.data?.length || 0;
+      const unpaidAmount = (visitsRes.data || []).reduce((sum: number, v: any) => 
+        sum + (Number(v.visit_payment) || 0), 0);
 
       setStats({
-        pendingRequests,
-        pendingAmount,
-        paidAmount: totalPaidAmount
+        paidAmount,
+        unpaidAmount,
+        totalAmount: paidAmount + unpaidAmount
       });
     } catch (error) {
       console.error('Error fetching stats:', error);
@@ -129,51 +125,12 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {/* Payment Stats Section - Only for managers and admins */}
+        {/* Doctor Payments Section - Only for managers and admins */}
         {(userRole === 'manager' || userRole === 'admin' || userDesignation === 'super_admin' || userDesignation === 'admin' || userDesignation === 'manager') && (
           <SidebarGroup>
-            <SidebarGroupLabel>Payment Stats</SidebarGroupLabel>
+            <SidebarGroupLabel>Doctor Payments</SidebarGroupLabel>
             <SidebarGroupContent>
               <div className="space-y-2 px-2">
-                {/* Pending Requests */}
-                <Card className="bg-muted/50">
-                  <CardContent className="p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <Clock className="h-4 w-4 text-warning" />
-                        {!isCollapsed && (
-                          <span className="text-sm font-medium">Pending</span>
-                        )}
-                      </div>
-                      <Badge variant="secondary" className="text-xs">
-                        {stats.pendingRequests}
-                      </Badge>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Pending Amount */}
-                <Card className="bg-muted/50">
-                  <CardContent className="p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
-                        <CreditCard className="h-4 w-4 text-primary" />
-                        {!isCollapsed && (
-                          <span className="text-sm font-medium">Amount</span>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <div className="text-xs font-bold text-primary">
-                          {isCollapsed ? '₹' : formatCurrency(stats.pendingAmount).slice(0, 8)}
-                        </div>
-                        {!isCollapsed && (
-                          <div className="text-xs text-muted-foreground">Pending</div>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
                 {/* Paid Amount */}
                 <Card className="bg-muted/50">
                   <CardContent className="p-3">
@@ -188,9 +145,44 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                         <div className="text-xs font-bold text-green-600">
                           {isCollapsed ? '₹' : formatCurrency(stats.paidAmount).slice(0, 8)}
                         </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Unpaid Amount */}
+                <Card className="bg-muted/50">
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Clock className="h-4 w-4 text-warning" />
                         {!isCollapsed && (
-                          <div className="text-xs text-muted-foreground">Total</div>
+                          <span className="text-sm font-medium">Unpaid</span>
                         )}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs font-bold text-warning">
+                          {isCollapsed ? '₹' : formatCurrency(stats.unpaidAmount).slice(0, 8)}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Total Amount */}
+                <Card className="bg-muted/50">
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Wallet className="h-4 w-4 text-primary" />
+                        {!isCollapsed && (
+                          <span className="text-sm font-medium">Total</span>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs font-bold text-primary">
+                          {isCollapsed ? '₹' : formatCurrency(stats.totalAmount).slice(0, 8)}
+                        </div>
                       </div>
                     </div>
                   </CardContent>
