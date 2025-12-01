@@ -90,7 +90,8 @@ const StaffManagement = () => {
   const [departmentsMaster, setDepartmentsMaster] = useState<Array<{ id: string; department_code: string; department_name: string }>>([]);
 
   useEffect(() => {
-    if (userRole === 'admin' || userRole === 'super_admin' || userDesignation === 'super_admin') {
+    if (userRole === 'admin' || userRole === 'manager' || userRole === 'super_admin' || 
+        userDesignation === 'admin' || userDesignation === 'manager' || userDesignation === 'super_admin') {
       fetchStaff();
       fetchRolesMaster();
       fetchDepartmentsMaster();
@@ -969,7 +970,8 @@ const StaffManagement = () => {
     }
   };
 
-  if (!['admin', 'manager'].includes(userRole || '')) {
+  if (!['admin', 'manager', 'super_admin'].includes(userRole || '') && 
+      !['admin', 'manager', 'super_admin'].includes(userDesignation || '')) {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground">Access denied. Only admins and managers can manage staff.</p>
