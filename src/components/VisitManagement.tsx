@@ -90,7 +90,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingVisit, setEditingVisit] = useState<Visit | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [searchFilter, setSearchFilter] = useState<'all' | 'doctor_name' | 'doctor_code' | 'patient_name' | 'insurance_company'>('all');
+  const [searchFilter, setSearchFilter] = useState<'all' | 'doctor_name' | 'doctor_code' | 'patient_name' | 'insurance_company' | 'payment_type_cash' | 'payment_type_insurance'>('all');
   const [sortField, setSortField] = useState<'visit_date' | 'patient_name' | 'doctor_name'>('visit_date');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [activeSubTab, setActiveSubTab] = useState('unprocessed');
@@ -891,6 +891,14 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
 
   // Filter visits by search term and filter type
   const filterVisits = (visitList: Visit[], term: string, filter: typeof searchFilter) => {
+    // Handle payment type filters (no search term needed)
+    if (filter === 'payment_type_cash') {
+      return visitList.filter(visit => visit.payment_type === 'cash');
+    }
+    if (filter === 'payment_type_insurance') {
+      return visitList.filter(visit => visit.payment_type === 'insurance');
+    }
+    
     if (!term.trim()) return visitList;
     
     const lowerTerm = term.toLowerCase().trim();
@@ -922,6 +930,18 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
           );
       }
     });
+  };
+
+  // Handle click on doctor name in table to filter
+  const handleDoctorNameClick = (doctorName: string) => {
+    setSearchFilter('doctor_name');
+    setSearchQuery(doctorName);
+  };
+
+  // Handle click on payment type badge to filter
+  const handlePaymentTypeFilter = (paymentType: 'cash' | 'insurance') => {
+    setSearchFilter(paymentType === 'cash' ? 'payment_type_cash' : 'payment_type_insurance');
+    setSearchQuery('');
   };
 
   const getTotalPatients = () => {
@@ -1718,15 +1738,54 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                   >
                     Insurance Company
                   </Button>
+                  
+                  {/* Payment Type Filters */}
+                  <div className="h-6 w-px bg-border mx-1" />
+                  <span className="text-sm font-semibold text-foreground mr-1">Payment:</span>
+                  <Button
+                    variant={searchFilter === 'payment_type_cash' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      setSearchFilter('payment_type_cash');
+                      setSearchQuery('');
+                    }}
+                    className={cn(
+                      "font-semibold transition-all duration-200 border-2",
+                      searchFilter === 'payment_type_cash' 
+                        ? "shadow-md bg-green-600 hover:bg-green-700" 
+                        : "hover:bg-green-50 hover:border-green-500 dark:hover:bg-green-950"
+                    )}
+                  >
+                    Cash
+                  </Button>
+                  <Button
+                    variant={searchFilter === 'payment_type_insurance' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      setSearchFilter('payment_type_insurance');
+                      setSearchQuery('');
+                    }}
+                    className={cn(
+                      "font-semibold transition-all duration-200 border-2",
+                      searchFilter === 'payment_type_insurance' 
+                        ? "shadow-md bg-blue-600 hover:bg-blue-700" 
+                        : "hover:bg-blue-50 hover:border-blue-500 dark:hover:bg-blue-950"
+                    )}
+                  >
+                    Insurance
+                  </Button>
                 </div>
               
                 {/* Animated Search Results Count */}
-                {searchQuery && (
+                {(searchQuery || searchFilter === 'payment_type_cash' || searchFilter === 'payment_type_insurance') && (
                   <div className="flex items-center gap-2 text-sm">
                     <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
                     <span className="text-muted-foreground">
-                      Found <span className="font-semibold text-foreground">{filterVisits(visits.filter(v => !v.is_processed), searchQuery, searchFilter).length}</span> result
-                      {filterVisits(visits.filter(v => !v.is_processed), searchQuery, searchFilter).length !== 1 ? 's' : ''}
+                      {searchFilter === 'payment_type_cash' || searchFilter === 'payment_type_insurance' ? (
+                        <>Showing <span className="font-semibold text-foreground">{filterVisits(visits.filter(v => !v.is_processed), searchQuery, searchFilter).length}</span> {searchFilter === 'payment_type_cash' ? 'Cash' : 'Insurance'} visits</>
+                      ) : (
+                        <>Found <span className="font-semibold text-foreground">{filterVisits(visits.filter(v => !v.is_processed), searchQuery, searchFilter).length}</span> result{filterVisits(visits.filter(v => !v.is_processed), searchQuery, searchFilter).length !== 1 ? 's' : ''}</>
+                      )}
                     </span>
                   </div>
                 )}
@@ -1759,6 +1818,8 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     onEdit={(userRole === 'admin' || userRole === 'manager') ? handleEdit : undefined}
                     onDelete={(userRole === 'admin' || userRole === 'manager') ? handleDelete : undefined}
                     onPaymentTypeClick={handlePaymentTypeNavigation}
+                    onDoctorClick={handleDoctorNameClick}
+                    onPaymentTypeFilter={handlePaymentTypeFilter}
                     showActions={userRole === 'admin' || userRole === 'manager'}
                     sortField={sortField}
                     sortDirection={sortDirection}
@@ -1967,15 +2028,54 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                   >
                     Insurance Company
                   </Button>
+                  
+                  {/* Payment Type Filters */}
+                  <div className="h-6 w-px bg-border mx-1" />
+                  <span className="text-sm font-semibold text-foreground mr-1">Payment:</span>
+                  <Button
+                    variant={searchFilter === 'payment_type_cash' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      setSearchFilter('payment_type_cash');
+                      setSearchQuery('');
+                    }}
+                    className={cn(
+                      "font-semibold transition-all duration-200 border-2",
+                      searchFilter === 'payment_type_cash' 
+                        ? "shadow-md bg-green-600 hover:bg-green-700" 
+                        : "hover:bg-green-50 hover:border-green-500 dark:hover:bg-green-950"
+                    )}
+                  >
+                    Cash
+                  </Button>
+                  <Button
+                    variant={searchFilter === 'payment_type_insurance' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => {
+                      setSearchFilter('payment_type_insurance');
+                      setSearchQuery('');
+                    }}
+                    className={cn(
+                      "font-semibold transition-all duration-200 border-2",
+                      searchFilter === 'payment_type_insurance' 
+                        ? "shadow-md bg-blue-600 hover:bg-blue-700" 
+                        : "hover:bg-blue-50 hover:border-blue-500 dark:hover:bg-blue-950"
+                    )}
+                  >
+                    Insurance
+                  </Button>
                 </div>
               
                 {/* Animated Search Results Count */}
-                {searchQuery && (
+                {(searchQuery || searchFilter === 'payment_type_cash' || searchFilter === 'payment_type_insurance') && (
                   <div className="flex items-center gap-2 text-sm">
                     <div className="h-2 w-2 rounded-full bg-primary animate-pulse" />
                     <span className="text-muted-foreground">
-                      Found <span className="font-semibold text-foreground">{filterVisits(visits.filter(v => v.is_processed), searchQuery, searchFilter).length}</span> result
-                      {filterVisits(visits.filter(v => v.is_processed), searchQuery, searchFilter).length !== 1 ? 's' : ''}
+                      {searchFilter === 'payment_type_cash' || searchFilter === 'payment_type_insurance' ? (
+                        <>Showing <span className="font-semibold text-foreground">{filterVisits(visits.filter(v => v.is_processed), searchQuery, searchFilter).length}</span> {searchFilter === 'payment_type_cash' ? 'Cash' : 'Insurance'} visits</>
+                      ) : (
+                        <>Found <span className="font-semibold text-foreground">{filterVisits(visits.filter(v => v.is_processed), searchQuery, searchFilter).length}</span> result{filterVisits(visits.filter(v => v.is_processed), searchQuery, searchFilter).length !== 1 ? 's' : ''}</>
+                      )}
                     </span>
                   </div>
                 )}
@@ -2008,6 +2108,8 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                     onEdit={undefined}
                     onDelete={undefined}
                     onPaymentTypeClick={handlePaymentTypeNavigation}
+                    onDoctorClick={handleDoctorNameClick}
+                    onPaymentTypeFilter={handlePaymentTypeFilter}
                     showActions={false}
                     sortField={sortField}
                     sortDirection={sortDirection}
