@@ -37,6 +37,8 @@ interface VisitManagementTableProps {
   onEdit?: (visit: Visit) => void;
   onDelete?: (visitId: string) => void;
   onPaymentTypeClick?: (paymentType: 'cash' | 'insurance') => void;
+  onDoctorClick?: (doctorName: string) => void;
+  onPaymentTypeFilter?: (paymentType: 'cash' | 'insurance') => void;
   showActions?: boolean;
   sortField: 'visit_date' | 'patient_name' | 'doctor_name';
   sortDirection: 'asc' | 'desc';
@@ -48,6 +50,8 @@ export const VisitManagementTable: React.FC<VisitManagementTableProps> = ({
   onEdit,
   onDelete,
   onPaymentTypeClick,
+  onDoctorClick,
+  onPaymentTypeFilter,
   showActions = true,
   sortField,
   sortDirection,
@@ -87,10 +91,20 @@ export const VisitManagementTable: React.FC<VisitManagementTableProps> = ({
             <TableCell className="font-mono text-sm font-semibold">{visit.visit_code || '-'}</TableCell>
             <TableCell className="font-medium">{formatDateIST(visit.visit_date)}</TableCell>
             <TableCell>
-              <div>
-                <div className="font-medium">{visit.doctors.profiles.full_name}</div>
-                <div className="text-xs text-muted-foreground">{visit.doctors.doctor_code}</div>
-              </div>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div 
+                    className="cursor-pointer hover:bg-accent/50 rounded-md p-1 -m-1 transition-colors"
+                    onClick={() => onDoctorClick?.(visit.doctors.profiles.full_name)}
+                  >
+                    <div className="font-medium text-primary hover:underline">{visit.doctors.profiles.full_name}</div>
+                    <div className="text-xs text-muted-foreground">{visit.doctors.doctor_code}</div>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Click to filter by this doctor</p>
+                </TooltipContent>
+              </Tooltip>
             </TableCell>
             <TableCell>
               <div>
@@ -102,20 +116,32 @@ export const VisitManagementTable: React.FC<VisitManagementTableProps> = ({
               <Badge variant="outline">{visit.patient_count}</Badge>
             </TableCell>
             <TableCell>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Badge 
-                    variant={visit.payment_type === 'cash' ? 'default' : 'secondary'}
-                    className="cursor-pointer hover:opacity-80 transition-opacity"
-                    onClick={() => onPaymentTypeClick?.(visit.payment_type as 'cash' | 'insurance')}
+              <div className="flex flex-col gap-1">
+                {/* Navigate to payment management */}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Badge 
+                      variant={visit.payment_type === 'cash' ? 'default' : 'secondary'}
+                      className="cursor-pointer hover:opacity-80 transition-opacity"
+                      onClick={() => onPaymentTypeClick?.(visit.payment_type as 'cash' | 'insurance')}
+                    >
+                      {visit.payment_type === 'cash' ? 'Cash' : 'Insurance'}
+                    </Badge>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Click to go to {visit.payment_type === 'cash' ? 'Cash' : 'Insurance'} Payment Management</p>
+                  </TooltipContent>
+                </Tooltip>
+                {/* Filter by payment type */}
+                {onPaymentTypeFilter && (
+                  <button
+                    onClick={() => onPaymentTypeFilter(visit.payment_type as 'cash' | 'insurance')}
+                    className="text-xs text-muted-foreground hover:text-primary transition-colors underline"
                   >
-                    {visit.payment_type === 'cash' ? 'Cash' : 'Insurance'}
-                  </Badge>
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Click to go to {visit.payment_type === 'cash' ? 'Cash' : 'Insurance'} Payment Management</p>
-                </TooltipContent>
-              </Tooltip>
+                    Filter {visit.payment_type}
+                  </button>
+                )}
+              </div>
             </TableCell>
             <TableCell>
               {visit.payment_type === 'insurance' && visit.insurance_company_name ? (
