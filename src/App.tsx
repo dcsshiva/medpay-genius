@@ -6,7 +6,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/lib/auth";
 import { SessionTimeoutWrapper } from "@/components/SessionTimeoutWrapper";
 import { useEffect } from "react";
-import Landing from "./pages/Landing";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -50,7 +49,7 @@ const App = () => {
             <BrowserRouter>
               <SessionTimeoutWrapper>
                 <Routes>
-                  <Route path="/" element={<Landing />} />
+                  <Route path="/" element={<Auth />} />
                   <Route path="/dashboard" element={<Index />} />
                   <Route path="/auth" element={<Auth />} />
                   {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
