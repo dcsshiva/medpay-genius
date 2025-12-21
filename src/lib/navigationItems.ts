@@ -19,7 +19,8 @@ import {
   Zap,
   Building2,
   FolderOpen,
-  Stethoscope
+  Stethoscope,
+  BarChart3
 } from 'lucide-react';
 import { isStaffRole } from './staffUtils';
 
@@ -71,6 +72,7 @@ export const getNavigationItems = ({
       { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
       { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
       { id: 'login-reports', label: 'Login Reports', icon: TrendingUp },
+      { id: 'navigation-analytics', label: 'Navigation Analytics', icon: BarChart3 },
       { id: 'chat', label: 'Team Chat', icon: MessageSquare },
       { id: 'version', label: 'Version Management', icon: HistoryIcon },
       { id: 'website-settings', label: 'Website Settings', icon: Globe },
@@ -140,6 +142,7 @@ export const getNavigationItems = ({
       { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
       { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
       { id: 'login-reports', label: 'Login Reports', icon: TrendingUp },
+      { id: 'navigation-analytics', label: 'Navigation Analytics', icon: BarChart3 },
       { id: 'chat', label: 'Team Chat', icon: MessageSquare },
       { id: 'version', label: 'Version Management', icon: HistoryIcon },
       { id: 'website-settings', label: 'Website Settings', icon: Globe },

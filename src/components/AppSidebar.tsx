@@ -25,6 +25,7 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/currency';
 import { isStaffRole } from '@/lib/staffUtils';
+import { useNavigationTracking } from '@/hooks/useNavigationTracking';
 
 interface NavigationStats {
   paidAmount: number;
@@ -40,11 +41,17 @@ interface AppSidebarProps {
 export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const { userRole, userDesignation, userProfile } = useAuth();
   const { open } = useSidebar();
+  const { trackNavigation } = useNavigationTracking();
   const [stats, setStats] = useState<NavigationStats>({
     paidAmount: 0,
     unpaidAmount: 0,
     totalAmount: 0
   });
+
+  const handleNavigationClick = (item: { id: string; label: string }) => {
+    trackNavigation(item.id, item.label);
+    onTabChange(item.id);
+  };
 
   const fetchStats = async () => {
     if (!(userRole === 'manager' || userRole === 'admin' || userDesignation === 'super_admin' || userDesignation === 'admin' || userDesignation === 'manager')) return;
@@ -113,7 +120,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                     <SidebarMenuButton 
                       isActive={isActive}
                       tooltip={isCollapsed ? item.label : undefined}
-                      onClick={() => onTabChange(item.id)}
+                      onClick={() => handleNavigationClick(item)}
                     >
                       <Icon className="h-4 w-4" />
                       <span>{item.label}</span>

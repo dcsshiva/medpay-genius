@@ -581,6 +581,47 @@ export type Database = {
         }
         Relationships: []
       }
+      navigation_analytics: {
+        Row: {
+          clicked_at: string
+          created_at: string
+          id: string
+          navigation_id: string
+          navigation_name: string
+          staff_id: string | null
+          user_id: string
+          user_role: string | null
+        }
+        Insert: {
+          clicked_at?: string
+          created_at?: string
+          id?: string
+          navigation_id: string
+          navigation_name: string
+          staff_id?: string | null
+          user_id: string
+          user_role?: string | null
+        }
+        Update: {
+          clicked_at?: string
+          created_at?: string
+          id?: string
+          navigation_id?: string
+          navigation_name?: string
+          staff_id?: string | null
+          user_id?: string
+          user_role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "navigation_analytics_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       otp_verifications: {
         Row: {
           attempts: number | null

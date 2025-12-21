@@ -33,7 +33,7 @@ import BankAdviceGenerationBeta from '@/components/BankAdviceGenerationBeta';
 import BankAdviceReport from '@/components/BankAdviceReport';
 import BankAdviceReports from '@/components/BankAdviceReports';
 import DoctorHub from '@/components/DoctorHub';
-
+import NavigationAnalytics from '@/components/NavigationAnalytics';
 // Bank Advice Payment Report Component
 const Index = () => {
   const { user, loading, userProfile } = useAuth();
@@ -173,6 +173,8 @@ const Index = () => {
         return <LeavePermissionManagement />;
       case 'leave-approvals':
         return <ApprovalManagement />;
+      case 'navigation-analytics':
+        return <NavigationAnalytics />;
       case 'settings':
         return <Settings />;
       default:
