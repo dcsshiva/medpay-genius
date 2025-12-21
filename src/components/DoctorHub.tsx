@@ -487,6 +487,176 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
     );
   }
 
+  // Mobile view for admin/manager viewing all doctors
+  if (isMobile && !filterDoctorId) {
+    return (
+      <div className="space-y-4 p-4">
+        <div>
+          <h1 className="text-2xl font-bold">Doctor Hub</h1>
+          <p className="text-sm text-muted-foreground">Track payments and visits for all doctors (All Time)</p>
+        </div>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="text"
+            placeholder="Search by doctor name..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9 pr-9"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        {filteredAndSortedDoctors.length < doctors.length && (
+          <p className="text-xs text-muted-foreground">
+            Showing {filteredAndSortedDoctors.length} of {doctors.length} doctors
+          </p>
+        )}
+
+        {/* Doctor Cards */}
+        <div className="space-y-3">
+          {filteredAndSortedDoctors.map((doctor) => (
+            <Card key={doctor.id} className="overflow-hidden">
+              <CardContent className="p-4 space-y-3">
+                {/* Doctor Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="text-xs">{doctor.doctor_code}</Badge>
+                    <span className="font-semibold text-sm">{doctor.full_name}</span>
+                  </div>
+                </div>
+
+                {/* Amount Summary */}
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div className="bg-green-50 dark:bg-green-950 rounded-lg p-2">
+                    <div className="text-xs text-muted-foreground">Paid</div>
+                    <div className="font-bold text-green-600 text-sm">{formatCurrency(doctor.paid_amount)}</div>
+                    <div className="text-xs text-muted-foreground">{doctor.paid_count} payments</div>
+                  </div>
+                  <div className="bg-orange-50 dark:bg-orange-950 rounded-lg p-2">
+                    <div className="text-xs text-muted-foreground">Unpaid</div>
+                    <div className="font-bold text-orange-600 text-sm">{formatCurrency(doctor.unpaid_amount)}</div>
+                    <div className="text-xs text-muted-foreground">{doctor.unpaid_visits_count} visits</div>
+                  </div>
+                  <div className="bg-blue-50 dark:bg-blue-950 rounded-lg p-2">
+                    <div className="text-xs text-muted-foreground">Total</div>
+                    <div className="font-bold text-blue-600 text-sm">{formatCurrency(doctor.total_amount)}</div>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant={expandedDoctor === doctor.id && expandedTab === 'paid' ? 'default' : 'outline'}
+                    onClick={() => handleDoctorClick(doctor.id, 'paid')}
+                    className="flex-1 h-8 text-xs"
+                  >
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Paid
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={expandedDoctor === doctor.id && expandedTab === 'unpaid' ? 'default' : 'outline'}
+                    onClick={() => handleDoctorClick(doctor.id, 'unpaid')}
+                    className="flex-1 h-8 text-xs"
+                  >
+                    <Clock className="h-3 w-3 mr-1" />
+                    Unpaid
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={expandedDoctor === doctor.id && expandedTab === 'total' ? 'default' : 'outline'}
+                    onClick={() => handleDoctorClick(doctor.id, 'total')}
+                    className="flex-1 h-8 text-xs"
+                  >
+                    <Receipt className="h-3 w-3 mr-1" />
+                    All
+                  </Button>
+                </div>
+
+                {/* Expanded Details */}
+                {expandedDoctor === doctor.id && (
+                  <div className="pt-3 border-t space-y-3">
+                    {detailsLoading ? (
+                      <div className="text-center py-4">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary mx-auto"></div>
+                        <p className="mt-2 text-xs text-muted-foreground">Loading...</p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Paid History */}
+                        {(expandedTab === 'paid' || expandedTab === 'total') && paymentHistory.length > 0 && (
+                          <div>
+                            <h4 className="text-xs font-semibold text-green-600 mb-2">Payment History</h4>
+                            <div className="space-y-2 max-h-48 overflow-y-auto">
+                              {paymentHistory.map((payment) => (
+                                <div key={payment.id} className="bg-muted/50 rounded p-2 text-xs">
+                                  <div className="flex justify-between">
+                                    <span className="text-muted-foreground">
+                                      {formatDateIST(payment.period_start)} - {formatDateIST(payment.period_end)}
+                                    </span>
+                                    <span className="font-semibold text-green-600">{formatCurrency(payment.net_amount)}</span>
+                                  </div>
+                                  <div className="flex justify-between text-muted-foreground mt-1">
+                                    <span>Gross: {formatCurrency(payment.gross_amount)}</span>
+                                    <span>TDS: {formatCurrency(payment.tds_amount)}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Unpaid Visits */}
+                        {(expandedTab === 'unpaid' || expandedTab === 'total') && unpaidVisits.length > 0 && (
+                          <div>
+                            <h4 className="text-xs font-semibold text-orange-600 mb-2">Unpaid Visits</h4>
+                            <div className="space-y-2 max-h-48 overflow-y-auto">
+                              {unpaidVisits.map((visit) => (
+                                <div key={visit.id} className="bg-muted/50 rounded p-2 text-xs">
+                                  <div className="flex justify-between">
+                                    <span className="font-medium">{visit.visit_code}</span>
+                                    <span className="font-semibold text-orange-600">{formatCurrency(visit.visit_payment)}</span>
+                                  </div>
+                                  <div className="flex justify-between text-muted-foreground mt-1">
+                                    <span>{visit.patient_name}</span>
+                                    <span>{formatDateIST(visit.visit_date)}</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Empty states */}
+                        {expandedTab === 'paid' && paymentHistory.length === 0 && (
+                          <p className="text-xs text-center text-muted-foreground py-2">No payment history</p>
+                        )}
+                        {expandedTab === 'unpaid' && unpaidVisits.length === 0 && (
+                          <p className="text-xs text-center text-muted-foreground py-2">No unpaid visits</p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
