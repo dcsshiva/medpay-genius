@@ -1031,17 +1031,19 @@ const QuickPaymentManagement = () => {
   };
 
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="text-3xl font-bold mb-6">Quick Payment Management</h1>
+    <div className="container mx-auto p-4 md:p-6">
+      <h1 className="text-2xl md:text-3xl font-bold mb-4 md:mb-6">Quick Payment Management</h1>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="add-payment">Add Payment</TabsTrigger>
-          <TabsTrigger value="review">Review & Generate</TabsTrigger>
-          <TabsTrigger value="staff-bulk">Staff Bulk Payment</TabsTrigger>
-          <TabsTrigger value="staff-history">Staff Payment History</TabsTrigger>
-          <TabsTrigger value="history">Payment History</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+          <TabsList className="inline-flex w-auto min-w-full md:grid md:grid-cols-5 md:w-full gap-1">
+            <TabsTrigger value="add-payment" className="whitespace-nowrap text-xs md:text-sm px-3 md:px-4">Add Payment</TabsTrigger>
+            <TabsTrigger value="review" className="whitespace-nowrap text-xs md:text-sm px-3 md:px-4">Review</TabsTrigger>
+            <TabsTrigger value="staff-bulk" className="whitespace-nowrap text-xs md:text-sm px-3 md:px-4">Staff Bulk</TabsTrigger>
+            <TabsTrigger value="staff-history" className="whitespace-nowrap text-xs md:text-sm px-3 md:px-4">Staff History</TabsTrigger>
+            <TabsTrigger value="history" className="whitespace-nowrap text-xs md:text-sm px-3 md:px-4">History</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="add-payment" className="mt-6">
           <Card>
