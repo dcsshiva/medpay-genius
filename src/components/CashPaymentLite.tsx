@@ -7,7 +7,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/currency';
 import { cn, debounce } from '@/lib/utils';
-import { Calendar, CreditCard, Plus, RefreshCw, Search } from 'lucide-react';
+import { Calendar, CreditCard, Plus, RefreshCw, Search, Check } from 'lucide-react';
 import { formatDateIST, formatInputDateIST, getCurrentISTDate } from '@/lib/dateUtils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -15,6 +15,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Command,
   CommandEmpty,
@@ -43,6 +45,7 @@ interface Visit {
 const CashPaymentLite = () => {
   const { userRole, user } = useAuth();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [visits, setVisits] = useState<Visit[]>([]);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -348,21 +351,21 @@ const CashPaymentLite = () => {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Cash Payments (Lite)</h1>
-          <p className="text-muted-foreground">Select visits by date range to create payment advices</p>
-        </div>
+    <div className="space-y-4 md:space-y-6">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-xl md:text-3xl font-bold text-foreground">Cash Payments (Lite)</h1>
+        <p className="text-sm md:text-base text-muted-foreground">Select visits by date range to create payment advices</p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="create">Create Payment Advice</TabsTrigger>
-          <TabsTrigger value="manage">Manage Payments</TabsTrigger>
-        </TabsList>
+        <ScrollArea className="w-full">
+          <TabsList className="inline-flex w-max md:w-full h-auto p-1">
+            <TabsTrigger value="create" className="whitespace-nowrap text-xs md:text-sm px-3 py-2">Create Payment Advice</TabsTrigger>
+            <TabsTrigger value="manage" className="whitespace-nowrap text-xs md:text-sm px-3 py-2">Manage Payments</TabsTrigger>
+          </TabsList>
+        </ScrollArea>
 
-        <TabsContent value="create" className="space-y-4">
+        <TabsContent value="create" className="space-y-4 mt-4">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -409,37 +412,41 @@ const CashPaymentLite = () => {
               {/* Optional Filter Section */}
               <div className="space-y-3 pt-4 border-t">
                 <Label className="text-sm font-medium">Filter by (Optional)</Label>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5 md:gap-2">
                   <Button
                     variant={searchField === 'all' ? 'default' : 'outline'}
                     size="sm"
+                    className="text-xs md:text-sm h-8"
                     onClick={() => {
                       setSearchField('all');
                       setSearchTerm('');
                     }}
                   >
-                    All Visits
+                    All
                   </Button>
                   <Button
                     variant={searchField === 'doctor_name' ? 'default' : 'outline'}
                     size="sm"
+                    className="text-xs md:text-sm h-8"
                     onClick={() => setSearchField('doctor_name')}
                   >
-                    Doctor Name
+                    Doctor
                   </Button>
                   <Button
                     variant={searchField === 'doctor_code' ? 'default' : 'outline'}
                     size="sm"
+                    className="text-xs md:text-sm h-8"
                     onClick={() => setSearchField('doctor_code')}
                   >
-                    Doctor Code
+                    Code
                   </Button>
                   <Button
                     variant={searchField === 'patient_name' ? 'default' : 'outline'}
                     size="sm"
+                    className="text-xs md:text-sm h-8"
                     onClick={() => setSearchField('patient_name')}
                   >
-                    Patient Name
+                    Patient
                   </Button>
                 </div>
                 
@@ -518,110 +525,155 @@ const CashPaymentLite = () => {
           {visits.length > 0 && (
             <>
               <Card>
-                <CardContent className="pt-6">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="text-center p-4 bg-muted/50 rounded-lg">
-                      <p className="text-sm text-muted-foreground">Selected Visits</p>
-                      <p className="text-2xl font-bold text-foreground">{selectedVisitIds.size}</p>
+                <CardContent className="pt-4 md:pt-6">
+                  <div className="grid grid-cols-3 gap-2 md:gap-4">
+                    <div className="text-center p-2 md:p-4 bg-muted/50 rounded-lg">
+                      <p className="text-xs md:text-sm text-muted-foreground">Selected</p>
+                      <p className="text-lg md:text-2xl font-bold text-foreground">{selectedVisitIds.size}</p>
                     </div>
-                    <div className="text-center p-4 bg-muted/50 rounded-lg">
-                      <p className="text-sm text-muted-foreground">Total Amount</p>
-                      <p className="text-2xl font-bold text-primary">{formatCurrency(totalSelectedAmount)}</p>
+                    <div className="text-center p-2 md:p-4 bg-muted/50 rounded-lg">
+                      <p className="text-xs md:text-sm text-muted-foreground">Amount</p>
+                      <p className="text-base md:text-2xl font-bold text-primary">{formatCurrency(totalSelectedAmount)}</p>
                     </div>
-                    <div className="text-center p-4 bg-muted/50 rounded-lg">
-                      <p className="text-sm text-muted-foreground">Doctors Involved</p>
-                      <p className="text-2xl font-bold text-foreground">{uniqueDoctorCount}</p>
+                    <div className="text-center p-2 md:p-4 bg-muted/50 rounded-lg">
+                      <p className="text-xs md:text-sm text-muted-foreground">Doctors</p>
+                      <p className="text-lg md:text-2xl font-bold text-foreground">{uniqueDoctorCount}</p>
                     </div>
                   </div>
 
-                  <div className="flex gap-2 mt-4">
-                    <Button variant="outline" onClick={handleSelectAll} className="flex-1">
-                      Select All
-                    </Button>
-                    <Button variant="outline" onClick={handleClearAll} className="flex-1">
-                      Clear All
-                    </Button>
+                  <div className="flex flex-col md:flex-row gap-2 mt-4">
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={handleSelectAll} className="flex-1 text-xs md:text-sm">
+                        Select All
+                      </Button>
+                      <Button variant="outline" size="sm" onClick={handleClearAll} className="flex-1 text-xs md:text-sm">
+                        Clear
+                      </Button>
+                    </div>
                     <Button 
                       onClick={handleCreatePaymentAdvices} 
                       disabled={selectedVisitIds.size === 0 || submitting}
-                      className="flex-1"
+                      className="flex-1 text-xs md:text-sm"
+                      size="sm"
                     >
-                      <Plus className="h-4 w-4 mr-2" />
-                      {submitting ? 'Creating...' : `Create ${uniqueDoctorCount > 0 ? `${uniqueDoctorCount} ` : ''}Payment Advice${uniqueDoctorCount > 1 ? 's' : ''}`}
+                      <Plus className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+                      {submitting ? 'Creating...' : `Create ${uniqueDoctorCount > 0 ? `${uniqueDoctorCount} ` : ''}Advice${uniqueDoctorCount > 1 ? 's' : ''}`}
                     </Button>
                   </div>
                 </CardContent>
               </Card>
 
               <Card>
-                <CardHeader>
-                  <CardTitle>Unprocessed Cash Visits ({visits.length})</CardTitle>
+                <CardHeader className="py-3 md:py-6">
+                  <CardTitle className="text-base md:text-lg">Unprocessed Cash Visits ({visits.length})</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="rounded-md border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-12">
-                            <Checkbox 
-                              checked={selectedVisitIds.size === visits.length && visits.length > 0}
-                              onCheckedChange={(checked) => {
-                                if (checked) {
-                                  handleSelectAll();
-                                } else {
-                                  handleClearAll();
-                                }
-                              }}
-                            />
-                          </TableHead>
-                          <TableHead>Visit Code</TableHead>
-                          <TableHead>Date</TableHead>
-                          <TableHead>Doctor</TableHead>
-                          <TableHead>Patient</TableHead>
-                          <TableHead className="text-center">Count</TableHead>
-                          <TableHead>Reason</TableHead>
-                          <TableHead className="text-right">Amount</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {visits.map(visit => (
-                          <TableRow
-                            key={visit.id}
-                            className={cn(
-                              "cursor-pointer transition-colors",
-                              selectedVisitIds.has(visit.id) && "bg-primary/10"
-                            )}
-                            onClick={() => handleToggleVisit(visit.id)}
-                          >
-                            <TableCell onClick={(e) => e.stopPropagation()}>
+                <CardContent className="p-2 md:p-6">
+                  {/* Mobile Card View */}
+                  {isMobile ? (
+                    <div className="space-y-2">
+                      {visits.map(visit => (
+                        <div
+                          key={visit.id}
+                          className={cn(
+                            "p-3 rounded-lg border cursor-pointer transition-colors",
+                            selectedVisitIds.has(visit.id) ? "bg-primary/10 border-primary/30" : "bg-card"
+                          )}
+                          onClick={() => handleToggleVisit(visit.id)}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex items-center gap-2">
                               <Checkbox 
                                 checked={selectedVisitIds.has(visit.id)}
                                 onCheckedChange={() => handleToggleVisit(visit.id)}
+                                onClick={(e) => e.stopPropagation()}
                               />
-                            </TableCell>
-                            <TableCell className="font-mono text-sm">{visit.visit_code}</TableCell>
-                            <TableCell>{formatDateIST(visit.visit_date)}</TableCell>
-                            <TableCell>
-                              <div className="flex flex-col">
-                                <span className="font-medium">{visit.doctors.full_name}</span>
-                                <span className="text-sm text-muted-foreground">{visit.doctors.doctor_code}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className="font-medium text-sm truncate">{visit.doctors.full_name}</p>
+                                <p className="text-xs text-muted-foreground">{visit.doctors.doctor_code}</p>
                               </div>
-                            </TableCell>
-                            <TableCell>{visit.patient_name}</TableCell>
-                            <TableCell className="text-center">{visit.patient_count}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline" className="capitalize">
-                                {visit.visit_reason.replace(/_/g, ' ')}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="text-right font-medium">
-                              {formatCurrency(visit.visit_payment)}
-                            </TableCell>
+                            </div>
+                            <p className="font-bold text-primary text-sm">{formatCurrency(visit.visit_payment)}</p>
+                          </div>
+                          <div className="mt-2 pl-6 grid grid-cols-2 gap-1 text-xs">
+                            <div>
+                              <span className="text-muted-foreground">Patient: </span>
+                              <span className="font-medium">{visit.patient_name}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Date: </span>
+                              <span>{formatDateIST(visit.visit_date)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    /* Desktop Table View */
+                    <div className="rounded-md border">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-12">
+                              <Checkbox 
+                                checked={selectedVisitIds.size === visits.length && visits.length > 0}
+                                onCheckedChange={(checked) => {
+                                  if (checked) {
+                                    handleSelectAll();
+                                  } else {
+                                    handleClearAll();
+                                  }
+                                }}
+                              />
+                            </TableHead>
+                            <TableHead>Visit Code</TableHead>
+                            <TableHead>Date</TableHead>
+                            <TableHead>Doctor</TableHead>
+                            <TableHead>Patient</TableHead>
+                            <TableHead className="text-center">Count</TableHead>
+                            <TableHead>Reason</TableHead>
+                            <TableHead className="text-right">Amount</TableHead>
                           </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+                        </TableHeader>
+                        <TableBody>
+                          {visits.map(visit => (
+                            <TableRow
+                              key={visit.id}
+                              className={cn(
+                                "cursor-pointer transition-colors",
+                                selectedVisitIds.has(visit.id) && "bg-primary/10"
+                              )}
+                              onClick={() => handleToggleVisit(visit.id)}
+                            >
+                              <TableCell onClick={(e) => e.stopPropagation()}>
+                                <Checkbox 
+                                  checked={selectedVisitIds.has(visit.id)}
+                                  onCheckedChange={() => handleToggleVisit(visit.id)}
+                                />
+                              </TableCell>
+                              <TableCell className="font-mono text-sm">{visit.visit_code}</TableCell>
+                              <TableCell>{formatDateIST(visit.visit_date)}</TableCell>
+                              <TableCell>
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{visit.doctors.full_name}</span>
+                                  <span className="text-sm text-muted-foreground">{visit.doctors.doctor_code}</span>
+                                </div>
+                              </TableCell>
+                              <TableCell>{visit.patient_name}</TableCell>
+                              <TableCell className="text-center">{visit.patient_count}</TableCell>
+                              <TableCell>
+                                <Badge variant="outline" className="capitalize">
+                                  {visit.visit_reason.replace(/_/g, ' ')}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-right font-medium">
+                                {formatCurrency(visit.visit_payment)}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </>

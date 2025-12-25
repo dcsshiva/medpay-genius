@@ -1031,8 +1031,8 @@ const QuickPaymentManagement = () => {
   };
 
   return (
-    <div className="container mx-auto p-4 md:p-6">
-      <h1 className="text-2xl md:text-3xl font-bold mb-4 md:mb-6">Quick Payment Management</h1>
+    <div className="container mx-auto p-2 md:p-6">
+      <h1 className="text-xl md:text-3xl font-bold mb-4 md:mb-6">Quick Payment Management</h1>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <ScrollArea className="w-full">
