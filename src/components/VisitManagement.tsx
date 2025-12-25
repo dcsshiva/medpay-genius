@@ -978,25 +978,27 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 md:space-y-6">
       {/* Header Section */}
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4 mb-4 md:mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Visit Management</h1>
-          <p className="text-muted-foreground mt-1">Record and manage patient visits</p>
+          <h1 className="text-xl md:text-3xl font-bold text-foreground">Visit Management</h1>
+          <p className="text-sm md:text-base text-muted-foreground mt-1">Record and manage patient visits</p>
         </div>
         
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {/* Import/Export Buttons */}
           {(userRole === 'admin' || userRole === 'manager') && (
             <>
               <Button
                 variant="outline"
+                size={isMobile ? "sm" : "default"}
                 onClick={handleDownloadTemplate}
                 disabled={doctors.length === 0 || insuranceCompanies.length === 0 || visitReasons.length === 0}
+                className="text-xs md:text-sm"
               >
-                <Download className="h-4 w-4 mr-2" />
-                Download Template
+                <Download className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+                {isMobile ? "Template" : "Download Template"}
               </Button>
               
               <Dialog open={importDialogOpen} onOpenChange={setImportDialogOpen}>
@@ -1066,26 +1068,29 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
               
               <Button
                 variant="outline"
+                size={isMobile ? "sm" : "default"}
                 onClick={exportVisitsToExcel}
                 disabled={visits.length === 0}
+                className="text-xs md:text-sm"
               >
-                <Download className="h-4 w-4 mr-2" />
-                Export Visits
+                <Download className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+                {isMobile ? "Export" : "Export Visits"}
               </Button>
             </>
           )}
           
           {(userRole === 'admin' || userRole === 'manager' || userRole === 'doctor') && (
             <Button 
-              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs md:text-sm"
+              size={isMobile ? "sm" : "default"}
               onClick={() => {
                 resetForm();
                 setEditingVisit(null);
                 setDialogOpen(true);
               }}
             >
-              <Plus className="h-4 w-4 mr-2" />
-              Record Visit
+              <Plus className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+              {isMobile ? "Record" : "Record Visit"}
             </Button>
           )}
         </div>
