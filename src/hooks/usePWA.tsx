@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -10,15 +10,20 @@ interface PWAState {
   isInstalled: boolean;
   isOnline: boolean;
   isUpdateAvailable: boolean;
+  isCheckingForUpdates: boolean;
+  lastUpdateCheck: Date | null;
 }
 
 export const usePWA = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [swRegistration, setSwRegistration] = useState<ServiceWorkerRegistration | null>(null);
   const [state, setState] = useState<PWAState>({
     isInstallable: false,
     isInstalled: false,
     isOnline: navigator.onLine,
-    isUpdateAvailable: false
+    isUpdateAvailable: false,
+    isCheckingForUpdates: false,
+    lastUpdateCheck: null
   });
 
   useEffect(() => {
@@ -50,6 +55,25 @@ export const usePWA = () => {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
+    // Get service worker registration
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then((registration) => {
+        setSwRegistration(registration);
+        
+        // Listen for updates
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                setState(prev => ({ ...prev, isUpdateAvailable: true }));
+              }
+            });
+          }
+        });
+      });
+    }
+
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
       window.removeEventListener('appinstalled', handleAppInstalled);
@@ -77,8 +101,70 @@ export const usePWA = () => {
     }
   };
 
+  const checkForUpdates = useCallback(async (): Promise<boolean> => {
+    setState(prev => ({ ...prev, isCheckingForUpdates: true }));
+    
+    try {
+      if (swRegistration) {
+        await swRegistration.update();
+        setState(prev => ({ 
+          ...prev, 
+          isCheckingForUpdates: false,
+          lastUpdateCheck: new Date()
+        }));
+        
+        // Check if there's a waiting worker (update available)
+        if (swRegistration.waiting) {
+          setState(prev => ({ ...prev, isUpdateAvailable: true }));
+          return true;
+        }
+        return false;
+      } else if ('serviceWorker' in navigator) {
+        // Try to get registration if not already set
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (registration) {
+          await registration.update();
+          setSwRegistration(registration);
+          setState(prev => ({ 
+            ...prev, 
+            isCheckingForUpdates: false,
+            lastUpdateCheck: new Date()
+          }));
+          
+          if (registration.waiting) {
+            setState(prev => ({ ...prev, isUpdateAvailable: true }));
+            return true;
+          }
+        }
+      }
+      
+      setState(prev => ({ 
+        ...prev, 
+        isCheckingForUpdates: false,
+        lastUpdateCheck: new Date()
+      }));
+      return false;
+    } catch (error) {
+      console.error('Error checking for updates:', error);
+      setState(prev => ({ ...prev, isCheckingForUpdates: false }));
+      return false;
+    }
+  }, [swRegistration]);
+
+  const applyUpdate = useCallback(() => {
+    if (swRegistration?.waiting) {
+      swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      window.location.reload();
+    } else {
+      // No waiting worker, just reload
+      window.location.reload();
+    }
+  }, [swRegistration]);
+
   return {
     ...state,
-    installApp
+    installApp,
+    checkForUpdates,
+    applyUpdate
   };
 };
