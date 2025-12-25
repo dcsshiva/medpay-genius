@@ -3,6 +3,7 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { execSync } from 'child_process';
+import { VitePWA } from 'vite-plugin-pwa';
 
 // Get build info at build time
 const getBuildInfo = () => {
@@ -36,8 +37,70 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
-      mode === 'development' &&
-      componentTagger(),
+      mode === 'development' && componentTagger(),
+      VitePWA({
+        registerType: 'autoUpdate',
+        includeAssets: ['westmed-favicon.png', 'robots.txt'],
+        manifest: {
+          name: 'WestMed Hospital - Payment Management System',
+          short_name: 'WestMed',
+          description: 'WestMed Hospital Management System - World-Class Healthcare to All',
+          theme_color: '#e8f3eb',
+          background_color: '#ffffff',
+          display: 'standalone',
+          orientation: 'portrait',
+          scope: '/',
+          start_url: '/',
+          icons: [
+            {
+              src: '/pwa-192x192.png',
+              sizes: '192x192',
+              type: 'image/png'
+            },
+            {
+              src: '/pwa-512x512.png',
+              sizes: '512x512',
+              type: 'image/png'
+            },
+            {
+              src: '/pwa-512x512.png',
+              sizes: '512x512',
+              type: 'image/png',
+              purpose: 'any maskable'
+            }
+          ]
+        },
+        workbox: {
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
+          runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+              handler: 'NetworkFirst',
+              options: {
+                cacheName: 'supabase-cache',
+                expiration: {
+                  maxEntries: 100,
+                  maxAgeSeconds: 60 * 60 * 24 // 24 hours
+                },
+                cacheableResponse: {
+                  statuses: [0, 200]
+                }
+              }
+            },
+            {
+              urlPattern: /\.(png|jpg|jpeg|svg|gif|webp)$/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'images-cache',
+                expiration: {
+                  maxEntries: 50,
+                  maxAgeSeconds: 60 * 60 * 24 * 30 // 30 days
+                }
+              }
+            }
+          ]
+        }
+      })
     ].filter(Boolean),
     resolve: {
       alias: {
