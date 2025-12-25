@@ -17,14 +17,19 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/lib/auth';
-import { Settings as SettingsIcon, Shield, Eye, Users, Lock, Trash2, AlertTriangle, Mail } from 'lucide-react';
+import { Settings as SettingsIcon, Shield, Eye, Users, Lock, Trash2, AlertTriangle, Mail, Smartphone, RefreshCw, Download, Check, Info } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { UserAccessManagement } from './UserAccessManagement';
 import { AuthEmailSync } from './AuthEmailSync';
+import { usePWA } from '@/hooks/usePWA';
+import { useVersionInfo } from '@/hooks/useVersionInfo';
+import { formatDateTimeIST } from '@/lib/dateUtils';
 
 const Settings = () => {
   const { userRole, userDesignation, signOut } = useAuth();
+  const { isInstallable, isInstalled, installApp, checkForUpdates, isCheckingForUpdates, isUpdateAvailable, applyUpdate, lastUpdateCheck } = usePWA();
+  const versionInfo = useVersionInfo();
   const [isEraseDialogOpen, setIsEraseDialogOpen] = useState(false);
   const [isErasing, setIsErasing] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
@@ -126,6 +131,130 @@ const Settings = () => {
         </TabsList>
 
         <TabsContent value="general" className="space-y-6">
+
+      {/* App Version & Updates */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Smartphone className="h-5 w-5" />
+            App Version & Updates
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Version Info */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 bg-muted/50 rounded-lg text-center">
+              <p className="text-sm text-muted-foreground mb-1">Version</p>
+              <p className="text-xl font-bold text-foreground">{versionInfo.version}</p>
+            </div>
+            <div className="p-4 bg-muted/50 rounded-lg text-center">
+              <p className="text-sm text-muted-foreground mb-1">Environment</p>
+              <Badge variant={versionInfo.environment === 'production' ? 'default' : 'secondary'}>
+                {versionInfo.environment}
+              </Badge>
+            </div>
+            <div className="p-4 bg-muted/50 rounded-lg text-center">
+              <p className="text-sm text-muted-foreground mb-1">Build</p>
+              <p className="text-sm font-mono text-foreground">{versionInfo.gitCommit.slice(0, 7)}</p>
+            </div>
+          </div>
+
+          {/* Installation Status */}
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div className="flex items-center gap-3">
+              <Download className="h-5 w-5 text-primary" />
+              <div>
+                <h4 className="font-medium">App Installation</h4>
+                <p className="text-sm text-muted-foreground">
+                  {isInstalled ? 'WestMed is installed on your device' : 'Install for faster access and offline support'}
+                </p>
+              </div>
+            </div>
+            {isInstalled ? (
+              <Badge variant="default" className="bg-emerald-600">
+                <Check className="h-3 w-3 mr-1" />
+                Installed
+              </Badge>
+            ) : isInstallable ? (
+              <Button size="sm" onClick={async () => {
+                const success = await installApp();
+                if (success) {
+                  toast.success('App installed successfully!');
+                }
+              }}>
+                <Download className="h-4 w-4 mr-2" />
+                Install
+              </Button>
+            ) : (
+              <Badge variant="outline">Browser Only</Badge>
+            )}
+          </div>
+
+          {/* Update Check */}
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div className="flex items-center gap-3">
+              <RefreshCw className="h-5 w-5 text-primary" />
+              <div>
+                <h4 className="font-medium">Software Updates</h4>
+                <p className="text-sm text-muted-foreground">
+                  {lastUpdateCheck 
+                    ? `Last checked: ${formatDateTimeIST(lastUpdateCheck.toISOString())}` 
+                    : 'Check for the latest version'
+                  }
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={async () => {
+                  const hasUpdate = await checkForUpdates();
+                  if (hasUpdate) {
+                    toast.success('Update available! Click "Apply Update" to install.');
+                  } else {
+                    toast.info('You are running the latest version.');
+                  }
+                }}
+                disabled={isCheckingForUpdates}
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isCheckingForUpdates ? 'animate-spin' : ''}`} />
+                {isCheckingForUpdates ? 'Checking...' : 'Check'}
+              </Button>
+              {isUpdateAvailable && (
+                <Button size="sm" onClick={applyUpdate} className="bg-emerald-600 hover:bg-emerald-700">
+                  Apply Update
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Update Status Banner */}
+          {isUpdateAvailable && (
+            <div className="p-4 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+              <div className="flex items-center gap-3">
+                <Info className="h-5 w-5 text-emerald-600" />
+                <div>
+                  <h4 className="font-medium text-emerald-800 dark:text-emerald-200">Update Available</h4>
+                  <p className="text-sm text-emerald-700 dark:text-emerald-300">
+                    A new version is ready to install. Click "Apply Update" to refresh and get the latest features.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Build Details */}
+          <div className="mt-4 p-4 bg-muted rounded-lg">
+            <h4 className="font-medium text-sm mb-2">Build Details:</h4>
+            <ul className="text-sm text-muted-foreground space-y-1">
+              <li>• Build Date: {versionInfo.buildDate}</li>
+              <li>• Branch: {versionInfo.branch}</li>
+              <li>• Commit: {versionInfo.gitCommit}</li>
+            </ul>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Task Visibility Settings */}
       <Card>

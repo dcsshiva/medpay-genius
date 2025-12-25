@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { Mail } from "lucide-react";
+import { usePWA } from "@/hooks/usePWA";
+import { useVersionInfo } from "@/hooks/useVersionInfo";
+import { Mail, Download, RefreshCw, Check, Smartphone } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { supabase } from "@/integrations/supabase/client";
 import westmedBanner from "@/assets/westmed-banner.png";
@@ -18,6 +20,8 @@ const Auth: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { signInWithOTP, verifyOTP, user } = useAuth();
+  const { isInstallable, isInstalled, installApp, checkForUpdates, isCheckingForUpdates, isUpdateAvailable, applyUpdate } = usePWA();
+  const versionInfo = useVersionInfo();
 
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState<string>("");
@@ -411,6 +415,82 @@ const Auth: React.FC = () => {
               </div>
             </CardContent>
           </Card>
+
+          {/* PWA Install & Update Section */}
+          <div className="mt-4 space-y-2">
+            {/* Install App Button */}
+            {isInstallable && !isInstalled && (
+              <Button
+                variant="outline"
+                className="w-full bg-white/90 hover:bg-white text-foreground"
+                onClick={async () => {
+                  const success = await installApp();
+                  if (success) {
+                    toast({
+                      title: "App Installed!",
+                      description: "WestMed has been added to your home screen.",
+                    });
+                  }
+                }}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Install WestMed App
+              </Button>
+            )}
+
+            {/* App Already Installed */}
+            {isInstalled && (
+              <div className="flex items-center justify-center gap-2 text-white/80 text-sm">
+                <Check className="h-4 w-4" />
+                <span>App Installed</span>
+              </div>
+            )}
+
+            {/* Check for Updates Button */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1 bg-white/80 hover:bg-white text-foreground text-xs"
+                onClick={async () => {
+                  const hasUpdate = await checkForUpdates();
+                  if (hasUpdate) {
+                    toast({
+                      title: "Update Available!",
+                      description: "Click 'Apply Update' to get the latest version.",
+                    });
+                  } else {
+                    toast({
+                      title: "You're up to date!",
+                      description: "No updates available at this time.",
+                    });
+                  }
+                }}
+                disabled={isCheckingForUpdates}
+              >
+                <RefreshCw className={`h-3 w-3 mr-1 ${isCheckingForUpdates ? 'animate-spin' : ''}`} />
+                {isCheckingForUpdates ? 'Checking...' : 'Check Updates'}
+              </Button>
+
+              {isUpdateAvailable && (
+                <Button
+                  size="sm"
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                  onClick={applyUpdate}
+                >
+                  Apply Update
+                </Button>
+              )}
+            </div>
+
+            {/* Version Display */}
+            <div className="text-center text-white/60 text-xs">
+              <p>Version {versionInfo.version}</p>
+              {versionInfo.environment !== 'production' && (
+                <p className="text-white/40">Build: {versionInfo.gitCommit.slice(0, 7)}</p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
