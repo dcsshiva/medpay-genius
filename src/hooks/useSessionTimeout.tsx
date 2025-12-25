@@ -3,6 +3,7 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { toISOStringIST } from '@/lib/dateUtils';
+import { usePWA } from '@/hooks/usePWA';
 
 interface SessionTimeoutConfig {
   staff: 600; // 10 minutes
@@ -21,6 +22,7 @@ interface TimeoutState {
 export const useSessionTimeout = () => {
   const { user, userRole, signOut } = useAuth();
   const { toast } = useToast();
+  const { isInstalled: isPWAInstalled } = usePWA();
   const [timeoutState, setTimeoutState] = useState<TimeoutState>({
     isWarningShown: false,
     isActive: false,
@@ -80,6 +82,16 @@ export const useSessionTimeout = () => {
 
   // Check session status from Supabase
   const checkSessionStatus = useCallback(async () => {
+    // Skip timeout checks for PWA installed users - they stay logged in until manual logout
+    if (isPWAInstalled) {
+      setTimeoutState(prev => ({
+        ...prev,
+        isActive: true,
+        remainingTime: 9999 // Large number to indicate no timeout
+      }));
+      return;
+    }
+
     if (!user) return;
 
     const sessionToken = window.sessionStorage.getItem('supabase_session_token');
@@ -223,6 +235,9 @@ export const useSessionTimeout = () => {
 
   // Activity event handlers
   const resetTimeout = useCallback(() => {
+    // Skip timeout reset for PWA installed users
+    if (isPWAInstalled) return;
+    
     if (!user) return;
     
     updateActivity();
@@ -231,11 +246,17 @@ export const useSessionTimeout = () => {
     if (activityTimeoutRef.current) clearTimeout(activityTimeoutRef.current);
     if (warningTimeoutRef.current) clearTimeout(warningTimeoutRef.current);
     if (finalTimeoutRef.current) clearTimeout(finalTimeoutRef.current);
-  }, [user, updateActivity]);
+  }, [user, updateActivity, isPWAInstalled]);
 
   // Setup activity listeners
   useEffect(() => {
     if (!user) return;
+    
+    // Skip session timeout completely for PWA installed users
+    if (isPWAInstalled) {
+      console.log('PWA installed - session timeout disabled, user stays logged in until manual logout');
+      return;
+    }
 
     const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
     
@@ -259,7 +280,7 @@ export const useSessionTimeout = () => {
       if (finalTimeoutRef.current) clearTimeout(finalTimeoutRef.current);
       if (sessionCheckIntervalRef.current) clearInterval(sessionCheckIntervalRef.current);
     };
-  }, [user, resetTimeout, checkSessionStatus, updateActivity]);
+  }, [user, resetTimeout, checkSessionStatus, updateActivity, isPWAInstalled]);
 
   return {
     timeoutState,

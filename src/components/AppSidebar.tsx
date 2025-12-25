@@ -26,6 +26,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/currency';
 import { isStaffRole } from '@/lib/staffUtils';
 import { useNavigationTracking } from '@/hooks/useNavigationTracking';
+import { NotificationCenter } from '@/components/NotificationCenter';
 
 interface NavigationStats {
   paidAmount: number;
@@ -95,14 +96,17 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   return (
     <Sidebar className="border-r">
       <SidebarHeader className="border-b p-4">
-        <div className="flex items-center space-x-3">
-          <img src={westmedLogo} alt="WestMed Hospital" className="h-8 w-8" />
-          {!isCollapsed && (
-            <div>
-              <h1 className="text-lg font-bold">WestMed</h1>
-              <p className="text-xs text-muted-foreground">Hospital System</p>
-            </div>
-          )}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <img src={westmedLogo} alt="WestMed Hospital" className="h-8 w-8" />
+            {!isCollapsed && (
+              <div>
+                <h1 className="text-lg font-bold">WestMed</h1>
+                <p className="text-xs text-muted-foreground">Hospital System</p>
+              </div>
+            )}
+          </div>
+          {!isCollapsed && <NotificationCenter onNavigate={onTabChange} />}
         </div>
       </SidebarHeader>
 
