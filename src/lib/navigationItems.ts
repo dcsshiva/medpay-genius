@@ -157,6 +157,7 @@ export const getNavigationItems = ({
       { id: 'leave-permission', label: 'Leave & Permission', icon: CalendarCheck },
       { id: 'tasks', label: 'My Tasks', icon: ClipboardList },
       { id: 'complaints', label: 'Complaints', icon: MessageCircle },
+      { id: 'chat', label: 'Team Chat', icon: MessageSquare },
     ];
   }
 

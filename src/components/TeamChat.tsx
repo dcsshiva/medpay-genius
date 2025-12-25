@@ -15,7 +15,7 @@ interface Message {
   content: string;
   sender_id: string;
   sender_name: string;
-  sender_role: 'admin' | 'manager' | 'doctor' | 'staff';
+  sender_role: string;
   created_at: string;
   updated_at: string;
   is_edited: boolean;
@@ -69,6 +69,11 @@ const TeamChat = () => {
 
     setSending(true);
     try {
+      // Map non-standard roles to 'staff' for database compatibility
+      const dbRole = ['admin', 'manager', 'doctor'].includes(userRole) 
+        ? userRole as 'admin' | 'manager' | 'doctor'
+        : 'staff' as const;
+
       const { error } = await supabase
         .from('messages')
         .insert([
@@ -76,7 +81,7 @@ const TeamChat = () => {
             content: newMessage.trim(),
             sender_id: user.id,
             sender_name: user.user_metadata?.full_name || user.email || 'Unknown',
-            sender_role: userRole as 'admin' | 'manager' | 'doctor',
+            sender_role: dbRole,
           }
         ]);
 
@@ -116,6 +121,12 @@ const TeamChat = () => {
         return 'bg-destructive/10 text-destructive';
       case 'manager':
         return 'bg-westmed-teal/10 text-westmed-teal';
+      case 'doctor':
+        return 'bg-primary/10 text-primary';
+      case 'nurse':
+      case 'technician':
+      case 'receptionist':
+        return 'bg-info/10 text-info';
       default:
         return 'bg-success/10 text-success';
     }
@@ -131,8 +142,8 @@ const TeamChat = () => {
   };
 
   useEffect(() => {
-    // Only allow admins and managers to access chat
-    if (!userRole || !['admin', 'manager'].includes(userRole)) {
+    // Allow all authenticated users to access chat
+    if (!userRole) {
       return;
     }
 
@@ -174,16 +185,16 @@ const TeamChat = () => {
     };
   }, [userRole]);
 
-  // Show access denied for non-admin/manager users
-  if (!userRole || !['admin', 'manager'].includes(userRole)) {
+  // Show login prompt for unauthenticated users
+  if (!userRole) {
     return (
       <div className="container mx-auto p-6">
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Users className="h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Access Restricted</h3>
+            <h3 className="text-lg font-semibold mb-2">Login Required</h3>
             <p className="text-muted-foreground text-center">
-              Team chat is only available for administrators and managers.
+              Please log in to access the team chat.
             </p>
           </CardContent>
         </Card>
@@ -192,15 +203,15 @@ const TeamChat = () => {
   }
 
   return (
-    <div className="container mx-auto p-6 max-w-4xl">
-      <Card className="h-[80vh] flex flex-col">
-        <CardHeader className="flex-shrink-0">
-          <CardTitle className="flex items-center gap-2">
+    <div className="container mx-auto p-4 md:p-6 max-w-4xl">
+      <Card className="h-[calc(100vh-8rem)] md:h-[80vh] flex flex-col">
+        <CardHeader className="flex-shrink-0 p-4 md:p-6">
+          <CardTitle className="flex items-center gap-2 text-lg md:text-xl">
             <MessageCircle className="h-5 w-5" />
             Team Chat
           </CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Secure communication for administrators and managers
+          <p className="text-xs md:text-sm text-muted-foreground">
+            Team communication channel
           </p>
         </CardHeader>
         
