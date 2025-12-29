@@ -49,6 +49,7 @@ import { useWebsiteSettings } from '@/hooks/useWebsiteSettings';
 import { formatDateTimeIST } from '@/lib/dateUtils';
 import { StaffBulkPaymentTab } from './quick-payment/StaffBulkPaymentTab';
 import { StaffPaymentHistoryTab } from './quick-payment/StaffPaymentHistoryTab';
+import { PaginationControls } from '@/components/ui/pagination-controls';
 
 interface QuickPaymentType {
   id: string;
@@ -158,6 +159,14 @@ const QuickPaymentManagement = () => {
   const [autoFilledFromHistory, setAutoFilledFromHistory] = useState(false);
   const [loadingBankDetails, setLoadingBankDetails] = useState(false);
   
+  // Pagination state
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyRecordsPerPage, setHistoryRecordsPerPage] = useState<number | 'all'>(20);
+  const [pendingPage, setPendingPage] = useState(1);
+  const [pendingRecordsPerPage, setPendingRecordsPerPage] = useState<number | 'all'>(20);
+  const [generatedPage, setGeneratedPage] = useState(1);
+  const [generatedRecordsPerPage, setGeneratedRecordsPerPage] = useState<number | 'all'>(20);
+  
   const [formData, setFormData] = useState({
     name: '',
     mobile_number: '',
@@ -179,6 +188,11 @@ const QuickPaymentManagement = () => {
     fetchVendors();
     fetchStaffMembers();
   }, []);
+
+  // Reset history page when filters change
+  useEffect(() => {
+    setHistoryPage(1);
+  }, [searchTerm, statusFilter, dateFilter]);
 
   // Calculate TDS and net amount when gross amount or TDS percentage changes
   useEffect(() => {
@@ -818,6 +832,33 @@ const QuickPaymentManagement = () => {
   };
 
   const filteredPayments = getFilteredPayments();
+
+  // Paginated data
+  const getPaginatedData = <T,>(data: T[], page: number, perPage: number | 'all'): T[] => {
+    if (perPage === 'all') return data;
+    const startIndex = (page - 1) * perPage;
+    return data.slice(startIndex, startIndex + perPage);
+  };
+
+  const paginatedPending = getPaginatedData(pendingPayments, pendingPage, pendingRecordsPerPage);
+  const paginatedGenerated = getPaginatedData(generatedPayments, generatedPage, generatedRecordsPerPage);
+  const paginatedHistory = getPaginatedData(filteredPayments, historyPage, historyRecordsPerPage);
+
+  // Reset page when filters change
+  const handleHistoryRecordsPerPageChange = (value: number | 'all') => {
+    setHistoryRecordsPerPage(value);
+    setHistoryPage(1);
+  };
+
+  const handlePendingRecordsPerPageChange = (value: number | 'all') => {
+    setPendingRecordsPerPage(value);
+    setPendingPage(1);
+  };
+
+  const handleGeneratedRecordsPerPageChange = (value: number | 'all') => {
+    setGeneratedRecordsPerPage(value);
+    setGeneratedPage(1);
+  };
 
   // Document preview functions
   const handleViewDocument = async (payment: QuickPayment) => {
@@ -1506,59 +1547,77 @@ const QuickPaymentManagement = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {pendingPayments.map((payment) => (
-                      <TableRow key={payment.id}>
-                        <TableCell>
-                          <Checkbox
-                            checked={selectedPayments.includes(payment.id)}
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                setSelectedPayments([...selectedPayments, payment.id]);
-                              } else {
-                                setSelectedPayments(selectedPayments.filter(id => id !== payment.id));
-                              }
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell className="font-medium">{payment.name}</TableCell>
-                        <TableCell>{payment.mobile_number}</TableCell>
-                        <TableCell>{payment.quick_payment_types.type_name}</TableCell>
-                        <TableCell>{formatCurrency(payment.gross_amount)}</TableCell>
-                        <TableCell>{payment.tds_percentage}%</TableCell>
-                        <TableCell className="font-semibold">{formatCurrency(payment.net_amount)}</TableCell>
-                        <TableCell>{payment.bank_name || '-'}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex gap-2 justify-end">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                setSelectedPayment(payment);
-                                setViewDialogOpen(true);
-                              }}
-                            >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => openEditDialog(payment)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleDelete(payment.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
+                    {paginatedPending.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                          No pending payments
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      paginatedPending.map((payment) => (
+                        <TableRow key={payment.id}>
+                          <TableCell>
+                            <Checkbox
+                              checked={selectedPayments.includes(payment.id)}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedPayments([...selectedPayments, payment.id]);
+                                } else {
+                                  setSelectedPayments(selectedPayments.filter(id => id !== payment.id));
+                                }
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium">{payment.name}</TableCell>
+                          <TableCell>{payment.mobile_number}</TableCell>
+                          <TableCell>{payment.quick_payment_types.type_name}</TableCell>
+                          <TableCell>{formatCurrency(payment.gross_amount)}</TableCell>
+                          <TableCell>{payment.tds_percentage}%</TableCell>
+                          <TableCell className="font-semibold">{formatCurrency(payment.net_amount)}</TableCell>
+                          <TableCell>{payment.bank_name || '-'}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex gap-2 justify-end">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  setSelectedPayment(payment);
+                                  setViewDialogOpen(true);
+                                }}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => openEditDialog(payment)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDelete(payment.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
+                {pendingPayments.length > 0 && (
+                  <PaginationControls
+                    totalRecords={pendingPayments.length}
+                    recordsPerPage={pendingRecordsPerPage}
+                    currentPage={pendingPage}
+                    onPageChange={setPendingPage}
+                    onRecordsPerPageChange={handlePendingRecordsPerPageChange}
+                    className="mt-4"
+                  />
+                )}
               </CardContent>
             </Card>
 
@@ -1582,31 +1641,49 @@ const QuickPaymentManagement = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {generatedPayments.map((payment) => (
-                      <TableRow key={payment.id}>
-                        <TableCell className="font-medium">{payment.name}</TableCell>
-                        <TableCell>{payment.mobile_number}</TableCell>
-                        <TableCell>{payment.quick_payment_types.type_name}</TableCell>
-                        <TableCell>{formatCurrency(payment.net_amount)}</TableCell>
-                        <TableCell>{payment.bank_name || '-'}</TableCell>
-                        <TableCell className="text-sm">{payment.bank_advice_reference}</TableCell>
-                        <TableCell>{formatDateTimeIST(payment.created_at)}</TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              setSelectedPayment(payment);
-                              setViewDialogOpen(true);
-                            }}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
+                    {paginatedGenerated.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                          No generated bank advices
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ) : (
+                      paginatedGenerated.map((payment) => (
+                        <TableRow key={payment.id}>
+                          <TableCell className="font-medium">{payment.name}</TableCell>
+                          <TableCell>{payment.mobile_number}</TableCell>
+                          <TableCell>{payment.quick_payment_types.type_name}</TableCell>
+                          <TableCell>{formatCurrency(payment.net_amount)}</TableCell>
+                          <TableCell>{payment.bank_name || '-'}</TableCell>
+                          <TableCell className="text-sm">{payment.bank_advice_reference}</TableCell>
+                          <TableCell>{formatDateTimeIST(payment.created_at)}</TableCell>
+                          <TableCell className="text-right">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setSelectedPayment(payment);
+                                setViewDialogOpen(true);
+                              }}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
+                {generatedPayments.length > 0 && (
+                  <PaginationControls
+                    totalRecords={generatedPayments.length}
+                    recordsPerPage={generatedRecordsPerPage}
+                    currentPage={generatedPage}
+                    onPageChange={setGeneratedPage}
+                    onRecordsPerPageChange={handleGeneratedRecordsPerPageChange}
+                    className="mt-4"
+                  />
+                )}
               </CardContent>
             </Card>
           </div>
@@ -1678,10 +1755,14 @@ const QuickPaymentManagement = () => {
                 </Select>
               </div>
 
-              {/* Results Summary */}
-              <div className="text-sm text-muted-foreground">
-                Showing {filteredPayments.length} of {payments.length} payments
-              </div>
+              {/* Pagination Controls */}
+              <PaginationControls
+                totalRecords={filteredPayments.length}
+                recordsPerPage={historyRecordsPerPage}
+                currentPage={historyPage}
+                onPageChange={setHistoryPage}
+                onRecordsPerPageChange={handleHistoryRecordsPerPageChange}
+              />
 
               {/* History Table */}
               <div className="border rounded-md">
@@ -1702,7 +1783,7 @@ const QuickPaymentManagement = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredPayments.length === 0 ? (
+                    {paginatedHistory.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={11} className="text-center py-8 text-muted-foreground">
                           {searchTerm || statusFilter !== 'all' || dateFilter !== 'all' 
@@ -1711,7 +1792,7 @@ const QuickPaymentManagement = () => {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredPayments.map((payment) => (
+                      paginatedHistory.map((payment) => (
                         <TableRow key={payment.id}>
                           <TableCell className="text-sm">
                             {formatDateTimeIST(payment.created_at)}
