@@ -104,6 +104,7 @@ export type Database = {
           id: string
           payment_count: number
           payment_ids: Json
+          payment_mode: string | null
           reconciled_at: string | null
           reconciled_by: string | null
           reconciliation_notes: string | null
@@ -124,6 +125,7 @@ export type Database = {
           id?: string
           payment_count: number
           payment_ids?: Json
+          payment_mode?: string | null
           reconciled_at?: string | null
           reconciled_by?: string | null
           reconciliation_notes?: string | null
@@ -144,6 +146,7 @@ export type Database = {
           id?: string
           payment_count?: number
           payment_ids?: Json
+          payment_mode?: string | null
           reconciled_at?: string | null
           reconciled_by?: string | null
           reconciliation_notes?: string | null
@@ -885,6 +888,9 @@ export type Database = {
           cash_approved_at: string | null
           cash_approved_by: string | null
           cash_rejection_reason: string | null
+          cheque_bank_name: string | null
+          cheque_date: string | null
+          cheque_number: string | null
           created_at: string
           doctor_id: string
           gross_amount: number | null
@@ -901,6 +907,7 @@ export type Database = {
           marked_suspect_by: string | null
           net_amount: number | null
           paid_amount: number | null
+          payment_mode: string | null
           payment_notes: string | null
           period_end: string
           period_start: string
@@ -931,6 +938,9 @@ export type Database = {
           cash_approved_at?: string | null
           cash_approved_by?: string | null
           cash_rejection_reason?: string | null
+          cheque_bank_name?: string | null
+          cheque_date?: string | null
+          cheque_number?: string | null
           created_at?: string
           doctor_id: string
           gross_amount?: number | null
@@ -947,6 +957,7 @@ export type Database = {
           marked_suspect_by?: string | null
           net_amount?: number | null
           paid_amount?: number | null
+          payment_mode?: string | null
           payment_notes?: string | null
           period_end: string
           period_start: string
@@ -977,6 +988,9 @@ export type Database = {
           cash_approved_at?: string | null
           cash_approved_by?: string | null
           cash_rejection_reason?: string | null
+          cheque_bank_name?: string | null
+          cheque_date?: string | null
+          cheque_number?: string | null
           created_at?: string
           doctor_id?: string
           gross_amount?: number | null
@@ -993,6 +1007,7 @@ export type Database = {
           marked_suspect_by?: string | null
           net_amount?: number | null
           paid_amount?: number | null
+          payment_mode?: string | null
           payment_notes?: string | null
           period_end?: string
           period_start?: string
@@ -1123,6 +1138,7 @@ export type Database = {
           id: string
           payment_count: number
           payment_ids: Json
+          payment_mode: string | null
           reconciled_at: string | null
           reconciled_by: string | null
           reconciliation_notes: string | null
@@ -1145,6 +1161,7 @@ export type Database = {
           id?: string
           payment_count: number
           payment_ids?: Json
+          payment_mode?: string | null
           reconciled_at?: string | null
           reconciled_by?: string | null
           reconciliation_notes?: string | null
@@ -1167,6 +1184,7 @@ export type Database = {
           id?: string
           payment_count?: number
           payment_ids?: Json
+          payment_mode?: string | null
           reconciled_at?: string | null
           reconciled_by?: string | null
           reconciliation_notes?: string | null
@@ -1231,6 +1249,9 @@ export type Database = {
           bank_advice_reference: string | null
           bank_name: string | null
           branch_name: string | null
+          cheque_bank_name: string | null
+          cheque_date: string | null
+          cheque_number: string | null
           created_at: string
           created_by: string | null
           gross_amount: number
@@ -1240,6 +1261,7 @@ export type Database = {
           mobile_number: string
           name: string
           net_amount: number | null
+          payment_mode: string | null
           payment_notes: string | null
           payment_type_id: string | null
           supporting_document_name: string | null
@@ -1259,6 +1281,9 @@ export type Database = {
           bank_advice_reference?: string | null
           bank_name?: string | null
           branch_name?: string | null
+          cheque_bank_name?: string | null
+          cheque_date?: string | null
+          cheque_number?: string | null
           created_at?: string
           created_by?: string | null
           gross_amount?: number
@@ -1268,6 +1293,7 @@ export type Database = {
           mobile_number: string
           name: string
           net_amount?: number | null
+          payment_mode?: string | null
           payment_notes?: string | null
           payment_type_id?: string | null
           supporting_document_name?: string | null
@@ -1287,6 +1313,9 @@ export type Database = {
           bank_advice_reference?: string | null
           bank_name?: string | null
           branch_name?: string | null
+          cheque_bank_name?: string | null
+          cheque_date?: string | null
+          cheque_number?: string | null
           created_at?: string
           created_by?: string | null
           gross_amount?: number
@@ -1296,6 +1325,7 @@ export type Database = {
           mobile_number?: string
           name?: string
           net_amount?: number | null
+          payment_mode?: string | null
           payment_notes?: string | null
           payment_type_id?: string | null
           supporting_document_name?: string | null
@@ -1622,6 +1652,7 @@ export type Database = {
           id: string
           payment_count: number
           payment_ids: Json
+          payment_mode: string | null
           reconciled_at: string | null
           reconciled_by: string | null
           reconciliation_notes: string | null
@@ -1642,6 +1673,7 @@ export type Database = {
           id?: string
           payment_count: number
           payment_ids?: Json
+          payment_mode?: string | null
           reconciled_at?: string | null
           reconciled_by?: string | null
           reconciliation_notes?: string | null
@@ -1662,6 +1694,7 @@ export type Database = {
           id?: string
           payment_count?: number
           payment_ids?: Json
+          payment_mode?: string | null
           reconciled_at?: string | null
           reconciled_by?: string | null
           reconciliation_notes?: string | null

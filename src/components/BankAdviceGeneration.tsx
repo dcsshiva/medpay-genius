@@ -14,6 +14,7 @@ import { FileText, IndianRupee, TrendingUp, DollarSign, Download, Filter, X, Eye
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateIST, toIST } from '@/lib/dateUtils';
+import { PaymentModeDialog, PaymentMode, ChequeDetails } from '@/components/PaymentModeDialog';
 
 interface UnifiedBankAdvicePayment {
   id: string;
@@ -61,6 +62,7 @@ const BankAdviceGeneration = () => {
   } | null>(null);
   const [isPreviewDialogOpen, setIsPreviewDialogOpen] = useState(false);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [paymentModeDialogOpen, setPaymentModeDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchAllPendingPayments();
@@ -375,16 +377,19 @@ const BankAdviceGeneration = () => {
     setSearchTerm('');
   };
 
-  const generateBankAdvice = async () => {
+  const handleOpenPaymentModeDialog = () => {
     if (selectedPayments.length === 0) {
       toast({
         title: 'No Payments Selected',
-        description: 'Please select at least one payment to generate bank advice',
+        description: 'Please select at least one payment to process',
         variant: 'destructive',
       });
       return;
     }
+    setPaymentModeDialogOpen(true);
+  };
 
+  const handlePaymentModeConfirm = async (mode: PaymentMode, chequeDetails?: ChequeDetails) => {
     if (!websiteSettings) {
       toast({
         title: 'Error',
@@ -395,74 +400,14 @@ const BankAdviceGeneration = () => {
     }
 
     setGenerating(true);
+    setPaymentModeDialogOpen(false);
 
     try {
-      // Generate filename: DDMMYY-X.txt
       const today = new Date();
       const dd = String(today.getDate()).padStart(2, '0');
       const mm = String(today.getMonth() + 1).padStart(2, '0');
       const yy = String(today.getFullYear()).slice(-2);
-      
-      // Get sequence number
-      const { data: historyData, error: historyError } = await supabase
-        .from('bank_advice_history')
-        .select('filename')
-        .ilike('filename', `${dd}${mm}${yy}-%`)
-        .order('created_at', { ascending: false })
-        .limit(1);
 
-      let sequenceNumber = 1;
-      if (historyData && historyData.length > 0) {
-        const lastFilename = historyData[0].filename;
-        const match = lastFilename.match(/-(\d+)\.txt$/);
-        if (match) {
-          sequenceNumber = parseInt(match[1]) + 1;
-        }
-      }
-
-      const filename = `${dd}${mm}${yy}-${sequenceNumber}.txt`;
-
-      // Build GEFU format
-      const institutionCode = websiteSettings.hospital_institution_code || 'WESTMED';
-      const hospitalAccount = websiteSettings.hospital_bank_account_number || '';
-      const hospitalName = websiteSettings.hospital_name || 'WESTMED HOSPITAL';
-      const hospitalAddress = websiteSettings.hospital_institution_address || '';
-      // Parse address - use the full address or split by commas
-      const addressParts = hospitalAddress.split(',').map(s => s.trim());
-      const address1 = addressParts[0] || '';
-      const address2 = addressParts[1] || '';
-      const address3 = addressParts[2] || '';
-
-      let gefuContent = '';
-      
-      // Header
-      gefuContent += `H~${dd}/${mm}/20${yy}~${institutionCode}\n`;
-
-      // Detail lines
-      let totalNetAmount = 0;
-      selectedPayments.forEach((payment, index) => {
-        const seq = String(index + 1).padStart(6, '0');
-        const netAmount = payment.net_amount.toFixed(2);
-        totalNetAmount += payment.net_amount;
-
-        gefuContent += `D~N06~${hospitalAccount}~${hospitalName}~${address1}~${address2}~${address3}~${payment.ifsc_code}~${payment.bank_account_number}~${payment.account_holder_name}~~~~~${seq}~${dd}/${mm}/20${yy}~${netAmount}~${seq}~~~~\n`;
-      });
-
-      // Footer
-      gefuContent += `F~${selectedPayments.length}~${totalNetAmount.toFixed(2)}\n`;
-
-      // Download file
-      const blob = new Blob([gefuContent], { type: 'text/plain' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-
-      // Update databases
       const doctorPaymentIds = selectedPayments
         .filter((p) => p.source_table === 'payments')
         .map((p) => p.id);
@@ -471,15 +416,82 @@ const BankAdviceGeneration = () => {
         .filter((p) => p.source_table === 'quick_payments')
         .map((p) => p.id);
 
+      let filename = '';
+      let gefuContent = '';
+      const totalNetAmount = selectedPayments.reduce((sum, p) => sum + p.net_amount, 0);
+
+      if (mode === 'bank') {
+        // Generate GEFU file for bank transfer
+        const { data: historyData } = await supabase
+          .from('bank_advice_history')
+          .select('filename')
+          .ilike('filename', `${dd}${mm}${yy}-%`)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        let sequenceNumber = 1;
+        if (historyData && historyData.length > 0) {
+          const lastFilename = historyData[0].filename;
+          const match = lastFilename.match(/-(\d+)\.txt$/);
+          if (match) {
+            sequenceNumber = parseInt(match[1]) + 1;
+          }
+        }
+
+        filename = `${dd}${mm}${yy}-${sequenceNumber}.txt`;
+
+        const institutionCode = websiteSettings.hospital_institution_code || 'WESTMED';
+        const hospitalAccount = websiteSettings.hospital_bank_account_number || '';
+        const hospitalName = websiteSettings.hospital_name || 'WESTMED HOSPITAL';
+        const hospitalAddress = websiteSettings.hospital_institution_address || '';
+        const addressParts = hospitalAddress.split(',').map(s => s.trim());
+        const address1 = addressParts[0] || '';
+        const address2 = addressParts[1] || '';
+        const address3 = addressParts[2] || '';
+
+        gefuContent = `H~${dd}/${mm}/20${yy}~${institutionCode}\n`;
+
+        selectedPayments.forEach((payment, index) => {
+          const seq = String(index + 1).padStart(6, '0');
+          const netAmount = payment.net_amount.toFixed(2);
+          gefuContent += `D~N06~${hospitalAccount}~${hospitalName}~${address1}~${address2}~${address3}~${payment.ifsc_code}~${payment.bank_account_number}~${payment.account_holder_name}~~~~~${seq}~${dd}/${mm}/20${yy}~${netAmount}~${seq}~~~~\n`;
+        });
+
+        gefuContent += `F~${selectedPayments.length}~${totalNetAmount.toFixed(2)}\n`;
+
+        // Download file
+        const blob = new Blob([gefuContent], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      } else {
+        // For cash and cheque, just create a reference
+        filename = `${mode.toUpperCase()}-${dd}${mm}${yy}-${Date.now()}`;
+      }
+
       // Update payments table
       if (doctorPaymentIds.length > 0) {
+        const updateData: any = {
+          bank_advice_generated: true,
+          bank_advice_generated_at: new Date().toISOString(),
+          bank_advice_generated_by: user?.id,
+          payment_mode: mode,
+        };
+
+        if (mode === 'cheque' && chequeDetails) {
+          updateData.cheque_number = chequeDetails.cheque_number;
+          updateData.cheque_date = chequeDetails.cheque_date;
+          updateData.cheque_bank_name = chequeDetails.cheque_bank_name;
+        }
+
         const { error: updatePaymentsError } = await supabase
           .from('payments')
-          .update({
-            bank_advice_generated: true,
-            bank_advice_generated_at: new Date().toISOString(),
-            bank_advice_generated_by: user?.id,
-          })
+          .update(updateData)
           .in('id', doctorPaymentIds);
 
         if (updatePaymentsError) throw updatePaymentsError;
@@ -488,7 +500,7 @@ const BankAdviceGeneration = () => {
         const { error: historyInsertError } = await supabase
           .from('bank_advice_history')
           .insert({
-            filename,
+            filename: filename || `${mode.toUpperCase()}-${dd}${mm}${yy}`,
             generation_date: today.toISOString().split('T')[0],
             payment_count: doctorPaymentIds.length,
             total_amount: selectedPayments
@@ -496,7 +508,8 @@ const BankAdviceGeneration = () => {
               .reduce((sum, p) => sum + p.net_amount, 0),
             payment_ids: doctorPaymentIds,
             generated_by: user?.id,
-            file_content: gefuContent,
+            file_content: mode === 'bank' ? gefuContent : null,
+            payment_mode: mode,
           });
 
         if (historyInsertError) throw historyInsertError;
@@ -504,14 +517,23 @@ const BankAdviceGeneration = () => {
 
       // Update quick_payments table
       if (quickPaymentIds.length > 0) {
+        const updateData: any = {
+          bank_advice_generated: true,
+          bank_advice_generated_at: new Date().toISOString(),
+          bank_advice_generated_by: user?.id,
+          bank_advice_reference: filename,
+          payment_mode: mode,
+        };
+
+        if (mode === 'cheque' && chequeDetails) {
+          updateData.cheque_number = chequeDetails.cheque_number;
+          updateData.cheque_date = chequeDetails.cheque_date;
+          updateData.cheque_bank_name = chequeDetails.cheque_bank_name;
+        }
+
         const { error: updateQuickError } = await supabase
           .from('quick_payments')
-          .update({
-            bank_advice_generated: true,
-            bank_advice_generated_at: new Date().toISOString(),
-            bank_advice_generated_by: user?.id,
-            bank_advice_reference: filename,
-          })
+          .update(updateData)
           .in('id', quickPaymentIds);
 
         if (updateQuickError) throw updateQuickError;
@@ -521,7 +543,7 @@ const BankAdviceGeneration = () => {
         const { error: quickHistoryError } = await supabase
           .from('quick_payment_bank_advice_history')
           .insert({
-            filename,
+            filename: filename || `${mode.toUpperCase()}-${dd}${mm}${yy}`,
             generation_date: today.toISOString().split('T')[0],
             payment_count: quickPaymentIds.length,
             total_gross_amount: quickPaymentsData.reduce((sum, p) => sum + p.gross_amount, 0),
@@ -529,25 +551,31 @@ const BankAdviceGeneration = () => {
             total_net_amount: quickPaymentsData.reduce((sum, p) => sum + p.net_amount, 0),
             payment_ids: quickPaymentIds,
             generated_by: user?.id,
-            file_content: gefuContent,
+            file_content: mode === 'bank' ? gefuContent : null,
+            payment_mode: mode,
           });
 
         if (quickHistoryError) throw quickHistoryError;
       }
 
+      const modeLabels: Record<PaymentMode, string> = {
+        bank: 'Bank Advice',
+        cash: 'Cash Payment',
+        cheque: 'Cheque Payment',
+      };
+
       toast({
-        title: 'Bank Advice Generated Successfully',
-        description: `File: ${filename} | Payments: ${selectedPayments.length} | Net Amount: ${formatCurrency(totalNetAmount)}`,
+        title: `${modeLabels[mode]} Processed Successfully`,
+        description: `${mode === 'bank' ? `File: ${filename} | ` : ''}Payments: ${selectedPayments.length} | Net Amount: ${formatCurrency(totalNetAmount)}`,
       });
 
-      // Reset selection and refresh
       setSelectedPaymentIds([]);
       fetchAllPendingPayments();
     } catch (error) {
-      console.error('Error generating bank advice:', error);
+      console.error('Error processing payment:', error);
       toast({
         title: 'Error',
-        description: 'Failed to generate bank advice',
+        description: 'Failed to process payment',
         variant: 'destructive',
       });
     } finally {
@@ -587,12 +615,12 @@ const BankAdviceGeneration = () => {
         </div>
         {userRole === 'admin' ? (
           <Button
-            onClick={generateBankAdvice}
+            onClick={handleOpenPaymentModeDialog}
             disabled={selectedPayments.length === 0 || generating}
             size="lg"
           >
             <Download className="mr-2 h-5 w-5" />
-            {generating ? 'Generating...' : `Generate Bank Advice (${selectedPayments.length})`}
+            {generating ? 'Processing...' : `Process Payments (${selectedPayments.length})`}
           </Button>
         ) : (
           <Button
@@ -911,6 +939,16 @@ const BankAdviceGeneration = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Payment Mode Dialog */}
+      <PaymentModeDialog
+        open={paymentModeDialogOpen}
+        onOpenChange={setPaymentModeDialogOpen}
+        onConfirm={handlePaymentModeConfirm}
+        selectedCount={selectedPayments.length}
+        totalAmount={selectedStats.totalNet}
+        isLoading={generating}
+      />
     </div>
   );
 };
