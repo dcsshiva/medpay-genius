@@ -50,6 +50,7 @@ import { formatDateTimeIST } from '@/lib/dateUtils';
 import { StaffBulkPaymentTab } from './quick-payment/StaffBulkPaymentTab';
 import { StaffPaymentHistoryTab } from './quick-payment/StaffPaymentHistoryTab';
 import { PaginationControls } from '@/components/ui/pagination-controls';
+import { PaymentModeDialog, PaymentMode, ChequeDetails } from '@/components/PaymentModeDialog';
 
 interface QuickPaymentType {
   id: string;
@@ -166,6 +167,10 @@ const QuickPaymentManagement = () => {
   const [pendingRecordsPerPage, setPendingRecordsPerPage] = useState<number | 'all'>(20);
   const [generatedPage, setGeneratedPage] = useState(1);
   const [generatedRecordsPerPage, setGeneratedRecordsPerPage] = useState<number | 'all'>(20);
+  
+  // Payment mode dialog state
+  const [paymentModeDialogOpen, setPaymentModeDialogOpen] = useState(false);
+  const [processingPayment, setProcessingPayment] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -552,12 +557,15 @@ const QuickPaymentManagement = () => {
     }
   };
 
-  const generateBankAdvice = async () => {
+  const handleOpenPaymentModeDialog = () => {
     if (selectedPayments.length === 0) {
       toast.error('Please select at least one payment');
       return;
     }
+    setPaymentModeDialogOpen(true);
+  };
 
+  const handlePaymentModeConfirm = async (mode: PaymentMode, chequeDetails?: ChequeDetails) => {
     const paymentsToGenerate = payments.filter(p => 
       selectedPayments.includes(p.id) && !p.bank_advice_generated
     );
@@ -567,111 +575,104 @@ const QuickPaymentManagement = () => {
       return;
     }
 
+    setProcessingPayment(true);
+    setPaymentModeDialogOpen(false);
+
     try {
-      // Generate GEFU format text file (same as Cash/Insurance payments)
       const totalGrossAmount = paymentsToGenerate.reduce((sum, p) => sum + p.gross_amount, 0);
       const totalTDSAmount = paymentsToGenerate.reduce((sum, p) => sum + p.tds_amount, 0);
       const totalNetAmount = paymentsToGenerate.reduce((sum, p) => sum + p.net_amount, 0);
       
       const today = new Date();
       const dateStr = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
-      
-      // Header line
-      let fileContent = `H~${dateStr}~${websiteSettings?.hospital_institution_code || 'ABC07112007'}\n`;
-
-      // Detail lines
-      paymentsToGenerate.forEach((payment, index) => {
-        const netAmount = payment.net_amount.toFixed(2);
-        
-        const detailLine = [
-          'D',                          // Record type
-          'N06',                        // Transaction Type Code (NEFT TRANSFER)
-          websiteSettings?.hospital_bank_account_number || '120000794291', // Hospital Account Number
-          websiteSettings?.hospital_bank_account_holder_name || 'Westmed Healthcare Pvt Ltd', // Hospital Name
-          'ADDRESS1',                   // Address Line 1
-          'ADDRESS2',                   // Address Line 2
-          'ADDRESS3',                   // Address Line 3
-          payment.ifsc_code || '',      // Beneficiary IFSC Code
-          payment.account_number || '', // Beneficiary Account Number
-          payment.account_holder_name || payment.name, // Beneficiary Name
-          '',                           // Empty
-          '',                           // Empty
-          '',                           // Empty
-          '',                           // Empty
-          index + 1,                    // Sequence Number
-          dateStr,                      // Transaction Date
-          netAmount,                    // Net Amount (after TDS)
-          index + 1,                    // Sequence Number (again)
-          '',                           // Empty
-          '',                           // Empty
-          '',                           // Empty
-          ''                            // Empty
-        ].join('~');
-        
-        fileContent += detailLine + '\n';
-      });
-
-      // Footer line (use net amount after TDS)
-      fileContent += `F~${paymentsToGenerate.length}~${totalNetAmount.toFixed(2)}`;
-
-      // Generate filename with format: DDMMYY-X.txt
       const filenameDateStr = format(today, 'ddMMyy');
-      const paymentCount = paymentsToGenerate.length;
-      const filename = `${filenameDateStr}-${paymentCount}.txt`;
       
-      // Store bank advice generation in history with file content
-      const { error: historyError } = await supabase
-        .from('quick_payment_bank_advice_history')
-        .insert({
-          filename: filename,
-          generation_date: today.toISOString().split('T')[0],
-          payment_count: paymentCount,
-          total_gross_amount: totalGrossAmount,
-          total_tds_amount: totalTDSAmount,
-          total_net_amount: totalNetAmount,
-          payment_ids: paymentsToGenerate.map(p => p.id),
-          generated_by: user?.id,
-          file_content: fileContent
+      let filename = '';
+      let fileContent = '';
+
+      if (mode === 'bank') {
+        // Generate GEFU format text file
+        fileContent = `H~${dateStr}~${websiteSettings?.hospital_institution_code || 'ABC07112007'}\n`;
+
+        paymentsToGenerate.forEach((payment, index) => {
+          const netAmount = payment.net_amount.toFixed(2);
+          const detailLine = [
+            'D', 'N06',
+            websiteSettings?.hospital_bank_account_number || '120000794291',
+            websiteSettings?.hospital_bank_account_holder_name || 'Westmed Healthcare Pvt Ltd',
+            'ADDRESS1', 'ADDRESS2', 'ADDRESS3',
+            payment.ifsc_code || '', payment.account_number || '',
+            payment.account_holder_name || payment.name,
+            '', '', '', '', index + 1, dateStr, netAmount, index + 1, '', '', '', ''
+          ].join('~');
+          fileContent += detailLine + '\n';
         });
-      
-      if (historyError) {
-        console.error('Error saving bank advice history:', historyError);
-        // Continue with download even if history save fails
+
+        fileContent += `F~${paymentsToGenerate.length}~${totalNetAmount.toFixed(2)}`;
+        filename = `${filenameDateStr}-${paymentsToGenerate.length}.txt`;
+
+        // Download file
+        const blob = new Blob([fileContent], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      } else {
+        filename = `${mode.toUpperCase()}-${filenameDateStr}-${Date.now()}`;
       }
 
-      // Create and download text file
-      const blob = new Blob([fileContent], { type: 'text/plain' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
+      // Store bank advice generation in history
+      await supabase.from('quick_payment_bank_advice_history').insert({
+        filename,
+        generation_date: today.toISOString().split('T')[0],
+        payment_count: paymentsToGenerate.length,
+        total_gross_amount: totalGrossAmount,
+        total_tds_amount: totalTDSAmount,
+        total_net_amount: totalNetAmount,
+        payment_ids: paymentsToGenerate.map(p => p.id),
+        generated_by: user?.id,
+        file_content: mode === 'bank' ? fileContent : null,
+        payment_mode: mode,
+      });
 
-      // Update payments as bank advice generated
+      // Update payments
+      const updateData: any = {
+        bank_advice_generated: true,
+        bank_advice_generated_at: new Date().toISOString(),
+        bank_advice_generated_by: user?.id,
+        bank_advice_reference: filename,
+        payment_mode: mode,
+      };
+
+      if (mode === 'cheque' && chequeDetails) {
+        updateData.cheque_number = chequeDetails.cheque_number;
+        updateData.cheque_date = chequeDetails.cheque_date;
+        updateData.cheque_bank_name = chequeDetails.cheque_bank_name;
+      }
+
       const { error: updateError } = await supabase
         .from('quick_payments')
-        .update({
-          bank_advice_generated: true,
-          bank_advice_generated_at: new Date().toISOString(),
-          bank_advice_generated_by: user?.id,
-          bank_advice_reference: filename,
-        })
+        .update(updateData)
         .in('id', paymentsToGenerate.map(p => p.id));
       
       if (updateError) throw updateError;
-      
-      toast.success(`Downloaded ${filename}`, {
-        description: `Bank advice generated for ${paymentsToGenerate.length} payment(s)`
+
+      const modeLabels = { bank: 'Bank Advice', cash: 'Cash Payment', cheque: 'Cheque Payment' };
+      toast.success(`${modeLabels[mode]} processed`, {
+        description: `${paymentsToGenerate.length} payment(s) - ${formatCurrency(totalNetAmount)}`
       });
       
       setSelectedPayments([]);
       fetchPayments();
     } catch (error: any) {
-      toast.error('Failed to generate bank advice');
+      toast.error('Failed to process payment');
       console.error('Error:', error);
+    } finally {
+      setProcessingPayment(false);
     }
   };
 
@@ -1512,11 +1513,11 @@ const QuickPaymentManagement = () => {
                 <div className="flex justify-between items-center">
                   <CardTitle>Pending Payments</CardTitle>
                   <Button
-                    onClick={generateBankAdvice}
-                    disabled={selectedPayments.length === 0}
+                    onClick={handleOpenPaymentModeDialog}
+                    disabled={selectedPayments.length === 0 || processingPayment}
                   >
                     <Download className="mr-2 h-4 w-4" />
-                    Generate Bank Advice ({selectedPayments.length})
+                    {processingPayment ? 'Processing...' : `Process Payments (${selectedPayments.length})`}
                   </Button>
                 </div>
               </CardHeader>
@@ -2338,6 +2339,16 @@ const QuickPaymentManagement = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Payment Mode Dialog */}
+      <PaymentModeDialog
+        open={paymentModeDialogOpen}
+        onOpenChange={setPaymentModeDialogOpen}
+        onConfirm={handlePaymentModeConfirm}
+        selectedCount={selectedPayments.length}
+        totalAmount={pendingPayments.filter(p => selectedPayments.includes(p.id)).reduce((sum, p) => sum + p.net_amount, 0)}
+        isLoading={processingPayment}
+      />
     </div>
   );
 };
