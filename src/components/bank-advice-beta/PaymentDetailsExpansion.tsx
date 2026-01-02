@@ -13,7 +13,7 @@ import { GroupedPendingPayment, PaymentDetail } from './types';
 interface Props {
   payment: GroupedPendingPayment;
   onSendToManager: (paymentIds: string[]) => void;
-  onGenerateAdvice: (paymentIds: string[]) => void;
+  onGenerateAdvice: (paymentIds: string[], paymentsData: GroupedPendingPayment[]) => void;
 }
 
 export const PaymentDetailsExpansion: React.FC<Props> = ({
@@ -200,7 +200,7 @@ export const PaymentDetailsExpansion: React.FC<Props> = ({
             </Button>
             <Button
               size="sm"
-              onClick={() => onGenerateAdvice(payment.payment_ids)}
+              onClick={() => onGenerateAdvice(payment.payment_ids, [payment])}
               disabled={selectedVisitIds.length === 0}
             >
               Generate Bank Advice

@@ -21,7 +21,7 @@ import { formatDateTimeIST, formatInputDateIST, getCurrentISTDate } from '@/lib/
 
 interface Props {
   groupedPayments: GroupedPendingPayment[];
-  onGenerateAdvice: (paymentIds: string[]) => void;
+  onGenerateAdvice: (paymentIds: string[], paymentsData: GroupedPendingPayment[]) => void;
   onSendToManager: (paymentIds: string[]) => void;
 }
 
@@ -165,10 +165,9 @@ export const BetaPendingPaymentsTab: React.FC<Props> = ({
             </div>
             <Button
               onClick={() => {
-                const allPaymentIds = groupedPayments
-                  .filter(p => selectedIds.includes(p.beneficiary_id))
-                  .flatMap(p => p.payment_ids);
-                onGenerateAdvice(allPaymentIds);
+                const selectedPayments = groupedPayments.filter(p => selectedIds.includes(p.beneficiary_id));
+                const allPaymentIds = selectedPayments.flatMap(p => p.payment_ids);
+                onGenerateAdvice(allPaymentIds, selectedPayments);
               }}
               disabled={selectedIds.length === 0}
             >
