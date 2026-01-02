@@ -8,13 +8,19 @@ import { useToast } from '@/hooks/use-toast';
 import { GroupedPendingPayment } from './bank-advice-beta/types';
 import { BetaPendingPaymentsTab } from './bank-advice-beta/BetaPendingPaymentsTab';
 import { BetaGeneratedAdviceTab } from './bank-advice-beta/BetaGeneratedAdviceTab';
+import { PaymentModeDialog, PaymentMode, ChequeDetails } from './PaymentModeDialog';
 import { Building2, Sparkles } from 'lucide-react';
+import { formatCurrency } from '@/lib/currency';
 
 const BankAdviceGenerationBeta = () => {
   const { user, userRole } = useAuth();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [groupedPayments, setGroupedPayments] = useState<GroupedPendingPayment[]>([]);
+  const [paymentModeDialogOpen, setPaymentModeDialogOpen] = useState(false);
+  const [selectedPaymentIds, setSelectedPaymentIds] = useState<string[]>([]);
+  const [selectedPaymentsData, setSelectedPaymentsData] = useState<GroupedPendingPayment[]>([]);
+  const [processingPayment, setProcessingPayment] = useState(false);
 
   useEffect(() => {
     if (userRole === 'admin' || userRole === 'manager') {
@@ -160,13 +166,134 @@ const BankAdviceGenerationBeta = () => {
     }
   };
 
-  const handleGenerateAdvice = async (paymentIds: string[]) => {
-    // Implementation similar to existing BankAdviceGeneration
-    toast({
-      title: 'Success',
-      description: 'Bank advice generated successfully',
-    });
-    fetchAndGroupPayments();
+  const handleOpenPaymentModeDialog = (paymentIds: string[], paymentsData: GroupedPendingPayment[]) => {
+    setSelectedPaymentIds(paymentIds);
+    setSelectedPaymentsData(paymentsData);
+    setPaymentModeDialogOpen(true);
+  };
+
+  const handlePaymentModeConfirm = async (mode: PaymentMode, chequeDetails?: ChequeDetails) => {
+    setProcessingPayment(true);
+    try {
+      const now = new Date().toISOString();
+      
+      // Separate doctor payments and quick payments
+      const doctorPaymentIds: string[] = [];
+      const quickPaymentIds: string[] = [];
+      
+      selectedPaymentsData.forEach(payment => {
+        if (payment.beneficiary_type === 'doctor') {
+          doctorPaymentIds.push(...payment.payment_ids);
+        } else {
+          quickPaymentIds.push(...payment.payment_ids);
+        }
+      });
+
+      // Calculate totals for history
+      const totalAmount = selectedPaymentsData.reduce((sum, p) => sum + p.total_cumulative_amount, 0);
+
+      if (mode === 'bank') {
+        // Generate GEFU file for bank transfers
+        const gefuLines: string[] = [];
+        selectedPaymentsData.forEach(payment => {
+          if (payment.bank_account_number && payment.ifsc_code) {
+            const line = [
+              'N',
+              payment.account_holder_name || payment.beneficiary_name,
+              payment.bank_account_number,
+              payment.ifsc_code,
+              Math.round(payment.total_cumulative_amount * 100),
+              payment.beneficiary_name,
+              '',
+              '',
+              'WESTMED HOSPITAL',
+            ].join('~');
+            gefuLines.push(line);
+          }
+        });
+
+        if (gefuLines.length > 0) {
+          const gefuContent = gefuLines.join('\n');
+          const blob = new Blob([gefuContent], { type: 'text/plain' });
+          const filename = `GEFU_${new Date().toISOString().split('T')[0]}_${Date.now()}.txt`;
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = filename;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+      }
+
+      // Update doctor payments
+      if (doctorPaymentIds.length > 0) {
+        const { error: doctorError } = await supabase
+          .from('payments')
+          .update({
+            bank_advice_generated: true,
+            bank_advice_generated_at: now,
+            bank_advice_generated_by: user?.id,
+            payment_mode: mode,
+            ...(mode === 'cheque' && chequeDetails ? {
+              cheque_number: chequeDetails.cheque_number,
+              cheque_date: chequeDetails.cheque_date,
+              cheque_bank_name: chequeDetails.cheque_bank_name,
+            } : {}),
+          })
+          .in('id', doctorPaymentIds);
+        
+        if (doctorError) throw doctorError;
+      }
+
+      // Update quick payments
+      if (quickPaymentIds.length > 0) {
+        const { error: quickError } = await supabase
+          .from('quick_payments')
+          .update({
+            bank_advice_generated: true,
+            bank_advice_generated_at: now,
+            bank_advice_generated_by: user?.id,
+            payment_mode: mode,
+            ...(mode === 'cheque' && chequeDetails ? {
+              cheque_number: chequeDetails.cheque_number,
+              cheque_date: chequeDetails.cheque_date,
+              cheque_bank_name: chequeDetails.cheque_bank_name,
+            } : {}),
+          })
+          .in('id', quickPaymentIds);
+        
+        if (quickError) throw quickError;
+      }
+
+      const modeLabels = {
+        bank: 'Bank Transfer',
+        cash: 'Cash Payment',
+        cheque: 'Cheque Issue',
+      };
+
+      toast({
+        title: 'Success',
+        description: `${modeLabels[mode]} processed for ${selectedPaymentsData.length} beneficiaries`,
+      });
+
+      setPaymentModeDialogOpen(false);
+      fetchAndGroupPayments();
+    } catch (error) {
+      console.error('Error processing payment:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to process payments',
+        variant: 'destructive',
+      });
+    } finally {
+      setProcessingPayment(false);
+    }
+  };
+
+  const handleGenerateAdvice = async (paymentIds: string[], paymentsData: GroupedPendingPayment[]) => {
+    handleOpenPaymentModeDialog(paymentIds, paymentsData);
   };
 
   const handleSendToManager = async (paymentIds: string[]) => {
@@ -250,6 +377,15 @@ const BankAdviceGenerationBeta = () => {
           <BetaGeneratedAdviceTab />
         </TabsContent>
       </Tabs>
+
+      <PaymentModeDialog
+        open={paymentModeDialogOpen}
+        onOpenChange={setPaymentModeDialogOpen}
+        onConfirm={handlePaymentModeConfirm}
+        selectedCount={selectedPaymentsData.length}
+        totalAmount={selectedPaymentsData.reduce((sum, p) => sum + p.total_cumulative_amount, 0)}
+        isLoading={processingPayment}
+      />
     </div>
   );
 };

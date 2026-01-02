@@ -247,15 +247,17 @@ export const PaymentModeDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Select Payment Mode</DialogTitle>
           <DialogDescription>
             Choose how you want to process the selected payments
           </DialogDescription>
         </DialogHeader>
-        {Content}
-        <DialogFooter>
+        <div className="flex-1 overflow-y-auto pr-2">
+          {Content}
+        </div>
+        <DialogFooter className="pt-4 border-t mt-4">
           {Footer}
         </DialogFooter>
       </DialogContent>
