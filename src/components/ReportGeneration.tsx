@@ -4,9 +4,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { FileText, Download, FileSpreadsheet, CheckCircle2, Circle, Search } from 'lucide-react';
-import { formatFileTimestampIST, formatFullDateTimeIST } from '@/lib/dateUtils';
+import { FileText, Download, FileSpreadsheet, CheckCircle2, Circle, Search, Calendar, User, X } from 'lucide-react';
+import { formatFileTimestampIST, formatFullDateTimeIST, formatInputDateIST } from '@/lib/dateUtils';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -20,41 +21,89 @@ interface ReportGenerationProps {
     format?: (value: any) => string;
   }[];
   filename: string;
+  /** The key to use for date filtering (e.g., 'visit_date', 'created_at') */
+  dateKey?: string;
 }
 
 const ReportGeneration: React.FC<ReportGenerationProps> = ({
   title,
   data,
   columns,
-  filename
+  filename,
+  dateKey = 'visit_date'
 }) => {
   const { toast } = useToast();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedRecords, setSelectedRecords] = useState<Set<string>>(new Set());
   const [selectAll, setSelectAll] = useState(false);
   const [doctorSearch, setDoctorSearch] = useState('');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
 
-  // Filter data based on doctor search
+  // Filter data based on doctor search and date range
   const filteredData = useMemo(() => {
-    if (!doctorSearch.trim()) return data;
+    let filtered = data;
     
-    const searchTerm = doctorSearch.toLowerCase().trim();
+    // Filter by doctor search
+    if (doctorSearch.trim()) {
+      const searchTerm = doctorSearch.toLowerCase().trim();
+      
+      filtered = filtered.filter(record => {
+        // Try multiple possible doctor name fields
+        const doctorName = getNestedValue(record, 'doctor_name') || 
+                           getNestedValue(record, 'doctors.profiles.full_name') || 
+                           getNestedValue(record, 'profiles.full_name') || '';
+        
+        // Also check doctor code
+        const doctorCode = getNestedValue(record, 'doctor_code') || 
+                           getNestedValue(record, 'doctors.doctor_code') || '';
+        
+        // Match against either name or code
+        return doctorName.toLowerCase().includes(searchTerm) ||
+               doctorCode.toLowerCase().includes(searchTerm);
+      });
+    }
     
-    return data.filter(record => {
-      // Try multiple possible doctor name fields
-      const doctorName = getNestedValue(record, 'doctor_name') || 
-                         getNestedValue(record, 'doctors.profiles.full_name') || 
-                         getNestedValue(record, 'profiles.full_name') || '';
-      
-      // Also check doctor code
-      const doctorCode = getNestedValue(record, 'doctor_code') || 
-                         getNestedValue(record, 'doctors.doctor_code') || '';
-      
-      // Match against either name or code
-      return doctorName.toLowerCase().includes(searchTerm) ||
-             doctorCode.toLowerCase().includes(searchTerm);
-    });
-  }, [data, doctorSearch]);
+    // Filter by date range
+    if (fromDate || toDate) {
+      filtered = filtered.filter(record => {
+        const recordDate = getNestedValue(record, dateKey);
+        if (!recordDate) return false;
+        
+        // Parse the record date (handle both ISO string and date string formats)
+        const dateValue = new Date(recordDate);
+        if (isNaN(dateValue.getTime())) return false;
+        
+        const recordDateStr = dateValue.toISOString().split('T')[0];
+        
+        // Check from date
+        if (fromDate && recordDateStr < fromDate) {
+          return false;
+        }
+        
+        // Check to date
+        if (toDate && recordDateStr > toDate) {
+          return false;
+        }
+        
+        return true;
+      });
+    }
+    
+    return filtered;
+  }, [data, doctorSearch, fromDate, toDate, dateKey]);
+
+  // Check if any filters are active
+  const hasActiveFilters = doctorSearch.trim() || fromDate || toDate;
+
+  // Clear all filters
+  const clearFilters = () => {
+    setDoctorSearch('');
+    setFromDate('');
+    setToDate('');
+    setSelectedRecords(new Set());
+    setSelectAll(false);
+  };
 
   const handleSelectAll = (checked: boolean) => {
     setSelectAll(checked);
@@ -355,6 +404,8 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
       setSelectedRecords(new Set());
       setSelectAll(false);
       setDoctorSearch('');
+      setFromDate('');
+      setToDate('');
     }
   };
 
@@ -387,31 +438,90 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
             Generate {title} Report
           </DialogTitle>
           <DialogDescription>
-            Search for specific doctors and select the records you want to include in your report.
+            Filter by doctor name or date range, then select the records to include in your report.
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4 dialog-content-inner">
-          {/* Doctor Search */}
-          <div className="relative" onClick={(e) => e.stopPropagation()}>
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by doctor name..."
-              value={doctorSearch}
-              onChange={(e) => setDoctorSearch(e.target.value)}
-              onClick={(e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                (e.target as HTMLInputElement).focus();
-              }}
-              onFocus={(e) => {
-                e.stopPropagation();
-              }}
-              onMouseDown={(e) => {
-                e.stopPropagation();
-              }}
-              className="pl-10"
-            />
+          {/* Filter Section */}
+          <div className="p-4 border rounded-lg bg-muted/30 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                <Search className="h-4 w-4" />
+                Filter Options
+              </div>
+              {hasActiveFilters && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="h-7 text-xs"
+                >
+                  <X className="h-3 w-3 mr-1" />
+                  Clear Filters
+                </Button>
+              )}
+            </div>
+            
+            {/* Doctor Search */}
+            <div className="space-y-2">
+              <Label className="text-xs flex items-center gap-1">
+                <User className="h-3 w-3" />
+                Doctor Wise
+              </Label>
+              <div className="relative" onClick={(e) => e.stopPropagation()}>
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by doctor name or code..."
+                  value={doctorSearch}
+                  onChange={(e) => setDoctorSearch(e.target.value)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    (e.target as HTMLInputElement).focus();
+                  }}
+                  onFocus={(e) => {
+                    e.stopPropagation();
+                  }}
+                  onMouseDown={(e) => {
+                    e.stopPropagation();
+                  }}
+                  className="pl-10"
+                />
+              </div>
+            </div>
+            
+            {/* Date Range Filter */}
+            <div className="space-y-2">
+              <Label className="text-xs flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                Periodical (Date Range)
+              </Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">From Date</Label>
+                  <Input
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className="h-9"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">To Date</Label>
+                  <Input
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className="h-9"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Selection Header */}
@@ -430,7 +540,7 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
                 className="text-sm font-medium cursor-pointer"
               >
                 Select All ({filteredData.length} records)
-                {doctorSearch && (
+                {hasActiveFilters && (
                   <span className="text-muted-foreground"> - filtered from {data.length}</span>
                 )}
               </label>
