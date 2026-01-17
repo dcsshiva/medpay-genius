@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/lib/auth';
 
 export interface PaymentStatsColors {
@@ -27,7 +27,18 @@ export const COLOR_OPTIONS = [
 
 const getStorageKey = (userId: string) => `payment-stats-colors-${userId}`;
 
-export function usePaymentStatsColors() {
+interface PaymentStatsColorsContextType {
+  colors: PaymentStatsColors;
+  paidColor: string;
+  unpaidColor: string;
+  totalColor: string;
+  updateColors: (newColors: PaymentStatsColors) => void;
+  resetToDefaults: () => void;
+}
+
+const PaymentStatsColorsContext = createContext<PaymentStatsColorsContextType | undefined>(undefined);
+
+export const PaymentStatsColorsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   const [colors, setColors] = useState<PaymentStatsColors>(DEFAULT_COLORS);
 
@@ -58,28 +69,52 @@ export function usePaymentStatsColors() {
     }
   }, [user?.id]);
 
-  const updateColors = (newColors: PaymentStatsColors) => {
+  const updateColors = useCallback((newColors: PaymentStatsColors) => {
     if (!user?.id) return;
     
     const storageKey = getStorageKey(user.id);
     localStorage.setItem(storageKey, JSON.stringify(newColors));
     setColors(newColors);
-  };
+  }, [user?.id]);
 
-  const resetToDefaults = () => {
+  const resetToDefaults = useCallback(() => {
     if (!user?.id) return;
     
     const storageKey = getStorageKey(user.id);
     localStorage.removeItem(storageKey);
     setColors(DEFAULT_COLORS);
-  };
+  }, [user?.id]);
 
-  return {
-    colors,
-    paidColor: colors.paidColor,
-    unpaidColor: colors.unpaidColor,
-    totalColor: colors.totalColor,
-    updateColors,
-    resetToDefaults,
-  };
+  return (
+    <PaymentStatsColorsContext.Provider 
+      value={{
+        colors,
+        paidColor: colors.paidColor,
+        unpaidColor: colors.unpaidColor,
+        totalColor: colors.totalColor,
+        updateColors,
+        resetToDefaults,
+      }}
+    >
+      {children}
+    </PaymentStatsColorsContext.Provider>
+  );
+};
+
+export function usePaymentStatsColors() {
+  const context = useContext(PaymentStatsColorsContext);
+  
+  // If used outside provider, return defaults (safe fallback)
+  if (context === undefined) {
+    return {
+      colors: DEFAULT_COLORS,
+      paidColor: DEFAULT_COLORS.paidColor,
+      unpaidColor: DEFAULT_COLORS.unpaidColor,
+      totalColor: DEFAULT_COLORS.totalColor,
+      updateColors: () => {},
+      resetToDefaults: () => {},
+    };
+  }
+  
+  return context;
 }
