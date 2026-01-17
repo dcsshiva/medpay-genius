@@ -8,7 +8,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
 import {
   Tooltip,
@@ -90,7 +89,7 @@ export const PaymentStatsColorPicker: React.FC<PaymentStatsColorPickerProps> = (
   variant = 'icon',
   className 
 }) => {
-  const { colors, updateColors, resetToDefaults } = usePaymentStatsColors();
+  const { colors, updateColors } = usePaymentStatsColors();
   const [isOpen, setIsOpen] = useState(false);
   const [tempColors, setTempColors] = useState<PaymentStatsColors>(colors);
 
@@ -121,127 +120,132 @@ export const PaymentStatsColorPicker: React.FC<PaymentStatsColorPickerProps> = (
   const sampleTotal = samplePaid + sampleUnpaid;
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogTrigger asChild>
-        {variant === 'icon' ? (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon"
-                  className={cn("h-9 w-9", className)}
-                  aria-label="Customize payment stats colors for accessibility"
-                >
-                  <Palette className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Customize Colors (Accessibility)</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : (
-          <Button 
-            variant="outline" 
-            className={cn("w-full flex items-center justify-center space-x-2", className)}
-          >
-            <Palette className="h-4 w-4" />
-            <span>Customize Payment Colors</span>
-          </Button>
-        )}
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Palette className="h-5 w-5" />
-            Customize Payment Stats Colors
-          </DialogTitle>
-          <DialogDescription>
-            Select colors that work best for your vision. Changes are saved for your account only.
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      {/* Trigger Button */}
+      {variant === 'icon' ? (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                className={cn("h-9 w-9", className)}
+                aria-label="Customize payment stats colors for accessibility"
+                onClick={() => setIsOpen(true)}
+              >
+                <Palette className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Customize Colors (Accessibility)</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      ) : (
+        <Button 
+          variant="outline" 
+          className={cn("w-full flex items-center justify-center space-x-2", className)}
+          onClick={() => setIsOpen(true)}
+        >
+          <Palette className="h-4 w-4" />
+          <span>Customize Payment Colors</span>
+        </Button>
+      )}
 
-        <div className="space-y-6 py-4">
-          {/* Color Selectors */}
-          <ColorSelector
-            label="Paid Amount"
-            icon={<CheckCircle className={cn("h-4 w-4", tempColors.paidColor)} />}
-            selectedColor={tempColors.paidColor}
-            onColorChange={(color) => setTempColors(prev => ({ ...prev, paidColor: color }))}
-          />
+      {/* Dialog */}
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Palette className="h-5 w-5" />
+              Customize Payment Stats Colors
+            </DialogTitle>
+            <DialogDescription>
+              Select colors that work best for your vision. Changes are saved for your account only.
+            </DialogDescription>
+          </DialogHeader>
 
-          <ColorSelector
-            label="Unpaid Amount"
-            icon={<Clock className={cn("h-4 w-4", tempColors.unpaidColor)} />}
-            selectedColor={tempColors.unpaidColor}
-            onColorChange={(color) => setTempColors(prev => ({ ...prev, unpaidColor: color }))}
-          />
+          <div className="space-y-6 py-4">
+            {/* Color Selectors */}
+            <ColorSelector
+              label="Paid Amount"
+              icon={<CheckCircle className={cn("h-4 w-4", tempColors.paidColor)} />}
+              selectedColor={tempColors.paidColor}
+              onColorChange={(color) => setTempColors(prev => ({ ...prev, paidColor: color }))}
+            />
 
-          <ColorSelector
-            label="Total Amount"
-            icon={<Wallet className={cn("h-4 w-4", tempColors.totalColor)} />}
-            selectedColor={tempColors.totalColor}
-            onColorChange={(color) => setTempColors(prev => ({ ...prev, totalColor: color }))}
-          />
+            <ColorSelector
+              label="Unpaid Amount"
+              icon={<Clock className={cn("h-4 w-4", tempColors.unpaidColor)} />}
+              selectedColor={tempColors.unpaidColor}
+              onColorChange={(color) => setTempColors(prev => ({ ...prev, unpaidColor: color }))}
+            />
 
-          {/* Live Preview */}
-          <div className="space-y-2">
-            <Label className="text-sm font-medium">Preview</Label>
-            <Card className="bg-muted/50">
-              <CardContent className="p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <CheckCircle className={cn("h-4 w-4", tempColors.paidColor)} />
-                    <span className="text-sm font-medium">Paid</span>
+            <ColorSelector
+              label="Total Amount"
+              icon={<Wallet className={cn("h-4 w-4", tempColors.totalColor)} />}
+              selectedColor={tempColors.totalColor}
+              onColorChange={(color) => setTempColors(prev => ({ ...prev, totalColor: color }))}
+            />
+
+            {/* Live Preview */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Preview</Label>
+              <Card className="bg-muted/50">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle className={cn("h-4 w-4", tempColors.paidColor)} />
+                      <span className="text-sm font-medium">Paid</span>
+                    </div>
+                    <span className={cn("text-sm font-bold", tempColors.paidColor)}>
+                      {formatCurrency(samplePaid)}
+                    </span>
                   </div>
-                  <span className={cn("text-sm font-bold", tempColors.paidColor)}>
-                    {formatCurrency(samplePaid)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Clock className={cn("h-4 w-4", tempColors.unpaidColor)} />
-                    <span className="text-sm font-medium">Unpaid</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Clock className={cn("h-4 w-4", tempColors.unpaidColor)} />
+                      <span className="text-sm font-medium">Unpaid</span>
+                    </div>
+                    <span className={cn("text-sm font-bold", tempColors.unpaidColor)}>
+                      {formatCurrency(sampleUnpaid)}
+                    </span>
                   </div>
-                  <span className={cn("text-sm font-bold", tempColors.unpaidColor)}>
-                    {formatCurrency(sampleUnpaid)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Wallet className={cn("h-4 w-4", tempColors.totalColor)} />
-                    <span className="text-sm font-medium">Total</span>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Wallet className={cn("h-4 w-4", tempColors.totalColor)} />
+                      <span className="text-sm font-medium">Total</span>
+                    </div>
+                    <span className={cn("text-sm font-bold", tempColors.totalColor)}>
+                      {formatCurrency(sampleTotal)}
+                    </span>
                   </div>
-                  <span className={cn("text-sm font-bold", tempColors.totalColor)}>
-                    {formatCurrency(sampleTotal)}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        </div>
 
-        <DialogFooter className="flex-col sm:flex-row gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleReset}
-            className="flex items-center gap-2"
-          >
-            <RotateCcw className="h-4 w-4" />
-            Reset to Defaults
-          </Button>
-          <div className="flex gap-2 sm:ml-auto">
-            <Button type="button" variant="ghost" onClick={handleCancel}>
-              Cancel
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleReset}
+              className="flex items-center gap-2"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Reset to Defaults
             </Button>
-            <Button type="button" onClick={handleApply}>
-              Apply
-            </Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            <div className="flex gap-2 sm:ml-auto">
+              <Button type="button" variant="ghost" onClick={handleCancel}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={handleApply}>
+                Apply
+              </Button>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 };
