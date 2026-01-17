@@ -27,6 +27,8 @@ import { formatCurrency } from '@/lib/currency';
 import { isStaffRole } from '@/lib/staffUtils';
 import { useNavigationTracking } from '@/hooks/useNavigationTracking';
 import { NotificationCenter } from '@/components/NotificationCenter';
+import { usePaymentStatsColors } from '@/hooks/usePaymentStatsColors';
+import { cn } from '@/lib/utils';
 
 interface NavigationStats {
   paidAmount: number;
@@ -43,6 +45,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const { userRole, userDesignation, userProfile } = useAuth();
   const { open } = useSidebar();
   const { trackNavigation } = useNavigationTracking();
+  const { paidColor, unpaidColor, totalColor } = usePaymentStatsColors();
   const [stats, setStats] = useState<NavigationStats>({
     paidAmount: 0,
     unpaidAmount: 0,
@@ -147,13 +150,13 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                   <CardContent className="p-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
-                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <CheckCircle className={cn("h-4 w-4", paidColor)} />
                         {!isCollapsed && (
                           <span className="text-sm font-medium">Paid</span>
                         )}
                       </div>
                       <div className="text-right">
-                        <div className="text-xs font-bold text-green-600">
+                        <div className={cn("text-xs font-bold", paidColor)}>
                           {isCollapsed ? '₹' : formatCurrency(stats.paidAmount).slice(0, 8)}
                         </div>
                       </div>
@@ -166,13 +169,13 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                   <CardContent className="p-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
-                        <Clock className="h-4 w-4 text-warning" />
+                        <Clock className={cn("h-4 w-4", unpaidColor)} />
                         {!isCollapsed && (
                           <span className="text-sm font-medium">Unpaid</span>
                         )}
                       </div>
                       <div className="text-right">
-                        <div className="text-xs font-bold text-warning">
+                        <div className={cn("text-xs font-bold", unpaidColor)}>
                           {isCollapsed ? '₹' : formatCurrency(stats.unpaidAmount).slice(0, 8)}
                         </div>
                       </div>
@@ -185,13 +188,13 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                   <CardContent className="p-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-2">
-                        <Wallet className="h-4 w-4 text-primary" />
+                        <Wallet className={cn("h-4 w-4", totalColor)} />
                         {!isCollapsed && (
                           <span className="text-sm font-medium">Total</span>
                         )}
                       </div>
                       <div className="text-right">
-                        <div className="text-xs font-bold text-primary">
+                        <div className={cn("text-xs font-bold", totalColor)}>
                           {isCollapsed ? '₹' : formatCurrency(stats.totalAmount).slice(0, 8)}
                         </div>
                       </div>
