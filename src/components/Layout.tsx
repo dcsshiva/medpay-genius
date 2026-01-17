@@ -5,6 +5,7 @@ import MobileHeader from '@/components/MobileHeader';
 import { AppSidebar } from '@/components/AppSidebar';
 import VersionDisplay from '@/components/VersionDisplay';
 import Footer from '@/components/Footer';
+import { PaymentStatsColorPicker } from '@/components/PaymentStatsColorPicker';
 import { 
   SidebarProvider, 
   SidebarInset, 
@@ -67,6 +68,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
                       {userRole}
                     </p>
                   </div>
+                  {(userRole === 'manager' || userRole === 'admin' || userDesignation === 'super_admin' || userDesignation === 'admin' || userDesignation === 'manager') && (
+                    <PaymentStatsColorPicker variant="icon" />
+                  )}
                   <Button 
                     variant="outline" 
                     size="sm" 
