@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { usePWA } from "@/hooks/usePWA";
 import { useVersionInfo } from "@/hooks/useVersionInfo";
-import { Mail, Download, RefreshCw, Check, Smartphone } from "lucide-react";
+import { Mail, Download, RefreshCw, Check, Smartphone, BookOpen } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { supabase } from "@/integrations/supabase/client";
 import westmedBanner from "@/assets/westmed-banner.png";
@@ -490,6 +490,16 @@ const Auth: React.FC = () => {
                 <p className="text-white/40">Build: {versionInfo.gitCommit.slice(0, 7)}</p>
               )}
             </div>
+
+            {/* Help Guide Link */}
+            <Button
+              variant="link"
+              className="text-white/80 hover:text-white text-xs p-0 h-auto"
+              onClick={() => navigate('/help-guide')}
+            >
+              <BookOpen className="h-3 w-3 mr-1" />
+              Help Guide
+            </Button>
           </div>
         </div>
       </div>
