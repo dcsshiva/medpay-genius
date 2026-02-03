@@ -9,6 +9,8 @@ import { CalendarIcon, BarChart3, TrendingUp, RefreshCw } from 'lucide-react';
 import { format, subDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { Treemap, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, Cell } from 'recharts';
+import NavigationHeatmap from './NavigationHeatmap';
 
 interface DailyStats {
   date: string;
@@ -21,9 +23,40 @@ interface OverallStats {
   count: number;
 }
 
+interface RoleStats {
+  navigation_name: string;
+  admin: number;
+  manager: number;
+  staff: number;
+  doctor: number;
+  unknown: number;
+}
+
+const TREEMAP_COLORS = [
+  '#ef4444', // red-500
+  '#f97316', // orange-500
+  '#eab308', // yellow-500
+  '#84cc16', // lime-500
+  '#22c55e', // green-500
+  '#14b8a6', // teal-500
+  '#3b82f6', // blue-500
+  '#8b5cf6', // violet-500
+  '#ec4899', // pink-500
+  '#6366f1', // indigo-500
+];
+
+const ROLE_COLORS = {
+  admin: '#ef4444',
+  manager: '#f97316',
+  staff: '#22c55e',
+  doctor: '#3b82f6',
+  unknown: '#9ca3af',
+};
+
 export default function NavigationAnalytics() {
   const [dailyStats, setDailyStats] = useState<DailyStats[]>([]);
   const [overallStats, setOverallStats] = useState<OverallStats[]>([]);
+  const [roleStats, setRoleStats] = useState<RoleStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
     from: subDays(new Date(), 30),
@@ -33,19 +66,21 @@ export default function NavigationAnalytics() {
   const fetchStats = async () => {
     setLoading(true);
     try {
-      // Fetch daily stats
-      const { data: dailyData, error: dailyError } = await supabase
+      // Fetch all navigation data for the period
+      const { data: rawData, error } = await supabase
         .from('navigation_analytics')
-        .select('navigation_name, clicked_at')
+        .select('navigation_name, clicked_at, user_role')
         .gte('clicked_at', dateRange.from.toISOString())
         .lte('clicked_at', dateRange.to.toISOString())
         .order('clicked_at', { ascending: false });
 
-      if (dailyError) throw dailyError;
+      if (error) throw error;
 
-      // Group by date and navigation_name
+      const data = rawData || [];
+
+      // Process daily stats
       const dailyMap = new Map<string, Map<string, number>>();
-      (dailyData || []).forEach((item) => {
+      data.forEach((item) => {
         const date = format(new Date(item.clicked_at), 'yyyy-MM-dd');
         if (!dailyMap.has(date)) {
           dailyMap.set(date, new Map());
@@ -60,25 +95,15 @@ export default function NavigationAnalytics() {
           dailyResult.push({ date, navigation_name, count });
         });
       });
-      // Sort by date desc, then by count desc
       dailyResult.sort((a, b) => {
         if (a.date !== b.date) return b.date.localeCompare(a.date);
         return b.count - a.count;
       });
       setDailyStats(dailyResult);
 
-      // Fetch overall stats
-      const { data: overallData, error: overallError } = await supabase
-        .from('navigation_analytics')
-        .select('navigation_name, clicked_at')
-        .gte('clicked_at', dateRange.from.toISOString())
-        .lte('clicked_at', dateRange.to.toISOString());
-
-      if (overallError) throw overallError;
-
-      // Group by navigation_name
+      // Process overall stats
       const overallMap = new Map<string, number>();
-      (overallData || []).forEach((item) => {
+      data.forEach((item) => {
         overallMap.set(item.navigation_name, (overallMap.get(item.navigation_name) || 0) + 1);
       });
 
@@ -88,6 +113,39 @@ export default function NavigationAnalytics() {
       });
       overallResult.sort((a, b) => b.count - a.count);
       setOverallStats(overallResult);
+
+      // Process role-based stats
+      const roleMap = new Map<string, { admin: number; manager: number; staff: number; doctor: number; unknown: number }>();
+      data.forEach((item) => {
+        if (!roleMap.has(item.navigation_name)) {
+          roleMap.set(item.navigation_name, { admin: 0, manager: 0, staff: 0, doctor: 0, unknown: 0 });
+        }
+        const roleData = roleMap.get(item.navigation_name)!;
+        const role = item.user_role?.toLowerCase() || 'unknown';
+        if (role === 'admin' || role === 'super_admin') {
+          roleData.admin += 1;
+        } else if (role === 'manager') {
+          roleData.manager += 1;
+        } else if (role === 'staff' || role.includes('nurse') || role.includes('receptionist')) {
+          roleData.staff += 1;
+        } else if (role === 'doctor') {
+          roleData.doctor += 1;
+        } else {
+          roleData.unknown += 1;
+        }
+      });
+
+      const roleResult: RoleStats[] = [];
+      roleMap.forEach((counts, navigation_name) => {
+        roleResult.push({ navigation_name, ...counts });
+      });
+      roleResult.sort((a, b) => {
+        const totalA = a.admin + a.manager + a.staff + a.doctor + a.unknown;
+        const totalB = b.admin + b.manager + b.staff + b.doctor + b.unknown;
+        return totalB - totalA;
+      });
+      setRoleStats(roleResult);
+
     } catch (error) {
       console.error('Error fetching navigation stats:', error);
     } finally {
@@ -103,12 +161,19 @@ export default function NavigationAnalytics() {
   const uniquePages = overallStats.length;
   const topPage = overallStats[0]?.navigation_name || 'N/A';
 
+  // Prepare treemap data
+  const treemapData = overallStats.map((stat, index) => ({
+    name: stat.navigation_name,
+    size: stat.count,
+    fill: TREEMAP_COLORS[index % TREEMAP_COLORS.length],
+  }));
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h2 className="text-2xl font-bold">Navigation Analytics</h2>
-          <p className="text-muted-foreground">Track sidebar menu usage</p>
+          <p className="text-muted-foreground">Track sidebar menu usage with heatmap visualization</p>
         </div>
         <div className="flex items-center gap-2">
           <Popover>
@@ -173,12 +238,116 @@ export default function NavigationAnalytics() {
         </Card>
       </div>
 
-      <Tabs defaultValue="overall" className="w-full">
-        <TabsList>
-          <TabsTrigger value="overall">Overall Summary</TabsTrigger>
-          <TabsTrigger value="daily">Daily Breakdown</TabsTrigger>
+      <Tabs defaultValue="heatmap" className="w-full">
+        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-flex">
+          <TabsTrigger value="heatmap">Heatmap</TabsTrigger>
+          <TabsTrigger value="treemap">Treemap</TabsTrigger>
+          <TabsTrigger value="by-role">By Role</TabsTrigger>
+          <TabsTrigger value="overall">Overall</TabsTrigger>
+          <TabsTrigger value="daily">Daily</TabsTrigger>
         </TabsList>
 
+        {/* Heatmap Tab */}
+        <TabsContent value="heatmap">
+          <NavigationHeatmap stats={overallStats} loading={loading} />
+        </TabsContent>
+
+        {/* Treemap Tab */}
+        <TabsContent value="treemap">
+          <Card>
+            <CardHeader>
+              <CardTitle>Navigation Usage Treemap</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : treemapData.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No navigation data available yet
+                </div>
+              ) : (
+                <div className="h-[400px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <Treemap
+                      data={treemapData}
+                      dataKey="size"
+                      aspectRatio={4 / 3}
+                      stroke="#fff"
+                    >
+                      {treemapData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                      <Tooltip
+                        content={({ payload }) => {
+                          if (!payload || !payload[0]) return null;
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-popover border rounded-lg shadow-lg p-3">
+                              <p className="font-semibold">{data.name}</p>
+                              <p className="text-sm text-muted-foreground">
+                                {data.size.toLocaleString()} clicks
+                              </p>
+                            </div>
+                          );
+                        }}
+                      />
+                    </Treemap>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* By Role Tab */}
+        <TabsContent value="by-role">
+          <Card>
+            <CardHeader>
+              <CardTitle>Navigation Usage by Role</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex items-center justify-center py-8">
+                  <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : roleStats.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No navigation data available yet
+                </div>
+              ) : (
+                <div className="h-[400px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={roleStats.slice(0, 10)}
+                      layout="vertical"
+                      margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis type="number" />
+                      <YAxis 
+                        type="category" 
+                        dataKey="navigation_name" 
+                        width={90}
+                        tick={{ fontSize: 11 }}
+                      />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="admin" stackId="a" fill={ROLE_COLORS.admin} name="Admin" />
+                      <Bar dataKey="manager" stackId="a" fill={ROLE_COLORS.manager} name="Manager" />
+                      <Bar dataKey="doctor" stackId="a" fill={ROLE_COLORS.doctor} name="Doctor" />
+                      <Bar dataKey="staff" stackId="a" fill={ROLE_COLORS.staff} name="Staff" />
+                      <Bar dataKey="unknown" stackId="a" fill={ROLE_COLORS.unknown} name="Other" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Overall Tab */}
         <TabsContent value="overall">
           <Card>
             <CardHeader>
@@ -221,6 +390,7 @@ export default function NavigationAnalytics() {
           </Card>
         </TabsContent>
 
+        {/* Daily Tab */}
         <TabsContent value="daily">
           <Card>
             <CardHeader>
@@ -245,7 +415,7 @@ export default function NavigationAnalytics() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {dailyStats.map((stat, index) => (
+                    {dailyStats.map((stat) => (
                       <TableRow key={`${stat.date}-${stat.navigation_name}`}>
                         <TableCell>{format(new Date(stat.date), 'MMM dd, yyyy')}</TableCell>
                         <TableCell>{stat.navigation_name}</TableCell>
