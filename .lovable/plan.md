@@ -1,248 +1,227 @@
 
 
-## Add Heatmap Tracking for Sidebar Navigation
+## Ensure All Roles Route to Respective Dashboards on Login
 
-### Overview
-Enhance the existing Navigation Analytics page with a visual heatmap component that shows click density on sidebar navigation items. The heatmap will use color intensity (from light green to dark red) to visualize which menu items are clicked most frequently.
+### Problem Summary
 
----
+The current login flow has inconsistencies where users with different roles (Admin, Manager, Doctor, Staff/Nurse) are not always routed to their appropriate dashboards. The role determination and routing logic is fragmented across multiple files.
 
-### Current Architecture
+### Current Role-to-Dashboard Mapping
 
-| Component | Purpose |
-|-----------|---------|
-| `useNavigationTracking` | Hook that tracks navigation clicks to `navigation_analytics` table |
-| `NavigationAnalytics.tsx` | Displays overall and daily stats in table format |
-| `AppSidebar.tsx` | Sidebar with navigation items - already calls `trackNavigation()` |
-| `getNavigationItems()` | Returns navigation items based on user role |
+| Role | Current Behavior | Expected Behavior |
+|------|------------------|-------------------|
+| **Admin** | Routes to Doctor Hub | Routes to Doctor Hub (correct) |
+| **Manager** | Routes to Doctor Hub | Routes to Doctor Hub (correct) |
+| **Doctor** | Routes to `/dashboard?view=doctor` | Routes to Doctor Hub (correct) |
+| **Staff/Nurse** | Falls through to generic Dashboard | Routes to Staff Mobile Dashboard on mobile, Dashboard on desktop |
 
-**Database Schema** (`navigation_analytics` table):
-- `id`, `user_id`, `staff_id`, `navigation_id`, `navigation_name`, `user_role`, `clicked_at`
+### Data Source Analysis
+
+Roles are determined from two sources:
+1. **`staff.role`**: Contains values like `admin`, `manager`, `nurse`
+2. **`user_designations.designation`**: Contains `admin`, `manager`, `doctor`, `staff`
+
+Some users have mismatches between these two tables, requiring both to be checked.
 
 ---
 
 ### Implementation Plan
 
-#### 1. Create Sidebar Heatmap Visualization Component
+#### 1. Fix Auth.tsx - Post-Login Navigation
 
-**New File: `src/components/NavigationHeatmap.tsx`**
+**File: `src/pages/Auth.tsx`**
 
-A visual representation of the sidebar showing click intensity:
+Update the `handleVerifyOTP` function to properly route users after login:
 
 ```text
-┌─────────────────────────────────────────────────┐
-│  Sidebar Navigation Heatmap                     │
-│  ─────────────────────────────────              │
-│                                                 │
-│  ┌─────────────────────────────────────────┐    │
-│  │  🏠 Dashboard            ████████ 245   │ ← High intensity (red)
-│  │  📖 User Guide           ██████░░  89   │ ← Medium (orange)
-│  │  🗄️ Masters              █████░░░  67   │
-│  │  👥 Staff Management     ████░░░░  45   │
-│  │  🩺 Doctor Hub           ███████░ 178   │ ← High (red-orange)
-│  │  📅 Visit Management     ██████░░  92   │
-│  │  💳 Cash Payments (Lite) ████░░░░  38   │
-│  │  ⚡ Quick Payment        ███░░░░░  25   │ ← Low (green)
-│  │  🏛️ Bank Advice (Beta)   ██░░░░░░  12   │ ← Very low (light green)
-│  │  📊 TDS Reports          █░░░░░░░   5   │
-│  │  ⚙️ Settings             ██████░░  85   │
-│  └─────────────────────────────────────────┘    │
-│                                                 │
-│  Legend: Low ░░░ → ███ High                     │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│ After OTP Verification - Determine Route                    │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  1. Check if user is a Doctor                               │
+│     └── Route: /dashboard?view=doctor-hub                   │
+│                                                             │
+│  2. Check if user is Admin/Manager (from staff.role OR      │
+│     user_designations.designation)                          │
+│     └── Route: /dashboard?view=doctor-hub                   │
+│                                                             │
+│  3. Check if user is Staff/Nurse                            │
+│     └── Route: /dashboard?view=staff                        │
+│                                                             │
+│  4. Fallback (designation-only users)                       │
+│     └── Route based on designation                          │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-**Features:**
-- Visual bars with color gradient based on click count
-- Percentage of total clicks
-- Sorted by click count (highest first) or original sidebar order
-- Interactive: click to see detailed breakdown by role/time
+**Changes:**
+- Add explicit navigation after creating session record (currently missing for staff)
+- Add `?view=staff` parameter for staff/nurse roles
+- Remove redundant navigation in `useEffect` that conflicts with explicit routing
 
 ---
 
-#### 2. Add Treemap Chart View
+#### 2. Update Index.tsx - View Parameter Handling
 
-Using Recharts `Treemap` component to show proportional area representation:
+**File: `src/pages/Index.tsx`**
 
-```text
-┌─────────────────────────────────────────────────┐
-│                                                 │
-│  ┌──────────────────┬─────────────┬────────┐    │
-│  │                  │             │        │    │
-│  │   Dashboard      │  Doctor Hub │ Visits │    │
-│  │     (245)        │   (178)     │  (92)  │    │
-│  │                  │             │        │    │
-│  ├──────────────────┼─────────────┴────────┤    │
-│  │  User Guide (89) │  Settings (85)       │    │
-│  ├──────────────────┼──────────────────────┤    │
-│  │  Masters (67)    │  Staff (45)          │    │
-│  └──────────────────┴──────────────────────┘    │
-│                                                 │
-└─────────────────────────────────────────────────┘
+Enhance the URL view parameter handling to include staff view:
+
+```typescript
+// Current (Lines 56-62)
+if (view === 'doctor' || view === 'doctor-hub') {
+  setActiveTab('doctor-hub');
+} else if (view === 'admin' || view === 'manager' || view === 'staff') {
+  setActiveTab('dashboard');
+}
+
+// Updated
+if (view === 'doctor' || view === 'doctor-hub') {
+  setActiveTab('doctor-hub');
+} else if (view === 'staff') {
+  setActiveTab('staff-dashboard');  // New tab for staff
+} else if (view === 'admin' || view === 'manager') {
+  setActiveTab('doctor-hub');
+}
 ```
 
----
-
-#### 3. Update NavigationAnalytics.tsx
-
-Add new tabs for heatmap visualizations:
-
-```text
-┌─────────────────────────────────────────────────┐
-│  Navigation Analytics                           │
-│  Track sidebar menu usage                       │
-│                                                 │
-│  [Date Range Picker]  [Refresh]                 │
-│                                                 │
-│  ┌────────────────────────────────────────────┐ │
-│  │ Summary Cards: Total | Pages | Most Popular│ │
-│  └────────────────────────────────────────────┘ │
-│                                                 │
-│  ┌────────┬─────────┬──────────┬──────────┐     │
-│  │Heatmap │ Treemap │ Overall  │ Daily    │ ← NEW tabs
-│  └────────┴─────────┴──────────┴──────────┘     │
-│                                                 │
-│  [Tab Content Based on Selection]               │
-└─────────────────────────────────────────────────┘
+Add new case in `renderContent()` for staff dashboard:
+```typescript
+case 'staff-dashboard':
+  return <StaffMobileDashboard onNavigate={handleTabChange} />;
 ```
 
 ---
 
-#### 4. Add Role-based Breakdown
+#### 3. Improve Auto-Redirect Logic in Index.tsx
 
-Show clicks broken down by user role in a stacked bar chart:
+**File: `src/pages/Index.tsx`**
 
-```text
-Navigation by Role
-──────────────────
+Update the auto-redirect `useEffect` to handle all roles consistently:
 
-Dashboard     ████████ Admin  ███ Manager  ██ Staff
-Doctor Hub    ██████ Admin    ████ Manager  █ Staff
-Visits        █████ Admin     ███ Manager   ██ Staff
+```typescript
+useEffect(() => {
+  if (loading || !userProfile) return;
+  
+  const role = userProfile.role || userProfile.designation;
+  const userType = userProfile.user_type;
+  
+  // Doctor users -> Doctor Hub
+  if (userType === 'doctor' || role === 'doctor') {
+    setActiveTab('doctor-hub');
+    return;
+  }
+  
+  // Admin/Manager -> Doctor Hub
+  if (['admin', 'manager', 'super_admin'].includes(role)) {
+    setActiveTab('doctor-hub');
+    return;
+  }
+  
+  // Staff/Nurse on mobile -> Staff Dashboard
+  if (['staff', 'nurse'].includes(role) && isMobile) {
+    setActiveTab('staff-dashboard');
+    return;
+  }
+  
+  // Staff/Nurse on desktop -> Regular Dashboard
+  // (default behavior, no redirect needed)
+}, [userProfile, loading, activeTab, isMobile]);
 ```
 
 ---
 
-### Files to Create
+#### 4. Update Auth.tsx Navigation Logic
 
-| File | Purpose |
-|------|---------|
-| `src/components/NavigationHeatmap.tsx` | Visual heatmap component with sidebar-like layout |
+**Changes in `handleVerifyOTP` function:**
+
+```text
+After session creation for staff:
+┌─────────────────────────────────────────────────────────────┐
+│ if (staffData.role === 'admin' || designation === 'admin')  │
+│   └── navigate('/dashboard?view=doctor-hub')                │
+│                                                             │
+│ else if (staffData.role === 'manager' ||                    │
+│          designation === 'manager')                          │
+│   └── navigate('/dashboard?view=doctor-hub')                │
+│                                                             │
+│ else if (staffData.role === 'nurse' ||                      │
+│          designation === 'staff')                            │
+│   └── navigate('/dashboard?view=staff')                     │
+│                                                             │
+│ else                                                        │
+│   └── navigate('/dashboard')                                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+---
 
 ### Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/components/NavigationAnalytics.tsx` | Add Heatmap and Treemap tabs, integrate new visualizations |
+| `src/pages/Auth.tsx` | Fix post-login navigation to route all roles correctly |
+| `src/pages/Index.tsx` | Add `staff-dashboard` tab handling, improve auto-redirect logic |
 
 ---
 
-### Technical Implementation Details
-
-#### Heatmap Color Scale
-```typescript
-// Color intensity based on percentage of max clicks
-const getHeatColor = (count: number, maxCount: number): string => {
-  const intensity = count / maxCount;
-  if (intensity >= 0.8) return 'bg-red-500';      // Hot
-  if (intensity >= 0.6) return 'bg-orange-500';   // Warm
-  if (intensity >= 0.4) return 'bg-yellow-500';   // Medium
-  if (intensity >= 0.2) return 'bg-lime-500';     // Cool
-  return 'bg-green-300';                           // Cold
-};
-```
-
-#### Treemap Configuration
-```typescript
-// Using Recharts Treemap
-import { Treemap, ResponsiveContainer, Tooltip } from 'recharts';
-
-const COLORS = [
-  '#ef4444', // red-500
-  '#f97316', // orange-500
-  '#eab308', // yellow-500
-  '#84cc16', // lime-500
-  '#22c55e', // green-500
-  '#14b8a6', // teal-500
-];
-
-const data = overallStats.map((stat, index) => ({
-  name: stat.navigation_name,
-  size: stat.count,
-  fill: COLORS[index % COLORS.length],
-}));
-```
-
-#### Enhanced Analytics Tabs
-```typescript
-<Tabs defaultValue="heatmap">
-  <TabsList>
-    <TabsTrigger value="heatmap">Heatmap</TabsTrigger>
-    <TabsTrigger value="treemap">Treemap</TabsTrigger>
-    <TabsTrigger value="overall">Overall</TabsTrigger>
-    <TabsTrigger value="daily">Daily</TabsTrigger>
-    <TabsTrigger value="by-role">By Role</TabsTrigger>
-  </TabsList>
-</Tabs>
-```
-
----
-
-### Data Flow
+### Role-Based Dashboard Routing Summary
 
 ```text
-User clicks sidebar item
-        │
-        ▼
-useNavigationTracking.trackNavigation()
-        │
-        ▼
-INSERT into navigation_analytics
-        │
-        ▼
-NavigationAnalytics fetches data
-        │
-        ├──► Overall Stats (table)
-        ├──► Daily Stats (table)
-        ├──► Heatmap View (visual bars) ← NEW
-        ├──► Treemap View (proportional areas) ← NEW
-        └──► By Role View (stacked bars) ← NEW
+┌──────────────────────────────────────────────────────────────────┐
+│                    ROLE-BASED ROUTING FLOW                       │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  User Logs In                                                    │
+│       │                                                          │
+│       ▼                                                          │
+│  ┌─────────────────┐                                             │
+│  │ Check user type │                                             │
+│  └────────┬────────┘                                             │
+│           │                                                      │
+│     ┌─────┴─────┬─────────────┬──────────────┐                   │
+│     ▼           ▼             ▼              ▼                   │
+│  Doctor     Admin/Manager   Staff/Nurse    Other                 │
+│     │           │             │              │                   │
+│     ▼           ▼             ▼              ▼                   │
+│  Doctor Hub  Doctor Hub   Staff Dashboard   Dashboard            │
+│  (filtered)  (full view)  (task/leave      (generic)            │
+│              with all      focused)                              │
+│              doctors                                             │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-### Component Structure
+### Technical Details
 
-```text
-NavigationAnalytics.tsx
-├── Summary Cards (existing)
-├── TabsList
-│   ├── "Heatmap" Tab
-│   │   └── <NavigationHeatmap stats={overallStats} />
-│   ├── "Treemap" Tab
-│   │   └── <Treemap ... /> (Recharts)
-│   ├── "By Role" Tab
-│   │   └── <BarChart ... /> (stacked by role)
-│   ├── "Overall" Tab (existing)
-│   │   └── Table view
-│   └── "Daily" Tab (existing)
-│       └── Table view
-```
+#### Role Determination Priority
 
----
+1. **First check**: `staff.role` field (admin, manager, nurse)
+2. **Second check**: `user_designations.designation` field (admin, manager, doctor, staff)
+3. **Third check**: `doctors` table for doctor user_id linkage
 
-### Dependencies
+#### Session Creation Already Stores Role
 
-- **recharts** (already installed) - For Treemap and BarChart visualizations
-- **lucide-react** (already installed) - For navigation icons
-- **Tailwind CSS** - For heatmap color classes
+The `createSessionRecord` function already stores the role in the session, so the role is available via `userProfile.role` after login.
+
+#### Mobile vs Desktop
+
+- **Mobile Staff**: Show `StaffMobileDashboard` with quick actions
+- **Desktop Staff**: Show standard `Dashboard` with admin-lite view
 
 ---
 
-### Accessibility Considerations
+### Testing Checklist
 
-- Color-blind friendly: Include text labels with click counts
-- Keyboard navigation: All tabs accessible via keyboard
-- Screen readers: ARIA labels for heatmap intensity descriptions
-- High contrast: Text always visible on colored backgrounds
+After implementation, verify:
+
+1. [ ] Admin (ADM430) logs in -> Routes to Doctor Hub
+2. [ ] Manager (MGR100) logs in -> Routes to Doctor Hub  
+3. [ ] Doctor logs in -> Routes to Doctor Hub (filtered to their data)
+4. [ ] Nurse/Staff (NUR019) logs in -> Routes to Staff Dashboard (mobile) or Dashboard (desktop)
+5. [ ] URL parameter `?view=staff` works correctly
+6. [ ] URL parameter `?view=doctor-hub` works correctly
+7. [ ] Session persists correct role after page refresh
 
