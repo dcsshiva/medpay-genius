@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
+import { useIsMobile } from '@/hooks/use-mobile';
 import Layout from '@/components/Layout';
 import Dashboard from '@/components/Dashboard';
 import MasterDataManagement from '@/components/MasterDataManagement';
@@ -34,11 +35,13 @@ import BankAdviceReport from '@/components/BankAdviceReport';
 import BankAdviceReports from '@/components/BankAdviceReports';
 import DoctorHub from '@/components/DoctorHub';
 import NavigationAnalytics from '@/components/NavigationAnalytics';
+import StaffMobileDashboard from '@/components/StaffMobileDashboard';
 // Bank Advice Payment Report Component
 const Index = () => {
   const { user, loading, userProfile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [activeSubTab, setActiveSubTab] = useState<string | undefined>(undefined);
   const [paymentTypeFilter, setPaymentTypeFilter] = useState<'all' | 'cash' | 'insurance' | 'mixed'>('all');
@@ -57,8 +60,10 @@ const Index = () => {
     
     if (view === 'doctor' || view === 'doctor-hub') {
       setActiveTab('doctor-hub');
+    } else if (view === 'staff') {
+      setActiveTab('staff-dashboard');
     } else if (view === 'admin' || view === 'manager' || view === 'staff') {
-      setActiveTab('dashboard');
+      setActiveTab('doctor-hub');
     }
   }, [location.state, location.search, navigate, location.pathname]);
 
@@ -73,16 +78,36 @@ const Index = () => {
     }
   }, [user, loading, navigate]);
 
-  // Automatically redirect doctors, managers, and admins to Doctor Hub
+  // Automatically redirect users to their role-appropriate dashboard
   useEffect(() => {
-    if (!loading && userProfile?.user_type === 'doctor' && activeTab === 'dashboard') {
+    if (loading || !userProfile) return;
+    
+    const role = userProfile.role || userProfile.designation;
+    const userType = userProfile.user_type;
+    
+    // Only redirect if on generic dashboard
+    if (activeTab !== 'dashboard') return;
+    
+    // Doctor users -> Doctor Hub
+    if (userType === 'doctor' || role === 'doctor') {
       setActiveTab('doctor-hub');
+      return;
     }
-    // Also redirect managers and admins to Doctor Hub
-    if (!loading && (userProfile?.designation === 'manager' || userProfile?.designation === 'admin' || userProfile?.role === 'manager' || userProfile?.role === 'admin') && activeTab === 'dashboard') {
+    
+    // Admin/Manager/Super_admin -> Doctor Hub
+    if (role && ['admin', 'manager', 'super_admin'].includes(role)) {
       setActiveTab('doctor-hub');
+      return;
     }
-  }, [userProfile, loading, activeTab]);
+    
+    // Staff/Nurse on mobile -> Staff Dashboard
+    if (role && ['staff', 'nurse'].includes(role) && isMobile) {
+      setActiveTab('staff-dashboard');
+      return;
+    }
+    
+    // Staff/Nurse on desktop stay on regular Dashboard (no redirect needed)
+  }, [userProfile, loading, activeTab, isMobile]);
 
   const handleTabChange = (params: string | { tab: string; subTab?: string; paymentTypeFilter?: 'all' | 'cash' | 'insurance' | 'mixed' }) => {
     if (typeof params === 'string') {
@@ -175,6 +200,8 @@ const Index = () => {
         return <ApprovalManagement />;
       case 'navigation-analytics':
         return <NavigationAnalytics />;
+      case 'staff-dashboard':
+        return <StaffMobileDashboard onNavigate={handleTabChange} />;
       case 'settings':
         return <Settings />;
       default:
