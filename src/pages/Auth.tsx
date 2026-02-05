@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import westmedBanner from "@/assets/westmed-banner.png";
 import westmedLogo from "@/assets/westmed-logo.png";
 import Footer from "@/components/Footer";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const Auth: React.FC = () => {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ const Auth: React.FC = () => {
   const { signInWithOTP, verifyOTP, user } = useAuth();
   const { isInstallable, isInstalled, installApp, checkForUpdates, isCheckingForUpdates, isUpdateAvailable, applyUpdate } = usePWA();
   const versionInfo = useVersionInfo();
+  const isMobile = useIsMobile();
 
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState<string>("");
@@ -29,34 +31,8 @@ const Auth: React.FC = () => {
   const [otpCode, setOtpCode] = useState<string>("");
   const [resendCooldown, setResendCooldown] = useState<number>(0);
 
-  // When user object appears, decide where to navigate
-  useEffect(() => {
-    const checkUserTypeAndNavigate = async () => {
-      if (!user) return;
-
-      try {
-        // Check if user is a doctor by querying doctors table directly
-        const { data: doctorData } = await supabase
-          .from("doctors")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("is_active", true)
-          .limit(1);
-
-        const hasDoctor = Array.isArray(doctorData) ? doctorData.length > 0 : !!doctorData;
-
-        if (hasDoctor) {
-          navigate("/dashboard?view=doctor");
-        } else {
-          navigate("/dashboard");
-        }
-      } catch (err) {
-        navigate("/dashboard");
-      }
-    };
-
-    checkUserTypeAndNavigate();
-  }, [user, navigate]);
+  // Navigation is now handled explicitly after OTP verification
+  // This prevents race conditions with user state updates
 
   // Auto-verify OTP when all 6 digits are entered
   useEffect(() => {
@@ -192,6 +168,11 @@ const Auth: React.FC = () => {
             "doctor",
             180,
           );
+          toast({
+            title: "Welcome Doctor!",
+            description: "Successfully signed in.",
+          });
+          navigate("/dashboard?view=doctor-hub");
           return;
         }
 
@@ -237,10 +218,12 @@ const Auth: React.FC = () => {
             return;
           }
 
+          // Staff/Nurse users - route to staff dashboard
           toast({
             title: "Welcome!",
             description: "Successfully signed in.",
           });
+          navigate(isMobile ? "/dashboard?view=staff" : "/dashboard");
           return;
         }
 
@@ -273,6 +256,12 @@ const Auth: React.FC = () => {
             title: "Welcome!",
             description: "Successfully signed in.",
           });
+          // Admin/Manager/Super_admin go to doctor-hub
+          if (["admin", "manager", "super_admin"].includes(designationOnly.designation)) {
+            navigate("/dashboard?view=doctor-hub");
+          } else {
+            navigate("/dashboard");
+          }
           return;
         }
       }
