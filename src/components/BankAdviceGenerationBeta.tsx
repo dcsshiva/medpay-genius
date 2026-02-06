@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/lib/auth';
 import { useToast } from '@/hooks/use-toast';
+import { useWebsiteSettings } from '@/hooks/useWebsiteSettings';
 import { GroupedPendingPayment } from './bank-advice-beta/types';
 import { BetaPendingPaymentsTab } from './bank-advice-beta/BetaPendingPaymentsTab';
 import { BetaGeneratedAdviceTab } from './bank-advice-beta/BetaGeneratedAdviceTab';
@@ -15,6 +16,7 @@ import { formatCurrency } from '@/lib/currency';
 const BankAdviceGenerationBeta = () => {
   const { user, userRole } = useAuth();
   const { toast } = useToast();
+  const { data: websiteSettings } = useWebsiteSettings();
   const [loading, setLoading] = useState(true);
   const [groupedPayments, setGroupedPayments] = useState<GroupedPendingPayment[]>([]);
   const [paymentModeDialogOpen, setPaymentModeDialogOpen] = useState(false);
@@ -122,6 +124,7 @@ const BankAdviceGenerationBeta = () => {
           ifsc_code,
           bank_name,
           account_holder_name,
+          payment_notes,
           created_at,
           vendor_id,
           payment_type_id,
@@ -193,29 +196,53 @@ const BankAdviceGenerationBeta = () => {
       const totalAmount = selectedPaymentsData.reduce((sum, p) => sum + p.total_cumulative_amount, 0);
 
       if (mode === 'bank') {
-        // Generate GEFU file for bank transfers
-        const gefuLines: string[] = [];
+        // Generate standard GEFU file for bank transfers
+        const today = new Date();
+        const dd = String(today.getDate()).padStart(2, '0');
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const yy = String(today.getFullYear()).slice(-2);
+
+        const institutionCode = websiteSettings?.hospital_institution_code || 'WESTMED';
+        const hospitalAccount = websiteSettings?.hospital_bank_account_number || '';
+        const hospitalName = websiteSettings?.hospital_name || 'WESTMED HOSPITAL';
+        const hospitalAddress = websiteSettings?.hospital_institution_address || '';
+        const addressParts = hospitalAddress.split(',').map((s: string) => s.trim());
+        const address1 = addressParts[0] || '';
+        const address2 = addressParts[1] || '';
+        const address3 = addressParts[2] || '';
+
+        let gefuContent = `H~${dd}/${mm}/20${yy}~${institutionCode}\n`;
+        let paymentIndex = 0;
+
         selectedPaymentsData.forEach(payment => {
           if (payment.bank_account_number && payment.ifsc_code) {
-            const line = [
-              'N',
-              payment.account_holder_name || payment.beneficiary_name,
-              payment.bank_account_number,
-              payment.ifsc_code,
-              Math.round(payment.total_cumulative_amount * 100),
-              payment.beneficiary_name,
-              '',
-              '',
-              'WESTMED HOSPITAL',
-            ].join('~');
-            gefuLines.push(line);
+            paymentIndex++;
+            const seq = String(paymentIndex).padStart(6, '0');
+            const amount = payment.total_cumulative_amount.toFixed(2);
+
+            // Determine sender-to-receiver info
+            let senderToRcvrInfo = '';
+            if (payment.beneficiary_type === 'doctor') {
+              senderToRcvrInfo = 'CONSULTING CHARGES';
+            } else {
+              const paymentRecord = payment.payment_records[0];
+              const notes = paymentRecord?.payment_notes;
+              if (notes && notes.trim().length > 0) {
+                senderToRcvrInfo = notes.trim().replace(/[~\r\n]/g, '').replace(/[^a-zA-Z0-9 ]/g, '').substring(0, 35).toUpperCase();
+              } else {
+                senderToRcvrInfo = (paymentRecord?.quick_payment_types?.type_name || 'PAYMENT').replace(/[~\r\n]/g, '').replace(/[^a-zA-Z0-9 ]/g, '').substring(0, 35).toUpperCase();
+              }
+            }
+
+            gefuContent += `D~N06~${hospitalAccount}~${hospitalName}~${address1}~${address2}~${address3}~${payment.ifsc_code}~${payment.bank_account_number}~${payment.account_holder_name || payment.beneficiary_name}~~~~~${seq}~${dd}/${mm}/20${yy}~${amount}~${senderToRcvrInfo}~~~~\n`;
           }
         });
 
-        if (gefuLines.length > 0) {
-          const gefuContent = gefuLines.join('\n');
+        gefuContent += `F~${paymentIndex}~${totalAmount.toFixed(2)}\n`;
+
+        if (paymentIndex > 0) {
           const blob = new Blob([gefuContent], { type: 'text/plain' });
-          const filename = `GEFU_${new Date().toISOString().split('T')[0]}_${Date.now()}.txt`;
+          const filename = `${dd}${mm}${yy}-${paymentIndex}.txt`;
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.href = url;

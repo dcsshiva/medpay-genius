@@ -596,6 +596,12 @@ const QuickPaymentManagement = () => {
 
         paymentsToGenerate.forEach((payment, index) => {
           const netAmount = payment.net_amount.toFixed(2);
+
+          // Determine sender-to-receiver info
+          const senderToRcvrInfo = payment.payment_notes?.trim()
+            ? payment.payment_notes.trim().replace(/[~\r\n]/g, '').replace(/[^a-zA-Z0-9 ]/g, '').substring(0, 35).toUpperCase()
+            : (payment.quick_payment_types?.type_name || 'PAYMENT').replace(/[~\r\n]/g, '').replace(/[^a-zA-Z0-9 ]/g, '').substring(0, 35).toUpperCase();
+
           const detailLine = [
             'D', 'N06',
             websiteSettings?.hospital_bank_account_number || '120000794291',
@@ -603,7 +609,7 @@ const QuickPaymentManagement = () => {
             'ADDRESS1', 'ADDRESS2', 'ADDRESS3',
             payment.ifsc_code || '', payment.account_number || '',
             payment.account_holder_name || payment.name,
-            '', '', '', '', index + 1, dateStr, netAmount, index + 1, '', '', '', ''
+            '', '', '', '', index + 1, dateStr, netAmount, senderToRcvrInfo, '', '', '', ''
           ].join('~');
           fileContent += detailLine + '\n';
         });
@@ -1005,6 +1011,11 @@ const QuickPaymentManagement = () => {
       let gefuContent = `H~${dateStr}~${websiteSettings?.hospital_institution_code || 'ABC07112007'}\n`;
 
       const netAmount = latestPayment.net_amount.toFixed(2);
+      // Determine sender-to-receiver info for regeneration
+      const regenSenderInfo = latestPayment.payment_notes?.trim()
+        ? latestPayment.payment_notes.trim().replace(/[~\r\n]/g, '').replace(/[^a-zA-Z0-9 ]/g, '').substring(0, 35).toUpperCase()
+        : (latestPayment.quick_payment_types?.type_name || 'PAYMENT').replace(/[~\r\n]/g, '').replace(/[^a-zA-Z0-9 ]/g, '').substring(0, 35).toUpperCase();
+
       const detailLineNew = [
         'D',
         'N06',
@@ -1020,7 +1031,7 @@ const QuickPaymentManagement = () => {
         '1',
         dateStr,
         netAmount,
-        '1',
+        regenSenderInfo,
         '', '', '', ''
       ].join('~');
 
@@ -1382,14 +1393,17 @@ const QuickPaymentManagement = () => {
 
                 {/* Notes */}
                 <div>
-                  <Label htmlFor="payment_notes">Payment Notes</Label>
-                  <Textarea
+                  <Label htmlFor="payment_notes">Payment Notes (max 35 characters)</Label>
+                  <Input
                     id="payment_notes"
                     value={formData.payment_notes}
                     onChange={(e) => setFormData({ ...formData, payment_notes: e.target.value })}
-                    placeholder="Optional notes"
-                    rows={3}
+                    placeholder="Optional notes (used in bank advice)"
+                    maxLength={35}
                   />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {formData.payment_notes.length}/35 characters — Used as Sender to Receiver info in GEFU file
+                  </p>
                 </div>
 
                 {/* Supporting Document Upload */}

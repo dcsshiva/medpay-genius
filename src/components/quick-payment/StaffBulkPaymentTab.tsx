@@ -305,7 +305,7 @@ export const StaffBulkPaymentTab = () => {
           (index + 1).toString(),
           dateStr,
           amount.toFixed(2),
-          (index + 1).toString(),
+          'STAFF PAYMENT',
           '', '', '', ''
         ].join('~');
         

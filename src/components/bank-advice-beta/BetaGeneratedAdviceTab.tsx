@@ -204,7 +204,7 @@ export const BetaGeneratedAdviceTab: React.FC = () => {
         const seq = String(index + 1).padStart(6, '0');
         const netAmount = payment.net_amount.toFixed(2);
 
-        gefuContent += `D~N06~HOSPITAL_ACCOUNT~HOSPITAL_NAME~ADDRESS1~ADDRESS2~ADDRESS3~${doctor.ifsc_code}~${doctor.bank_account_number}~${doctor.account_holder_name}~~~~~${seq}~${dd}/${mm}/20${yy}~${netAmount}~${seq}~~~~\n`;
+        gefuContent += `D~N06~HOSPITAL_ACCOUNT~HOSPITAL_NAME~ADDRESS1~ADDRESS2~ADDRESS3~${doctor.ifsc_code}~${doctor.bank_account_number}~${doctor.account_holder_name}~~~~~${seq}~${dd}/${mm}/20${yy}~${netAmount}~CONSULTING CHARGES~~~~\n`;
       });
 
       const totalNet = payments?.reduce((sum: number, p: any) => sum + Number(p.net_amount), 0) || 0;

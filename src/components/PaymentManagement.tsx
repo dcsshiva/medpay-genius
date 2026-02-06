@@ -1786,7 +1786,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
           index + 1,                    // Sequence Number
           dateStr,                      // Transaction Date
           amount,                       // Amount
-          index + 1,                    // Sequence Number (again)
+          'CONSULTING CHARGES',         // Sender To Receiver Info
           '',                           // Empty
           '',                           // Empty
           '',                           // Empty

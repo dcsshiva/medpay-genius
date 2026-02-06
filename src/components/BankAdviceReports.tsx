@@ -743,7 +743,7 @@ const BankAdviceReports = () => {
           const netAmount = Number(payment.net_amount).toFixed(2);
           totalNetAmount += Number(payment.net_amount);
 
-          gefuContent += `D~N06~HOSPITAL_ACCOUNT~HOSPITAL_NAME~ADDRESS1~ADDRESS2~ADDRESS3~${doctor.ifsc_code}~${doctor.bank_account_number}~${doctor.account_holder_name}~~~~~${seq}~${dd}/${mm}/20${yy}~${netAmount}~${seq}~~~~\n`;
+          gefuContent += `D~N06~HOSPITAL_ACCOUNT~HOSPITAL_NAME~ADDRESS1~ADDRESS2~ADDRESS3~${doctor.ifsc_code}~${doctor.bank_account_number}~${doctor.account_holder_name}~~~~~${seq}~${dd}/${mm}/20${yy}~${netAmount}~CONSULTING CHARGES~~~~\n`;
         });
 
         gefuContent += `F~${payments.length}~${totalNetAmount.toFixed(2)}\n`;
@@ -767,7 +767,7 @@ const BankAdviceReports = () => {
         // For quick payments
         const { data: payments } = await supabase
           .from('quick_payments')
-          .select('*')
+          .select('*, quick_payment_types (type_name)')
           .in('id', record.payment_ids);
 
         if (!payments || payments.length === 0) {
@@ -787,7 +787,12 @@ const BankAdviceReports = () => {
           const netAmount = Number(payment.net_amount).toFixed(2);
           totalNetAmount += Number(payment.net_amount);
 
-          gefuContent += `D~N06~HOSPITAL_ACCOUNT~HOSPITAL_NAME~ADDRESS1~ADDRESS2~ADDRESS3~${payment.ifsc_code}~${payment.account_number}~${payment.account_holder_name}~~~~~${seq}~${dd}/${mm}/20${yy}~${netAmount}~${seq}~~~~\n`;
+          // Determine sender-to-receiver info
+          const senderToRcvrInfo = payment.payment_notes?.trim()
+            ? payment.payment_notes.trim().replace(/[~\r\n]/g, '').replace(/[^a-zA-Z0-9 ]/g, '').substring(0, 35).toUpperCase()
+            : (payment.quick_payment_types?.type_name || 'PAYMENT').replace(/[~\r\n]/g, '').replace(/[^a-zA-Z0-9 ]/g, '').substring(0, 35).toUpperCase();
+
+          gefuContent += `D~N06~HOSPITAL_ACCOUNT~HOSPITAL_NAME~ADDRESS1~ADDRESS2~ADDRESS3~${payment.ifsc_code}~${payment.account_number}~${payment.account_holder_name}~~~~~${seq}~${dd}/${mm}/20${yy}~${netAmount}~${senderToRcvrInfo}~~~~\n`;
         });
 
         gefuContent += `F~${payments.length}~${totalNetAmount.toFixed(2)}\n`;
@@ -865,7 +870,7 @@ const BankAdviceReports = () => {
             (index + 1).toString(),
             dateStr,
             amount.toFixed(2),
-            (index + 1).toString(),
+            'STAFF PAYMENT',
             '', '', '', ''  // Four empty fields at the end
           ].join('~');
           

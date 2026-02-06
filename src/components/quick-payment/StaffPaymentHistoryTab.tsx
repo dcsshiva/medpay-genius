@@ -294,7 +294,7 @@ export const StaffPaymentHistoryTab = () => {
           (index + 1).toString(),
           dateStr,
           bp.amount.toFixed(2),
-          (index + 1).toString(),
+          'STAFF PAYMENT',
           '', '', '', ''
         ].join('~');
         
