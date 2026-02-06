@@ -175,6 +175,7 @@ const BankAdviceGeneration = () => {
           ifsc_code,
           bank_name,
           account_holder_name,
+          payment_notes,
           created_at,
           vendor_id,
           payment_type_id,
@@ -454,7 +455,21 @@ const BankAdviceGeneration = () => {
         selectedPayments.forEach((payment, index) => {
           const seq = String(index + 1).padStart(6, '0');
           const netAmount = payment.net_amount.toFixed(2);
-          gefuContent += `D~N06~${hospitalAccount}~${hospitalName}~${address1}~${address2}~${address3}~${payment.ifsc_code}~${payment.bank_account_number}~${payment.account_holder_name}~~~~~${seq}~${dd}/${mm}/20${yy}~${netAmount}~${seq}~~~~\n`;
+
+          // Determine sender-to-receiver info based on payment type
+          let senderToRcvrInfo = '';
+          if (payment.source_table === 'payments') {
+            senderToRcvrInfo = 'CONSULTING CHARGES';
+          } else if (payment.source_table === 'quick_payments') {
+            const notes = payment.reference_info?.payment_notes;
+            if (notes && notes.trim().length > 0) {
+              senderToRcvrInfo = notes.trim().replace(/[~\r\n]/g, '').replace(/[^a-zA-Z0-9 ]/g, '').substring(0, 35).toUpperCase();
+            } else {
+              senderToRcvrInfo = (payment.payment_type_name || 'PAYMENT').replace(/[~\r\n]/g, '').replace(/[^a-zA-Z0-9 ]/g, '').substring(0, 35).toUpperCase();
+            }
+          }
+
+          gefuContent += `D~N06~${hospitalAccount}~${hospitalName}~${address1}~${address2}~${address3}~${payment.ifsc_code}~${payment.bank_account_number}~${payment.account_holder_name}~~~~~${seq}~${dd}/${mm}/20${yy}~${netAmount}~${senderToRcvrInfo}~~~~\n`;
         });
 
         gefuContent += `F~${selectedPayments.length}~${totalNetAmount.toFixed(2)}\n`;
