@@ -3,11 +3,11 @@
  */
 
 /**
- * Get session token from sessionStorage
+ * Get session token from localStorage
  */
 export const getSessionToken = (): string | null => {
   if (typeof window === 'undefined') return null;
-  return sessionStorage.getItem('supabase_session_token');
+  return localStorage.getItem('supabase_session_token');
 };
 
 /**

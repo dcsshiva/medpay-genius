@@ -56,7 +56,7 @@ export const useSessionTimeout = () => {
   const updateActivity = useCallback(async () => {
     if (!user) return;
 
-    const sessionToken = window.sessionStorage.getItem('supabase_session_token');
+    const sessionToken = window.localStorage.getItem('supabase_session_token');
     if (!sessionToken) return;
 
     try {
@@ -87,7 +87,7 @@ export const useSessionTimeout = () => {
 
     if (!user) return;
 
-    const sessionToken = window.sessionStorage.getItem('supabase_session_token');
+    const sessionToken = window.localStorage.getItem('supabase_session_token');
     if (!sessionToken) return;
 
     try {
@@ -144,7 +144,7 @@ export const useSessionTimeout = () => {
 
   // Show timeout warning
   const showTimeoutWarning = useCallback(async () => {
-    const sessionToken = window.sessionStorage.getItem('supabase_session_token');
+    const sessionToken = window.localStorage.getItem('supabase_session_token');
     if (!sessionToken) return;
 
     setTimeoutState(prev => ({ ...prev, isWarningShown: true }));

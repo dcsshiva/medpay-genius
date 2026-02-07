@@ -60,13 +60,13 @@ const createUserSession = async (sessionData: {
 
   if (error) throw error;
   
-  // Store session token in a way that persists across page refreshes
-  window.sessionStorage.setItem('supabase_session_token', sessionToken);
+  // Store session token in localStorage so it persists across page refreshes
+  window.localStorage.setItem('supabase_session_token', sessionToken);
   return data;
 };
 
 const getActiveSession = async () => {
-  const sessionToken = window.sessionStorage.getItem('supabase_session_token');
+  const sessionToken = window.localStorage.getItem('supabase_session_token');
   if (!sessionToken) return null;
 
   // Use SECURITY DEFINER RPC to bypass RLS - works even without auth.uid()
@@ -74,7 +74,7 @@ const getActiveSession = async () => {
     .rpc('get_session_by_token', { _token: sessionToken });
 
   if (error || !data || (Array.isArray(data) && data.length === 0)) {
-    window.sessionStorage.removeItem('supabase_session_token');
+    window.localStorage.removeItem('supabase_session_token');
     return null;
   }
 
@@ -83,13 +83,13 @@ const getActiveSession = async () => {
 };
 
 const invalidateSession = async (sessionToken?: string) => {
-  const token = sessionToken || window.sessionStorage.getItem('supabase_session_token');
+  const token = sessionToken || window.localStorage.getItem('supabase_session_token');
   if (!token) return;
 
   // Use SECURITY DEFINER RPC to bypass RLS
   await supabase.rpc('invalidate_session_by_token', { _token: token });
 
-  window.sessionStorage.removeItem('supabase_session_token');
+  window.localStorage.removeItem('supabase_session_token');
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
