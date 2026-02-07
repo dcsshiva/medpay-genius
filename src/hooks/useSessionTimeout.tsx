@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { toISOStringIST } from '@/lib/dateUtils';
 import { usePWA } from '@/hooks/usePWA';
 
 interface SessionTimeoutConfig {
@@ -61,14 +60,8 @@ export const useSessionTimeout = () => {
     if (!sessionToken) return;
 
     try {
-      await supabase
-        .from('user_sessions')
-        .update({ 
-          last_activity_at: toISOStringIST(),
-          warning_shown_at: null 
-        })
-        .eq('session_token', sessionToken)
-        .eq('is_active', true);
+      // Use SECURITY DEFINER RPC to bypass RLS
+      await supabase.rpc('update_session_activity', { _token: sessionToken });
 
       setTimeoutState(prev => ({
         ...prev,
@@ -98,12 +91,11 @@ export const useSessionTimeout = () => {
     if (!sessionToken) return;
 
     try {
-      const { data: session } = await supabase
-        .from('user_sessions')
-        .select('*')
-        .eq('session_token', sessionToken)
-        .eq('is_active', true)
-        .maybeSingle();
+      // Use SECURITY DEFINER RPC to bypass RLS
+      const { data: sessionData } = await supabase
+        .rpc('get_session_by_token', { _token: sessionToken });
+
+      const session = Array.isArray(sessionData) ? sessionData[0] : sessionData;
 
       if (!session) {
         await signOut();
@@ -157,20 +149,8 @@ export const useSessionTimeout = () => {
 
     setTimeoutState(prev => ({ ...prev, isWarningShown: true }));
 
-    // Update warning timestamp in database
-    const { data: currentSession } = await supabase
-      .from('user_sessions')
-      .select('timeout_warnings_count')
-      .eq('session_token', sessionToken)
-      .single();
-
-    await supabase
-      .from('user_sessions')
-      .update({ 
-        warning_shown_at: toISOStringIST(),
-        timeout_warnings_count: (currentSession?.timeout_warnings_count || 0) + 1
-      })
-      .eq('session_token', sessionToken);
+    // Use SECURITY DEFINER RPC to update warning timestamp
+    await supabase.rpc('update_session_warning', { _token: sessionToken });
 
     toast({
       title: "Session Timeout Warning",
