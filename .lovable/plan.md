@@ -1,154 +1,133 @@
 
+## Fix Quick Access Real-time Data and Session Persistence on Refresh
 
-## Add Quick Access Menu to Sidebar
+### Problem 1: Quick Access Shows Stale Data
 
-### Overview
-Add a "Quick Access" section at the top of the sidebar (before Dashboard), showing the top 6 most-used navigation items ranked by overall usage from the `navigation_analytics` table. The items will be dynamically fetched and filtered to only show items the current user has access to.
+The `useQuickAccessItems` hook fetches data once and caches it for 5 minutes. It does NOT use Supabase Realtime, so changes to `navigation_analytics` (new clicks) are not reflected until the cache expires. Additionally, the `navigation_analytics` table is NOT published to Supabase Realtime.
 
-### Visual Layout
-
-```text
-+-----------------------------+
-| WestMed Logo    [Bell]      |
-+-----------------------------+
-| --- Quick Access ---------- |  <-- NEW section
-|  [icon] Quick Payment       |
-|  [icon] Dashboard           |
-|  [icon] Visit Management    |
-|  [icon] Cash Payments       |
-|  [icon] Cash Payments(Lite) |
-|  [icon] Doctor Hub          |
-+-----------------------------+
-| --- Navigation ------------ |  <-- Existing section (unchanged)
-|  [icon] Dashboard           |
-|  [icon] User Guide          |
-|  [icon] Masters             |
-|  ...                        |
-+-----------------------------+
-```
-
-### Files to Create/Modify
-
-| File | Action | Purpose |
-|------|--------|---------|
-| `src/hooks/useQuickAccessItems.tsx` | **Create** | Hook to fetch top 6 navigation items from analytics |
-| `src/components/AppSidebar.tsx` | **Modify** | Add Quick Access group before the main navigation |
+**Fix:**
+- Add `navigation_analytics` to the `supabase_realtime` publication (database migration)
+- Update `useQuickAccessItems` to subscribe to Realtime INSERT events on `navigation_analytics`
+- When a new row is inserted, immediately re-fetch the ranking data (bypassing the 5-minute cache)
 
 ---
 
-### Detailed Changes
+### Problem 2: Page Refresh Causes Automatic Logout
 
-#### 1. Create `src/hooks/useQuickAccessItems.tsx`
+**Root Cause Chain:**
 
-A new hook that:
-- Queries `navigation_analytics` table, grouped by `navigation_id` and `navigation_name`, ordered by count descending
-- Fetches overall top items (not per-user, matching the "Overall" analytics view)
-- Takes the user's available `navigationItems` as input and filters the ranked results to only include items the user has access to
-- Returns the top 6 accessible items with their icons resolved from the navigation items list
-- Caches the result and refreshes every 5 minutes (not too frequent since rankings are stable)
-- Only fetches for admin/manager/super_admin roles (staff/doctors have few nav items, quick access is less useful for them)
+1. The Supabase client is configured with `persistSession: false` and no-op storage -- Supabase auth sessions are deliberately NOT persisted
+2. The app uses a custom session system: session tokens stored in `sessionStorage` (survives refresh), session data in `user_sessions` table
+3. On page refresh, `loadSession()` in `auth.tsx` tries to query `user_sessions` using the stored token
+4. **The `user_sessions` SELECT RLS policy requires `user_id = auth.uid()`**
+5. Since the Supabase auth session was lost on refresh, `auth.uid()` is NULL
+6. The query returns no rows -- user appears not logged in
+7. `Index.tsx` redirects to `/auth` -- user is logged out
 
-```typescript
-// Pseudocode
-const useQuickAccessItems = (navigationItems: NavigationItem[]) => {
-  const [quickItems, setQuickItems] = useState([]);
+The same issue affects the session timeout hook's `checkSessionStatus()` and `updateActivity()` functions, which also query/update `user_sessions` with RLS policies requiring `auth.uid()`.
 
-  useEffect(() => {
-    // Query: SELECT navigation_id, navigation_name, COUNT(*) 
-    //        FROM navigation_analytics 
-    //        GROUP BY navigation_id, navigation_name 
-    //        ORDER BY count DESC LIMIT 20
-    
-    // Filter: Only keep items present in user's navigationItems
-    // Take first 6 after filtering
-    // Resolve icons from navigationItems
-  }, [navigationItems]);
+**Fix:**
+Create three SECURITY DEFINER RPC functions that bypass RLS to perform session operations using the session token as authentication (the token itself acts as a bearer credential):
 
-  return quickItems;
-};
-```
+1. **`get_session_by_token(token)`** -- Read session data by token (used on page load)
+2. **`update_session_activity(token)`** -- Update last_activity_at timestamp (used by session timeout)
+3. **`invalidate_session_by_token(token)`** -- Deactivate a session (used on logout)
 
-#### 2. Modify `src/components/AppSidebar.tsx`
+Then update the application code to use these RPCs instead of direct table queries.
 
-Add a new `SidebarGroup` with label "Quick Access" before the existing flat navigation group:
+---
 
-- Import the new `useQuickAccessItems` hook
-- Import `Sparkles` icon from lucide-react (for the group label decoration)
-- Call the hook with the resolved `navigationItems`
-- Render the Quick Access group only when:
-  - The user is admin/manager/super_admin (roles with many menu items)
-  - There are quick access items available
-- Each item uses the same `handleNavigationClick` handler (so it also tracks analytics)
-- Active state highlighting works the same as regular nav items
-- When sidebar is collapsed, show icons with tooltips (same behavior as regular items)
+### Implementation Details
 
-```typescript
-{/* Quick Access - Before main navigation */}
-{quickAccessItems.length > 0 && (
-  <SidebarGroup>
-    <SidebarGroupLabel className="flex items-center gap-1">
-      <Sparkles className="h-3 w-3" />
-      Quick Access
-    </SidebarGroupLabel>
-    <SidebarGroupContent>
-      <SidebarMenu>
-        {quickAccessItems.map((item) => (
-          <SidebarMenuItem key={`qa-${item.id}`}>
-            <SidebarMenuButton
-              isActive={activeTab === item.id}
-              tooltip={isCollapsed ? item.label : undefined}
-              onClick={() => handleNavigationClick(item)}
-            >
-              <item.icon className="h-4 w-4" />
-              <span>{item.label}</span>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        ))}
-      </SidebarMenu>
-    </SidebarGroupContent>
-  </SidebarGroup>
-)}
-```
+#### Step 1: Database Migration
 
-### Role Visibility
-
-| Role | Shows Quick Access? | Reason |
-|------|-------------------|--------|
-| Super Admin | Yes | Has 25+ nav items, benefits from shortcuts |
-| Admin | Yes | Has 25+ nav items, benefits from shortcuts |
-| Manager | Yes | Has 20+ nav items, benefits from shortcuts |
-| Doctor | No | Only has 1 nav item (Doctor Hub) |
-| Staff/Nurse | No | Only has 5-6 nav items, quick access not needed |
-
-### Data Source
-
-The hook queries the `navigation_analytics` table with an aggregate query:
+Create a migration with:
 
 ```sql
-SELECT navigation_id, navigation_name, COUNT(*) as click_count
-FROM navigation_analytics
-GROUP BY navigation_id, navigation_name
-ORDER BY click_count DESC
-LIMIT 20
+-- 1. RPC: Get session by token (for page refresh recovery)
+CREATE OR REPLACE FUNCTION get_session_by_token(_token text)
+RETURNS TABLE (
+  id uuid, user_id uuid, user_type text, original_id uuid,
+  session_token text, refresh_token text, username text, full_name text,
+  role text, expires_at timestamptz, created_at timestamptz,
+  updated_at timestamptz, is_active boolean, last_activity_at timestamptz,
+  idle_timeout_seconds integer, warning_shown_at timestamptz,
+  timeout_warnings_count integer
+)
+LANGUAGE sql SECURITY DEFINER
+AS $$
+  SELECT * FROM user_sessions
+  WHERE session_token = _token
+    AND is_active = true
+    AND expires_at > now()
+  LIMIT 1;
+$$;
+
+-- 2. RPC: Update session activity (for timeout tracking)
+CREATE OR REPLACE FUNCTION update_session_activity(_token text)
+RETURNS void
+LANGUAGE sql SECURITY DEFINER
+AS $$
+  UPDATE user_sessions
+  SET last_activity_at = now(), warning_shown_at = NULL, updated_at = now()
+  WHERE session_token = _token AND is_active = true;
+$$;
+
+-- 3. RPC: Invalidate session by token (for logout)
+CREATE OR REPLACE FUNCTION invalidate_session_by_token(_token text)
+RETURNS void
+LANGUAGE sql SECURITY DEFINER
+AS $$
+  UPDATE user_sessions
+  SET is_active = false, updated_at = now()
+  WHERE session_token = _token;
+$$;
+
+-- 4. Enable Realtime for navigation_analytics
+ALTER PUBLICATION supabase_realtime ADD TABLE public.navigation_analytics;
 ```
 
-The top 20 are fetched, then filtered against the user's accessible navigation items, and the first 6 matches are displayed.
+#### Step 2: Update `src/lib/auth.tsx`
 
-### Current Top 6 (from live data)
+- **`getActiveSession()`**: Replace direct `supabase.from('user_sessions').select(...)` with `supabase.rpc('get_session_by_token', { _token: sessionToken })`
+- **`invalidateSession()`**: Replace direct UPDATE with `supabase.rpc('invalidate_session_by_token', { _token: token })`
 
-| Rank | Navigation | Clicks |
-|------|-----------|--------|
-| #1 | Quick Payment | 146 |
-| #2 | Dashboard | 119 |
-| #3 | Visit Management | 117 |
-| #4 | Cash Payments | 50 |
-| #5 | Cash Payments (Lite) | 41 |
-| #6 | Doctor Hub | 35 |
+#### Step 3: Update `src/hooks/useSessionTimeout.tsx`
 
-### Edge Cases
+- **`updateActivity()`**: Replace direct UPDATE on `user_sessions` with `supabase.rpc('update_session_activity', { _token: sessionToken })`
+- **`checkSessionStatus()`**: Replace direct SELECT with `supabase.rpc('get_session_by_token', { _token: sessionToken })`
+- **`showTimeoutWarning()`**: Create an additional RPC or adjust the update query to use token-based access
 
-- **No analytics data yet**: Quick Access section is hidden (graceful fallback)
-- **Fewer than 6 accessible items**: Show whatever is available (could be 3-5)
-- **Network error on fetch**: Silently fail, Quick Access hidden
-- **Collapsed sidebar**: Show icons only with tooltips (same as regular nav)
+#### Step 4: Update `src/hooks/useQuickAccessItems.tsx`
 
+- Add Supabase Realtime subscription to `navigation_analytics` table (INSERT events)
+- On receiving a new insert event, immediately re-fetch ranking data (reset the cache timer)
+- Keep the 5-minute polling as a fallback
+- Properly clean up the subscription on unmount
+
+---
+
+### Files to Create/Modify
+
+| File | Action | Changes |
+|------|--------|---------|
+| `supabase/migrations/...` | **Create** | RPC functions + Realtime publication |
+| `src/lib/auth.tsx` | **Modify** | Use RPCs for getActiveSession and invalidateSession |
+| `src/hooks/useSessionTimeout.tsx` | **Modify** | Use RPCs for session queries/updates |
+| `src/hooks/useQuickAccessItems.tsx` | **Modify** | Add Realtime subscription for live updates |
+
+---
+
+### Security Considerations
+
+- The SECURITY DEFINER RPCs use the session token as authentication -- knowing the token is equivalent to being authenticated
+- Session tokens are random, time-limited (24h), and stored only in `sessionStorage` (same-tab only)
+- The RPCs only allow reading/updating sessions that are active and not expired
+- No sensitive data is exposed beyond what the token owner already has access to
+
+### Expected Results
+
+**After fix:**
+- Quick Access updates immediately when any user clicks a navigation item (real-time)
+- Page refresh no longer logs users out -- session persists as long as the tab is open and the session hasn't expired
+- Session timeout continues to work correctly after refresh
