@@ -2699,6 +2699,28 @@ export type Database = {
           visit_payment: number
         }[]
       }
+      get_session_by_token: {
+        Args: { _token: string }
+        Returns: {
+          created_at: string
+          expires_at: string
+          full_name: string
+          id: string
+          idle_timeout_seconds: number
+          is_active: boolean
+          last_activity_at: string
+          original_id: string
+          refresh_token: string
+          role: string
+          session_token: string
+          timeout_warnings_count: number
+          updated_at: string
+          user_id: string
+          user_type: string
+          username: string
+          warning_shown_at: string
+        }[]
+      }
       get_staff_appraisal_summary: {
         Args: { _staff_id: string }
         Returns: {
@@ -2866,6 +2888,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      invalidate_session_by_token: {
+        Args: { _token: string }
+        Returns: undefined
+      }
       link_profile_to_user: {
         Args: {
           _auth_user_id: string
@@ -2875,6 +2901,13 @@ export type Database = {
         Returns: undefined
       }
       simple_hash: { Args: { password: string }; Returns: string }
+      update_session_activity: { Args: { _token: string }; Returns: undefined }
+      update_session_warning: {
+        Args: { _token: string }
+        Returns: {
+          timeout_warnings_count: number
+        }[]
+      }
       validate_leave_application: {
         Args: {
           _applicant_id: string

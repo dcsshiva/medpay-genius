@@ -69,30 +69,25 @@ const getActiveSession = async () => {
   const sessionToken = window.sessionStorage.getItem('supabase_session_token');
   if (!sessionToken) return null;
 
+  // Use SECURITY DEFINER RPC to bypass RLS - works even without auth.uid()
   const { data, error } = await supabase
-    .from('user_sessions')
-    .select('*')
-    .eq('session_token', sessionToken)
-    .eq('is_active', true)
-    .gt('expires_at', toISOStringIST())
-    .maybeSingle();
+    .rpc('get_session_by_token', { _token: sessionToken });
 
-  if (error || !data) {
+  if (error || !data || (Array.isArray(data) && data.length === 0)) {
     window.sessionStorage.removeItem('supabase_session_token');
     return null;
   }
 
-  return data;
+  // RPC returns a table (array), take first row
+  return Array.isArray(data) ? data[0] : data;
 };
 
 const invalidateSession = async (sessionToken?: string) => {
   const token = sessionToken || window.sessionStorage.getItem('supabase_session_token');
   if (!token) return;
 
-  await supabase
-    .from('user_sessions')
-    .update({ is_active: false })
-    .eq('session_token', token);
+  // Use SECURITY DEFINER RPC to bypass RLS
+  await supabase.rpc('invalidate_session_by_token', { _token: token });
 
   window.sessionStorage.removeItem('supabase_session_token');
 };
