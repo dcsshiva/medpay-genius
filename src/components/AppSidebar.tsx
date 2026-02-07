@@ -3,6 +3,7 @@ import {
   Wallet, 
   Clock,
   CheckCircle,
+  Sparkles,
 } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
 import { getNavigationItems } from '@/lib/navigationItems';
@@ -26,6 +27,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/currency';
 import { isStaffRole } from '@/lib/staffUtils';
 import { useNavigationTracking } from '@/hooks/useNavigationTracking';
+import { useQuickAccessItems } from '@/hooks/useQuickAccessItems';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { usePaymentStatsColors } from '@/hooks/usePaymentStatsColors';
 import { cn } from '@/lib/utils';
@@ -94,6 +96,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
     userDesignation,
     userProfile
   });
+  const quickAccessItems = useQuickAccessItems(navigationItems);
   const isCollapsed = !open;
 
   return (
@@ -114,6 +117,35 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
       </SidebarHeader>
 
       <SidebarContent>
+        {/* Quick Access - Before main navigation */}
+        {quickAccessItems.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="flex items-center gap-1">
+              <Sparkles className="h-3 w-3" />
+              Quick Access
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {quickAccessItems.map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <SidebarMenuItem key={`qa-${item.id}`}>
+                      <SidebarMenuButton
+                        isActive={activeTab === item.id}
+                        tooltip={isCollapsed ? item.label : undefined}
+                        onClick={() => handleNavigationClick(item)}
+                      >
+                        <Icon className="h-4 w-4" />
+                        <span>{item.label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+
         {/* Flat Navigation */}
         <SidebarGroup>
           <SidebarGroupContent>
