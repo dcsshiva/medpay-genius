@@ -82,7 +82,7 @@ const Auth: React.FC = () => {
       is_active: true,
     }]);
 
-    window.sessionStorage.setItem("supabase_session_token", sessionToken);
+    window.localStorage.setItem("supabase_session_token", sessionToken);
   };
 
   // Send OTP
