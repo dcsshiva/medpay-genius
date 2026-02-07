@@ -120,7 +120,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
         {/* Quick Access - Before main navigation */}
         {quickAccessItems.length > 0 && (
           <SidebarGroup>
-            <SidebarGroupLabel className="flex items-center gap-1">
+            <SidebarGroupLabel className="flex items-center gap-1 text-foreground font-semibold">
               <Sparkles className="h-3 w-3" />
               Quick Access
             </SidebarGroupLabel>
