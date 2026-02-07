@@ -213,7 +213,11 @@ const Settings = () => {
                   if (hasUpdate) {
                     toast.success('Update available! Click "Apply Update" to install.');
                   } else {
-                    toast.info('You are running the latest version.');
+                    toast.info('You\'re up to date! Refreshing to ensure latest version...');
+                    // Force reload to ensure latest assets
+                    setTimeout(() => {
+                      window.location.reload();
+                    }, 1500);
                   }
                 }}
                 disabled={isCheckingForUpdates}

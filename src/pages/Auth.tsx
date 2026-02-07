@@ -451,8 +451,12 @@ const Auth: React.FC = () => {
                   } else {
                     toast({
                       title: "You're up to date!",
-                      description: "No updates available at this time.",
+                      description: "Running the latest version. Refreshing...",
                     });
+                    // Force reload to ensure latest assets
+                    setTimeout(() => {
+                      window.location.reload();
+                    }, 1500);
                   }
                 }}
                 disabled={isCheckingForUpdates}
@@ -475,9 +479,7 @@ const Auth: React.FC = () => {
             {/* Version Display */}
             <div className="text-center text-white/60 text-xs">
               <p>Version {versionInfo.version}</p>
-              {versionInfo.environment !== 'production' && (
-                <p className="text-white/40">Build: {versionInfo.gitCommit.slice(0, 7)}</p>
-              )}
+              <p className="text-white/40">Build: {versionInfo.gitCommit.slice(0, 7)}</p>
             </div>
 
             {/* Help Guide Link */}

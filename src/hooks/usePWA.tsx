@@ -105,44 +105,32 @@ export const usePWA = () => {
     setState(prev => ({ ...prev, isCheckingForUpdates: true }));
     
     try {
+      // Check service worker for cached updates
       if (swRegistration) {
         await swRegistration.update();
-        setState(prev => ({ 
-          ...prev, 
-          isCheckingForUpdates: false,
-          lastUpdateCheck: new Date()
-        }));
-        
-        // Check if there's a waiting worker (update available)
-        if (swRegistration.waiting) {
-          setState(prev => ({ ...prev, isUpdateAvailable: true }));
-          return true;
-        }
-        return false;
       } else if ('serviceWorker' in navigator) {
-        // Try to get registration if not already set
         const registration = await navigator.serviceWorker.getRegistration();
         if (registration) {
           await registration.update();
           setSwRegistration(registration);
-          setState(prev => ({ 
-            ...prev, 
-            isCheckingForUpdates: false,
-            lastUpdateCheck: new Date()
-          }));
-          
-          if (registration.waiting) {
-            setState(prev => ({ ...prev, isUpdateAvailable: true }));
-            return true;
-          }
         }
       }
+
+      // Fetch latest page from server (cache-busted) to ensure fresh assets
+      try {
+        await fetch(`/?_t=${Date.now()}`, { cache: 'no-store', method: 'HEAD' });
+      } catch {
+        // Network error is fine, we still check SW
+      }
       
-      setState(prev => ({ 
-        ...prev, 
-        isCheckingForUpdates: false,
-        lastUpdateCheck: new Date()
-      }));
+      // Check if there's a waiting worker (update available)
+      const reg = swRegistration || (await navigator.serviceWorker?.getRegistration());
+      if (reg?.waiting) {
+        setState(prev => ({ ...prev, isUpdateAvailable: true, isCheckingForUpdates: false, lastUpdateCheck: new Date() }));
+        return true;
+      }
+
+      setState(prev => ({ ...prev, isCheckingForUpdates: false, lastUpdateCheck: new Date() }));
       return false;
     } catch (error) {
       console.error('Error checking for updates:', error);
@@ -152,12 +140,20 @@ export const usePWA = () => {
   }, [swRegistration]);
 
   const applyUpdate = useCallback(() => {
-    if (swRegistration?.waiting) {
-      swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+    const doReload = () => {
+      if (swRegistration?.waiting) {
+        swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      }
       window.location.reload();
+    };
+
+    // Clear all caches then reload
+    if ('caches' in window) {
+      caches.keys().then(names => {
+        Promise.all(names.map(name => caches.delete(name))).finally(doReload);
+      });
     } else {
-      // No waiting worker, just reload
-      window.location.reload();
+      doReload();
     }
   }, [swRegistration]);
 

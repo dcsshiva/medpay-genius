@@ -3,14 +3,24 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { execSync } from 'child_process';
+import { readFileSync } from 'fs';
 import { VitePWA } from 'vite-plugin-pwa';
 
 // Get build info at build time
 const getBuildInfo = () => {
+  let version = '1.0.0';
+  try {
+    const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
+    version = pkg.version || '1.0.0';
+  } catch (e) {
+    // fallback version
+  }
+
   try {
     const gitCommit = execSync('git rev-parse HEAD').toString().trim();
     const gitBranch = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
     return {
+      version,
       timestamp: new Date().toISOString(),
       commit: gitCommit,
       branch: gitBranch,
@@ -18,6 +28,7 @@ const getBuildInfo = () => {
     };
   } catch (e) {
     return {
+      version,
       timestamp: new Date().toISOString(),
       commit: 'unknown',
       branch: 'unknown',
