@@ -25,18 +25,23 @@ const Auth: React.FC = () => {
   const versionInfo = useVersionInfo();
   const isMobile = useIsMobile();
 
-  const [loading, setLoading] = useState(false);
+  const { loading: authLoading } = useAuth();
+  const [formLoading, setFormLoading] = useState(false);
   const [email, setEmail] = useState<string>("");
   const [otpSent, setOtpSent] = useState<boolean>(false);
   const [otpCode, setOtpCode] = useState<string>("");
   const [resendCooldown, setResendCooldown] = useState<number>(0);
 
-  // Navigation is now handled explicitly after OTP verification
-  // This prevents race conditions with user state updates
+  // Redirect already-authenticated users to dashboard
+  useEffect(() => {
+    if (!authLoading && user) {
+      navigate('/dashboard');
+    }
+  }, [authLoading, user, navigate]);
 
   // Auto-verify OTP when all 6 digits are entered
   useEffect(() => {
-    if (otpCode.length === 6 && otpSent && !loading) {
+    if (otpCode.length === 6 && otpSent && !formLoading) {
       handleVerifyOTP().catch((e) => {
         console.error("Auto verify OTP failed", e);
       });
@@ -96,7 +101,7 @@ const Auth: React.FC = () => {
       return;
     }
 
-    setLoading(true);
+    setFormLoading(true);
 
     const { error } = await signInWithOTP(email);
 
@@ -115,13 +120,13 @@ const Auth: React.FC = () => {
       });
     }
 
-    setLoading(false);
+    setFormLoading(false);
   };
 
   // Verify OTP
   const handleVerifyOTP = async (e?: React.FormEvent) => {
     if (e && typeof e.preventDefault === "function") e.preventDefault();
-    setLoading(true);
+    setFormLoading(true);
 
     try {
       if (otpCode.length !== 6) {
@@ -281,7 +286,7 @@ const Auth: React.FC = () => {
       });
       navigate("/dashboard");
     } finally {
-      setLoading(false);
+      setFormLoading(false);
     }
   };
 
@@ -331,8 +336,8 @@ const Auth: React.FC = () => {
                 </div>
 
                 {!otpSent ? (
-                  <Button type="button" onClick={handleSendOTP} className="w-full" disabled={loading || !email}>
-                    {loading ? (
+                  <Button type="button" onClick={handleSendOTP} className="w-full" disabled={formLoading || !email}>
+                    {formLoading ? (
                       <>
                         <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
                         Sending...
@@ -364,9 +369,9 @@ const Auth: React.FC = () => {
                       type="button"
                       onClick={() => handleVerifyOTP()}
                       className="w-full"
-                      disabled={loading || otpCode.length !== 6}
+                      disabled={formLoading || otpCode.length !== 6}
                     >
-                      {loading ? (
+                      {formLoading ? (
                         <>
                           <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
                           Verifying...
