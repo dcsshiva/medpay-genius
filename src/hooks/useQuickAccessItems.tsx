@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { NavigationItem } from '@/lib/navigationItems';
 import { useAuth } from '@/lib/auth';
+import { subDays } from 'date-fns';
 
 export const useQuickAccessItems = (navigationItems: NavigationItem[]): NavigationItem[] => {
   const { userRole, userDesignation } = useAuth();
@@ -25,9 +26,13 @@ export const useQuickAccessItems = (navigationItems: NavigationItem[]): Navigati
     }
 
     try {
+      // Use last 30 days to match the Navigation Analytics heatmap default
+      const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
+
       const { data, error } = await supabase
         .from('navigation_analytics')
         .select('navigation_id, navigation_name')
+        .gte('clicked_at', thirtyDaysAgo)
         .limit(5000);
 
       if (error || !data || data.length === 0) return;
@@ -43,9 +48,12 @@ export const useQuickAccessItems = (navigationItems: NavigationItem[]): Navigati
         }
       }
 
-      // Sort by count descending
+      // Sort by count descending, then by name for stable tie-breaking
       const ranked = Array.from(countMap.entries())
-        .sort((a, b) => b[1].count - a[1].count);
+        .sort((a, b) => {
+          if (b[1].count !== a[1].count) return b[1].count - a[1].count;
+          return a[1].name.localeCompare(b[1].name);
+        });
 
       // Build a lookup map from user's navigation items
       const navMap = new Map(navigationItems.map(item => [item.id, item]));
