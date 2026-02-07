@@ -1,37 +1,179 @@
 
 
-## Add "Sender To Receiver Info" Field to GEFU File Generation
+## Fix Version Display and Check Updates Functionality
 
-### Overview
-Add the "Sender To Rcvr Info" field to the GEFU bank advice file format. This field (max 35 alphanumeric characters) will contain a descriptive message about the payment purpose. Additionally, restrict the Quick Payment "Payment Notes" field to 35 characters since it feeds into this GEFU field.
+### Problem Analysis
+
+There are two core issues causing the version to show "1.0.0-dev" and build as "local":
+
+1. **Vite `define` vs `window` mismatch**: The `vite.config.ts` uses `define: { '__BUILD_INFO__': JSON.stringify(buildInfo) }` which replaces bare `__BUILD_INFO__` references at compile time. But `useVersionInfo.tsx` reads it as `(window as any).__BUILD_INFO__` -- Vite's define plugin does NOT replace property accesses on `window`, so it's always `undefined`, falling through to the "1.0.0-dev / local" fallback.
+
+2. **No version in build info**: The `getBuildInfo()` in `vite.config.ts` doesn't include the `version` from `package.json`, and the `package.json` version is `"0.0.0"`.
+
+3. **Check Updates only checks PWA service worker**: It doesn't force-fetch the latest app assets or reload the page to get the newest deployed version.
 
 ---
 
-### Current GEFU D-Line Structure (22 fields)
+### Implementation Plan
 
-```text
-D~TxnCode~HospAcct~HospName~Addr1~Addr2~Addr3~IFSC~BeneAcct~BeneName~''~''~''~''~Seq~Date~Amount~Seq~''~''~''~''
-                                                                                                    ↑
-                                                                              Field 18: Currently second sequence number
-                                                                              Should be: "Sender To Rcvr Info"
+#### 1. Update `package.json` -- Set Meaningful Version
+
+Change `"version": "0.0.0"` to `"1.0.0"` to reflect the actual release version.
+
+---
+
+#### 2. Update `vite.config.ts` -- Include Version in Build Info
+
+Read `package.json` version and include it in the build-time define:
+
+```typescript
+import pkg from './package.json';
+
+const getBuildInfo = () => {
+  // ... existing git logic ...
+  return {
+    version: pkg.version,     // NEW: include version
+    timestamp: new Date().toISOString(),
+    commit: gitCommit,
+    branch: gitBranch,
+    environment: process.env.NODE_ENV || 'development'
+  };
+};
 ```
 
-### Updated GEFU D-Line Structure
+---
 
-```text
-D~TxnCode~HospAcct~HospName~Addr1~Addr2~Addr3~IFSC~BeneAcct~BeneName~''~''~''~''~Seq~Date~Amount~SenderToRcvrInfo~''~''~''~''
-                                                                                                   ↑
-                                                                              Field 18: Now contains payment message
+#### 3. Fix `src/hooks/useVersionInfo.tsx` -- Read Build Info Correctly
+
+The key fix: access `__BUILD_INFO__` directly (not via `window`) so Vite's define plugin replaces it at compile time:
+
+```typescript
+// Declare the global constant that Vite replaces at build time
+declare const __BUILD_INFO__: BuildInfo | undefined;
+
+export const useVersionInfo = () => {
+  const [versionInfo, setVersionInfo] = useState<VersionInfo>(() => {
+    // Read build info injected by Vite define at compile time
+    try {
+      const buildInfo = __BUILD_INFO__;
+      if (buildInfo) {
+        return {
+          version: buildInfo.version || '1.0.0',
+          buildDate: buildInfo.timestamp,
+          gitCommit: buildInfo.commit,
+          environment: buildInfo.environment,
+          branch: buildInfo.branch
+        };
+      }
+    } catch (e) {
+      // Fallback
+    }
+    return {
+      version: '1.0.0-dev',
+      buildDate: toISOStringIST(),
+      gitCommit: 'local',
+      environment: 'development',
+      branch: 'local'
+    };
+  });
+
+  return versionInfo;
+};
 ```
 
-### Message Logic
+This removes the unnecessary `useEffect` and reads the compile-time constant directly in state initialization.
 
-| Payment Type | Sender To Rcvr Info Value |
-|---|---|
-| **Doctor Payment** (cash or insurance) | `CONSULTING CHARGES` |
-| **Quick Payment** (with notes) | `payment_notes` (max 35 chars, alphanumeric) |
-| **Quick Payment** (without notes) | Payment type name (e.g., `VENDOR PAYMENT`, `PATIENT REFUND`) |
-| **Staff Payment** | `STAFF PAYMENT` |
+---
+
+#### 4. Enhance `src/hooks/usePWA.tsx` -- Force Refresh on Check Updates
+
+Update `checkForUpdates` to also clear caches and force reload when updates are found. Add a new `forceRefresh` method:
+
+```typescript
+const checkForUpdates = useCallback(async (): Promise<boolean> => {
+  setState(prev => ({ ...prev, isCheckingForUpdates: true }));
+  
+  try {
+    // Check service worker for cached updates
+    if (swRegistration) {
+      await swRegistration.update();
+    }
+    
+    // Fetch latest build info from server (cache-busted)
+    const response = await fetch(`/?_t=${Date.now()}`, { 
+      cache: 'no-store',
+      method: 'HEAD' 
+    });
+    
+    // If service worker has a waiting update, flag it
+    if (swRegistration?.waiting) {
+      setState(prev => ({ ...prev, isUpdateAvailable: true, isCheckingForUpdates: false }));
+      return true;
+    }
+
+    setState(prev => ({ ...prev, isCheckingForUpdates: false, lastUpdateCheck: new Date() }));
+    return false;
+  } catch (error) {
+    // ...
+  }
+}, [swRegistration]);
+
+const applyUpdate = useCallback(() => {
+  // Clear all caches then reload
+  if ('caches' in window) {
+    caches.keys().then(names => {
+      names.forEach(name => caches.delete(name));
+    }).finally(() => {
+      if (swRegistration?.waiting) {
+        swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+      }
+      window.location.reload();
+    });
+  } else {
+    window.location.reload();
+  }
+}, [swRegistration]);
+```
+
+---
+
+#### 5. Update `src/pages/Auth.tsx` -- Improved Check Updates Behavior
+
+Make "Check Updates" clear caches and hard-reload so the user always gets the latest deployed version:
+
+```typescript
+onClick={async () => {
+  const hasUpdate = await checkForUpdates();
+  if (hasUpdate) {
+    toast({ title: "Update Available!", description: "Click 'Apply Update' to install." });
+  } else {
+    // No service worker update, but offer hard refresh anyway
+    toast({
+      title: "You're up to date!",
+      description: "Running the latest version. Refreshing...",
+    });
+    // Force reload to ensure latest assets
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
+  }
+}}
+```
+
+Also update the version display section to always show the build info (not conditionally based on environment):
+
+```typescript
+<div className="text-center text-white/60 text-xs">
+  <p>Version {versionInfo.version}</p>
+  <p className="text-white/40">Build: {versionInfo.gitCommit.slice(0, 7)}</p>
+</div>
+```
+
+---
+
+#### 6. Update `src/components/Settings.tsx` -- Same Check Updates Enhancement
+
+Apply the same improved check-and-reload behavior to the Settings page update check button.
 
 ---
 
@@ -39,169 +181,28 @@ D~TxnCode~HospAcct~HospName~Addr1~Addr2~Addr3~IFSC~BeneAcct~BeneName~''~''~''~''
 
 | File | Changes |
 |------|---------|
-| `src/components/BankAdviceGeneration.tsx` | Update GEFU D-line field 18 with sender-to-receiver info based on payment type |
-| `src/components/BankAdviceGenerationBeta.tsx` | Update GEFU generation to include sender-to-receiver info |
-| `src/components/PaymentManagement.tsx` | Update GEFU D-line field 18 with `CONSULTING CHARGES` for doctor payments |
-| `src/components/QuickPaymentManagement.tsx` | (1) Update GEFU D-line field 18 with payment notes or type name, (2) Restrict payment_notes field to 35 characters |
-| `src/components/quick-payment/StaffBulkPaymentTab.tsx` | Update GEFU D-line field 18 with `STAFF PAYMENT` |
-| `src/components/BankAdviceReports.tsx` | Update all regeneration logic (doctor, quick, staff) with sender-to-receiver info |
-| `src/components/bank-advice-beta/BetaGeneratedAdviceTab.tsx` | Update regeneration GEFU with sender-to-receiver info |
-| `src/components/quick-payment/StaffPaymentHistoryTab.tsx` | Update staff payment GEFU regeneration with sender-to-receiver info |
+| `package.json` | Set version to `"1.0.0"` |
+| `vite.config.ts` | Include `version` from package.json in `__BUILD_INFO__` |
+| `src/hooks/useVersionInfo.tsx` | Read `__BUILD_INFO__` directly (not from window), add type declaration |
+| `src/hooks/usePWA.tsx` | Enhance `checkForUpdates` and `applyUpdate` to clear caches and force reload |
+| `src/pages/Auth.tsx` | Update Check Updates click handler to force refresh, always show build info |
+| `src/components/Settings.tsx` | Update Check Updates click handler to force refresh |
 
 ---
 
-### Detailed Changes
+### Expected Result After Fix
 
-#### 1. Quick Payment Notes Field - Character Limit (QuickPaymentManagement.tsx)
+**Before:**
+- Version: 1.0.0-dev
+- Build: local
 
-Change the Payment Notes `Textarea` to an `Input` with `maxLength={35}` and add a character counter:
+**After:**
+- Version: 1.0.0
+- Build: abc1234 (actual build timestamp hash)
 
-```typescript
-<div>
-  <Label htmlFor="payment_notes">Payment Notes (max 35 characters)</Label>
-  <Input
-    id="payment_notes"
-    value={formData.payment_notes}
-    onChange={(e) => setFormData({ ...formData, payment_notes: e.target.value })}
-    placeholder="Optional notes (used in bank advice)"
-    maxLength={35}
-  />
-  <p className="text-xs text-muted-foreground mt-1">
-    {formData.payment_notes.length}/35 characters - Used as Sender to Receiver info in GEFU file
-  </p>
-</div>
-```
-
-#### 2. GEFU D-Line Update - BankAdviceGeneration.tsx (Unified)
-
-In `handlePaymentModeConfirm`, update the D-line generation at line ~457:
-
-```typescript
-// Determine sender-to-receiver info based on payment type
-let senderToRcvrInfo = '';
-if (payment.source_table === 'payments') {
-  senderToRcvrInfo = 'CONSULTING CHARGES';
-} else if (payment.source_table === 'quick_payments') {
-  const notes = payment.reference_info?.payment_notes;
-  if (notes && notes.trim().length > 0) {
-    senderToRcvrInfo = notes.trim().substring(0, 35);
-  } else {
-    senderToRcvrInfo = (payment.payment_type_name || 'PAYMENT').toUpperCase().substring(0, 35);
-  }
-}
-
-// Replace field 18 (was second seq) with senderToRcvrInfo
-gefuContent += `D~N06~${hospitalAccount}~${hospitalName}~${address1}~${address2}~${address3}~${payment.ifsc_code}~${payment.bank_account_number}~${payment.account_holder_name}~~~~~${seq}~${dd}/${mm}/20${yy}~${netAmount}~${sanitize(senderToRcvrInfo)}~~~~\n`;
-```
-
-#### 3. GEFU D-Line Update - PaymentManagement.tsx (Doctor Payments)
-
-Update the detail line array at line ~1771-1794, changing field index 17 (position 18) from `index + 1` to `'CONSULTING CHARGES'`:
-
-```typescript
-const detailLine = [
-  'D', transactionCode,
-  hospAccount, 'Westmed Healthcare Pvt Ltd',
-  'ADDRESS1', 'ADDRESS2', 'ADDRESS3',
-  doctor.ifsc_code || '', doctor.bank_account_number,
-  doctor.account_holder_name,
-  '', '', '', '',
-  index + 1, dateStr, amount,
-  'CONSULTING CHARGES',  // ← Was: index + 1
-  '', '', '', ''
-].join('~');
-```
-
-#### 4. GEFU D-Line Update - QuickPaymentManagement.tsx
-
-Update the detail line at line ~599-607, changing field 18 to payment notes or type name:
-
-```typescript
-const senderToRcvrInfo = payment.payment_notes?.trim()
-  ? payment.payment_notes.trim().substring(0, 35)
-  : (payment.quick_payment_types?.type_name || 'PAYMENT').toUpperCase().substring(0, 35);
-
-const detailLine = [
-  'D', 'N06',
-  hospAccount, hospName,
-  'ADDRESS1', 'ADDRESS2', 'ADDRESS3',
-  payment.ifsc_code || '', payment.account_number || '',
-  payment.account_holder_name || payment.name,
-  '', '', '', '', index + 1, dateStr, netAmount,
-  senderToRcvrInfo,  // ← Was: index + 1
-  '', '', '', ''
-].join('~');
-```
-
-#### 5. GEFU D-Line Update - StaffBulkPaymentTab.tsx
-
-Update the detail line at line ~293-309, changing field 18:
-
-```typescript
-const detailLine = [
-  'D', 'N06', hospAcc, hospName,
-  'ADDRESS1', 'ADDRESS2', 'ADDRESS3',
-  staff.ifsc_code, staff.bank_account_number,
-  staff.account_holder_name || staff.full_name,
-  '', '', '', '',
-  (index + 1).toString(), dateStr, amount.toFixed(2),
-  'STAFF PAYMENT',  // ← Was: (index + 1).toString()
-  '', '', '', ''
-].join('~');
-```
-
-#### 6. Regeneration Logic Updates
-
-All regeneration functions in `BankAdviceReports.tsx`, `BetaGeneratedAdviceTab.tsx`, and `StaffPaymentHistoryTab.tsx` will be updated similarly:
-
-- **Doctor payment regeneration** (line 746): Add `CONSULTING CHARGES` in field 18
-- **Quick payment regeneration** (line 790): Fetch and use `payment_notes` or payment type
-- **Staff payment regeneration** (line 853-869): Add `STAFF PAYMENT` in field 18
-
-#### 7. BankAdviceGenerationBeta.tsx - Simplified GEFU
-
-The Beta component at lines 196-213 uses a completely different format. This will be updated to match the standard GEFU format with proper fields including the sender-to-receiver info.
-
----
-
-### Sanitization
-
-All sender-to-receiver info values will be sanitized before inclusion in the GEFU file:
-- Remove tildes (`~`) and newlines
-- Trim to max 35 characters
-- Convert to uppercase for consistency
-- Keep only alphanumeric characters and spaces
-
-```typescript
-const sanitizeSenderInfo = (val: string): string => {
-  return val
-    .replace(/[~\r\n]/g, '')
-    .replace(/[^a-zA-Z0-9 ]/g, '')
-    .trim()
-    .substring(0, 35)
-    .toUpperCase();
-};
-```
-
----
-
-### Data Flow
-
-```text
-Payment Created
-     │
-     ├── Doctor Payment → senderToRcvrInfo = "CONSULTING CHARGES"
-     │
-     ├── Quick Payment
-     │    ├── Has notes (max 35 chars) → senderToRcvrInfo = payment_notes
-     │    └── No notes → senderToRcvrInfo = payment_type_name (e.g., "VENDOR PAYMENT")
-     │
-     └── Staff Payment → senderToRcvrInfo = "STAFF PAYMENT"
-     │
-     ▼
-GEFU File Generated
-     │
-     ▼
-D~N06~...~Amount~[SENDER TO RCVR INFO]~...
-```
+**Check Updates behavior:**
+- Checks for service worker updates (PWA)
+- If update found: shows "Apply Update" button
+- If no update: refreshes the page to ensure latest assets are loaded
+- Apply Update: clears all caches and reloads with the newest build
 
