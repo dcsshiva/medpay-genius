@@ -1126,6 +1126,33 @@ export type Database = {
         }
         Relationships: []
       }
+      quick_access_config: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          manual_items: Json | null
+          mode: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          manual_items?: Json | null
+          mode?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          manual_items?: Json | null
+          mode?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       quick_payment_bank_advice_history: {
         Row: {
           bank_confirmation_date: string | null

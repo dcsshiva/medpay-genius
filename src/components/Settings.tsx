@@ -22,6 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { UserAccessManagement } from './UserAccessManagement';
 import { AuthEmailSync } from './AuthEmailSync';
+import QuickAccessConfig from './QuickAccessConfig';
 import { usePWA } from '@/hooks/usePWA';
 import { useVersionInfo } from '@/hooks/useVersionInfo';
 import { formatDateTimeIST } from '@/lib/dateUtils';
@@ -259,6 +260,9 @@ const Settings = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Quick Access Menu Configuration */}
+      <QuickAccessConfig />
 
       {/* Task Visibility Settings */}
       <Card>

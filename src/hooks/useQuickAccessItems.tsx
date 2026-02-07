@@ -2,10 +2,12 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { NavigationItem } from '@/lib/navigationItems';
 import { useAuth } from '@/lib/auth';
+import { useQuickAccessConfig } from '@/hooks/useQuickAccessConfig';
 import { subDays } from 'date-fns';
 
 export const useQuickAccessItems = (navigationItems: NavigationItem[]): NavigationItem[] => {
   const { userRole, userDesignation } = useAuth();
+  const { config } = useQuickAccessConfig();
   const [quickItems, setQuickItems] = useState<NavigationItem[]>([]);
   const lastFetchRef = useRef<number>(0);
 
@@ -16,17 +18,32 @@ export const useQuickAccessItems = (navigationItems: NavigationItem[]): Navigati
     userDesignation === 'admin' || 
     userDesignation === 'manager';
 
-  const fetchQuickAccess = useCallback(async (bypassCache = false) => {
+  // Build manual items from config
+  const buildManualItems = useCallback(() => {
+    if (!config?.manual_items || config.manual_items.length === 0) return [];
+    
+    const navByLabel = new Map(navigationItems.map(item => [item.label, item]));
+    const result: NavigationItem[] = [];
+    
+    for (const label of config.manual_items) {
+      const navItem = navByLabel.get(label);
+      if (navItem) {
+        result.push(navItem);
+      }
+    }
+    
+    return result;
+  }, [config?.manual_items, navigationItems]);
+
+  const fetchAnalyticsItems = useCallback(async (bypassCache = false) => {
     if (!isEligibleRole || navigationItems.length === 0) return;
 
-    // Cache for 5 minutes unless bypassing
     const now = Date.now();
     if (!bypassCache && now - lastFetchRef.current < 5 * 60 * 1000 && quickItems.length > 0) {
       return;
     }
 
     try {
-      // Use last 30 days to match the Navigation Analytics heatmap default
       const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
 
       const { data, error } = await supabase
@@ -37,23 +54,19 @@ export const useQuickAccessItems = (navigationItems: NavigationItem[]): Navigati
 
       if (error || !data || data.length === 0) return;
 
-      // Aggregate counts by navigation_name (matching heatmap aggregation)
       const countMap = new Map<string, number>();
       for (const row of data) {
         countMap.set(row.navigation_name, (countMap.get(row.navigation_name) || 0) + 1);
       }
 
-      // Sort by count descending, then by name for stable tie-breaking
       const ranked = Array.from(countMap.entries())
         .sort((a, b) => {
           if (b[1] !== a[1]) return b[1] - a[1];
           return a[0].localeCompare(b[0]);
         });
 
-      // Build a lookup map from user's navigation items by label
       const navByLabel = new Map(navigationItems.map(item => [item.label, item]));
 
-      // Filter to only accessible items and take top 6
       const result: NavigationItem[] = [];
       for (const [navName] of ranked) {
         const navItem = navByLabel.get(navName);
@@ -66,31 +79,35 @@ export const useQuickAccessItems = (navigationItems: NavigationItem[]): Navigati
       lastFetchRef.current = Date.now();
       setQuickItems(result);
     } catch {
-      // Silently fail - Quick Access hidden
+      // Silently fail
     }
   }, [isEligibleRole, navigationItems]);
 
+  // Handle mode changes
   useEffect(() => {
     if (!isEligibleRole || navigationItems.length === 0) {
       setQuickItems([]);
       return;
     }
 
-    // Initial fetch
-    fetchQuickAccess();
+    // If manual mode, build items from config directly
+    if (config?.mode === 'manual') {
+      setQuickItems(buildManualItems());
+      return;
+    }
 
-    // Poll every 5 minutes as fallback
-    const interval = setInterval(() => fetchQuickAccess(), 5 * 60 * 1000);
+    // Analytics mode: fetch from navigation_analytics
+    fetchAnalyticsItems();
 
-    // Subscribe to Realtime INSERT events on navigation_analytics
+    const interval = setInterval(() => fetchAnalyticsItems(), 5 * 60 * 1000);
+
     const channel = supabase
       .channel('quick-access-nav-analytics')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'navigation_analytics' },
         () => {
-          // Re-fetch immediately on new navigation click, bypass cache
-          fetchQuickAccess(true);
+          fetchAnalyticsItems(true);
         }
       )
       .subscribe();
@@ -99,7 +116,7 @@ export const useQuickAccessItems = (navigationItems: NavigationItem[]): Navigati
       clearInterval(interval);
       supabase.removeChannel(channel);
     };
-  }, [isEligibleRole, navigationItems, fetchQuickAccess]);
+  }, [isEligibleRole, navigationItems, config?.mode, fetchAnalyticsItems, buildManualItems]);
 
   return quickItems;
 };
