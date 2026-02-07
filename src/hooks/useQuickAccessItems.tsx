@@ -31,37 +31,32 @@ export const useQuickAccessItems = (navigationItems: NavigationItem[]): Navigati
 
       const { data, error } = await supabase
         .from('navigation_analytics')
-        .select('navigation_id, navigation_name')
+        .select('navigation_name')
         .gte('clicked_at', thirtyDaysAgo)
         .limit(5000);
 
       if (error || !data || data.length === 0) return;
 
-      // Aggregate counts client-side
-      const countMap = new Map<string, { name: string; count: number }>();
+      // Aggregate counts by navigation_name (matching heatmap aggregation)
+      const countMap = new Map<string, number>();
       for (const row of data) {
-        const existing = countMap.get(row.navigation_id);
-        if (existing) {
-          existing.count++;
-        } else {
-          countMap.set(row.navigation_id, { name: row.navigation_name, count: 1 });
-        }
+        countMap.set(row.navigation_name, (countMap.get(row.navigation_name) || 0) + 1);
       }
 
       // Sort by count descending, then by name for stable tie-breaking
       const ranked = Array.from(countMap.entries())
         .sort((a, b) => {
-          if (b[1].count !== a[1].count) return b[1].count - a[1].count;
-          return a[1].name.localeCompare(b[1].name);
+          if (b[1] !== a[1]) return b[1] - a[1];
+          return a[0].localeCompare(b[0]);
         });
 
-      // Build a lookup map from user's navigation items
-      const navMap = new Map(navigationItems.map(item => [item.id, item]));
+      // Build a lookup map from user's navigation items by label
+      const navByLabel = new Map(navigationItems.map(item => [item.label, item]));
 
       // Filter to only accessible items and take top 6
       const result: NavigationItem[] = [];
-      for (const [navId] of ranked) {
-        const navItem = navMap.get(navId);
+      for (const [navName] of ranked) {
+        const navItem = navByLabel.get(navName);
         if (navItem) {
           result.push(navItem);
           if (result.length >= 6) break;
