@@ -1,102 +1,41 @@
 
-## Add Quick Access Configuration in Settings
 
-### Overview
-Add a new configuration card in the Settings > General Settings tab that lets admins control how the Quick Access sidebar menu works. Two modes will be available:
+## Add Search to Vendor Dropdown in Quick Payment
 
-1. **Analytics-based (current behavior)** -- automatically shows the top 6 most-clicked navigation items from the last 30 days
-2. **Manual selection** -- admin picks specific navigation items (no limit) to pin in Quick Access
+### Problem
+When "Vendor Payment" is selected as the payment type, the vendor dropdown shows a long list of vendors (e.g., VEN011, VEN027, VEN012, etc.) with no way to search or filter. Users must scroll through the entire list to find their vendor.
 
-The chosen mode and any manually selected items will be stored in a new `quick_access_config` table in the database.
+### Solution
+Replace the plain `<Select>` dropdown for vendors with a searchable combobox (similar to the existing `DoctorSearchCombobox` pattern already in the codebase). This will allow users to type and search vendors by name or vendor code.
 
----
-
-### How It Will Work
-
-- A new card titled "Quick Access Menu Configuration" will appear in Settings > General Settings
-- It will show two radio options:
-  - "From Navigation Analytics" (default) -- current auto-ranking behavior
-  - "Manual Selection" -- shows a multi-select checklist of all navigation menu items
-- When "Manual Selection" is chosen, a searchable checklist appears listing all navigation items (grouped by label), with no limit on selections
-- A Save button persists the choice to the database
-- The sidebar reads this config and either fetches from analytics or uses the saved manual list
-
----
+### What You'll See
+- After selecting "Vendor Payment" as the payment type, a searchable dropdown appears for "Select Vendor"
+- You can type to filter vendors by vendor name or vendor code (e.g., typing "CHEM" will filter to "VEN013 - CHEMSOLUTIONS")
+- The dropdown shows matching results with vendor code and name
+- Selected vendor shows with a checkmark
+- Same auto-fill behavior for bank details, mobile number, and GST after selecting a vendor
 
 ### Technical Details
 
-#### 1. New Database Table: `quick_access_config`
+#### New File: `src/components/ui/vendor-search-combobox.tsx`
+Create a new searchable combobox component for vendors, following the existing `DoctorSearchCombobox` pattern:
+- Uses `Popover` + `Command` (combobox) from the existing UI library
+- Accepts vendors list, current value, and onChange callback
+- Search input filters vendors by `vendor_code` or `vendor_name`
+- Displays vendor code and name in a two-line format (code as subtitle)
+- Shows a search icon and chevron indicator
+- Minimum 1 character to start filtering (vendors are fewer than doctors, so less need for a 3-character minimum)
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | uuid (PK) | Primary key |
-| `mode` | text | Either `'analytics'` or `'manual'` |
-| `manual_items` | jsonb | Array of navigation item labels when mode is manual (e.g., `["Dashboard", "Staff Management", "Doctor Hub"]`) |
-| `is_active` | boolean | Only one active config row |
-| `created_at` | timestamptz | Auto timestamp |
-| `updated_at` | timestamptz | Auto timestamp |
+#### Modified File: `src/components/QuickPaymentManagement.tsx`
+- Import the new `VendorSearchCombobox` component
+- Replace the plain `<Select>` for vendor selection (lines 1133-1148) with `<VendorSearchCombobox>`
+- Same `handleVendorChange` callback is used -- no logic changes needed
+- Also apply the same pattern to the **Staff Member** dropdown (lines 1155-1171) for consistency, since it can also have a long list
 
-- RLS: Allow read access to admin/manager/super_admin roles, write access to admin/super_admin only
-- Default row inserted with `mode = 'analytics'` and empty `manual_items`
-
-#### 2. New Files
-
-**`src/hooks/useQuickAccessConfig.tsx`** -- React Query hook to read/write the config from `quick_access_config` table.
-
-**`src/components/QuickAccessConfig.tsx`** -- Settings UI card component with:
-- Radio group: "From Navigation Analytics" / "Manual Selection"
-- When manual mode is selected: a scrollable checklist of all navigation items (derived from `getNavigationItems` for admin/super_admin to see the full list)
-- Save button that updates the database
-- Current selection count badge
-
-#### 3. Modified Files
-
-**`src/components/Settings.tsx`**
-- Import and render `<QuickAccessConfig />` card inside the General Settings tab, between the existing cards
-
-**`src/hooks/useQuickAccessItems.tsx`**
-- Read the `quick_access_config` to determine the mode
-- If mode is `'analytics'`: use current logic (fetch from `navigation_analytics`, rank by count)
-- If mode is `'manual'`: return the navigation items matching the saved labels from `manual_items`, preserving the order they were saved in
-
-#### 4. Database Migration
-
-```sql
-CREATE TABLE public.quick_access_config (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  mode text NOT NULL DEFAULT 'analytics' CHECK (mode IN ('analytics', 'manual')),
-  manual_items jsonb DEFAULT '[]'::jsonb,
-  is_active boolean DEFAULT true,
-  created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
-);
-
--- Insert default row
-INSERT INTO public.quick_access_config (mode, manual_items, is_active) 
-VALUES ('analytics', '[]', true);
-
--- Enable RLS
-ALTER TABLE public.quick_access_config ENABLE ROW LEVEL SECURITY;
-
--- Read policy for eligible roles
-CREATE POLICY "Allow read for admin/manager roles" ON public.quick_access_config
-  FOR SELECT USING (true);
-
--- Write policy for admin/super_admin only
-CREATE POLICY "Allow write for admin roles" ON public.quick_access_config
-  FOR ALL USING (true) WITH CHECK (true);
-
--- Enable realtime
-ALTER PUBLICATION supabase_realtime ADD TABLE public.quick_access_config;
-```
-
-### Files Summary
+#### Files Summary
 
 | File | Action |
 |------|--------|
-| Migration SQL | Create `quick_access_config` table with default row |
-| `src/hooks/useQuickAccessConfig.tsx` | New -- read/write hook for config |
-| `src/components/QuickAccessConfig.tsx` | New -- settings UI with radio + checklist |
-| `src/components/Settings.tsx` | Add QuickAccessConfig card to General Settings tab |
-| `src/hooks/useQuickAccessItems.tsx` | Read config mode; return analytics-based or manual items |
-| `src/integrations/supabase/types.ts` | Will auto-update with new table type |
+| `src/components/ui/vendor-search-combobox.tsx` | New -- searchable vendor combobox |
+| `src/components/QuickPaymentManagement.tsx` | Replace vendor `<Select>` with searchable combobox; also replace staff `<Select>` with a similar searchable pattern |
+
