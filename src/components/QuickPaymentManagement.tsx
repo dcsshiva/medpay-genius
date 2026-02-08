@@ -38,6 +38,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { validateMobileNumber, formatMobileNumber } from '@/lib/validators';
+import { VendorSearchCombobox } from '@/components/ui/vendor-search-combobox';
 import { formatCurrency } from '@/lib/currency';
 import { useAuth } from '@/lib/auth';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -1130,44 +1131,28 @@ const QuickPaymentManagement = () => {
                   {isVendorPayment && (
                     <div>
                       <Label htmlFor="vendor_id">Select Vendor *</Label>
-                      <Select
+                      <VendorSearchCombobox
+                        items={vendors.map(v => ({ id: v.id, code: v.vendor_code, name: v.vendor_name }))}
                         value={selectedVendor}
                         onValueChange={handleVendorChange}
-                        required
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select vendor" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {vendors.map((vendor) => (
-                            <SelectItem key={vendor.id} value={vendor.id}>
-                              {vendor.vendor_code} - {vendor.vendor_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Search vendor..."
+                        searchPlaceholder="Type vendor name or code..."
+                        emptyMessage="No vendor found."
+                      />
                     </div>
                   )}
 
                   {isStaffAdvance && (
                     <div>
                       <Label htmlFor="staff_id">Select Staff Member *</Label>
-                      <Select
+                      <VendorSearchCombobox
+                        items={staffMembers.map(s => ({ id: s.id, code: s.staff_code, name: s.full_name }))}
                         value={selectedStaff}
                         onValueChange={handleStaffChange}
-                        required
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select staff member" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {staffMembers.map((staff) => (
-                            <SelectItem key={staff.id} value={staff.id}>
-                              {staff.staff_code} - {staff.full_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        placeholder="Search staff member..."
+                        searchPlaceholder="Type staff name or code..."
+                        emptyMessage="No staff member found."
+                      />
                     </div>
                   )}
                 </div>
