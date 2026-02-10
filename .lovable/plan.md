@@ -1,41 +1,30 @@
 
 
-## Add Search to Vendor Dropdown in Quick Payment
+## Fix Regenerate to Use Current Date
 
 ### Problem
-When "Vendor Payment" is selected as the payment type, the vendor dropdown shows a long list of vendors (e.g., VEN011, VEN027, VEN012, etc.) with no way to search or filter. Users must scroll through the entire list to find their vendor.
+When clicking "Regenerate" on bank advice, two components use the **original payment date** instead of the **current date** in the GEFU file. This means the Header line and Detail line dates show old dates like `29/01/2026` instead of today's date.
 
-### Solution
-Replace the plain `<Select>` dropdown for vendors with a searchable combobox (similar to the existing `DoctorSearchCombobox` pattern already in the codebase). This will allow users to type and search vendors by name or vendor code.
+### What Changes
 
-### What You'll See
-- After selecting "Vendor Payment" as the payment type, a searchable dropdown appears for "Select Vendor"
-- You can type to filter vendors by vendor name or vendor code (e.g., typing "CHEM" will filter to "VEN013 - CHEMSOLUTIONS")
-- The dropdown shows matching results with vendor code and name
-- Selected vendor shows with a checkmark
-- Same auto-fill behavior for bank details, mobile number, and GST after selecting a vendor
+Two files need a one-line fix each:
 
-### Technical Details
+**1. `src/components/QuickPaymentManagement.tsx` (line 1011)**
+- Currently: `const dateStr = format(new Date(latestPayment.created_at), 'dd/MM/yyyy');`
+- Fix to: `const dateStr = format(new Date(), 'dd/MM/yyyy');`
 
-#### New File: `src/components/ui/vendor-search-combobox.tsx`
-Create a new searchable combobox component for vendors, following the existing `DoctorSearchCombobox` pattern:
-- Uses `Popover` + `Command` (combobox) from the existing UI library
-- Accepts vendors list, current value, and onChange callback
-- Search input filters vendors by `vendor_code` or `vendor_name`
-- Displays vendor code and name in a two-line format (code as subtitle)
-- Shows a search icon and chevron indicator
-- Minimum 1 character to start filtering (vendors are fewer than doctors, so less need for a 3-character minimum)
+**2. `src/components/quick-payment/StaffPaymentHistoryTab.tsx` (line 274)**
+- Currently: `const dateStr = format(new Date(payment.payment_date), 'dd/MM/yyyy');`
+- Fix to: `const dateStr = format(new Date(), 'dd/MM/yyyy');`
 
-#### Modified File: `src/components/QuickPaymentManagement.tsx`
-- Import the new `VendorSearchCombobox` component
-- Replace the plain `<Select>` for vendor selection (lines 1133-1148) with `<VendorSearchCombobox>`
-- Same `handleVendorChange` callback is used -- no logic changes needed
-- Also apply the same pattern to the **Staff Member** dropdown (lines 1155-1171) for consistency, since it can also have a long list
+### Already Correct (no changes needed)
+- `BankAdviceReports.tsx` -- all three branches (doctor, quick_payment, staff_payment) already use `new Date()`
+- `BetaGeneratedAdviceTab.tsx` -- already uses `new Date()`
 
-#### Files Summary
-
-| File | Action |
-|------|--------|
-| `src/components/ui/vendor-search-combobox.tsx` | New -- searchable vendor combobox |
-| `src/components/QuickPaymentManagement.tsx` | Replace vendor `<Select>` with searchable combobox; also replace staff `<Select>` with a similar searchable pattern |
-
+### Result
+After regeneration, the GEFU file will show today's date in the H~ header line and all D~ detail lines, e.g.:
+```
+H~10/02/2026~ABC07112007
+D~N06~120000794291~Westmed Healthcare Pvt Ltd~...~10/02/2026~6300.00~...
+F~1~6300.00
+```
