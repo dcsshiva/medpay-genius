@@ -271,7 +271,7 @@ export const StaffPaymentHistoryTab = () => {
       setComparisonDialog(true);
 
       // Regenerate GEFU file with ALL payments in correct format
-      const dateStr = format(new Date(payment.payment_date), 'dd/MM/yyyy');
+      const dateStr = format(new Date(), 'dd/MM/yyyy');
       let gefuContent = `H~${dateStr}~${websiteSettings?.hospital_institution_code || 'ABC07112007'}\n`;
 
       let totalAmount = 0;
