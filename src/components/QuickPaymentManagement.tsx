@@ -1008,7 +1008,7 @@ const QuickPaymentManagement = () => {
       setQuickPaymentComparison([comparison]);
       setQuickPaymentComparisonDialog(true);
 
-      const dateStr = format(new Date(latestPayment.created_at), 'dd/MM/yyyy');
+      const dateStr = format(new Date(), 'dd/MM/yyyy');
       let gefuContent = `H~${dateStr}~${websiteSettings?.hospital_institution_code || 'ABC07112007'}\n`;
 
       const netAmount = latestPayment.net_amount.toFixed(2);
