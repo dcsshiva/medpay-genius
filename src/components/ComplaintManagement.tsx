@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { getStaffId } from '@/lib/staffUtils';
 import ReportGeneration from '@/components/ReportGeneration';
 import { 
   Plus, 
@@ -286,21 +287,8 @@ const ComplaintManagement = () => {
 
     try {
       // Get current user's staff record
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('user_id', user!.id)
-        .maybeSingle();
-
-      if (!profile) throw new Error('Profile not found');
-
-      const { data: currentStaff } = await supabase
-        .from('staff')
-        .select('id')
-        .eq('id', profile.id)
-        .single();
-
-      if (!currentStaff) throw new Error('Staff record not found');
+      const staffId = await getStaffId(user);
+      if (!staffId) throw new Error('Staff record not found');
 
       const { error } = await supabase
         .from('complaints')
@@ -309,7 +297,7 @@ const ComplaintManagement = () => {
           complaint_description: formData.complaint_description.trim(),
           category: formData.category as any,
           priority: formData.priority as any,
-          raised_by: currentStaff.id,
+          raised_by: staffId,
           complaint_against: formData.complaint_against || null,
           incident_date: formData.incident_date || null,
           incident_time: formData.incident_time || null,
