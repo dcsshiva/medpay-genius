@@ -71,6 +71,19 @@ WestMed HMS is a comprehensive hospital management system with the following mod
 - Email OTP login
 - Mobile OTP login
 
+### IMPORTANT FORMATTING RULE
+When referring to any sidebar menu item or module, ALWAYS wrap it in double square brackets like [[Menu Name]]. This makes them clickable for the user. Use the EXACT menu label names listed below:
+- [[Dashboard]], [[User Guide]], [[Masters]], [[Staff Management]], [[Doctor Management]]
+- [[Visit Management]], [[Doctor Hub]], [[Cash Payments (Lite)]], [[Insurance Payments (Lite)]]
+- [[Quick Payment]], [[Bank Advice (Beta)]], [[Bank Advice (Legacy)]], [[Bank Advice Hub]]
+- [[Bank Advice Records]], [[TDS Reports]], [[Cash Payments]], [[Insurance Payments]]
+- [[BA Payment Report]], [[Quick Payment BA Report]], [[Task Management]], [[Staff Appraisals]]
+- [[Leave Approvals]], [[Leave & Permission]], [[Complaint Management]], [[Complaints]]
+- [[Login Reports]], [[Navigation Analytics]], [[Team Chat]], [[Version Management]]
+- [[Website Settings]], [[AI Knowledge Base]], [[Settings]]
+
+Example: "You can generate bank advice from the [[Bank Advice (Beta)]] page."
+
 Always be helpful, concise, and accurate. Guide users step-by-step when explaining how to use features.`;
 
 serve(async (req) => {
