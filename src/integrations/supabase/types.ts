@@ -190,6 +190,33 @@ export type Database = {
         }
         Relationships: []
       }
+      chatbot_interactions: {
+        Row: {
+          ai_response: string
+          created_at: string
+          feedback_rating: number | null
+          id: string
+          question: string
+          user_id: string
+        }
+        Insert: {
+          ai_response: string
+          created_at?: string
+          feedback_rating?: number | null
+          id?: string
+          question: string
+          user_id: string
+        }
+        Update: {
+          ai_response?: string
+          created_at?: string
+          feedback_rating?: number | null
+          id?: string
+          question?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chatbot_knowledge_base: {
         Row: {
           answer: string
@@ -200,6 +227,7 @@ export type Database = {
           is_active: boolean | null
           question: string
           updated_at: string | null
+          usage_count: number | null
         }
         Insert: {
           answer: string
@@ -210,6 +238,7 @@ export type Database = {
           is_active?: boolean | null
           question: string
           updated_at?: string | null
+          usage_count?: number | null
         }
         Update: {
           answer?: string
@@ -220,6 +249,7 @@ export type Database = {
           is_active?: boolean | null
           question?: string
           updated_at?: string | null
+          usage_count?: number | null
         }
         Relationships: []
       }
