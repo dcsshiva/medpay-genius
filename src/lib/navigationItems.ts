@@ -20,7 +20,8 @@ import {
   Building2,
   FolderOpen,
   Stethoscope,
-  BarChart3
+  BarChart3,
+  ShieldCheck
 } from 'lucide-react';
 import { isStaffRole } from './staffUtils';
 
@@ -78,6 +79,7 @@ export const getNavigationItems = ({
       { id: 'version', label: 'Version Management', icon: HistoryIcon },
       { id: 'website-settings', label: 'Website Settings', icon: Globe },
       { id: 'ai-knowledge-base', label: 'AI Knowledge Base', icon: BookOpen },
+      { id: 'audit-trail', label: 'Audit Trail', icon: ShieldCheck },
       { id: 'settings', label: 'Settings', icon: Settings },
     ];
   }
@@ -151,6 +153,7 @@ export const getNavigationItems = ({
       { id: 'version', label: 'Version Management', icon: HistoryIcon },
       { id: 'website-settings', label: 'Website Settings', icon: Globe },
       { id: 'ai-knowledge-base', label: 'AI Knowledge Base', icon: BookOpen },
+      { id: 'audit-trail', label: 'Audit Trail', icon: ShieldCheck },
       { id: 'settings', label: 'Settings', icon: Settings },
     ];
   }

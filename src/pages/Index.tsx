@@ -38,6 +38,7 @@ import NavigationAnalytics from '@/components/NavigationAnalytics';
 import StaffMobileDashboard from '@/components/StaffMobileDashboard';
 import ChatbotKnowledgeBase from '@/components/ChatbotKnowledgeBase';
 import StaffAttendanceManagement from '@/components/StaffAttendanceManagement';
+import AuditTrailViewer from '@/components/AuditTrailViewer';
 const Index = () => {
   const { user, loading, userProfile } = useAuth();
   const navigate = useNavigate();
@@ -207,6 +208,8 @@ const Index = () => {
         return <ChatbotKnowledgeBase />;
       case 'attendance':
         return <StaffAttendanceManagement />;
+      case 'audit-trail':
+        return <AuditTrailViewer />;
       case 'settings':
         return <Settings />;
       default:
