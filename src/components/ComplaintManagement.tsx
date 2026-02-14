@@ -18,7 +18,9 @@ import {
   CheckCircle, 
   Clock,
   User,
-  Filter
+  Filter,
+  Calendar,
+  ClockIcon
 } from 'lucide-react';
 import { formatDateIST, formatDateTimeIST, toISOStringIST } from '@/lib/dateUtils';
 
@@ -84,7 +86,9 @@ const ComplaintManagement = () => {
     complaint_description: '',
     category: '',
     priority: 'medium',
-    complaint_against: ''
+    complaint_against: '',
+    incident_date: '',
+    incident_time: ''
   });
 
   useEffect(() => {
@@ -285,8 +289,10 @@ const ComplaintManagement = () => {
           priority: formData.priority as any,
           raised_by: currentStaff.id,
           complaint_against: formData.complaint_against || null,
+          incident_date: formData.incident_date || null,
+          incident_time: formData.incident_time || null,
           status: 'open'
-        });
+        } as any);
 
       if (error) throw error;
 
@@ -437,7 +443,9 @@ const ComplaintManagement = () => {
       complaint_description: '',
       category: '',
       priority: 'medium',
-      complaint_against: ''
+      complaint_against: '',
+      incident_date: '',
+      incident_time: ''
     });
   };
 
@@ -524,99 +532,136 @@ const ComplaintManagement = () => {
               Submit Complaint
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Submit New Complaint</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="complaint_title">Complaint Title *</Label>
-                <Input
-                  id="complaint_title"
-                  value={formData.complaint_title}
-                  onChange={(e) => setFormData({ ...formData, complaint_title: e.target.value })}
-                  placeholder="Brief description of the issue"
-                  required
-                />
+            <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Section: What Happened */}
+              <div className="rounded-lg border border-border p-4 space-y-3">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">What Happened</h3>
+                <div className="space-y-2">
+                  <Label htmlFor="complaint_title">Complaint Title *</Label>
+                  <Input
+                    id="complaint_title"
+                    value={formData.complaint_title}
+                    onChange={(e) => setFormData({ ...formData, complaint_title: e.target.value })}
+                    placeholder="Brief description of the issue"
+                    className="min-h-[44px]"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="complaint_description">Detailed Description *</Label>
+                  <Textarea
+                    id="complaint_description"
+                    value={formData.complaint_description}
+                    onChange={(e) => setFormData({ ...formData, complaint_description: e.target.value })}
+                    placeholder="Provide detailed information about your complaint..."
+                    rows={3}
+                    required
+                  />
+                </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="complaint_description">Detailed Description *</Label>
-                <Textarea
-                  id="complaint_description"
-                  value={formData.complaint_description}
-                  onChange={(e) => setFormData({ ...formData, complaint_description: e.target.value })}
-                  placeholder="Provide detailed information about your complaint..."
-                  rows={4}
-                  required
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="complaint_against">Staff Member (Optional)</Label>
-                <Select 
-                  value={formData.complaint_against || undefined} 
-                  onValueChange={(value) => setFormData({ ...formData, complaint_against: value || '' })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select staff member (if applicable)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {staffList
-                      .filter(staff => staff.role !== 'admin')
-                      .map((staff) => (
+              {/* Section: Who and When */}
+              <div className="rounded-lg border border-border p-4 space-y-3">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Who & When</h3>
+                <div className="space-y-2">
+                  <Label htmlFor="complaint_against">Staff Member (Optional)</Label>
+                  <Select 
+                    value={formData.complaint_against || undefined} 
+                    onValueChange={(value) => setFormData({ ...formData, complaint_against: value || '' })}
+                  >
+                    <SelectTrigger className="min-h-[44px]">
+                      <SelectValue placeholder="Select staff member (if applicable)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {staffList.map((staff) => (
                         <SelectItem key={staff.id} value={staff.id}>
                           {staff.full_name} ({staff.staff_code}) - {staff.role}
                         </SelectItem>
                       ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="category">Category</Label>
-                  <Select 
-                    value={formData.category} 
-                    onValueChange={(value) => setFormData({ ...formData, category: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {complaintCategories.map((category) => (
-                        <SelectItem key={category.id} value={category.category_code}>
-                          {category.category_name}
-                        </SelectItem>
-                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="priority">Priority</Label>
-                  <Select 
-                    value={formData.priority} 
-                    onValueChange={(value) => setFormData({ ...formData, priority: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select priority" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">Low</SelectItem>
-                      <SelectItem value="medium">Medium</SelectItem>
-                      <SelectItem value="high">High</SelectItem>
-                      <SelectItem value="urgent">Urgent</SelectItem>
-                    </SelectContent>
-                  </Select>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="incident_date" className="flex items-center gap-1.5">
+                      <Calendar className="h-3.5 w-3.5" />
+                      Incident Date (Optional)
+                    </Label>
+                    <Input
+                      id="incident_date"
+                      type="date"
+                      value={formData.incident_date}
+                      onChange={(e) => setFormData({ ...formData, incident_date: e.target.value })}
+                      className="min-h-[44px]"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="incident_time" className="flex items-center gap-1.5">
+                      <ClockIcon className="h-3.5 w-3.5" />
+                      Incident Time (Optional)
+                    </Label>
+                    <Input
+                      id="incident_time"
+                      type="time"
+                      value={formData.incident_time}
+                      onChange={(e) => setFormData({ ...formData, incident_time: e.target.value })}
+                      className="min-h-[44px]"
+                    />
+                  </div>
                 </div>
               </div>
 
-              <div className="flex justify-end space-x-2">
+              {/* Section: Classification */}
+              <div className="rounded-lg border border-border p-4 space-y-3">
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Classification</h3>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="category">Category</Label>
+                    <Select 
+                      value={formData.category} 
+                      onValueChange={(value) => setFormData({ ...formData, category: value })}
+                    >
+                      <SelectTrigger className="min-h-[44px]">
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {complaintCategories.map((category) => (
+                          <SelectItem key={category.id} value={category.category_code}>
+                            {category.category_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="priority">Priority</Label>
+                    <Select 
+                      value={formData.priority} 
+                      onValueChange={(value) => setFormData({ ...formData, priority: value })}
+                    >
+                      <SelectTrigger className="min-h-[44px]">
+                        <SelectValue placeholder="Select priority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="low">Low</SelectItem>
+                        <SelectItem value="medium">Medium</SelectItem>
+                        <SelectItem value="high">High</SelectItem>
+                        <SelectItem value="urgent">Urgent</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-2 pt-2 sticky bottom-0 bg-background pb-1">
                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button type="submit" className="min-w-[140px]">
                   Submit Complaint
                 </Button>
               </div>

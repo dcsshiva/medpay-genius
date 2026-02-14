@@ -296,6 +296,8 @@ export type Database = {
           complaint_title: string
           created_at: string
           id: string
+          incident_date: string | null
+          incident_time: string | null
           priority: string
           raised_by: string
           resolved_at: string | null
@@ -314,6 +316,8 @@ export type Database = {
           complaint_title: string
           created_at?: string
           id?: string
+          incident_date?: string | null
+          incident_time?: string | null
           priority?: string
           raised_by: string
           resolved_at?: string | null
@@ -332,6 +336,8 @@ export type Database = {
           complaint_title?: string
           created_at?: string
           id?: string
+          incident_date?: string | null
+          incident_time?: string | null
           priority?: string
           raised_by?: string
           resolved_at?: string | null
