@@ -21,7 +21,8 @@ import {
   User,
   Calendar,
   Filter,
-  Timer
+  Timer,
+  RefreshCw
 } from 'lucide-react';
 import { formatDateIST, formatDateTimeIST, toISOStringIST } from '@/lib/dateUtils';
 
@@ -70,6 +71,10 @@ const TaskManagement = () => {
   });
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [reassignDialogOpen, setReassignDialogOpen] = useState(false);
+  const [reassignTaskId, setReassignTaskId] = useState<string | null>(null);
+  const [reassignStaffId, setReassignStaffId] = useState<string>('');
+  const [reassigning, setReassigning] = useState(false);
   const [formData, setFormData] = useState({
     task_title: '',
     task_description: '',
@@ -351,6 +356,46 @@ const TaskManagement = () => {
     setUpdateFormData({ status: '', notes: '' });
   };
 
+  const openReassignDialog = (taskId: string) => {
+    setReassignTaskId(taskId);
+    setReassignStaffId('');
+    setReassignDialogOpen(true);
+  };
+
+  const handleReassign = async () => {
+    if (!reassignTaskId || !reassignStaffId) return;
+    setReassigning(true);
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({
+          assigned_to: reassignStaffId,
+          status: 'pending' as any,
+          completed_at: null,
+          actual_completed_at: null,
+          updated_at: toISOStringIST()
+        })
+        .eq('id', reassignTaskId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Task re-assigned successfully"
+      });
+      setReassignDialogOpen(false);
+      fetchTasks();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to re-assign task"
+      });
+    } finally {
+      setReassigning(false);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       task_title: '',
@@ -555,6 +600,38 @@ const TaskManagement = () => {
           </div>
         )}
       </div>
+
+      {/* Re-assign Task Dialog */}
+      <Dialog open={reassignDialogOpen} onOpenChange={setReassignDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Re-assign Task</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Assign To *</Label>
+              <Select value={reassignStaffId} onValueChange={setReassignStaffId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select staff member" />
+                </SelectTrigger>
+                <SelectContent>
+                  {staff.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>
+                      {member.full_name} ({member.staff_code}) - {member.role}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setReassignDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleReassign} disabled={!reassignStaffId || reassigning}>
+                {reassigning ? 'Re-assigning...' : 'Re-assign'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Task Update Dialog for Staff */}
       <Dialog open={updateDialogOpen} onOpenChange={setUpdateDialogOpen}>
@@ -802,6 +879,15 @@ const TaskManagement = () => {
                             Complete
                           </Button>
                         )}
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          onClick={() => openReassignDialog(task.id)}
+                          className="gap-1"
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          Re-assign
+                        </Button>
                       </>
                     ) : (
                       (() => {
