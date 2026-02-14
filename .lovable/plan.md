@@ -1,82 +1,87 @@
 
 
-## Sidebar Menu Visibility Management
+## Login Flow Fixes and UX Improvements
 
-### Overview
-Add a new "Menu Visibility" tab in Settings where admins can toggle which navigation items appear in the sidebar. Hidden items are not deleted -- they're just not shown. All existing logic, data, and routing remain untouched.
+### Issues Found
 
-### How It Works
+#### 1. Duplicate Session Records (Bug)
+Both `src/lib/auth.tsx` (verifyOTP, verifyMobileOTP) and `src/pages/Auth.tsx` (handleVerifyOTP, handleVerifyMobileOTP) call `createSessionRecord` / `createUserSession` independently. This means every OTP login creates **two session records** in the `user_sessions` table.
 
-1. A new `sidebar_menu_config` database table stores which menu item IDs are hidden
-2. The sidebar reads this config and filters out hidden items before rendering
-3. Admins manage visibility from a new Settings tab with simple toggle switches
+**Fix**: Remove the session creation from `Auth.tsx` handlers since `auth.tsx` already handles it. Auth.tsx should only handle routing after login.
 
-### Database
+#### 2. Missing `userDesignation` in Email OTP (Bug)
+In `auth.tsx` `verifyOTP()`, when a designation is found, only `setUserRole` is called -- `setUserDesignation` is never set. This means `userDesignation` stays `null` after email OTP login, which can affect menu visibility and feature access checks that rely on `userDesignation`.
 
-**New table: `sidebar_menu_config`**
-| Column | Type | Description |
-|--------|------|-------------|
-| id | uuid (PK) | Auto-generated |
-| menu_item_id | text (unique) | The navigation item ID (e.g. "bank-advice-generation") |
-| is_visible | boolean (default true) | Whether the item appears in the sidebar |
-| display_order | integer | Optional custom sort order |
-| updated_by | uuid | User who last changed it |
-| updated_at | timestamptz | Last modification time |
+**Fix**: Add `setUserDesignation(designation.designation)` in the `verifyOTP` function alongside `setUserRole`.
 
-RLS: Admins/super_admins can read and write. All authenticated users can read (they need to know which items to show).
+#### 3. Missing `user_type` in Profile (Bug)
+In `auth.tsx` `verifyOTP()`, the `userProfile` is set with a generic object that doesn't include `user_type`. Auth.tsx separately checks doctors/staff tables to determine user_type. This means the auto-redirect logic in `Index.tsx` (which checks `userProfile.user_type`) may not work correctly for doctor email OTP logins.
 
-### UI Changes
+**Fix**: In `verifyOTP`, after getting the designation, also check if the user is a doctor (via `get_user_complete_profile` RPC) and set `user_type` accordingly.
 
-**Settings page (`src/components/Settings.tsx`)**
-- Add a 4th tab: "Menu Visibility" (with Eye icon)
-- Only visible to admin and super_admin roles
+#### 4. NotificationCenter Infinite Re-render (Bug)
+Console shows "Maximum update depth exceeded" originating from NotificationCenter's Popover component. This is likely caused by state updates inside the component triggering re-renders that cascade.
 
-**New component: `src/components/MenuVisibilitySettings.tsx`**
-- Lists all navigation items (from the super_admin list) with:
-  - Icon + label for each item
-  - Toggle switch (visible/hidden)
-  - Items grouped into categories: Core, Payments, Reports, Management, System
-- "Dashboard" and "Settings" are always visible (cannot be hidden)
-- Bulk actions: "Show All" / "Hide All"
-- Save button to persist changes
-- Search/filter bar to find items quickly
+**Fix**: Wrap the notification state updates in proper conditions to prevent unnecessary re-renders. Move `fetchNotifications` dependency out of the useEffect that subscribes to realtime changes.
 
-**Sidebar (`src/components/AppSidebar.tsx`)**
-- Fetch the `sidebar_menu_config` table on mount
-- Filter `navigationItems` to exclude items where `is_visible = false`
-- Items not in the config table default to visible (backward compatible)
+#### 5. Auth.tsx Role Detection Duplication
+`Auth.tsx` re-queries doctors, staff, and user_designations tables after OTP verification, duplicating what `auth.tsx` already does. This adds latency and complexity.
 
-**Navigation items (`src/lib/navigationItems.ts`)**
-- No changes -- the full list remains as-is. Filtering happens in the sidebar.
+**Fix**: Simplify `Auth.tsx` to wait for auth context to update (via a useEffect watching `user` and `userProfile`), then route based on the context values instead of re-querying.
 
-### Menu Grouping in the Settings UI
+---
 
-To make the long list manageable, items will be grouped:
+### Changes Summary
 
-- **Core**: Dashboard, User Guide, Masters
-- **People**: Staff Management, Doctor Management, Doctor Hub
-- **Visits**: Visit Management
-- **Payments**: Cash Payments (Lite), Insurance Payments (Lite), Cash Payments, Insurance Payments, Quick Payment
-- **Bank Advice**: Bank Advice (Beta), Bank Advice (Legacy), Bank Advice Hub, Bank Advice Records, BA Payment Report, Quick Payment BA Report
-- **Reports**: TDS Reports, Login Reports, Navigation Analytics
-- **Collaboration**: Task Management, Staff Appraisals, Leave Approvals, Complaint Management, Team Chat
-- **System**: Version Management, Website Settings, AI Knowledge Base, Settings
-
-### Files to Create/Modify
-
-| File | Action | Purpose |
+| File | Change | Purpose |
 |------|--------|---------|
-| `supabase/migrations/xxx_sidebar_menu_config.sql` | Create | New table with RLS policies |
-| `src/components/MenuVisibilitySettings.tsx` | Create | Admin UI for toggling menu visibility |
-| `src/hooks/useMenuVisibility.tsx` | Create | Hook to fetch and cache menu visibility config |
-| `src/components/Settings.tsx` | Modify | Add "Menu Visibility" tab |
-| `src/components/AppSidebar.tsx` | Modify | Filter items based on visibility config |
-| `src/integrations/supabase/types.ts` | Update | Add new table types |
+| `src/lib/auth.tsx` | Add `setUserDesignation()` in `verifyOTP`, fetch full profile for `user_type` | Fix missing designation and user_type |
+| `src/pages/Auth.tsx` | Remove duplicate session creation, simplify to use auth context for routing | Eliminate duplicate sessions, reduce latency |
+| `src/hooks/useNotifications.tsx` | Remove `fetchNotifications` from useEffect dependency array | Fix infinite re-render loop |
 
 ### What Does NOT Change
-- All navigation routing and component rendering in `Index.tsx`
-- The `navigationItems.ts` definitions (role-based logic stays intact)
-- Quick Access configuration
-- Any existing data or business logic
-- Staff/doctor/manager menu restrictions (role-based filtering still applies first, then visibility filtering on top)
+- All RLS policies remain untouched
+- Database schema stays the same
+- Mobile OTP edge functions unchanged
+- Navigation items and menu visibility logic unchanged
+- Session timeout and tracking behavior preserved
+
+### Technical Details
+
+**Auth.tsx Simplification (handleVerifyOTP)**:
+```text
+Current flow:
+  1. Call verifyOTP() -> creates session in auth.tsx
+  2. Re-query doctors table
+  3. Re-query staff table
+  4. Re-query user_designations table
+  5. Create ANOTHER session record
+  6. Navigate
+
+Proposed flow:
+  1. Call verifyOTP() -> creates session, sets profile in auth.tsx
+  2. Navigate based on auth context values (userProfile, userRole)
+```
+
+**Auth.tsx Simplification (handleVerifyMobileOTP)**:
+```text
+Current flow:
+  1. Call verifyMobileOTP() -> creates session in auth.tsx
+  2. Re-query session from user_sessions table
+  3. Navigate based on session data
+
+Proposed flow:
+  1. Call verifyMobileOTP() -> creates session, sets profile in auth.tsx
+  2. Navigate based on auth context values (userProfile, userRole)
+```
+
+**verifyOTP Fix in auth.tsx**:
+- Add `setUserDesignation(designation.designation)` when designation is found
+- Use `get_user_complete_profile` RPC to populate `user_type` in the profile object
+
+**NotificationCenter Fix**:
+- The `useEffect` at line 96-123 in `useNotifications.tsx` includes `fetchNotifications` in its dependency array
+- `fetchNotifications` is a `useCallback` that depends on `user`
+- When `user` object reference changes (which happens on auth state changes), it recreates `fetchNotifications`, which re-triggers the useEffect, potentially causing cascading updates
+- Fix: Call `fetchNotifications` directly inside the effect without including it as a dependency, or use a ref to stabilize it
 
