@@ -1,85 +1,67 @@
 
+## Fix: RLS Policies Not Working After Login (Email OTP & Mobile OTP)
 
-## AI Chatbot Enhancement: Voice Input, Navigation & Self-Learning
+### Root Cause
 
-### What Already Exists
-- Floating AI chatbot with streaming responses
-- Clickable `[[Menu Name]]` navigation links (already working with `nav://` protocol)
-- Admin knowledge base management (CRUD for Q&A pairs)
-- Project-scoped system prompt (only answers about WestMed HMS)
+The Supabase client in `src/integrations/supabase/client.ts` is configured with:
+- `persistSession: false`
+- Dummy storage that always returns `null`
 
-### What Will Be Added
+This means:
+1. When a user logs in via email OTP or mobile OTP, `supabase.auth.verifyOtp()` creates a real Supabase session **in memory only**
+2. On any page refresh or app reload, the session is lost
+3. `auth.uid()` returns `null` in all RLS policy checks
+4. All RLS-protected queries return empty results (e.g., Doctor Hub shows "No doctors found")
 
----
+Both email OTP and mobile OTP logins are affected identically because both rely on `supabase.auth.verifyOtp()` for the real auth session.
 
-### 1. Voice Input with Tamil Support (ta-IN)
+### Solution
 
-Add a microphone button next to the Send button using the browser's native Web Speech API (no external dependencies needed).
+Enable proper Supabase session persistence so `auth.uid()` works in RLS policies at all times.
 
-**New file: `src/hooks/useVoiceInput.tsx`**
-- Custom hook wrapping `window.SpeechRecognition` / `webkitSpeechRecognition`
-- Configured for Tamil (`ta-IN`) language
-- Real-time transcript updates via `onresult`
-- Auto-stop after silence timeout (~3 seconds via the API's built-in behavior)
-- Error handling for unsupported browsers, permission denied, etc.
-- Returns: `{ isListening, transcript, startListening, stopListening, isSupported }`
+### Changes
 
-**Update: `src/components/AIChatbot.tsx`**
-- Add a Mic/MicOff button between the textarea and Send button
-- While listening: show a pulsing red indicator and "Listening..." label
-- Transcript auto-fills the textarea in real-time
-- On stop, the final text stays in the input for the user to review/edit before sending
+#### 1. Fix Supabase Client Configuration (`src/integrations/supabase/client.ts`)
 
----
+Remove the dummy storage and `persistSession: false` settings. Use the default `localStorage`-based persistence that Supabase provides out of the box:
 
-### 2. Enhanced In-App Navigation (Already Mostly Done)
+```typescript
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+```
 
-The existing `[[Menu Name]]` system and `nav://` protocol with `urlTransform` already handles in-app navigation. Minor improvements:
+This allows the Supabase client to:
+- Store the auth session in `localStorage` automatically
+- Restore it on page refresh
+- Auto-refresh tokens when they expire
 
-**Update: `src/components/AIChatbot.tsx`**
-- Also detect bare markdown links like `[label](/some-path)` and route-like text `/dashboard`, converting them to in-app nav buttons where applicable
-- Ensure no `target="_blank"` is ever used for internal links
+#### 2. Update Auth Provider Session Loading (`src/lib/auth.tsx`)
 
----
+Update `loadSession` to:
+- First check for a real Supabase auth session via `supabase.auth.getSession()`
+- Set up `onAuthStateChange` listener to react to auth state changes (login, logout, token refresh)
+- Fall back to the custom `user_sessions` table only when no Supabase session exists (for legacy username/password logins)
+- When a real Supabase session is found, populate userRole, userProfile, and userDesignation from `user_designations` table
 
-### 3. Controlled Self-Learning Enhancement
+#### 3. Update Sign Out (`src/lib/auth.tsx`)
 
-Expand the existing knowledge base system with usage tracking and admin moderation.
+Ensure `signOut` always calls `supabase.auth.signOut()` regardless of login method, since all OTP logins now create real persistent sessions.
 
-**Database migration:**
-- Add `chatbot_interactions` table:
-  - `id`, `user_id`, `question`, `ai_response`, `feedback_rating` (nullable integer 1-5), `created_at`
-  - RLS: users insert their own, admins can read all
-- Add `usage_count` column to `chatbot_knowledge_base` to track how often entries are matched
+### What This Fixes
 
-**Update: `src/components/AIChatbot.tsx`**
-- After each AI response, show small thumbs-up/thumbs-down feedback buttons
-- Log the question + response + feedback to `chatbot_interactions`
+- Email OTP login: Session persists across page refreshes, `auth.uid()` works in RLS
+- Mobile OTP login: Same -- the magic link token creates a real session that persists
+- Both login methods produce identical auth behavior
+- All RLS policies (doctors, payments, visits, etc.) work correctly for both methods
 
-**Update: `src/components/ChatbotKnowledgeBase.tsx`**
-- Add a "Frequent Questions" tab showing aggregated questions from `chatbot_interactions`
-- Admin can review frequent questions and promote them to knowledge base entries with one click
-- Show feedback stats (positive/negative ratio) per interaction
+### Files to Modify
 
-**Update: `supabase/functions/chatbot/index.ts`**
-- No changes needed -- the system prompt already dynamically loads knowledge base entries
+| File | Change |
+|------|--------|
+| `src/integrations/supabase/client.ts` | Remove dummy storage and `persistSession: false` |
+| `src/lib/auth.tsx` | Add `onAuthStateChange` listener, prioritize real Supabase session on load |
 
----
+### What Stays the Same
 
-### Files Summary
-
-| File | Action | Purpose |
-|------|--------|---------|
-| `src/hooks/useVoiceInput.tsx` | Create | Reusable voice input hook with Tamil support |
-| `src/components/AIChatbot.tsx` | Modify | Add mic button, listening UI, feedback buttons, interaction logging |
-| `src/components/ChatbotKnowledgeBase.tsx` | Modify | Add "Frequent Questions" tab with admin promotion |
-| `supabase/migrations/xxx_chatbot_interactions.sql` | Create | New `chatbot_interactions` table + `usage_count` column |
-
-### Technical Notes
-
-- **Web Speech API** is supported in Chrome, Edge, Safari, and most mobile browsers. Firefox has limited support. The hook will gracefully degrade with an "unsupported browser" message.
-- **Tamil recognition** uses `lang: 'ta-IN'` on the `SpeechRecognition` instance. Users can speak in Tamil and the transcribed text is sent to the AI.
-- **No external dependencies** are needed for voice input -- it uses the browser's built-in API.
-- **Feedback logging** only stores data when the user explicitly clicks a feedback button, keeping it lightweight.
-- The **self-learning is fully admin-controlled**: interactions are logged, but nothing enters the knowledge base without admin review and approval.
-
+- The custom `user_sessions` table continues to work for session tracking, idle timeout, and login history
+- Username/password login via `verify_user_login` RPC still works as a fallback
+- All existing RLS policies remain unchanged -- they already use `auth.uid()` and `has_designation()` correctly
