@@ -556,9 +556,15 @@ const TaskManagement = () => {
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="in_progress">In Progress</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
+                  {isStaffRole(userRole) ? (
+                    <SelectItem value="in_progress">In Progress</SelectItem>
+                  ) : (
+                    <>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -772,12 +778,18 @@ const TaskManagement = () => {
                         )}
                       </>
                     ) : (
-                      <Button 
-                        size="sm" 
-                        onClick={() => handleUpdateTask(task)}
-                      >
-                        Update Task
-                      </Button>
+                      (() => {
+                        const staffAlreadyUpdated = isStaffRole(userRole) && task.status === 'in_progress' && task.updated_at;
+                        return (
+                          <Button 
+                            size="sm" 
+                            onClick={() => handleUpdateTask(task)}
+                            disabled={!!staffAlreadyUpdated}
+                          >
+                            {staffAlreadyUpdated ? 'Updated' : 'Update Task'}
+                          </Button>
+                        );
+                      })()
                     )}
                   </>
                 )}
