@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { formatCurrency } from '@/lib/currency';
 import { 
   ClipboardList, 
   CheckCircle, 
@@ -17,9 +18,12 @@ import {
   AlertCircle,
   AlertTriangle,
   Star,
-  Award
+  Award,
+  Wallet
 } from 'lucide-react';
 import StaffAppraisalView from './StaffAppraisalView';
+import StaffPunchInCard from './StaffPunchInCard';
+import StaffAttendanceCalendar from './StaffAttendanceCalendar';
 
 interface StaffStats {
   pendingTasks: number;
@@ -45,6 +49,12 @@ interface RecentWarning {
   severity: string;
   incident_date: string;
   description: string;
+}
+
+interface LatestPayslip {
+  payroll_month: string;
+  net_salary: number;
+  status: string;
 }
 
 interface StaffMobileDashboardProps {
@@ -92,6 +102,7 @@ const StaffMobileDashboard: React.FC<StaffMobileDashboardProps> = ({ onNavigate 
   const [warningCount, setWarningCount] = useState(0);
   const [recentWarnings, setRecentWarnings] = useState<RecentWarning[]>([]);
   const [showAppraisalView, setShowAppraisalView] = useState(false);
+  const [latestPayslip, setLatestPayslip] = useState<LatestPayslip | null>(null);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -112,7 +123,7 @@ const StaffMobileDashboard: React.FC<StaffMobileDashboardProps> = ({ onNavigate 
         startOfMonth.setDate(1);
         startOfMonth.setHours(0, 0, 0, 0);
 
-        const [pendingLeaveRes, approvedLeaveRes, rejectedLeaveRes, appraisalRes, warningsRes] = await Promise.all([
+        const [pendingLeaveRes, approvedLeaveRes, rejectedLeaveRes, appraisalRes, warningsRes, payslipRes] = await Promise.all([
           supabase
             .from('leave_permission_applications')
             .select('id', { count: 'exact' })
@@ -143,6 +154,12 @@ const StaffMobileDashboard: React.FC<StaffMobileDashboardProps> = ({ onNavigate 
             .is('resolved_at', null)
             .order('incident_date', { ascending: false })
             .limit(3),
+          supabase
+            .from('staff_payroll')
+            .select('payroll_month, net_salary, status')
+            .eq('staff_id', id)
+            .order('payroll_month', { ascending: false })
+            .limit(1),
         ]);
 
         setStats({
@@ -160,6 +177,10 @@ const StaffMobileDashboard: React.FC<StaffMobileDashboardProps> = ({ onNavigate 
         if (warningsRes.data) {
           setRecentWarnings(warningsRes.data as RecentWarning[]);
           setWarningCount(warningsRes.data.length);
+        }
+
+        if (payslipRes.data && payslipRes.data.length > 0) {
+          setLatestPayslip(payslipRes.data[0] as LatestPayslip);
         }
       } catch (error) {
         console.error('Error fetching staff stats:', error);
@@ -204,6 +225,9 @@ const StaffMobileDashboard: React.FC<StaffMobileDashboardProps> = ({ onNavigate 
         <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
         <p className="text-muted-foreground text-sm">Welcome back! Here's your overview.</p>
       </div>
+
+      {/* Punch In/Out Card */}
+      {staffId && <StaffPunchInCard staffId={staffId} />}
 
       {/* Stats Grid - 2 columns */}
       <div className="grid grid-cols-2 gap-3">
@@ -281,6 +305,30 @@ const StaffMobileDashboard: React.FC<StaffMobileDashboardProps> = ({ onNavigate 
           </Card>
         )}
       </div>
+
+      {/* Attendance Calendar */}
+      {staffId && <StaffAttendanceCalendar staffId={staffId} />}
+
+      {/* Latest Payslip */}
+      {latestPayslip && (
+        <Card className="cursor-pointer active:scale-95 transition-transform" onClick={() => onNavigate('payroll')}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-5 w-5 text-primary" />
+                <span className="font-semibold">Latest Payslip</span>
+              </div>
+              <Badge variant={latestPayslip.status === 'paid' ? 'default' : 'secondary'}>
+                {latestPayslip.status}
+              </Badge>
+            </div>
+            <div className="mt-2 flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">{latestPayslip.payroll_month}</span>
+              <span className="text-lg font-bold text-primary">{formatCurrency(latestPayslip.net_salary)}</span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* My Performance Section */}
       {latestAppraisal && (
