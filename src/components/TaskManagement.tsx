@@ -205,20 +205,12 @@ const TaskManagement = () => {
     }
 
     try {
-      // Get current user's staff record
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('user_id', user!.id)
-        .maybeSingle();
-
-      if (!profile) throw new Error('Profile not found');
-
+      // Get current user's staff record directly via user_id
       const { data: currentStaff } = await supabase
         .from('staff')
         .select('id')
-        .eq('id', profile.id)
-        .single();
+        .eq('user_id', user!.id)
+        .maybeSingle();
 
       const { error } = await supabase
         .from('tasks')
