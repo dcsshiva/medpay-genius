@@ -21,7 +21,8 @@ import {
   FolderOpen,
   Stethoscope,
   BarChart3,
-  ShieldCheck
+  ShieldCheck,
+  Wallet
 } from 'lucide-react';
 import { isStaffRole } from './staffUtils';
 
@@ -81,6 +82,7 @@ export const getNavigationItems = ({
       { id: 'ai-knowledge-base', label: 'AI Knowledge Base', icon: BookOpen },
       { id: 'vendor-reports', label: 'Vendor Reports', icon: FileText },
       { id: 'audit-trail', label: 'Audit Trail', icon: ShieldCheck },
+      { id: 'payroll', label: 'Payroll', icon: Wallet },
       { id: 'settings', label: 'Settings', icon: Settings },
     ];
   }
@@ -119,6 +121,7 @@ export const getNavigationItems = ({
       { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
       { id: 'complaints', label: 'Complaints', icon: MessageCircle },
       { id: 'vendor-reports', label: 'Vendor Reports', icon: FileText },
+      { id: 'payroll', label: 'Payroll', icon: Wallet },
       { id: 'chat', label: 'Team Chat', icon: MessageSquare },
     ];
   }
@@ -157,6 +160,7 @@ export const getNavigationItems = ({
       { id: 'ai-knowledge-base', label: 'AI Knowledge Base', icon: BookOpen },
       { id: 'vendor-reports', label: 'Vendor Reports', icon: FileText },
       { id: 'audit-trail', label: 'Audit Trail', icon: ShieldCheck },
+      { id: 'payroll', label: 'Payroll', icon: Wallet },
       { id: 'settings', label: 'Settings', icon: Settings },
     ];
   }

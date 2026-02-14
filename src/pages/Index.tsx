@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -40,6 +41,8 @@ import ChatbotKnowledgeBase from '@/components/ChatbotKnowledgeBase';
 import StaffAttendanceManagement from '@/components/StaffAttendanceManagement';
 import AuditTrailViewer from '@/components/AuditTrailViewer';
 import VendorPaymentReports from '@/components/VendorPaymentReports';
+import StaffSalaryStructure from '@/components/StaffSalaryStructure';
+import StaffPayrollGeneration from '@/components/StaffPayrollGeneration';
 const Index = () => {
   const { user, loading, userProfile } = useAuth();
   const navigate = useNavigate();
@@ -213,6 +216,17 @@ const Index = () => {
         return <VendorPaymentReports />;
       case 'audit-trail':
         return <AuditTrailViewer />;
+      case 'payroll':
+        return (
+          <Tabs defaultValue="payroll" className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="salary">Salary Structure</TabsTrigger>
+              <TabsTrigger value="payroll">Payroll</TabsTrigger>
+            </TabsList>
+            <TabsContent value="salary"><StaffSalaryStructure /></TabsContent>
+            <TabsContent value="payroll"><StaffPayrollGeneration /></TabsContent>
+          </Tabs>
+        );
       case 'settings':
         return <Settings />;
       default:

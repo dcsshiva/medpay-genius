@@ -2060,6 +2060,154 @@ export type Database = {
           },
         ]
       }
+      staff_payroll: {
+        Row: {
+          absent_days: number
+          absent_deduction: number
+          approved_at: string | null
+          approved_by: string | null
+          basic_salary: number
+          conveyance: number
+          created_at: string
+          generated_by: string | null
+          gross_salary: number
+          hra: number
+          id: string
+          late_days: number
+          late_deduction: number
+          medical: number
+          net_salary: number
+          notes: string | null
+          other_allowances: number
+          other_deductions: number
+          overtime_hours: number
+          overtime_pay: number
+          paid_at: string | null
+          payroll_month: string
+          present_days: number
+          staff_id: string
+          status: string
+          total_deductions: number
+          total_working_days: number
+          updated_at: string
+        }
+        Insert: {
+          absent_days?: number
+          absent_deduction?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          basic_salary?: number
+          conveyance?: number
+          created_at?: string
+          generated_by?: string | null
+          gross_salary?: number
+          hra?: number
+          id?: string
+          late_days?: number
+          late_deduction?: number
+          medical?: number
+          net_salary?: number
+          notes?: string | null
+          other_allowances?: number
+          other_deductions?: number
+          overtime_hours?: number
+          overtime_pay?: number
+          paid_at?: string | null
+          payroll_month: string
+          present_days?: number
+          staff_id: string
+          status?: string
+          total_deductions?: number
+          total_working_days?: number
+          updated_at?: string
+        }
+        Update: {
+          absent_days?: number
+          absent_deduction?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          basic_salary?: number
+          conveyance?: number
+          created_at?: string
+          generated_by?: string | null
+          gross_salary?: number
+          hra?: number
+          id?: string
+          late_days?: number
+          late_deduction?: number
+          medical?: number
+          net_salary?: number
+          notes?: string | null
+          other_allowances?: number
+          other_deductions?: number
+          overtime_hours?: number
+          overtime_pay?: number
+          paid_at?: string | null
+          payroll_month?: string
+          present_days?: number
+          staff_id?: string
+          status?: string
+          total_deductions?: number
+          total_working_days?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_payroll_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_salary_structure: {
+        Row: {
+          basic_salary: number
+          conveyance: number
+          created_at: string
+          hra: number
+          id: string
+          is_active: boolean
+          medical: number
+          other_allowances: number
+          staff_id: string
+          updated_at: string
+        }
+        Insert: {
+          basic_salary?: number
+          conveyance?: number
+          created_at?: string
+          hra?: number
+          id?: string
+          is_active?: boolean
+          medical?: number
+          other_allowances?: number
+          staff_id: string
+          updated_at?: string
+        }
+        Update: {
+          basic_salary?: number
+          conveyance?: number
+          created_at?: string
+          hra?: number
+          id?: string
+          is_active?: boolean
+          medical?: number
+          other_allowances?: number
+          staff_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_salary_structure_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff_warnings: {
         Row: {
           action_taken: string | null
