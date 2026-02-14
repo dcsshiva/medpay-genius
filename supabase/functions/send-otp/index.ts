@@ -11,7 +11,6 @@ interface SendOTPRequest {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -24,17 +23,38 @@ serve(async (req) => {
       throw new Error('Invalid mobile number. Please provide a 10-digit mobile number.');
     }
 
-    // Generate 6-digit OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    
-    // Set expiry to 5 minutes from now
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
-
     // Initialize Supabase client
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // Check if mobile number belongs to a registered user (staff or doctor)
+    const { data: staffUser } = await supabaseClient
+      .from('staff')
+      .select('id, full_name')
+      .eq('phone', mobile)
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
+
+    const { data: doctorUser } = await supabaseClient
+      .from('doctors')
+      .select('id, full_name')
+      .eq('mobile_number', mobile)
+      .eq('is_active', true)
+      .limit(1)
+      .maybeSingle();
+
+    if (!staffUser && !doctorUser) {
+      throw new Error('No registered user found with this mobile number.');
+    }
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Set expiry to 5 minutes from now
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
     // Cleanup expired OTPs for this mobile number
     await supabaseClient
@@ -59,42 +79,29 @@ serve(async (req) => {
       throw new Error('Failed to store OTP');
     }
 
-    // Send OTP via MSG91
-    const msg91AuthKey = Deno.env.get('MSG91_AUTH_KEY');
-    if (!msg91AuthKey) {
-      throw new Error('MSG91_AUTH_KEY not configured');
+    // Send OTP via SoftSMS
+    const softSmsApiKey = Deno.env.get('SOFTSMS_API_KEY');
+    const softSmsSenderId = Deno.env.get('SOFTSMS_SENDER_ID');
+    const softSmsPeId = Deno.env.get('SOFTSMS_PE_ID');
+    const softSmsTemplateId = Deno.env.get('SOFTSMS_TEMPLATE_ID');
+
+    if (!softSmsApiKey || !softSmsSenderId || !softSmsPeId || !softSmsTemplateId) {
+      throw new Error('SoftSMS configuration is incomplete. Please contact the administrator.');
     }
 
-    // MSG91 API call
-    const msg91Response = await fetch(
-      `https://control.msg91.com/api/v5/otp?mobile=91${mobile}&authkey=${msg91AuthKey}&otp=${otp}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          template_id: Deno.env.get('MSG91_TEMPLATE_ID') || '',
-          otp: otp,
-          otp_length: 6,
-          otp_expiry: 5
-        })
-      }
-    );
+    const message = encodeURIComponent(`Your OTP is ${otp}`);
+    const smsUrl = `https://softsms.in/app/smsapi/index.php?key=${softSmsApiKey}&type=text&contacts=91${mobile}&senderid=${softSmsSenderId}&peid=${softSmsPeId}&templateid=${softSmsTemplateId}&msg=${message}`;
 
-    const msg91Result = await msg91Response.json();
+    const smsResponse = await fetch(smsUrl, { method: 'GET' });
+    const smsResult = await smsResponse.text();
     
-    console.log('MSG91 Response:', msg91Result);
-
-    if (!msg91Response.ok) {
-      throw new Error(`MSG91 Error: ${msg91Result.message || 'Failed to send OTP'}`);
-    }
+    console.log('SoftSMS Response:', smsResult);
 
     return new Response(
       JSON.stringify({
         success: true,
         message: 'OTP sent successfully',
-        expiresIn: 300 // 5 minutes in seconds
+        expiresIn: 300
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
