@@ -1,87 +1,119 @@
 
 
-## Login Flow Fixes and UX Improvements
+## Hospital Staff Appraisal Criteria and Staff Dashboard Enhancement
 
-### Issues Found
+### Part 1: Recommended Appraisal Criteria for Hospital Staff
 
-#### 1. Duplicate Session Records (Bug)
-Both `src/lib/auth.tsx` (verifyOTP, verifyMobileOTP) and `src/pages/Auth.tsx` (handleVerifyOTP, handleVerifyMobileOTP) call `createSessionRecord` / `createUserSession` independently. This means every OTP login creates **two session records** in the `user_sessions` table.
+Your current appraisal system tracks 5 rating categories (Punctuality, Work Quality, Teamwork, Communication, Professionalism). Here are **additional hospital-specific criteria** recommended to add:
 
-**Fix**: Remove the session creation from `Auth.tsx` handlers since `auth.tsx` already handles it. Auth.tsx should only handle routing after login.
+**Clinical Performance (for clinical staff)**
+- Patient Care Quality -- bedside manner, care accuracy, patient satisfaction
+- Infection Control Compliance -- adherence to hygiene and safety protocols
+- Medical Documentation Accuracy -- completeness of patient records
+- Emergency Response Readiness -- ability to handle emergencies calmly
 
-#### 2. Missing `userDesignation` in Email OTP (Bug)
-In `auth.tsx` `verifyOTP()`, when a designation is found, only `setUserRole` is called -- `setUserDesignation` is never set. This means `userDesignation` stays `null` after email OTP login, which can affect menu visibility and feature access checks that rely on `userDesignation`.
+**Operational Performance (all staff)**
+- Attendance and Reliability -- late arrivals, absences, shift coverage
+- Task Completion Rate -- percentage of assigned tasks completed on time
+- Equipment and Resource Handling -- proper use of hospital equipment
+- Compliance with Hospital Policies -- dress code, ID badge, mobile usage
 
-**Fix**: Add `setUserDesignation(designation.designation)` in the `verifyOTP` function alongside `setUserRole`.
+**Behavioral and Soft Skills**
+- Patient/Visitor Interaction -- how well staff deals with patients and families
+- Initiative and Problem Solving -- proactive improvements, suggestions
+- Adaptability -- willingness to take on extra duties, shift swaps
+- Ethical Conduct -- maintaining confidentiality, integrity
 
-#### 3. Missing `user_type` in Profile (Bug)
-In `auth.tsx` `verifyOTP()`, the `userProfile` is set with a generic object that doesn't include `user_type`. Auth.tsx separately checks doctors/staff tables to determine user_type. This means the auto-redirect logic in `Index.tsx` (which checks `userProfile.user_type`) may not work correctly for doctor email OTP logins.
+**Growth and Development**
+- Training Participation -- attendance at in-service training, workshops
+- Skill Development -- new skills acquired during the period
+- Goal Achievement -- progress toward previously set goals
 
-**Fix**: In `verifyOTP`, after getting the designation, also check if the user is a doctor (via `get_user_complete_profile` RPC) and set `user_type` accordingly.
+### Part 2: Enhance Staff Dashboard with Appraisal and Performance Data
 
-#### 4. NotificationCenter Infinite Re-render (Bug)
-Console shows "Maximum update depth exceeded" originating from NotificationCenter's Popover component. This is likely caused by state updates inside the component triggering re-renders that cascade.
-
-**Fix**: Wrap the notification state updates in proper conditions to prevent unnecessary re-renders. Move `fetchNotifications` dependency out of the useEffect that subscribes to realtime changes.
-
-#### 5. Auth.tsx Role Detection Duplication
-`Auth.tsx` re-queries doctors, staff, and user_designations tables after OTP verification, duplicating what `auth.tsx` already does. This adds latency and complexity.
-
-**Fix**: Simplify `Auth.tsx` to wait for auth context to update (via a useEffect watching `user` and `userProfile`), then route based on the context values instead of re-querying.
+Currently, the Staff Mobile Dashboard shows only: tasks (pending/completed), leave stats, and quick actions. Staff **cannot** see their own appraisals, warnings, or daily activity records from the dashboard, even though RLS policies already allow it.
 
 ---
 
-### Changes Summary
+### Database Changes
 
-| File | Change | Purpose |
+**Add new columns to `staff_appraisals` table** for the additional criteria:
+
+| Column | Type | Purpose |
+|--------|------|---------|
+| patient_care_rating | integer (1-5) | Patient care quality score |
+| infection_control_rating | integer (1-5) | Hygiene compliance score |
+| documentation_rating | integer (1-5) | Record-keeping accuracy |
+| attendance_reliability_rating | integer (1-5) | Attendance consistency |
+| initiative_rating | integer (1-5) | Proactiveness score |
+| training_participation_rating | integer (1-5) | Training engagement |
+| appraisal_reason_id | uuid (FK) | Links to appraisal_reasons master table |
+| staff_acknowledgement | boolean | Staff has read and acknowledged the appraisal |
+| staff_comments | text | Staff's own feedback/response |
+| acknowledged_at | timestamptz | When staff acknowledged |
+
+All new columns are **nullable** so existing records are unaffected.
+
+---
+
+### UI Changes
+
+#### 1. Staff Dashboard Enhancement (`StaffMobileDashboard.tsx`)
+
+Add new sections to the existing dashboard:
+
+**New Stats Cards (row 3):**
+- Latest Appraisal Rating (e.g., "Good" with colored badge)
+- Active Warnings count (with severity indicator)
+
+**New Section: "My Performance"**
+- Shows the most recent appraisal summary: period, overall rating, and a mini radar/bar chart of the individual ratings
+- Tappable to see full appraisal details in a dialog/sheet
+
+**New Section: "Recent Warnings"**
+- Shows up to 3 most recent warnings with severity badges
+- Only appears if the staff has any warnings
+
+**New Quick Action:**
+- "View My Appraisals" -- navigates to a detailed appraisal history view
+
+#### 2. New Component: Staff Appraisal View (`StaffAppraisalView.tsx`)
+
+A read-only view for staff to see their own appraisal history:
+- List of all appraisals with date, period, and rating
+- Expandable detail view showing all category ratings as visual bars
+- Staff can add their own comments/response
+- Staff can acknowledge ("I have read this appraisal") button
+- Shows the action plan and areas for improvement
+
+#### 3. Update Appraisal Form (`StaffAppraisalManagement.tsx`)
+
+Add the new rating fields to the appraisal creation form:
+- Patient Care Quality slider (1-5)
+- Infection Control Compliance slider (1-5)
+- Documentation Accuracy slider (1-5)
+- Attendance Reliability slider (1-5)
+- Initiative slider (1-5)
+- Training Participation slider (1-5)
+- Appraisal Reason dropdown (from `appraisal_reasons` master table)
+
+Group sliders into categories with section headers for clarity.
+
+---
+
+### Files to Create/Modify
+
+| File | Action | Purpose |
 |------|--------|---------|
-| `src/lib/auth.tsx` | Add `setUserDesignation()` in `verifyOTP`, fetch full profile for `user_type` | Fix missing designation and user_type |
-| `src/pages/Auth.tsx` | Remove duplicate session creation, simplify to use auth context for routing | Eliminate duplicate sessions, reduce latency |
-| `src/hooks/useNotifications.tsx` | Remove `fetchNotifications` from useEffect dependency array | Fix infinite re-render loop |
+| Migration SQL | Create | Add new columns to staff_appraisals |
+| `src/components/StaffAppraisalView.tsx` | Create | Staff's read-only view of their appraisals, warnings, activities |
+| `src/components/StaffMobileDashboard.tsx` | Modify | Add performance stats cards and "My Performance" section |
+| `src/components/StaffAppraisalManagement.tsx` | Modify | Add new rating sliders and appraisal reason dropdown |
 
 ### What Does NOT Change
-- All RLS policies remain untouched
-- Database schema stays the same
-- Mobile OTP edge functions unchanged
-- Navigation items and menu visibility logic unchanged
-- Session timeout and tracking behavior preserved
-
-### Technical Details
-
-**Auth.tsx Simplification (handleVerifyOTP)**:
-```text
-Current flow:
-  1. Call verifyOTP() -> creates session in auth.tsx
-  2. Re-query doctors table
-  3. Re-query staff table
-  4. Re-query user_designations table
-  5. Create ANOTHER session record
-  6. Navigate
-
-Proposed flow:
-  1. Call verifyOTP() -> creates session, sets profile in auth.tsx
-  2. Navigate based on auth context values (userProfile, userRole)
-```
-
-**Auth.tsx Simplification (handleVerifyMobileOTP)**:
-```text
-Current flow:
-  1. Call verifyMobileOTP() -> creates session in auth.tsx
-  2. Re-query session from user_sessions table
-  3. Navigate based on session data
-
-Proposed flow:
-  1. Call verifyMobileOTP() -> creates session, sets profile in auth.tsx
-  2. Navigate based on auth context values (userProfile, userRole)
-```
-
-**verifyOTP Fix in auth.tsx**:
-- Add `setUserDesignation(designation.designation)` when designation is found
-- Use `get_user_complete_profile` RPC to populate `user_type` in the profile object
-
-**NotificationCenter Fix**:
-- The `useEffect` at line 96-123 in `useNotifications.tsx` includes `fetchNotifications` in its dependency array
-- `fetchNotifications` is a `useCallback` that depends on `user`
-- When `user` object reference changes (which happens on auth state changes), it recreates `fetchNotifications`, which re-triggers the useEffect, potentially causing cascading updates
-- Fix: Call `fetchNotifications` directly inside the effect without including it as a dependency, or use a ref to stabilize it
+- All existing appraisal data remains intact (new columns are nullable)
+- RLS policies already support staff viewing their own records
+- Warning types and severity levels stay the same
+- Admin/manager workflows are preserved
+- Navigation and routing logic untouched
 
