@@ -1,42 +1,31 @@
 
 
-## Task Update Flow: Staff vs Admin Controls
+## Updated Staff Task Flow: In Progress + Completed Options
 
-### What Changes
+### Current Behavior
+- Staff can only select "In Progress" in the update dialog
+- "Update Task" button disables after staff sets to "In Progress"
 
-Modify the task update behavior so that:
+### New Behavior (per user request)
 
-1. **Staff can only set tasks to "In Progress"** (remove "Completed" option from staff update dialog)
-2. **Once staff updates a task, disable the "Update Task" button** for that staff member -- the task stays "in_progress" until admin reviews
-3. **"Register Completion" records finish time and disables itself** after use -- does NOT change status to completed
-4. **Only admin/manager can mark tasks as "Completed"**
+**Staff update dialog options:**
+- 1. In Progress
+- 2. Completed
 
-### How It Works
+**Button logic:**
+- "Update Task" button: enabled while task is pending or in_progress. Once staff sets status to "Completed", the button becomes disabled (shows "Updated")
+- "Register Completion" button: only appears after task status is "Completed" AND `actual_completed_at` is not yet set. One-time use only.
 
-**For Staff:**
-- "Update Task" button: only allows changing to "in_progress" + adding notes. Once task is already "in_progress" and has been updated (has `updated_at`), the button is disabled
-- "Register Completion" button: stamps `actual_completed_at` time. Once stamped, button disappears (already works this way)
-- Staff CANNOT set status to "completed"
+### Technical Changes in `TaskManagement.tsx`
 
-**For Admin/Manager:**
-- Full control: can Start, Complete, or Update tasks regardless of staff actions
-- Can see when staff last updated and when they registered completion
-
-### Technical Details
-
-**Changes in `TaskManagement.tsx`:**
-
-1. **Update dialog for staff** (lines 558-563): Remove "Completed" option, only show "In Progress"
-2. **Disable "Update Task" button for staff** (lines 774-781): Add condition -- if task is already `in_progress` and `updated_at` is set, disable the button
-3. **Register Completion** (line 251-276): Keep as-is (only stamps time, no status change) -- already correct behavior
-
-**Specific code changes:**
-
-Staff update dialog options:
+**1. Update dialog status options (lines 558-567):**
+Staff gets both "In Progress" and "Completed" options instead of only "In Progress":
 ```typescript
-// Staff can only set to in_progress
 {isStaffRole(userRole) ? (
-  <SelectItem value="in_progress">In Progress</SelectItem>
+  <>
+    <SelectItem value="in_progress">In Progress</SelectItem>
+    <SelectItem value="completed">Completed</SelectItem>
+  </>
 ) : (
   <>
     <SelectItem value="pending">Pending</SelectItem>
@@ -46,23 +35,23 @@ Staff update dialog options:
 )}
 ```
 
-Disable Update Task button for staff when already updated:
+**2. Update Task button disable logic (lines 781-792):**
+Disable the button when staff has set the task to "completed" (instead of checking for "in_progress"):
 ```typescript
-// Staff: disable if already in_progress and has been updated
-const staffAlreadyUpdated = task.status === 'in_progress' && task.updated_at;
+const staffAlreadyUpdated = isStaffRole(userRole) && task.status === 'completed' && task.updated_at;
+```
 
-<Button 
-  size="sm" 
-  onClick={() => handleUpdateTask(task)}
-  disabled={!!staffAlreadyUpdated}
->
-  {staffAlreadyUpdated ? 'Updated' : 'Update Task'}
-</Button>
+**3. Register Completion visibility (lines 797-807):**
+Only show "Register Completion" when status is "completed" (not "in_progress"), so staff must first complete the task via Update Task, then register the actual finish time:
+```typescript
+{!task.actual_completed_at && task.status === 'completed' && (
+  <Button ...>Register Completion</Button>
+)}
 ```
 
 ### Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/components/TaskManagement.tsx` | Restrict staff status options, disable buttons after staff update |
+| `src/components/TaskManagement.tsx` | Add "Completed" option for staff, disable Update after completed, show Register only after completed |
 
