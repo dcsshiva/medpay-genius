@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Check, CheckCheck, ClipboardList, CalendarCheck, X } from 'lucide-react';
+import { Bell, Check, CheckCheck, ClipboardList, CalendarCheck, X, AlertTriangle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -38,6 +38,12 @@ const NotificationItem: React.FC<{
         return <CalendarCheck className="h-4 w-4 text-success" />;
       case 'leave_rejected':
         return <X className="h-4 w-4 text-destructive" />;
+      case 'complaint_submitted':
+        return <AlertTriangle className="h-4 w-4 text-orange-500" />;
+      case 'leave_submitted':
+        return <CalendarCheck className="h-4 w-4 text-blue-500" />;
+      case 'permission_submitted':
+        return <Clock className="h-4 w-4 text-blue-500" />;
       default:
         return <Bell className="h-4 w-4 text-muted-foreground" />;
     }
@@ -54,6 +60,10 @@ const NotificationItem: React.FC<{
         onNavigate('tasks');
       } else if (notification.type === 'leave_approved' || notification.type === 'leave_rejected') {
         onNavigate('leave-permission');
+      } else if (notification.type === 'complaint_submitted') {
+        onNavigate('complaints');
+      } else if (notification.type === 'leave_submitted' || notification.type === 'permission_submitted') {
+        onNavigate('leave-approval');
       }
     }
     onClose?.();
