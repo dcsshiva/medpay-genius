@@ -76,6 +76,7 @@ export const getNavigationItems = ({
       { id: 'chat', label: 'Team Chat', icon: MessageSquare },
       { id: 'version', label: 'Version Management', icon: HistoryIcon },
       { id: 'website-settings', label: 'Website Settings', icon: Globe },
+      { id: 'ai-knowledge-base', label: 'AI Knowledge Base', icon: BookOpen },
       { id: 'settings', label: 'Settings', icon: Settings },
     ];
   }
@@ -146,6 +147,7 @@ export const getNavigationItems = ({
       { id: 'chat', label: 'Team Chat', icon: MessageSquare },
       { id: 'version', label: 'Version Management', icon: HistoryIcon },
       { id: 'website-settings', label: 'Website Settings', icon: Globe },
+      { id: 'ai-knowledge-base', label: 'AI Knowledge Base', icon: BookOpen },
       { id: 'settings', label: 'Settings', icon: Settings },
     ];
   }
