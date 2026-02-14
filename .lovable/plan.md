@@ -1,37 +1,36 @@
 
 
-## Add "Re-assign Task" Option for Admin/Manager
+## Sort Tasks: In Progress First, Completed Last
 
-### What Changes
-
-Add a "Re-assign" button on task cards (visible only to admin/manager) that allows reassigning a completed or any-status task to a different staff member. This resets the task back to "pending" status so the new assignee can start fresh.
-
-### How It Works
-
-- A "Re-assign" button appears on task cards for admin/manager users
-- Clicking it opens a dialog with a staff dropdown to pick the new assignee
-- On submit, the task's `assigned_to` is updated to the new staff member, status is reset to "pending", and `actual_completed_at` / `completed_at` / `updated_at` fields are cleared
-- The task then appears as a fresh pending task for the new staff member
+### Change
+Add sorting to the filtered tasks list so tasks display in this order:
+1. **In Progress** (top)
+2. **Pending** 
+3. **Completed** (bottom)
 
 ### Technical Details
 
-**Changes in `TaskManagement.tsx`:**
+**File: `src/components/TaskManagement.tsx` (after line 443)**
 
-1. **Add reassign state variables**: `reassignDialogOpen`, `reassignTaskId`, `reassignStaffId`
+Add a sort step after filtering:
 
-2. **Add reassign handler function** (`handleReassign`):
-   - Updates the task in DB: sets `assigned_to` to new staff, `status` to `pending`, clears completion timestamps
-   - Shows success toast and refreshes task list
+```typescript
+const statusOrder: Record<string, number> = {
+  in_progress: 0,
+  pending: 1,
+  completed: 2
+};
 
-3. **Add "Re-assign" button** in the task card action buttons area (admin/manager only):
-   - Appears alongside existing Start/Complete buttons
-   - Opens a small dialog with staff selection dropdown and confirm button
+const sortedTasks = [...filteredTasks].sort((a, b) => {
+  return (statusOrder[a.status] ?? 1) - (statusOrder[b.status] ?? 1);
+});
+```
 
-4. **Add Reassign Dialog**: Simple dialog with staff dropdown + submit button, similar to the create task's "Assign To" field
+Then replace all references to `filteredTasks` in the JSX rendering (task grid at line 798 and empty state at line 937) with `sortedTasks`. Keep `filteredTasks` for the report generation since report order doesn't need this sorting.
 
 ### Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/components/TaskManagement.tsx` | Add reassign dialog, state, handler, and button for admin/manager |
+| `src/components/TaskManagement.tsx` | Add status-based sorting after filter, use `sortedTasks` in task grid rendering |
 
