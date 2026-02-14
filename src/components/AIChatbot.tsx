@@ -1,10 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { Bot, X, Send, Trash2 } from 'lucide-react';
+import { Bot, X, Send, Trash2, Mic, MicOff, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
+import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
+import { useVoiceInput } from '@/hooks/useVoiceInput';
+import { toast } from 'sonner';
 
-type Message = { role: 'user' | 'assistant'; content: string };
+type Message = { role: 'user' | 'assistant'; content: string; id?: string };
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chatbot`;
 
@@ -54,9 +57,16 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ onTabChange }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [feedbackGiven, setFeedbackGiven] = useState<Record<number, number>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
-  const { userRole, userDesignation } = useAuth();
+  const { userRole, userDesignation, user } = useAuth();
+
+  // Voice input hook
+  const { isListening, isSupported: voiceSupported, startListening, stopListening } = useVoiceInput({
+    lang: 'ta-IN',
+    onTranscript: (text) => setInput(text),
+  });
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -70,7 +80,6 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ onTabChange }) => {
 
   // Process AI text to convert [[Menu Name]] to clickable elements
   const processContent = useCallback((text: string): string => {
-    // Replace [[Menu Name]] with markdown links using a special nav:// protocol
     return text.replace(/\[\[([^\]]+)\]\]/g, (_, label) => {
       const tabId = NAV_LABEL_TO_TAB[label.toLowerCase().trim()];
       if (tabId) {
@@ -87,9 +96,34 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ onTabChange }) => {
     }
   }, [onTabChange]);
 
+  const handleFeedback = useCallback(async (msgIndex: number, rating: number) => {
+    if (feedbackGiven[msgIndex] || !user?.id) return;
+    
+    // Find the user question (previous message)
+    const aiMsg = messages[msgIndex];
+    const userMsg = messages[msgIndex - 1];
+    if (!aiMsg || !userMsg || aiMsg.role !== 'assistant' || userMsg.role !== 'user') return;
+
+    setFeedbackGiven(prev => ({ ...prev, [msgIndex]: rating }));
+
+    try {
+      await supabase.from('chatbot_interactions').insert({
+        user_id: user.id,
+        question: userMsg.content,
+        ai_response: aiMsg.content,
+        feedback_rating: rating,
+      } as any);
+    } catch (err) {
+      console.error('Failed to log feedback:', err);
+    }
+  }, [messages, feedbackGiven, user]);
+
   const sendMessage = async () => {
     const trimmed = input.trim();
     if (!trimmed || isLoading) return;
+
+    // Stop voice if listening
+    if (isListening) stopListening();
 
     const userMsg: Message = { role: 'user', content: trimmed };
     setMessages(prev => [...prev, userMsg]);
@@ -197,14 +231,41 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ onTabChange }) => {
     }
   };
 
+  const toggleVoice = () => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
+
   // Custom link renderer for ReactMarkdown
   const markdownComponents = {
     a: ({ href, children, ...props }: any) => {
+      // Handle nav:// protocol links
       if (href?.startsWith('nav://')) {
         const tabId = href.replace('nav://', '');
         return (
           <button
             onClick={() => handleNavClick(tabId)}
+            className="inline-flex items-center gap-0.5 text-primary underline underline-offset-2 hover:text-primary/80 font-medium cursor-pointer bg-transparent border-none p-0"
+          >
+            {children}
+          </button>
+        );
+      }
+      // Handle internal routes (starting with /)
+      if (href?.startsWith('/')) {
+        return (
+          <button
+            onClick={() => {
+              if (onTabChange) {
+                const segment = href.replace(/^\//, '').split('/')[0];
+                const tabId = NAV_LABEL_TO_TAB[segment] || segment;
+                onTabChange(tabId);
+                setIsOpen(false);
+              }
+            }}
             className="inline-flex items-center gap-0.5 text-primary underline underline-offset-2 hover:text-primary/80 font-medium cursor-pointer bg-transparent border-none p-0"
           >
             {children}
@@ -243,7 +304,7 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ onTabChange }) => {
               </div>
             </div>
             <div className="flex items-center gap-1">
-              <button onClick={() => { setMessages([]); }} className="p-1.5 rounded-md hover:bg-primary-foreground/20 transition-colors" title="Clear chat">
+              <button onClick={() => { setMessages([]); setFeedbackGiven({}); }} className="p-1.5 rounded-md hover:bg-primary-foreground/20 transition-colors" title="Clear chat">
                 <Trash2 className="h-4 w-4" />
               </button>
               <button onClick={() => setIsOpen(false)} className="p-1.5 rounded-md hover:bg-primary-foreground/20 transition-colors">
@@ -259,29 +320,67 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ onTabChange }) => {
                 <Bot className="h-10 w-10 mx-auto opacity-40" />
                 <p className="font-medium">Hi! I'm your WestMed HMS Assistant.</p>
                 <p className="text-xs">Ask me about payments, visits, doctors, staff, reports, or any feature. ({roleLabel})</p>
+                {voiceSupported && (
+                  <p className="text-xs opacity-70">🎙️ Tamil voice input supported</p>
+                )}
               </div>
             )}
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${
-                  msg.role === 'user'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-foreground'
-                }`}>
-                  {msg.role === 'assistant' ? (
-                    <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:m-0 [&>ul]:my-1 [&>ol]:my-1 [&>h1]:text-base [&>h2]:text-sm [&>h3]:text-sm">
-                    <ReactMarkdown
-                      urlTransform={(url) => {
-                        if (url.startsWith('nav://')) return url;
-                        return url;
-                      }}
-                      components={markdownComponents}
-                    >
-                        {processContent(msg.content)}
-                      </ReactMarkdown>
+                <div className="max-w-[85%]">
+                  <div className={`rounded-xl px-3 py-2 text-sm ${
+                    msg.role === 'user'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-foreground'
+                  }`}>
+                    {msg.role === 'assistant' ? (
+                      <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:m-0 [&>ul]:my-1 [&>ol]:my-1 [&>h1]:text-base [&>h2]:text-sm [&>h3]:text-sm">
+                        <ReactMarkdown
+                          urlTransform={(url) => {
+                            if (url.startsWith('nav://')) return url;
+                            return url;
+                          }}
+                          components={markdownComponents}
+                        >
+                          {processContent(msg.content)}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                    )}
+                  </div>
+                  {/* Feedback buttons for assistant messages */}
+                  {msg.role === 'assistant' && !isLoading && (
+                    <div className="flex items-center gap-1 mt-1 ml-1">
+                      <button
+                        onClick={() => handleFeedback(i, 1)}
+                        disabled={!!feedbackGiven[i]}
+                        className={`p-1 rounded transition-colors ${
+                          feedbackGiven[i] === 1
+                            ? 'text-green-600'
+                            : feedbackGiven[i]
+                              ? 'text-muted-foreground/30 cursor-not-allowed'
+                              : 'text-muted-foreground hover:text-green-600'
+                        }`}
+                        title="Helpful"
+                      >
+                        <ThumbsUp className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => handleFeedback(i, -1)}
+                        disabled={!!feedbackGiven[i]}
+                        className={`p-1 rounded transition-colors ${
+                          feedbackGiven[i] === -1
+                            ? 'text-destructive'
+                            : feedbackGiven[i]
+                              ? 'text-muted-foreground/30 cursor-not-allowed'
+                              : 'text-muted-foreground hover:text-destructive'
+                        }`}
+                        title="Not helpful"
+                      >
+                        <ThumbsDown className="h-3 w-3" />
+                      </button>
                     </div>
-                  ) : (
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
                   )}
                 </div>
               </div>
@@ -296,6 +395,14 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ onTabChange }) => {
             <div ref={messagesEndRef} />
           </div>
 
+          {/* Voice indicator */}
+          {isListening && (
+            <div className="px-3 py-1.5 bg-destructive/10 text-destructive text-xs flex items-center gap-2 flex-shrink-0">
+              <span className="h-2 w-2 rounded-full bg-destructive animate-pulse" />
+              Listening... (Tamil)
+            </div>
+          )}
+
           {/* Input */}
           <div className="border-t border-border p-3 flex-shrink-0">
             <div className="flex items-end gap-2">
@@ -308,6 +415,17 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ onTabChange }) => {
                 rows={1}
                 className="flex-1 resize-none rounded-lg border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring max-h-20"
               />
+              {voiceSupported && (
+                <Button
+                  size="icon"
+                  variant={isListening ? 'destructive' : 'outline'}
+                  onClick={toggleVoice}
+                  className="h-9 w-9 rounded-lg flex-shrink-0"
+                  title={isListening ? 'Stop listening' : 'Voice input (Tamil)'}
+                >
+                  {isListening ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                </Button>
+              )}
               <Button
                 size="icon"
                 onClick={sendMessage}
