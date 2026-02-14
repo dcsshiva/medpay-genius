@@ -83,8 +83,8 @@ serve(async (req) => {
     // Find user by mobile number in staff or doctors table
     const { data: staffUser } = await supabaseClient
       .from('staff')
-      .select('id, user_id, full_name, role, mobile_number')
-      .eq('mobile_number', mobile)
+      .select('id, user_id, full_name, role, phone')
+      .eq('phone', mobile)
       .eq('is_active', true)
       .single();
 
