@@ -80,6 +80,21 @@ serve(async (req) => {
       })
       .eq('id', otpRecord.id);
 
+    // Helper: generate magic link token for a user email
+    const generateAuthToken = async (email: string) => {
+      const { data: linkData, error: linkError } = await supabaseClient.auth.admin.generateLink({
+        type: 'magiclink',
+        email: email,
+      });
+
+      if (linkError) {
+        console.error('Error generating magic link:', linkError);
+        return null;
+      }
+
+      return linkData?.properties?.hashed_token || null;
+    };
+
     // Find user by mobile number in staff or doctors table
     const { data: staffUser } = await supabaseClient
       .from('staff')
@@ -91,18 +106,26 @@ serve(async (req) => {
     if (staffUser) {
       // Get email for session creation
       const { data: userData } = await supabaseClient.auth.admin.getUserById(staffUser.user_id);
-      
+      const userEmail = userData?.user?.email;
+
+      // Generate auth token for real Supabase session
+      let hashed_token = null;
+      if (userEmail) {
+        hashed_token = await generateAuthToken(userEmail);
+      }
+
       return new Response(
         JSON.stringify({
           success: true,
           message: 'OTP verified successfully',
+          hashed_token,
           user: {
             user_type: 'staff',
             id: staffUser.id,
             user_id: staffUser.user_id,
             full_name: staffUser.full_name,
             role: staffUser.role,
-            email: userData?.user?.email
+            email: userEmail
           }
         }),
         {
@@ -122,18 +145,26 @@ serve(async (req) => {
 
     if (doctorUser) {
       const { data: userData } = await supabaseClient.auth.admin.getUserById(doctorUser.user_id);
-      
+      const userEmail = userData?.user?.email;
+
+      // Generate auth token for real Supabase session
+      let hashed_token = null;
+      if (userEmail) {
+        hashed_token = await generateAuthToken(userEmail);
+      }
+
       return new Response(
         JSON.stringify({
           success: true,
           message: 'OTP verified successfully',
+          hashed_token,
           user: {
             user_type: 'doctor',
             id: doctorUser.id,
             user_id: doctorUser.user_id,
             full_name: doctorUser.full_name,
             role: 'doctor',
-            email: userData?.user?.email
+            email: userEmail
           }
         }),
         {

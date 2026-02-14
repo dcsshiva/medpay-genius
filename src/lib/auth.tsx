@@ -638,10 +638,64 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!data.success) throw new Error(data.error || 'Failed to verify OTP');
 
       const userData = data.user;
-      
-      // Create session using the returned user data
+      const hashedToken = data.hashed_token;
+
+      // If we have a hashed_token, establish a real Supabase Auth session
+      if (hashedToken) {
+        const { data: authData, error: authError } = await supabase.auth.verifyOtp({
+          token_hash: hashedToken,
+          type: 'magiclink'
+        });
+
+        if (authError) {
+          console.error('Failed to establish Supabase auth session:', authError);
+          throw new Error('Authentication failed. Please try again.');
+        }
+
+        if (authData.user && authData.session) {
+          // Real Supabase session established - same flow as email OTP
+          setUser(authData.user);
+          setSession(authData.session);
+          console.log('Mobile OTP: Real Supabase session established for user:', authData.user.id);
+
+          // Fetch designation from user_designations
+          const { data: designation } = await supabase
+            .from('user_designations')
+            .select('designation')
+            .eq('user_id', authData.user.id)
+            .maybeSingle();
+
+          const role = designation?.designation || userData?.role || 'staff';
+          setUserRole(role);
+          setUserDesignation(designation?.designation || null);
+          setUserProfile({
+            id: userData?.id || authData.user.id,
+            user_id: authData.user.id,
+            full_name: userData?.full_name || authData.user.email || mobile,
+            role: role,
+            user_type: userData?.user_type
+          });
+
+          try {
+            await createUserSession({
+              user_type: userData?.user_type || 'mobile_otp',
+              original_id: userData?.id || authData.user.id,
+              user_id: authData.user.id,
+              username: mobile,
+              full_name: userData?.full_name || authData.user.email || mobile,
+              role: role
+            });
+          } catch (e: any) {
+            console.error('createUserSession failed (mobile OTP):', e?.message || e);
+          }
+
+          return { error: null };
+        }
+      }
+
+      // Fallback: if no hashed_token (shouldn't happen normally)
       if (userData) {
-        // Set a pseudo user object for our session
+        console.warn('Mobile OTP: No hashed_token received, falling back to pseudo-session');
         const pseudoUser: any = {
           id: userData.user_id,
           email: userData.email || `${mobile}@westmed.local`,
@@ -671,7 +725,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             role: userData.role
           });
         } catch (e: any) {
-          console.error('createUserSession failed (mobile OTP):', e?.message || e);
+          console.error('createUserSession failed (mobile OTP fallback):', e?.message || e);
         }
       }
 
