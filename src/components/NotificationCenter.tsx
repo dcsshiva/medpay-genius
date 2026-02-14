@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, Check, CheckCheck, ClipboardList, CalendarCheck, X, AlertTriangle, Clock } from 'lucide-react';
+import { Bell, Check, CheckCheck, ClipboardList, CalendarCheck, X, AlertTriangle, Clock, CreditCard, DollarSign, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -35,7 +35,8 @@ const NotificationItem: React.FC<{
       case 'task_assigned':
         return <ClipboardList className="h-4 w-4 text-primary" />;
       case 'leave_approved':
-        return <CalendarCheck className="h-4 w-4 text-success" />;
+      case 'leave':
+        return <CalendarCheck className="h-4 w-4 text-green-600" />;
       case 'leave_rejected':
         return <X className="h-4 w-4 text-destructive" />;
       case 'complaint_submitted':
@@ -44,6 +45,10 @@ const NotificationItem: React.FC<{
         return <CalendarCheck className="h-4 w-4 text-blue-500" />;
       case 'permission_submitted':
         return <Clock className="h-4 w-4 text-blue-500" />;
+      case 'payment':
+        return <CreditCard className="h-4 w-4 text-primary" />;
+      case 'attendance':
+        return <UserCheck className="h-4 w-4 text-orange-500" />;
       default:
         return <Bell className="h-4 w-4 text-muted-foreground" />;
     }
@@ -64,6 +69,12 @@ const NotificationItem: React.FC<{
         onNavigate('complaints');
       } else if (notification.type === 'leave_submitted' || notification.type === 'permission_submitted') {
         onNavigate('leave-approval');
+      } else if (notification.type === 'payment') {
+        onNavigate('doctor-hub');
+      } else if (notification.type === 'attendance') {
+        onNavigate('attendance');
+      } else if (notification.type === 'leave') {
+        onNavigate('leave-permission');
       }
     }
     onClose?.();
