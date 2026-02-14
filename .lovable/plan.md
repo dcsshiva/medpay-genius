@@ -1,67 +1,82 @@
 
-## Fix: RLS Policies Not Working After Login (Email OTP & Mobile OTP)
 
-### Root Cause
+## Sidebar Menu Visibility Management
 
-The Supabase client in `src/integrations/supabase/client.ts` is configured with:
-- `persistSession: false`
-- Dummy storage that always returns `null`
+### Overview
+Add a new "Menu Visibility" tab in Settings where admins can toggle which navigation items appear in the sidebar. Hidden items are not deleted -- they're just not shown. All existing logic, data, and routing remain untouched.
 
-This means:
-1. When a user logs in via email OTP or mobile OTP, `supabase.auth.verifyOtp()` creates a real Supabase session **in memory only**
-2. On any page refresh or app reload, the session is lost
-3. `auth.uid()` returns `null` in all RLS policy checks
-4. All RLS-protected queries return empty results (e.g., Doctor Hub shows "No doctors found")
+### How It Works
 
-Both email OTP and mobile OTP logins are affected identically because both rely on `supabase.auth.verifyOtp()` for the real auth session.
+1. A new `sidebar_menu_config` database table stores which menu item IDs are hidden
+2. The sidebar reads this config and filters out hidden items before rendering
+3. Admins manage visibility from a new Settings tab with simple toggle switches
 
-### Solution
+### Database
 
-Enable proper Supabase session persistence so `auth.uid()` works in RLS policies at all times.
+**New table: `sidebar_menu_config`**
+| Column | Type | Description |
+|--------|------|-------------|
+| id | uuid (PK) | Auto-generated |
+| menu_item_id | text (unique) | The navigation item ID (e.g. "bank-advice-generation") |
+| is_visible | boolean (default true) | Whether the item appears in the sidebar |
+| display_order | integer | Optional custom sort order |
+| updated_by | uuid | User who last changed it |
+| updated_at | timestamptz | Last modification time |
 
-### Changes
+RLS: Admins/super_admins can read and write. All authenticated users can read (they need to know which items to show).
 
-#### 1. Fix Supabase Client Configuration (`src/integrations/supabase/client.ts`)
+### UI Changes
 
-Remove the dummy storage and `persistSession: false` settings. Use the default `localStorage`-based persistence that Supabase provides out of the box:
+**Settings page (`src/components/Settings.tsx`)**
+- Add a 4th tab: "Menu Visibility" (with Eye icon)
+- Only visible to admin and super_admin roles
 
-```typescript
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
-```
+**New component: `src/components/MenuVisibilitySettings.tsx`**
+- Lists all navigation items (from the super_admin list) with:
+  - Icon + label for each item
+  - Toggle switch (visible/hidden)
+  - Items grouped into categories: Core, Payments, Reports, Management, System
+- "Dashboard" and "Settings" are always visible (cannot be hidden)
+- Bulk actions: "Show All" / "Hide All"
+- Save button to persist changes
+- Search/filter bar to find items quickly
 
-This allows the Supabase client to:
-- Store the auth session in `localStorage` automatically
-- Restore it on page refresh
-- Auto-refresh tokens when they expire
+**Sidebar (`src/components/AppSidebar.tsx`)**
+- Fetch the `sidebar_menu_config` table on mount
+- Filter `navigationItems` to exclude items where `is_visible = false`
+- Items not in the config table default to visible (backward compatible)
 
-#### 2. Update Auth Provider Session Loading (`src/lib/auth.tsx`)
+**Navigation items (`src/lib/navigationItems.ts`)**
+- No changes -- the full list remains as-is. Filtering happens in the sidebar.
 
-Update `loadSession` to:
-- First check for a real Supabase auth session via `supabase.auth.getSession()`
-- Set up `onAuthStateChange` listener to react to auth state changes (login, logout, token refresh)
-- Fall back to the custom `user_sessions` table only when no Supabase session exists (for legacy username/password logins)
-- When a real Supabase session is found, populate userRole, userProfile, and userDesignation from `user_designations` table
+### Menu Grouping in the Settings UI
 
-#### 3. Update Sign Out (`src/lib/auth.tsx`)
+To make the long list manageable, items will be grouped:
 
-Ensure `signOut` always calls `supabase.auth.signOut()` regardless of login method, since all OTP logins now create real persistent sessions.
+- **Core**: Dashboard, User Guide, Masters
+- **People**: Staff Management, Doctor Management, Doctor Hub
+- **Visits**: Visit Management
+- **Payments**: Cash Payments (Lite), Insurance Payments (Lite), Cash Payments, Insurance Payments, Quick Payment
+- **Bank Advice**: Bank Advice (Beta), Bank Advice (Legacy), Bank Advice Hub, Bank Advice Records, BA Payment Report, Quick Payment BA Report
+- **Reports**: TDS Reports, Login Reports, Navigation Analytics
+- **Collaboration**: Task Management, Staff Appraisals, Leave Approvals, Complaint Management, Team Chat
+- **System**: Version Management, Website Settings, AI Knowledge Base, Settings
 
-### What This Fixes
+### Files to Create/Modify
 
-- Email OTP login: Session persists across page refreshes, `auth.uid()` works in RLS
-- Mobile OTP login: Same -- the magic link token creates a real session that persists
-- Both login methods produce identical auth behavior
-- All RLS policies (doctors, payments, visits, etc.) work correctly for both methods
+| File | Action | Purpose |
+|------|--------|---------|
+| `supabase/migrations/xxx_sidebar_menu_config.sql` | Create | New table with RLS policies |
+| `src/components/MenuVisibilitySettings.tsx` | Create | Admin UI for toggling menu visibility |
+| `src/hooks/useMenuVisibility.tsx` | Create | Hook to fetch and cache menu visibility config |
+| `src/components/Settings.tsx` | Modify | Add "Menu Visibility" tab |
+| `src/components/AppSidebar.tsx` | Modify | Filter items based on visibility config |
+| `src/integrations/supabase/types.ts` | Update | Add new table types |
 
-### Files to Modify
+### What Does NOT Change
+- All navigation routing and component rendering in `Index.tsx`
+- The `navigationItems.ts` definitions (role-based logic stays intact)
+- Quick Access configuration
+- Any existing data or business logic
+- Staff/doctor/manager menu restrictions (role-based filtering still applies first, then visibility filtering on top)
 
-| File | Change |
-|------|--------|
-| `src/integrations/supabase/client.ts` | Remove dummy storage and `persistSession: false` |
-| `src/lib/auth.tsx` | Add `onAuthStateChange` listener, prioritize real Supabase session on load |
-
-### What Stays the Same
-
-- The custom `user_sessions` table continues to work for session tracking, idle timeout, and login history
-- Username/password login via `verify_user_login` RPC still works as a fallback
-- All existing RLS policies remain unchanged -- they already use `auth.uid()` and `has_designation()` correctly
