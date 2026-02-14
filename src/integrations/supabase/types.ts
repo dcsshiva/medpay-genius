@@ -3032,6 +3032,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      increment_kb_usage: { Args: { kb_question: string }; Returns: undefined }
       invalidate_session_by_token: {
         Args: { _token: string }
         Returns: undefined

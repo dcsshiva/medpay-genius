@@ -607,20 +607,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (designation?.designation) {
           // Use designation as role
           setUserRole(designation.designation);
+          setUserDesignation(designation.designation);
+          
+          // Fetch full profile to determine user_type
+          let userType = 'staff';
+          let fullName = email;
+          try {
+            const { data: profileData } = await supabase.rpc('get_user_complete_profile', { _user_id: data.user.id });
+            if (profileData && typeof profileData === 'object' && !('error' in profileData)) {
+              const p = profileData as any;
+              userType = p.designation === 'doctor' ? 'doctor' : 'staff';
+              fullName = p.full_name || email;
+            }
+          } catch (profileErr) {
+            console.error('Failed to fetch complete profile:', profileErr);
+          }
+          
           setUserProfile({
             id: data.user.id,
             user_id: data.user.id,
-            full_name: email,
-            role: designation.designation
+            full_name: fullName,
+            role: designation.designation,
+            user_type: userType
           });
           
           try {
             await createUserSession({
-              user_type: 'supabase_auth',
+              user_type: userType,
               original_id: data.user.id,
               user_id: data.user.id,
               username: email,
-              full_name: email,
+              full_name: fullName,
               role: designation.designation
             });
           } catch (e: any) {

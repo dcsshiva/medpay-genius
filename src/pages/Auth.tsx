@@ -88,36 +88,17 @@ const Auth: React.FC = () => {
     return () => clearInterval(interval);
   }, [mobileResendCooldown]);
 
-  // Helper to create session entry in DB and store token client-side
-  const createSessionRecord = async (
-    userId: string,
-    userType: "doctor" | "staff",
-    originalId: string | number,
-    username: string,
-    fullName: string,
-    role: string,
-    idleTimeoutSeconds = 180,
-  ) => {
-    const sessionToken = `session_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-    const refreshToken = `refresh_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
-    await supabase.from("user_sessions").insert([{
-      user_id: userId,
-      user_type: userType,
-      original_id: String(originalId),
-      session_token: sessionToken,
-      refresh_token: refreshToken,
-      username,
-      full_name: fullName,
-      role,
-      expires_at: expiresAt.toISOString(),
-      idle_timeout_seconds: idleTimeoutSeconds,
-      last_activity_at: new Date().toISOString(),
-      is_active: true,
-    }]);
-
-    window.localStorage.setItem("supabase_session_token", sessionToken);
+  // Helper for role-based navigation after login
+  const navigateByRole = (userType?: string, role?: string) => {
+    if (userType === 'doctor') {
+      navigate("/dashboard?view=doctor-hub");
+    } else if (role && ['admin', 'manager', 'super_admin'].includes(role)) {
+      navigate("/dashboard?view=doctor-hub");
+    } else if (role && ['staff', 'nurse'].includes(role)) {
+      navigate(isMobile ? "/dashboard?view=staff" : "/dashboard");
+    } else {
+      navigate("/dashboard");
+    }
   };
 
   // ========== EMAIL OTP HANDLERS ==========
@@ -179,132 +160,39 @@ const Auth: React.FC = () => {
         return;
       }
 
-      // After OTP verification, determine user type and create session
-      const result = await supabase.auth.getUser();
-      const authUser = result?.data?.user;
-
-      if (authUser) {
-        const userId = authUser.id;
-
-        // Check doctor
-        const { data: doctorData } = await supabase
-          .from("doctors")
-          .select("id, doctor_code, full_name")
-          .eq("user_id", userId)
-          .single();
-
-        if (doctorData) {
-          await createSessionRecord(
-            userId,
-            "doctor",
-            doctorData.id,
-            doctorData.doctor_code,
-            doctorData.full_name,
-            "doctor",
-            180,
-          );
-          toast({
-            title: "Welcome Doctor!",
-            description: "Successfully signed in.",
-          });
-          navigate("/dashboard?view=doctor-hub");
-          return;
-        }
-
-        // Check staff
-        const { data: staffData } = await supabase
-          .from("staff")
-          .select("id, staff_code, full_name, role")
-          .eq("user_id", userId)
-          .single();
-
-        if (staffData) {
-          const { data: designation } = await supabase
-            .from("user_designations")
-            .select("designation")
-            .eq("user_id", userId)
-            .single();
-
-          const userDesignation = designation?.designation || "staff";
-          const timeoutDuration = ["admin", "manager"].includes(staffData.role) ? 300 : 180;
-
-          await createSessionRecord(
-            userId,
-            "staff",
-            staffData.id,
-            staffData.staff_code,
-            staffData.full_name,
-            staffData.role,
-            timeoutDuration,
-          );
-
-          if (
-            userDesignation === "manager" ||
-            userDesignation === "admin" ||
-            staffData.role === "manager" ||
-            staffData.role === "admin"
-          ) {
-            toast({
-              title:
-                userDesignation === "manager" || staffData.role === "manager" ? "Welcome Manager!" : "Welcome Admin!",
-              description: "Successfully signed in.",
-            });
-            navigate("/dashboard?view=doctor-hub");
-            return;
-          }
-
-          // Staff/Nurse users - route to staff dashboard
-          toast({
-            title: "Welcome!",
-            description: "Successfully signed in.",
-          });
-          navigate(isMobile ? "/dashboard?view=staff" : "/dashboard");
-          return;
-        }
-
-        // Designation only
-        const { data: designationOnly } = await supabase
-          .from("user_designations")
-          .select("designation")
-          .eq("user_id", userId)
-          .single();
-
-        if (designationOnly) {
-          const role =
-            designationOnly.designation === "super_admin"
-              ? "super_admin"
-              : designationOnly.designation === "manager"
-                ? "manager"
-                : "admin";
-
-          await createSessionRecord(
-            userId,
-            "staff",
-            userId,
-            authUser.email ?? email,
-            authUser.email ?? email,
-            role,
-            300,
-          );
-
-          toast({
-            title: "Welcome!",
-            description: "Successfully signed in.",
-          });
-          if (["admin", "manager", "super_admin"].includes(designationOnly.designation)) {
-            navigate("/dashboard?view=doctor-hub");
-          } else {
-            navigate("/dashboard");
-          }
-          return;
-        }
-      }
-
-      // Fallback navigation
+      // auth.tsx verifyOTP already handles session creation, profile, role, and designation.
+      // Just navigate based on what auth context set.
       toast({
         title: "Welcome!",
         description: "Successfully signed in.",
       });
+
+      // Small delay to let auth state propagate, then navigate
+      // We read from auth context indirectly via getUser + our profile
+      const result = await supabase.auth.getUser();
+      const authUser = result?.data?.user;
+      
+      if (authUser) {
+        // Check designation for routing
+        const { data: designation } = await supabase
+          .from("user_designations")
+          .select("designation")
+          .eq("user_id", authUser.id)
+          .maybeSingle();
+        
+        // Check if doctor
+        const { data: doctorData } = await supabase
+          .from("doctors")
+          .select("id")
+          .eq("user_id", authUser.id)
+          .maybeSingle();
+        
+        const userType = doctorData ? 'doctor' : 'staff';
+        const role = designation?.designation || 'staff';
+        navigateByRole(userType, role);
+        return;
+      }
+      
       navigate("/dashboard");
     } catch (err: any) {
       console.error("Error determining user type:", err);
@@ -388,39 +276,23 @@ const Auth: React.FC = () => {
       // But since verifyMobileOTP already sets everything, we navigate based on returned data
       // The auth context's verifyMobileOTP already calls createUserSession and sets userProfile
       
+      // auth.tsx verifyMobileOTP already handles session creation, profile, role, and designation.
+      // Just navigate based on what was set.
       toast({
         title: "Welcome!",
         description: "Successfully signed in.",
       });
 
-      // Role-based navigation - check what role was set
-      // We need to read from the verify-otp response which is in auth context now
-      // Since auth context already set everything, just check the role
+      // Read role info from the session that auth.tsx just created
       const sessionToken = window.localStorage.getItem("supabase_session_token");
       if (sessionToken) {
         const { data: sessionData } = await supabase
           .rpc('get_session_by_token', { _token: sessionToken });
         
         const session = Array.isArray(sessionData) ? sessionData[0] : sessionData;
-        
         if (session) {
-          const role = session.role;
-          const userType = session.user_type;
-          
-          if (userType === 'doctor') {
-            navigate("/dashboard?view=doctor-hub");
-            return;
-          }
-          
-          if (['admin', 'manager', 'super_admin'].includes(role)) {
-            navigate("/dashboard?view=doctor-hub");
-            return;
-          }
-          
-          if (['staff', 'nurse'].includes(role)) {
-            navigate(isMobile ? "/dashboard?view=staff" : "/dashboard");
-            return;
-          }
+          navigateByRole(session.user_type, session.role);
+          return;
         }
       }
       
