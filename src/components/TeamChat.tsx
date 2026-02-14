@@ -74,13 +74,24 @@ const TeamChat = () => {
         ? userRole as 'admin' | 'manager' | 'doctor'
         : 'staff' as const;
 
+      // Resolve sender name from staff table if not in metadata
+      let senderName = user.user_metadata?.full_name;
+      if (!senderName) {
+        const { data: staffData } = await supabase
+          .from('staff')
+          .select('full_name')
+          .eq('user_id', user.id)
+          .maybeSingle();
+        senderName = staffData?.full_name || user.email || 'Unknown';
+      }
+
       const { error } = await supabase
         .from('messages')
         .insert([
           {
             content: newMessage.trim(),
             sender_id: user.id,
-            sender_name: user.user_metadata?.full_name || user.email || 'Unknown',
+            sender_name: senderName,
             sender_role: dbRole,
           }
         ]);
