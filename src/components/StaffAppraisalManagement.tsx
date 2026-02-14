@@ -146,6 +146,14 @@ export default function StaffAppraisalManagement() {
   const [teamworkRating, setTeamworkRating] = useState([3]);
   const [communicationRating, setCommunicationRating] = useState([3]);
   const [professionalismRating, setProfessionalismRating] = useState([3]);
+  const [patientCareRating, setPatientCareRating] = useState([3]);
+  const [infectionControlRating, setInfectionControlRating] = useState([3]);
+  const [documentationRating, setDocumentationRating] = useState([3]);
+  const [attendanceReliabilityRating, setAttendanceReliabilityRating] = useState([3]);
+  const [initiativeRating, setInitiativeRating] = useState([3]);
+  const [trainingParticipationRating, setTrainingParticipationRating] = useState([3]);
+  const [selectedAppraisalReasonId, setSelectedAppraisalReasonId] = useState("");
+  const [appraisalReasons, setAppraisalReasons] = useState<{ id: string; reason_name: string }[]>([]);
   const [overallRating, setOverallRating] = useState("");
   const [strengths, setStrengths] = useState("");
   const [areasForImprovement, setAreasForImprovement] = useState("");
@@ -193,6 +201,7 @@ export default function StaffAppraisalManagement() {
         fetchAppraisals(),
         fetchWarnings(),
         fetchDailyActivities(),
+        fetchAppraisalReasons(),
       ]);
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -204,6 +213,16 @@ export default function StaffAppraisalManagement() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchAppraisalReasons = async () => {
+    const { data, error } = await supabase
+      .from("appraisal_reasons")
+      .select("id, reason_name")
+      .eq("is_active", true)
+      .order("display_order");
+    if (error) throw error;
+    setAppraisalReasons(data || []);
   };
 
   const fetchStaff = async () => {
@@ -283,13 +302,20 @@ export default function StaffAppraisalManagement() {
       teamwork_rating: teamworkRating[0],
       communication_rating: communicationRating[0],
       professionalism_rating: professionalismRating[0],
+      patient_care_rating: patientCareRating[0],
+      infection_control_rating: infectionControlRating[0],
+      documentation_rating: documentationRating[0],
+      attendance_reliability_rating: attendanceReliabilityRating[0],
+      initiative_rating: initiativeRating[0],
+      training_participation_rating: trainingParticipationRating[0],
+      appraisal_reason_id: selectedAppraisalReasonId || null,
       strengths,
       areas_for_improvement: areasForImprovement,
       manager_comments: managerComments,
       action_plan: actionPlan,
       next_review_date: nextReviewDate || null,
       appraised_by: user?.id,
-    }]);
+    } as any]);
 
     if (error) {
       toast({
@@ -409,6 +435,13 @@ export default function StaffAppraisalManagement() {
     setTeamworkRating([3]);
     setCommunicationRating([3]);
     setProfessionalismRating([3]);
+    setPatientCareRating([3]);
+    setInfectionControlRating([3]);
+    setDocumentationRating([3]);
+    setAttendanceReliabilityRating([3]);
+    setInitiativeRating([3]);
+    setTrainingParticipationRating([3]);
+    setSelectedAppraisalReasonId("");
     setOverallRating("");
     setStrengths("");
     setAreasForImprovement("");
@@ -605,62 +638,75 @@ export default function StaffAppraisalManagement() {
                   </div>
 
                   <div className="space-y-4 border-t pt-4">
-                    <h3 className="font-semibold">Performance Ratings (1-5)</h3>
+                    <h3 className="font-semibold">Core Performance Ratings (1-5)</h3>
                     
                     <div className="space-y-2">
                       <Label>Punctuality: {punctualityRating[0]}</Label>
-                      <Slider
-                        value={punctualityRating}
-                        onValueChange={setPunctualityRating}
-                        min={1}
-                        max={5}
-                        step={1}
-                      />
+                      <Slider value={punctualityRating} onValueChange={setPunctualityRating} min={1} max={5} step={1} />
                     </div>
-
                     <div className="space-y-2">
                       <Label>Work Quality: {workQualityRating[0]}</Label>
-                      <Slider
-                        value={workQualityRating}
-                        onValueChange={setWorkQualityRating}
-                        min={1}
-                        max={5}
-                        step={1}
-                      />
+                      <Slider value={workQualityRating} onValueChange={setWorkQualityRating} min={1} max={5} step={1} />
                     </div>
-
                     <div className="space-y-2">
                       <Label>Teamwork: {teamworkRating[0]}</Label>
-                      <Slider
-                        value={teamworkRating}
-                        onValueChange={setTeamworkRating}
-                        min={1}
-                        max={5}
-                        step={1}
-                      />
+                      <Slider value={teamworkRating} onValueChange={setTeamworkRating} min={1} max={5} step={1} />
                     </div>
-
                     <div className="space-y-2">
                       <Label>Communication: {communicationRating[0]}</Label>
-                      <Slider
-                        value={communicationRating}
-                        onValueChange={setCommunicationRating}
-                        min={1}
-                        max={5}
-                        step={1}
-                      />
+                      <Slider value={communicationRating} onValueChange={setCommunicationRating} min={1} max={5} step={1} />
                     </div>
-
                     <div className="space-y-2">
                       <Label>Professionalism: {professionalismRating[0]}</Label>
-                      <Slider
-                        value={professionalismRating}
-                        onValueChange={setProfessionalismRating}
-                        min={1}
-                        max={5}
-                        step={1}
-                      />
+                      <Slider value={professionalismRating} onValueChange={setProfessionalismRating} min={1} max={5} step={1} />
                     </div>
+                  </div>
+
+                  <div className="space-y-4 border-t pt-4">
+                    <h3 className="font-semibold">Hospital-Specific Ratings (1-5)</h3>
+                    
+                    <div className="space-y-2">
+                      <Label>Patient Care Quality: {patientCareRating[0]}</Label>
+                      <Slider value={patientCareRating} onValueChange={setPatientCareRating} min={1} max={5} step={1} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Infection Control Compliance: {infectionControlRating[0]}</Label>
+                      <Slider value={infectionControlRating} onValueChange={setInfectionControlRating} min={1} max={5} step={1} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Documentation Accuracy: {documentationRating[0]}</Label>
+                      <Slider value={documentationRating} onValueChange={setDocumentationRating} min={1} max={5} step={1} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Attendance & Reliability: {attendanceReliabilityRating[0]}</Label>
+                      <Slider value={attendanceReliabilityRating} onValueChange={setAttendanceReliabilityRating} min={1} max={5} step={1} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Initiative & Problem Solving: {initiativeRating[0]}</Label>
+                      <Slider value={initiativeRating} onValueChange={setInitiativeRating} min={1} max={5} step={1} />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Training Participation: {trainingParticipationRating[0]}</Label>
+                      <Slider value={trainingParticipationRating} onValueChange={setTrainingParticipationRating} min={1} max={5} step={1} />
+                    </div>
+
+                    {appraisalReasons.length > 0 && (
+                      <div className="space-y-2">
+                        <Label>Appraisal Reason</Label>
+                        <Select value={selectedAppraisalReasonId} onValueChange={setSelectedAppraisalReasonId}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select reason (optional)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {appraisalReasons.map(reason => (
+                              <SelectItem key={reason.id} value={reason.id}>
+                                {reason.reason_name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
                   </div>
 
                   <div className="space-y-4 border-t pt-4">

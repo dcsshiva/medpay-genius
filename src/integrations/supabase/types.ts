@@ -1612,69 +1612,106 @@ export type Database = {
       }
       staff_appraisals: {
         Row: {
+          acknowledged_at: string | null
           action_plan: string | null
           appraisal_date: string
           appraisal_period_end: string
           appraisal_period_start: string
+          appraisal_reason_id: string | null
           appraised_by: string | null
           areas_for_improvement: string | null
+          attendance_reliability_rating: number | null
           communication_rating: number
           created_at: string
+          documentation_rating: number | null
           id: string
+          infection_control_rating: number | null
+          initiative_rating: number | null
           manager_comments: string | null
           next_review_date: string | null
           overall_rating: Database["public"]["Enums"]["appraisal_rating"]
+          patient_care_rating: number | null
           professionalism_rating: number
           punctuality_rating: number
+          staff_acknowledgement: boolean | null
+          staff_comments: string | null
           staff_id: string
           strengths: string | null
           teamwork_rating: number
+          training_participation_rating: number | null
           updated_at: string
           work_quality_rating: number
         }
         Insert: {
+          acknowledged_at?: string | null
           action_plan?: string | null
           appraisal_date?: string
           appraisal_period_end: string
           appraisal_period_start: string
+          appraisal_reason_id?: string | null
           appraised_by?: string | null
           areas_for_improvement?: string | null
+          attendance_reliability_rating?: number | null
           communication_rating: number
           created_at?: string
+          documentation_rating?: number | null
           id?: string
+          infection_control_rating?: number | null
+          initiative_rating?: number | null
           manager_comments?: string | null
           next_review_date?: string | null
           overall_rating: Database["public"]["Enums"]["appraisal_rating"]
+          patient_care_rating?: number | null
           professionalism_rating: number
           punctuality_rating: number
+          staff_acknowledgement?: boolean | null
+          staff_comments?: string | null
           staff_id: string
           strengths?: string | null
           teamwork_rating: number
+          training_participation_rating?: number | null
           updated_at?: string
           work_quality_rating: number
         }
         Update: {
+          acknowledged_at?: string | null
           action_plan?: string | null
           appraisal_date?: string
           appraisal_period_end?: string
           appraisal_period_start?: string
+          appraisal_reason_id?: string | null
           appraised_by?: string | null
           areas_for_improvement?: string | null
+          attendance_reliability_rating?: number | null
           communication_rating?: number
           created_at?: string
+          documentation_rating?: number | null
           id?: string
+          infection_control_rating?: number | null
+          initiative_rating?: number | null
           manager_comments?: string | null
           next_review_date?: string | null
           overall_rating?: Database["public"]["Enums"]["appraisal_rating"]
+          patient_care_rating?: number | null
           professionalism_rating?: number
           punctuality_rating?: number
+          staff_acknowledgement?: boolean | null
+          staff_comments?: string | null
           staff_id?: string
           strengths?: string | null
           teamwork_rating?: number
+          training_participation_rating?: number | null
           updated_at?: string
           work_quality_rating?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "staff_appraisals_appraisal_reason_id_fkey"
+            columns: ["appraisal_reason_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_reasons"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "staff_appraisals_appraised_by_fkey"
             columns: ["appraised_by"]
