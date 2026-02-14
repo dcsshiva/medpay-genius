@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Bot, X, Send, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/lib/auth';
@@ -8,7 +8,48 @@ type Message = { role: 'user' | 'assistant'; content: string };
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chatbot`;
 
-const AIChatbot: React.FC = () => {
+// Map of navigation labels (lowercase) to tab IDs
+const NAV_LABEL_TO_TAB: Record<string, string> = {
+  'dashboard': 'dashboard',
+  'user guide': 'user-guide',
+  'masters': 'masters',
+  'staff management': 'staff',
+  'doctor management': 'doctors',
+  'visit management': 'visits',
+  'doctor hub': 'doctor-hub',
+  'cash payments (lite)': 'cash-payments-lite',
+  'insurance payments (lite)': 'insurance-payments-lite',
+  'quick payment': 'quick-payment',
+  'bank advice (beta)': 'bank-advice-generation-beta',
+  'bank advice (legacy)': 'bank-advice-generation',
+  'bank advice hub': 'bank-advice-history',
+  'bank advice records': 'bank-advice-records',
+  'tds reports': 'tds-reports',
+  'cash payments': 'cash-payments',
+  'insurance payments': 'insurance-payments',
+  'ba payment report': 'bank-advice-payment-report',
+  'quick payment ba report': 'quick-payment-bank-advice-report',
+  'task management': 'tasks',
+  'my tasks': 'tasks',
+  'staff appraisals': 'appraisals',
+  'leave approvals': 'leave-approvals',
+  'leave & permission': 'leave-permission',
+  'complaint management': 'complaints',
+  'complaints': 'complaints',
+  'login reports': 'login-reports',
+  'navigation analytics': 'navigation-analytics',
+  'team chat': 'chat',
+  'version management': 'version',
+  'website settings': 'website-settings',
+  'ai knowledge base': 'ai-knowledge-base',
+  'settings': 'settings',
+};
+
+interface AIChatbotProps {
+  onTabChange?: (tab: string) => void;
+}
+
+const AIChatbot: React.FC<AIChatbotProps> = ({ onTabChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -26,6 +67,25 @@ const AIChatbot: React.FC = () => {
       inputRef.current.focus();
     }
   }, [isOpen]);
+
+  // Process AI text to convert [[Menu Name]] to clickable elements
+  const processContent = useCallback((text: string): string => {
+    // Replace [[Menu Name]] with markdown links using a special nav:// protocol
+    return text.replace(/\[\[([^\]]+)\]\]/g, (_, label) => {
+      const tabId = NAV_LABEL_TO_TAB[label.toLowerCase().trim()];
+      if (tabId) {
+        return `[📌 ${label}](nav://${tabId})`;
+      }
+      return `**${label}**`;
+    });
+  }, []);
+
+  const handleNavClick = useCallback((tabId: string) => {
+    if (onTabChange) {
+      onTabChange(tabId);
+      setIsOpen(false);
+    }
+  }, [onTabChange]);
 
   const sendMessage = async () => {
     const trimmed = input.trim();
@@ -137,6 +197,24 @@ const AIChatbot: React.FC = () => {
     }
   };
 
+  // Custom link renderer for ReactMarkdown
+  const markdownComponents = {
+    a: ({ href, children, ...props }: any) => {
+      if (href?.startsWith('nav://')) {
+        const tabId = href.replace('nav://', '');
+        return (
+          <button
+            onClick={() => handleNavClick(tabId)}
+            className="inline-flex items-center gap-0.5 text-primary underline underline-offset-2 hover:text-primary/80 font-medium cursor-pointer bg-transparent border-none p-0"
+          >
+            {children}
+          </button>
+        );
+      }
+      return <a href={href} {...props} target="_blank" rel="noopener noreferrer">{children}</a>;
+    },
+  };
+
   const roleLabel = userDesignation || userRole || 'user';
 
   return (
@@ -192,7 +270,9 @@ const AIChatbot: React.FC = () => {
                 }`}>
                   {msg.role === 'assistant' ? (
                     <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:m-0 [&>ul]:my-1 [&>ol]:my-1 [&>h1]:text-base [&>h2]:text-sm [&>h3]:text-sm">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      <ReactMarkdown components={markdownComponents}>
+                        {processContent(msg.content)}
+                      </ReactMarkdown>
                     </div>
                   ) : (
                     <p className="whitespace-pre-wrap">{msg.content}</p>

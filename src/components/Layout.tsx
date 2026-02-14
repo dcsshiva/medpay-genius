@@ -108,7 +108,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
           <Footer />
           
           {/* AI Chatbot */}
-          <AIChatbot />
+          <AIChatbot onTabChange={onTabChange} />
         </div>
       </SidebarProvider>
     </PaymentStatsColorsProvider>
