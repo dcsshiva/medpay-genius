@@ -1,119 +1,70 @@
 
 
-## Hospital Staff Appraisal Criteria and Staff Dashboard Enhancement
+## Leave and Permission Forms -- UI/UX Polish
 
-### Part 1: Recommended Appraisal Criteria for Hospital Staff
+### Problems in Current UI (from screenshots)
 
-Your current appraisal system tracks 5 rating categories (Punctuality, Work Quality, Teamwork, Communication, Professionalism). Here are **additional hospital-specific criteria** recommended to add:
+1. **Too much vertical whitespace** -- fields are spread out with large gaps, requiring scrolling on mobile
+2. **No visual grouping** -- all fields appear as a flat list with no logical sections
+3. **Time inputs look broken on mobile** -- native `<input type="time">` shows "--:-- --" placeholder awkwardly
+4. **No leave days summary shown** -- user picks dates but doesn't see "3 days" until after submission
+5. **Tab bar text overflows on mobile** -- "Leave Application" / "Permission Application" / "History" are too long for small screens
+6. **History table not mobile-friendly** -- 6-column table is unusable on phones
+7. **No progress indication** -- user doesn't know which fields are filled vs remaining
+8. **Buttons too small on mobile** -- Reset and Submit buttons lack adequate touch targets
 
-**Clinical Performance (for clinical staff)**
-- Patient Care Quality -- bedside manner, care accuracy, patient satisfaction
-- Infection Control Compliance -- adherence to hygiene and safety protocols
-- Medical Documentation Accuracy -- completeness of patient records
-- Emergency Response Readiness -- ability to handle emergencies calmly
+### Changes
 
-**Operational Performance (all staff)**
-- Attendance and Reliability -- late arrivals, absences, shift coverage
-- Task Completion Rate -- percentage of assigned tasks completed on time
-- Equipment and Resource Handling -- proper use of hospital equipment
-- Compliance with Hospital Policies -- dress code, ID badge, mobile usage
+#### 1. `LeavePermissionManagement.tsx` -- Responsive Tab Bar
+- Shorten tab labels on mobile: "Leave" / "Permission" / "History" (use `useIsMobile`)
+- Use `ScrollArea` for horizontal tab scrolling on small screens
+- Add subtle animation when switching tabs
 
-**Behavioral and Soft Skills**
-- Patient/Visitor Interaction -- how well staff deals with patients and families
-- Initiative and Problem Solving -- proactive improvements, suggestions
-- Adaptability -- willingness to take on extra duties, shift swaps
-- Ethical Conduct -- maintaining confidentiality, integrity
+#### 2. `LeaveApplicationForm.tsx` -- Structured Card Sections
+- **Section 1: "When"** -- Date range in a bordered card with calendar icon header; show computed "X days" summary badge inline once both dates selected
+- **Section 2: "What Type"** -- Leave type radio as pill-style toggle buttons (Full Day / Half Day) instead of plain radio circles
+- **Section 3: "Why"** -- Reason dropdown + details textarea grouped together
+- **Section 4: "Approval"** -- Approver + notes in a subtle card
+- Make textareas have `rows={3}` on mobile (smaller) and auto-resize hint
+- Full-width sticky submit bar on mobile (fixed at bottom)
+- Add computed leave summary banner: "You are requesting 3 days leave from Feb 15 to Feb 17"
 
-**Growth and Development**
-- Training Participation -- attendance at in-service training, workshops
-- Skill Development -- new skills acquired during the period
-- Goal Achievement -- progress toward previously set goals
+#### 3. `PermissionApplicationForm.tsx` -- Compact and Clear
+- **Today's date banner** -- keep but make it more compact with a calendar icon and single line
+- **Time section** -- side-by-side time inputs with a connecting arrow/dash icon between them
+- **Duration indicator** -- show inline below time inputs (smaller, not a separate big card)
+- **Reason + Details** -- group in a single visual section
+- **Approval section** -- same card treatment as leave form
+- Full-width sticky submit on mobile
 
-### Part 2: Enhance Staff Dashboard with Appraisal and Performance Data
+#### 4. `ApplicationHistory.tsx` -- Mobile Card View
+- On mobile: replace the table with stacked cards showing type icon, date, status badge, and reason
+- Each card tappable to open details dialog
+- Cancel button as a swipe action or icon inside the card
+- On desktop: keep the table but tighten column widths
+- Add empty state illustration/text when no applications exist
 
-Currently, the Staff Mobile Dashboard shows only: tasks (pending/completed), leave stats, and quick actions. Staff **cannot** see their own appraisals, warnings, or daily activity records from the dashboard, even though RLS policies already allow it.
+### Shared Improvements (both forms)
+- Add `min-h-[44px]` to all interactive elements for mobile touch targets
+- Use consistent section spacing: `space-y-4` within sections, `space-y-6` between sections
+- Labels use `text-sm font-medium` consistently
+- Required field indicators as colored dots instead of asterisks
+- Form buttons: primary button gets full width on mobile, inline on desktop
 
----
+### Files to Modify
 
-### Database Changes
-
-**Add new columns to `staff_appraisals` table** for the additional criteria:
-
-| Column | Type | Purpose |
-|--------|------|---------|
-| patient_care_rating | integer (1-5) | Patient care quality score |
-| infection_control_rating | integer (1-5) | Hygiene compliance score |
-| documentation_rating | integer (1-5) | Record-keeping accuracy |
-| attendance_reliability_rating | integer (1-5) | Attendance consistency |
-| initiative_rating | integer (1-5) | Proactiveness score |
-| training_participation_rating | integer (1-5) | Training engagement |
-| appraisal_reason_id | uuid (FK) | Links to appraisal_reasons master table |
-| staff_acknowledgement | boolean | Staff has read and acknowledged the appraisal |
-| staff_comments | text | Staff's own feedback/response |
-| acknowledged_at | timestamptz | When staff acknowledged |
-
-All new columns are **nullable** so existing records are unaffected.
-
----
-
-### UI Changes
-
-#### 1. Staff Dashboard Enhancement (`StaffMobileDashboard.tsx`)
-
-Add new sections to the existing dashboard:
-
-**New Stats Cards (row 3):**
-- Latest Appraisal Rating (e.g., "Good" with colored badge)
-- Active Warnings count (with severity indicator)
-
-**New Section: "My Performance"**
-- Shows the most recent appraisal summary: period, overall rating, and a mini radar/bar chart of the individual ratings
-- Tappable to see full appraisal details in a dialog/sheet
-
-**New Section: "Recent Warnings"**
-- Shows up to 3 most recent warnings with severity badges
-- Only appears if the staff has any warnings
-
-**New Quick Action:**
-- "View My Appraisals" -- navigates to a detailed appraisal history view
-
-#### 2. New Component: Staff Appraisal View (`StaffAppraisalView.tsx`)
-
-A read-only view for staff to see their own appraisal history:
-- List of all appraisals with date, period, and rating
-- Expandable detail view showing all category ratings as visual bars
-- Staff can add their own comments/response
-- Staff can acknowledge ("I have read this appraisal") button
-- Shows the action plan and areas for improvement
-
-#### 3. Update Appraisal Form (`StaffAppraisalManagement.tsx`)
-
-Add the new rating fields to the appraisal creation form:
-- Patient Care Quality slider (1-5)
-- Infection Control Compliance slider (1-5)
-- Documentation Accuracy slider (1-5)
-- Attendance Reliability slider (1-5)
-- Initiative slider (1-5)
-- Training Participation slider (1-5)
-- Appraisal Reason dropdown (from `appraisal_reasons` master table)
-
-Group sliders into categories with section headers for clarity.
-
----
-
-### Files to Create/Modify
-
-| File | Action | Purpose |
-|------|--------|---------|
-| Migration SQL | Create | Add new columns to staff_appraisals |
-| `src/components/StaffAppraisalView.tsx` | Create | Staff's read-only view of their appraisals, warnings, activities |
-| `src/components/StaffMobileDashboard.tsx` | Modify | Add performance stats cards and "My Performance" section |
-| `src/components/StaffAppraisalManagement.tsx` | Modify | Add new rating sliders and appraisal reason dropdown |
+| File | Change |
+|------|--------|
+| `src/components/leave-permission/LeavePermissionManagement.tsx` | Responsive tabs, mobile-friendly labels |
+| `src/components/leave-permission/LeaveApplicationForm.tsx` | Sectioned layout, leave summary, pill toggles, sticky submit |
+| `src/components/leave-permission/PermissionApplicationForm.tsx` | Compact layout, inline duration, grouped sections, sticky submit |
+| `src/components/leave-permission/ApplicationHistory.tsx` | Mobile card view, better empty state, tighter desktop table |
 
 ### What Does NOT Change
-- All existing appraisal data remains intact (new columns are nullable)
-- RLS policies already support staff viewing their own records
-- Warning types and severity levels stay the same
-- Admin/manager workflows are preserved
-- Navigation and routing logic untouched
+- All form validation logic and zod schemas
+- All Supabase queries and RPC calls
+- Date/time calculation functions
+- Manager loading and auto-selection logic
+- Application submission flow
+- History data fetching and filtering
 
