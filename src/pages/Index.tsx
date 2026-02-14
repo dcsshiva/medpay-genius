@@ -36,7 +36,7 @@ import BankAdviceReports from '@/components/BankAdviceReports';
 import DoctorHub from '@/components/DoctorHub';
 import NavigationAnalytics from '@/components/NavigationAnalytics';
 import StaffMobileDashboard from '@/components/StaffMobileDashboard';
-// Bank Advice Payment Report Component
+import ChatbotKnowledgeBase from '@/components/ChatbotKnowledgeBase';
 const Index = () => {
   const { user, loading, userProfile } = useAuth();
   const navigate = useNavigate();
@@ -202,6 +202,8 @@ const Index = () => {
         return <NavigationAnalytics />;
       case 'staff-dashboard':
         return <StaffMobileDashboard onNavigate={handleTabChange} />;
+      case 'ai-knowledge-base':
+        return <ChatbotKnowledgeBase />;
       case 'settings':
         return <Settings />;
       default:

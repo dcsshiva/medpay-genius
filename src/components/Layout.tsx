@@ -15,6 +15,7 @@ import {
 import { LogOut } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
 import { getNavigationItems } from '@/lib/navigationItems';
+import AIChatbot from '@/components/AIChatbot';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -105,6 +106,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
           
           {/* Footer */}
           <Footer />
+          
+          {/* AI Chatbot */}
+          <AIChatbot />
         </div>
       </SidebarProvider>
     </PaymentStatsColorsProvider>
