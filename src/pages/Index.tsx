@@ -37,6 +37,7 @@ import DoctorHub from '@/components/DoctorHub';
 import NavigationAnalytics from '@/components/NavigationAnalytics';
 import StaffMobileDashboard from '@/components/StaffMobileDashboard';
 import ChatbotKnowledgeBase from '@/components/ChatbotKnowledgeBase';
+import StaffAttendanceManagement from '@/components/StaffAttendanceManagement';
 const Index = () => {
   const { user, loading, userProfile } = useAuth();
   const navigate = useNavigate();
@@ -204,6 +205,8 @@ const Index = () => {
         return <StaffMobileDashboard onNavigate={handleTabChange} />;
       case 'ai-knowledge-base':
         return <ChatbotKnowledgeBase />;
+      case 'attendance':
+        return <StaffAttendanceManagement />;
       case 'settings':
         return <Settings />;
       default:
