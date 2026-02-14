@@ -3,6 +3,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Database } from 'lucide-react';
 import RolesTab from '@/components/masters/RolesTab';
 import DepartmentsTab from '@/components/masters/DepartmentsTab';
+import BranchesTab from '@/components/masters/BranchesTab';
 import LeaveReasonsTab from '@/components/masters/LeaveReasonsTab';
 import PermissionReasonsTab from '@/components/masters/PermissionReasonsTab';
 import VisitReasonsTab from '@/components/masters/VisitReasonsTab';
@@ -31,6 +32,7 @@ const MasterDataManagement = () => {
         <TabsList className="flex flex-wrap gap-1 w-full h-auto justify-start p-1">
           <TabsTrigger value="roles">Roles</TabsTrigger>
           <TabsTrigger value="departments">Departments</TabsTrigger>
+          <TabsTrigger value="branches">Branches</TabsTrigger>
           <TabsTrigger value="leave-reasons">Leave Reasons</TabsTrigger>
           <TabsTrigger value="permission-reasons">Permission Reasons</TabsTrigger>
           <TabsTrigger value="visit-reasons">Visit Reasons</TabsTrigger>
@@ -47,6 +49,10 @@ const MasterDataManagement = () => {
 
         <TabsContent value="departments" className="mt-6">
           <DepartmentsTab />
+        </TabsContent>
+
+        <TabsContent value="branches" className="mt-6">
+          <BranchesTab />
         </TabsContent>
 
         <TabsContent value="leave-reasons" className="mt-6">
