@@ -626,8 +626,8 @@ const ComplaintManagement = () => {
       </div>
 
       {/* Stats Cards - Action Status Segregation */}
-      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
-        <Card className="border-orange-200 bg-orange-50">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        <Card className={`border-orange-200 bg-orange-50 cursor-pointer transition-all hover:shadow-md ${statusFilter === 'open' ? 'ring-2 ring-orange-400' : ''}`} onClick={() => setStatusFilter(prev => prev === 'open' ? 'all' : 'open')}>
           <CardContent className="p-6">
             <div className="flex items-center">
               <AlertTriangle className="h-8 w-8 text-orange-600" />
@@ -639,7 +639,7 @@ const ComplaintManagement = () => {
           </CardContent>
         </Card>
         
-        <Card className="border-blue-200 bg-blue-50">
+        <Card className={`border-blue-200 bg-blue-50 cursor-pointer transition-all hover:shadow-md ${statusFilter === 'taken' ? 'ring-2 ring-blue-400' : ''}`} onClick={() => setStatusFilter(prev => prev === 'taken' ? 'all' : 'taken')}>
           <CardContent className="p-6">
             <div className="flex items-center">
               <User className="h-8 w-8 text-blue-600" />
@@ -651,7 +651,7 @@ const ComplaintManagement = () => {
           </CardContent>
         </Card>
         
-        <Card className="border-yellow-200 bg-yellow-50">
+        <Card className={`border-yellow-200 bg-yellow-50 cursor-pointer transition-all hover:shadow-md ${statusFilter === 'in_progress' ? 'ring-2 ring-yellow-400' : ''}`} onClick={() => setStatusFilter(prev => prev === 'in_progress' ? 'all' : 'in_progress')}>
           <CardContent className="p-6">
             <div className="flex items-center">
               <Clock className="h-8 w-8 text-yellow-600" />
@@ -663,7 +663,7 @@ const ComplaintManagement = () => {
           </CardContent>
         </Card>
         
-        <Card className="border-green-200 bg-green-50">
+        <Card className={`border-green-200 bg-green-50 cursor-pointer transition-all hover:shadow-md ${statusFilter === 'solved' ? 'ring-2 ring-green-400' : ''}`} onClick={() => setStatusFilter(prev => prev === 'solved' ? 'all' : 'solved')}>
           <CardContent className="p-6">
             <div className="flex items-center">
               <CheckCircle className="h-8 w-8 text-green-600" />
@@ -675,7 +675,7 @@ const ComplaintManagement = () => {
           </CardContent>
         </Card>
         
-        <Card className="border-emerald-200 bg-emerald-50">
+        <Card className={`border-emerald-200 bg-emerald-50 cursor-pointer transition-all hover:shadow-md ${statusFilter === 'resolved' ? 'ring-2 ring-emerald-400' : ''}`} onClick={() => setStatusFilter(prev => prev === 'resolved' ? 'all' : 'resolved')}>
           <CardContent className="p-6">
             <div className="flex items-center">
               <CheckCircle className="h-8 w-8 text-emerald-600" />
@@ -687,7 +687,7 @@ const ComplaintManagement = () => {
           </CardContent>
         </Card>
         
-        <Card className="border-gray-200 bg-gray-50">
+        <Card className={`border-gray-200 bg-gray-50 cursor-pointer transition-all hover:shadow-md ${statusFilter === 'in_review' ? 'ring-2 ring-gray-400' : ''}`} onClick={() => setStatusFilter(prev => prev === 'in_review' ? 'all' : 'in_review')}>
           <CardContent className="p-6">
             <div className="flex items-center">
               <MessageCircle className="h-8 w-8 text-gray-600" />
