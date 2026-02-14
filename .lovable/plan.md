@@ -1,33 +1,48 @@
 
 
-## Disable Auto-Logout -- Only Manual Logout
+## Add Branch Master to Masters Page
 
-### Problem
-The session timeout system automatically logs users out after 10 minutes of inactivity. You want users to stay logged in until they manually click "Logout".
+### What This Adds
+A new "Branches" tab in the Masters page to manage hospital branch/location data with fields: Branch Name, Branch ID (code), Branch Location, Contact Number, and Contact Email.
 
-### Solution
-Disable the auto-logout mechanism in `useSessionTimeout.tsx` so no automatic session expiry or warning occurs. Users will only be logged out when they click the Logout button.
+### Database
 
-### Technical Details
+**New table: `branches_master`**
 
-**File: `src/hooks/useSessionTimeout.tsx`**
+| Column | Type | Nullable | Default |
+|--------|------|----------|---------|
+| id | uuid | No | gen_random_uuid() |
+| branch_name | text | No | - |
+| branch_code | text | No | - |
+| branch_location | text | No | - |
+| contact_number | text | Yes | - |
+| contact_email | text | Yes | - |
+| description | text | Yes | - |
+| is_active | boolean | No | true |
+| display_order | integer | No | 0 |
+| created_at | timestamptz | No | now() |
+| updated_at | timestamptz | No | now() |
 
-- Remove the `setInterval(checkSessionStatus, 5000)` call that polls session status every 5 seconds
-- Remove the activity event listeners (`mousedown`, `mousemove`, etc.) that track idle time
-- Remove the `handleSessionTimeout` auto-logout logic
-- Keep the hook interface intact (so `SessionTimeoutWrapper` doesn't break) but make it effectively a no-op
-- The `signOut` function in `auth.tsx` (called by the Logout button) remains unchanged
+**Unique constraint** on `branch_code`.
 
-**File: `src/components/SessionTimeoutWrapper.tsx`**
+**RLS Policies** (same pattern as other master tables):
+- Admins can manage (ALL)
+- Managers can manage (ALL)
+- Anyone authenticated can view active branches (SELECT where is_active = true)
 
-- Remove the dev-mode session countdown timer display (no longer relevant)
+### New File: `src/components/masters/BranchesTab.tsx`
 
-### What Stays the Same
-- The Logout button in the sidebar and mobile header continues to work as before
-- PWA bypass logic is no longer needed (since timeout is disabled for everyone) but won't cause issues
+Follows the exact same pattern as `DepartmentsTab.tsx`:
+- Table grid showing all branches (Name, Code, Location, Contact Number, Contact Email, Status, Actions)
+- Add/Edit dialog with form fields for all columns
+- Delete, toggle active/inactive, reorder functionality
+- Contact number validated to 10 digits; email validated for format
+
+### Modified Files
 
 | File | Change |
 |------|--------|
-| `src/hooks/useSessionTimeout.tsx` | Disable all auto-timeout logic; keep hook as no-op |
-| `src/components/SessionTimeoutWrapper.tsx` | Remove dev countdown timer |
+| `src/components/MasterDataManagement.tsx` | Import `BranchesTab`, add "Branches" tab trigger and content |
 
+### Tab Order in Masters
+Roles, Departments, **Branches**, Leave Reasons, Permission Reasons, Visit Reasons, Insurance, Appraisals, Complaints, Quick Pay, Vendors
