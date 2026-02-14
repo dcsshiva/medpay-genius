@@ -120,8 +120,97 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Load session from Supabase on mount
   useEffect(() => {
+    // Set up onAuthStateChange FIRST (before getSession)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, supaSession) => {
+      console.log('Auth state change:', event);
+      
+      if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setSession(null);
+        setUserRole(null);
+        setUserProfile(null);
+        setUserDesignation(null);
+        return;
+      }
+
+      if (supaSession?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+        setUser(supaSession.user);
+        setSession(supaSession);
+
+        // Defer designation fetch to avoid deadlock with Supabase auth
+        setTimeout(async () => {
+          try {
+            const designation = await fetchDesignation(supaSession.user.id);
+            if (designation) {
+              setUserRole(designation);
+              setUserDesignation(designation);
+              
+              // Get profile info from get_user_complete_profile
+              const { data: profileData } = await supabase.rpc('get_user_complete_profile', { _user_id: supaSession.user.id });
+              if (profileData && typeof profileData === 'object' && !('error' in profileData)) {
+                const p = profileData as any;
+                setUserProfile({
+                  id: p.id,
+                  user_id: p.user_id,
+                  full_name: p.full_name,
+                  role: designation,
+                  user_type: p.designation === 'doctor' ? 'doctor' : 'staff',
+                  code: p.code
+                });
+              }
+            }
+          } catch (err) {
+            console.error('Error fetching designation on auth change:', err);
+          }
+        }, 0);
+      }
+    });
+
     const loadSession = async () => {
       try {
+        // Priority 1: Check for a real Supabase auth session
+        const { data: { session: supaSession } } = await supabase.auth.getSession();
+        
+        if (supaSession?.user) {
+          console.log('Restored real Supabase session for user:', supaSession.user.id);
+          setUser(supaSession.user);
+          setSession(supaSession);
+
+          // Fetch designation & profile
+          const designation = await fetchDesignation(supaSession.user.id);
+          if (designation) {
+            setUserRole(designation);
+            setUserDesignation(designation);
+            
+            const { data: profileData } = await supabase.rpc('get_user_complete_profile', { _user_id: supaSession.user.id });
+            if (profileData && typeof profileData === 'object' && !('error' in profileData)) {
+              const p = profileData as any;
+              setUserProfile({
+                id: p.id,
+                user_id: p.user_id,
+                full_name: p.full_name,
+                role: designation,
+                user_type: p.designation === 'doctor' ? 'doctor' : 'staff',
+                code: p.code
+              });
+            }
+          } else {
+            // Fallback to profiles table
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('user_id', supaSession.user.id)
+              .maybeSingle();
+            if (profile) {
+              setUserRole(profile.role);
+              setUserProfile(profile);
+            }
+          }
+          setLoading(false);
+          return;
+        }
+
+        // Priority 2: Fall back to custom user_sessions (legacy username/password logins)
         const sessionData = await getActiveSession();
         if (sessionData) {
           const mockUser = {
@@ -135,7 +224,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               role: sessionData.role,
               user_type: sessionData.user_type,
               original_id: sessionData.original_id,
-              auth_user_id: sessionData.user_id // Store auth_user_id for RPC calls
+              auth_user_id: sessionData.user_id
             }
           } as User;
 
@@ -148,7 +237,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             token_type: 'bearer'
           } as Session;
 
-          // Fetch designation
           const designation = await fetchDesignation(sessionData.user_id);
 
           setUser(mockUser);
@@ -170,6 +258,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     loadSession();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signInWithUsername = async (username: string, password: string) => {
@@ -596,10 +688,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       await invalidateSession();
       
-      // Also sign out from Supabase auth if it's a Supabase user
-      if (user?.email && !user.email.includes('@westmed.local')) {
-        await supabase.auth.signOut();
-      }
+      // Always sign out from Supabase auth to clear persistent session
+      await supabase.auth.signOut();
     } catch (error) {
       console.error('Sign out error:', error);
     } finally {
@@ -607,6 +697,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(null);
       setUserRole(null);
       setUserProfile(null);
+      setUserDesignation(null);
     }
   };
 
