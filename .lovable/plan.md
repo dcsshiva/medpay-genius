@@ -1,50 +1,57 @@
 
 
-## Fix: "Profile not found" Error When Creating Tasks
+## Track Task Update Time and Actual Completion Time
 
-### Problem
+### What Changes
 
-When an admin creates a task, the code does:
-1. Query `profiles` table for the user's profile ID
-2. Use that profile ID to find the staff record
+Two new time-tracking features for tasks:
 
-But custom auth users (admins logged in via the session-based auth system) often don't have a `profiles` record, causing the "Profile not found" error.
+1. **Update Click Time**: When clicking "Update Task", the `updated_at` column (already exists) will be explicitly set to the current IST timestamp, so you can see when the last update happened. This timestamp will also be displayed on the task card.
 
-### Fix (TaskManagement.tsx)
+2. **Register Actual Finish Time**: A new column `actual_completed_at` and a "Register Completion" button that staff can click when they physically finish the task. This is separate from the status change -- it captures the real-world finish time.
 
-Replace the two-step lookup (profiles -> staff) with a direct lookup of the `staff` table using `user_id`, which is the same pattern used in `staffUtils.ts`.
+### Database Changes
 
-**Current code (lines 208-221):**
-```typescript
-const { data: profile } = await supabase
-  .from('profiles')
-  .select('id')
-  .eq('user_id', user!.id)
-  .maybeSingle();
+Add one new column to the `tasks` table:
 
-if (!profile) throw new Error('Profile not found');
-
-const { data: currentStaff } = await supabase
-  .from('staff')
-  .select('id')
-  .eq('id', profile.id)
-  .single();
+```sql
+ALTER TABLE public.tasks ADD COLUMN actual_completed_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
 ```
 
-**New code:**
+### UI Changes (TaskManagement.tsx)
+
+1. **Update Task dialog**: When submitting, explicitly set `updated_at` to current IST time
+2. **New "Register Completion" button**: Appears on in-progress or completed tasks that don't yet have an `actual_completed_at` value. Clicking it stamps the current time.
+3. **Display timestamps**: Show `updated_at` (last updated) and `actual_completed_at` (actual finish time) on task cards when available
+
+### Technical Details
+
+**Task interface update:**
+- Add `actual_completed_at?: string` and `updated_at: string` to the Task interface
+
+**updateTaskStatus function:**
+- Always include `updated_at: toISOStringIST()` in the update payload
+
+**New function `registerCompletion`:**
 ```typescript
-const { data: currentStaff } = await supabase
-  .from('staff')
-  .select('id')
-  .eq('user_id', user!.id)
-  .maybeSingle();
+const registerCompletion = async (taskId: string) => {
+  const { error } = await supabase
+    .from('tasks')
+    .update({ actual_completed_at: toISOStringIST(), updated_at: toISOStringIST() })
+    .eq('id', taskId);
+  // toast + refresh
+};
 ```
 
-This directly finds the staff record via `user_id`, bypassing the `profiles` table entirely.
+**Task card additions:**
+- Show "Last Updated: [time]" below the created date
+- Show "Finished at: [time]" when `actual_completed_at` is set
+- Add a "Register Completion" button (clock icon) for tasks without `actual_completed_at`
 
 ### Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/components/TaskManagement.tsx` | Replace profiles+staff lookup with direct staff lookup by user_id |
+| New migration SQL | Add `actual_completed_at` column to tasks |
+| `src/components/TaskManagement.tsx` | Add updated_at tracking, register completion button, display timestamps |
 
