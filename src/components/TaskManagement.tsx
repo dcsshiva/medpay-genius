@@ -557,7 +557,10 @@ const TaskManagement = () => {
                 </SelectTrigger>
                 <SelectContent>
                   {isStaffRole(userRole) ? (
-                    <SelectItem value="in_progress">In Progress</SelectItem>
+                    <>
+                      <SelectItem value="in_progress">In Progress</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                    </>
                   ) : (
                     <>
                       <SelectItem value="pending">Pending</SelectItem>
@@ -756,7 +759,7 @@ const TaskManagement = () => {
               </div>
 
               <div className="flex gap-2 flex-wrap">
-                {task.status !== 'completed' && task.status !== 'cancelled' && (
+                {task.status !== 'cancelled' && (
                   <>
                     {userRole === 'admin' || userRole === 'manager' ? (
                       <>
@@ -779,22 +782,25 @@ const TaskManagement = () => {
                       </>
                     ) : (
                       (() => {
-                        const staffAlreadyUpdated = isStaffRole(userRole) && task.status === 'in_progress' && task.updated_at;
-                        return (
+                        const staffAlreadyUpdated = isStaffRole(userRole) && task.status === 'completed' && task.updated_at;
+                        return staffAlreadyUpdated ? (
+                          <Button size="sm" disabled>
+                            Updated
+                          </Button>
+                        ) : task.status !== 'completed' ? (
                           <Button 
                             size="sm" 
                             onClick={() => handleUpdateTask(task)}
-                            disabled={!!staffAlreadyUpdated}
                           >
-                            {staffAlreadyUpdated ? 'Updated' : 'Update Task'}
+                            Update Task
                           </Button>
-                        );
+                        ) : null;
                       })()
                     )}
                   </>
                 )}
 
-                {!task.actual_completed_at && (task.status === 'in_progress' || task.status === 'completed') && (
+                {!task.actual_completed_at && task.status === 'completed' && (
                   <Button 
                     size="sm" 
                     variant="outline"
