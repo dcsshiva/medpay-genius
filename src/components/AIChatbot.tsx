@@ -270,7 +270,13 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ onTabChange }) => {
                 }`}>
                   {msg.role === 'assistant' ? (
                     <div className="prose prose-sm dark:prose-invert max-w-none [&>p]:m-0 [&>ul]:my-1 [&>ol]:my-1 [&>h1]:text-base [&>h2]:text-sm [&>h3]:text-sm">
-                      <ReactMarkdown components={markdownComponents}>
+                    <ReactMarkdown
+                      urlTransform={(url) => {
+                        if (url.startsWith('nav://')) return url;
+                        return url;
+                      }}
+                      components={markdownComponents}
+                    >
                         {processContent(msg.content)}
                       </ReactMarkdown>
                     </div>
