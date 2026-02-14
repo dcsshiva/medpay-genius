@@ -105,12 +105,13 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
       // Build query with optional doctor filter
       let query = supabase
         .from('doctors')
-        .select('id, doctor_code, full_name')
-        .eq('is_active', true);
+        .select('id, doctor_code, full_name');
 
-      // If filterDoctorId is provided, only fetch that doctor
+      // If filterDoctorId is provided, fetch that specific doctor regardless of active status
       if (filterDoctorId) {
         query = query.eq('id', filterDoctorId);
+      } else {
+        query = query.eq('is_active', true);
       }
 
       const { data: doctorsData, error: doctorsError } = await query.order('doctor_code');
