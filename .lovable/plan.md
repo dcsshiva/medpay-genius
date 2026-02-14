@@ -1,27 +1,41 @@
 
-
-## Fix: "complaints_category_check" Constraint Violation
+## Fix: Show Staff Name Instead of Email in Team Chat
 
 ### Problem
+When sending a message, the chat stores `user.user_metadata?.full_name || user.email` as the sender name. For some users (particularly admins logged in via Supabase auth), `full_name` may not be set in metadata, causing the email address to appear instead of the name.
 
-The `complaints` table has a hardcoded CHECK constraint that only allows these category values:
-`general`, `equipment`, `facility`, `workload`, `policy`, `safety`, `other`
+### Fix (TeamChat.tsx)
 
-But the complaint categories are now managed dynamically through the `complaint_categories` master table, which has different codes like `service_quality`, `staff_behavior`, `billing_issues`, `medical_care`. When a user selects one of these, the insert fails.
+Update the `sendMessage` function to resolve the sender's full name by looking up the `staff` table when `full_name` is not available in user metadata.
 
-### Fix
-
-Run a single database migration to drop the outdated check constraint:
-
-```sql
-ALTER TABLE complaints DROP CONSTRAINT complaints_category_check;
+**Current code (line 83):**
+```
+sender_name: user.user_metadata?.full_name || user.email || 'Unknown',
 ```
 
-No code changes needed -- the form already correctly uses `category_code` from the master table.
+**New approach:**
+1. Before inserting, query the `staff` table for the user's `full_name` using `getStaffId` to find their record
+2. Use this resolved name, falling back to metadata then email
 
-### Files to Modify
+```typescript
+// Resolve sender name from staff table if not in metadata
+let senderName = user.user_metadata?.full_name;
+if (!senderName) {
+  const { data: staffData } = await supabase
+    .from('staff')
+    .select('full_name')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  senderName = staffData?.full_name || user.email || 'Unknown';
+}
+```
+
+### Existing Messages
+Already-stored messages with email as the name won't change automatically. This fix only affects new messages going forward.
+
+### File to Modify
 
 | File | Change |
 |------|--------|
-| New migration | Drop `complaints_category_check` constraint |
-
+| `src/components/ComplaintManagement.tsx` | No change |
+| `src/components/TeamChat.tsx` | Resolve sender name from staff table before sending |
