@@ -96,7 +96,32 @@ export const useNotifications = () => {
   useEffect(() => {
     if (!user) return;
 
-    fetchNotifications();
+    // Fetch notifications directly (not via dependency to avoid re-render loops)
+    const doFetch = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('notifications')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        if (error) {
+          console.error('Error fetching notifications:', error);
+          return;
+        }
+
+        const notificationsData = (data || []) as Notification[];
+        setNotifications(notificationsData);
+        setUnreadCount(notificationsData.filter(n => !n.is_read).length);
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    doFetch();
 
     // Set up real-time subscription
     const channel = supabase
@@ -120,7 +145,8 @@ export const useNotifications = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, fetchNotifications]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   return {
     notifications,
