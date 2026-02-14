@@ -39,6 +39,7 @@ import StaffMobileDashboard from '@/components/StaffMobileDashboard';
 import ChatbotKnowledgeBase from '@/components/ChatbotKnowledgeBase';
 import StaffAttendanceManagement from '@/components/StaffAttendanceManagement';
 import AuditTrailViewer from '@/components/AuditTrailViewer';
+import VendorPaymentReports from '@/components/VendorPaymentReports';
 const Index = () => {
   const { user, loading, userProfile } = useAuth();
   const navigate = useNavigate();
@@ -208,6 +209,8 @@ const Index = () => {
         return <ChatbotKnowledgeBase />;
       case 'attendance':
         return <StaffAttendanceManagement />;
+      case 'vendor-reports':
+        return <VendorPaymentReports />;
       case 'audit-trail':
         return <AuditTrailViewer />;
       case 'settings':
