@@ -166,6 +166,48 @@ export type Database = {
           },
         ]
       }
+      branches_master: {
+        Row: {
+          branch_code: string
+          branch_location: string
+          branch_name: string
+          contact_email: string | null
+          contact_number: string | null
+          created_at: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          updated_at: string
+        }
+        Insert: {
+          branch_code: string
+          branch_location: string
+          branch_name: string
+          contact_email?: string | null
+          contact_number?: string | null
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Update: {
+          branch_code?: string
+          branch_location?: string
+          branch_name?: string
+          contact_email?: string | null
+          contact_number?: string | null
+          created_at?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       chatbot_conversations: {
         Row: {
           created_at: string | null
