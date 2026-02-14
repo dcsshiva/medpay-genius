@@ -303,6 +303,7 @@ export type Database = {
           resolved_at: string | null
           resolved_by: string | null
           status: Database["public"]["Enums"]["complaint_status"]
+          submitted_to: string | null
           taken_care_at: string | null
           taken_care_by: string | null
           updated_at: string
@@ -323,6 +324,7 @@ export type Database = {
           resolved_at?: string | null
           resolved_by?: string | null
           status?: Database["public"]["Enums"]["complaint_status"]
+          submitted_to?: string | null
           taken_care_at?: string | null
           taken_care_by?: string | null
           updated_at?: string
@@ -343,6 +345,7 @@ export type Database = {
           resolved_at?: string | null
           resolved_by?: string | null
           status?: Database["public"]["Enums"]["complaint_status"]
+          submitted_to?: string | null
           taken_care_at?: string | null
           taken_care_by?: string | null
           updated_at?: string
@@ -365,6 +368,13 @@ export type Database = {
           {
             foreignKeyName: "complaints_resolved_by_fkey"
             columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "complaints_submitted_to_fkey"
+            columns: ["submitted_to"]
             isOneToOne: false
             referencedRelation: "staff"
             referencedColumns: ["id"]
