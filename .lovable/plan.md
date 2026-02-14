@@ -1,32 +1,37 @@
 
 
-## Fix: Prevent Multiple "Register Completion" Clicks
+## Add "Re-assign Task" Option for Admin/Manager
 
-### Problem
-The "Register Completion" button can be clicked multiple times before the UI refreshes, allowing duplicate submissions.
+### What Changes
 
-### Solution
-Add a `useRef` guard to prevent rapid double-clicks, and also do a fresh database check before updating to handle race conditions.
+Add a "Re-assign" button on task cards (visible only to admin/manager) that allows reassigning a completed or any-status task to a different staff member. This resets the task back to "pending" status so the new assignee can start fresh.
 
-### Technical Changes in `TaskManagement.tsx`
+### How It Works
 
-**1. Add a ref to track in-progress registration (near other state declarations):**
-```typescript
-const isRegisteringCompletionRef = useRef(false);
-```
+- A "Re-assign" button appears on task cards for admin/manager users
+- Clicking it opens a dialog with a staff dropdown to pick the new assignee
+- On submit, the task's `assigned_to` is updated to the new staff member, status is reset to "pending", and `actual_completed_at` / `completed_at` / `updated_at` fields are cleared
+- The task then appears as a fresh pending task for the new staff member
 
-**2. Update `registerCompletion` function (lines 251-276):**
-- Check the ref at the start; return immediately if already registering
-- Fetch fresh task state from DB to verify `actual_completed_at` is still null
-- Set ref to true before the operation, false in `finally`
+### Technical Details
 
-**3. Add `disabled` state to the Register Completion button (lines 803-813):**
-- Add a `registeringTaskId` state to visually disable the button during the operation
-- Show "Registering..." text while in progress
+**Changes in `TaskManagement.tsx`:**
+
+1. **Add reassign state variables**: `reassignDialogOpen`, `reassignTaskId`, `reassignStaffId`
+
+2. **Add reassign handler function** (`handleReassign`):
+   - Updates the task in DB: sets `assigned_to` to new staff, `status` to `pending`, clears completion timestamps
+   - Shows success toast and refreshes task list
+
+3. **Add "Re-assign" button** in the task card action buttons area (admin/manager only):
+   - Appears alongside existing Start/Complete buttons
+   - Opens a small dialog with staff selection dropdown and confirm button
+
+4. **Add Reassign Dialog**: Simple dialog with staff dropdown + submit button, similar to the create task's "Assign To" field
 
 ### Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/components/TaskManagement.tsx` | Add ref guard, DB validation, and button disabled state to prevent multiple registrations |
+| `src/components/TaskManagement.tsx` | Add reassign dialog, state, handler, and button for admin/manager |
 
