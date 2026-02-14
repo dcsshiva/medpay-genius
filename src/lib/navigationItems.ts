@@ -79,6 +79,7 @@ export const getNavigationItems = ({
       { id: 'version', label: 'Version Management', icon: HistoryIcon },
       { id: 'website-settings', label: 'Website Settings', icon: Globe },
       { id: 'ai-knowledge-base', label: 'AI Knowledge Base', icon: BookOpen },
+      { id: 'vendor-reports', label: 'Vendor Reports', icon: FileText },
       { id: 'audit-trail', label: 'Audit Trail', icon: ShieldCheck },
       { id: 'settings', label: 'Settings', icon: Settings },
     ];
@@ -117,6 +118,7 @@ export const getNavigationItems = ({
       { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
       { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
       { id: 'complaints', label: 'Complaints', icon: MessageCircle },
+      { id: 'vendor-reports', label: 'Vendor Reports', icon: FileText },
       { id: 'chat', label: 'Team Chat', icon: MessageSquare },
     ];
   }
@@ -153,6 +155,7 @@ export const getNavigationItems = ({
       { id: 'version', label: 'Version Management', icon: HistoryIcon },
       { id: 'website-settings', label: 'Website Settings', icon: Globe },
       { id: 'ai-knowledge-base', label: 'AI Knowledge Base', icon: BookOpen },
+      { id: 'vendor-reports', label: 'Vendor Reports', icon: FileText },
       { id: 'audit-trail', label: 'Audit Trail', icon: ShieldCheck },
       { id: 'settings', label: 'Settings', icon: Settings },
     ];
