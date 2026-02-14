@@ -1,0 +1,1 @@
+ALTER TABLE complaints DROP CONSTRAINT complaints_category_check;
