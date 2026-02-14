@@ -20,7 +20,8 @@ import {
   AlertCircle, 
   User,
   Calendar,
-  Filter
+  Filter,
+  Timer
 } from 'lucide-react';
 import { formatDateIST, formatDateTimeIST, toISOStringIST } from '@/lib/dateUtils';
 
@@ -32,6 +33,8 @@ interface Task {
   status: 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'overdue';
   due_date?: string;
   completed_at?: string;
+  actual_completed_at?: string;
+  updated_at?: string;
   notes?: string;
   created_at: string;
   assigned_to_staff: {
@@ -137,6 +140,8 @@ const TaskManagement = () => {
             status,
             due_date,
             completed_at,
+            actual_completed_at,
+            updated_at,
             notes,
             created_at,
             assigned_to_staff:assigned_to (
@@ -243,11 +248,39 @@ const TaskManagement = () => {
     }
   };
 
+  const registerCompletion = async (taskId: string) => {
+    try {
+      const { error } = await supabase
+        .from('tasks')
+        .update({ 
+          actual_completed_at: toISOStringIST(), 
+          updated_at: toISOStringIST() 
+        })
+        .eq('id', taskId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Actual completion time registered successfully"
+      });
+
+      fetchTasks();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to register completion time"
+      });
+    }
+  };
+
   const updateTaskStatus = async (taskId: string, newStatus: string, notes?: string) => {
     try {
       const updateData: any = { 
         status: newStatus,
-        notes: notes || null
+        notes: notes || null,
+        updated_at: toISOStringIST()
       };
 
       if (newStatus === 'completed') {
@@ -696,41 +729,71 @@ const TaskManagement = () => {
                     {formatDateIST(task.created_at).split(',')[0]}
                   </span>
                 </div>
+
+                {task.updated_at && (
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-3 w-3 text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">
+                      Last Updated: {formatDateTimeIST(task.updated_at)}
+                    </span>
+                  </div>
+                )}
+
+                {task.actual_completed_at && (
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-3 w-3 text-success" />
+                    <span className="text-xs text-success font-medium">
+                      Finished at: {formatDateTimeIST(task.actual_completed_at)}
+                    </span>
+                  </div>
+                )}
               </div>
 
-              {task.status !== 'completed' && task.status !== 'cancelled' && (
-                <div className="flex gap-2">
-                  {userRole === 'admin' || userRole === 'manager' ? (
-                    // Admin/Manager can manage all tasks
-                    <>
-                      {task.status === 'pending' && (
-                        <Button 
-                          size="sm" 
-                          onClick={() => updateTaskStatus(task.id, 'in_progress')}
-                        >
-                          Start Task
-                        </Button>
-                      )}
-                      {task.status === 'in_progress' && (
-                        <Button 
-                          size="sm" 
-                          onClick={() => updateTaskStatus(task.id, 'completed')}
-                        >
-                          Complete
-                        </Button>
-                      )}
-                    </>
-                  ) : (
-                    // Staff can update their own tasks with notes
-                    <Button 
-                      size="sm" 
-                      onClick={() => handleUpdateTask(task)}
-                    >
-                      Update Task
-                    </Button>
-                  )}
-                </div>
-              )}
+              <div className="flex gap-2 flex-wrap">
+                {task.status !== 'completed' && task.status !== 'cancelled' && (
+                  <>
+                    {userRole === 'admin' || userRole === 'manager' ? (
+                      <>
+                        {task.status === 'pending' && (
+                          <Button 
+                            size="sm" 
+                            onClick={() => updateTaskStatus(task.id, 'in_progress')}
+                          >
+                            Start Task
+                          </Button>
+                        )}
+                        {task.status === 'in_progress' && (
+                          <Button 
+                            size="sm" 
+                            onClick={() => updateTaskStatus(task.id, 'completed')}
+                          >
+                            Complete
+                          </Button>
+                        )}
+                      </>
+                    ) : (
+                      <Button 
+                        size="sm" 
+                        onClick={() => handleUpdateTask(task)}
+                      >
+                        Update Task
+                      </Button>
+                    )}
+                  </>
+                )}
+
+                {!task.actual_completed_at && (task.status === 'in_progress' || task.status === 'completed') && (
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => registerCompletion(task.id)}
+                    className="gap-1"
+                  >
+                    <Timer className="h-4 w-4" />
+                    Register Completion
+                  </Button>
+                )}
+              </div>
 
               {task.notes && (
                 <div className="mt-2 p-2 bg-muted rounded-sm">
