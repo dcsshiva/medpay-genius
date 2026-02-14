@@ -1,46 +1,53 @@
 
 
-## Complaint Form -- UI/UX Polish + New Features
+## Add "Submit To" Admin Selection in Complaint Form
 
 ### What Changes
 
-#### 1. Include Administrators in Staff Dropdown
-Currently, the "Staff Member" dropdown filters out admins with `.filter(staff => staff.role !== 'admin')`. This filter will be removed so all active staff (including administrators) appear in the selection list.
+A new required "Submit To" dropdown will be added to the complaint submission form, allowing staff to choose which administrator or manager should receive their complaint. This ensures complaints are directed to the right person.
 
-#### 2. Add Incident Date and Time Fields (Optional)
-Two new columns will be added to the `complaints` table:
-- `incident_date` (date, nullable)
-- `incident_time` (time without time zone, nullable)
+### Database Change
 
-These will appear in the form as optional fields in a new "When did it happen?" section.
+A new column `submitted_to` (uuid, nullable) will be added to the `complaints` table, referencing a staff member (admin/manager).
 
-#### 3. UI/UX Polish for the Submit Form
-Based on the screenshot, the form has too much vertical spacing and lacks visual grouping. Changes:
-- **Section cards**: Group fields into bordered sections -- "What Happened" (title + description), "Who and When" (staff member + incident date/time), "Classification" (category + priority)
-- **Compact spacing**: Reduce `space-y-4` to `space-y-3` within sections, `space-y-5` between sections
-- **Incident date/time**: Side-by-side layout on a single row
-- **Better textarea**: Reduce rows to 3 on mobile for less scroll
-- **Full-width submit button on mobile**: Sticky at bottom for easy reach
-- **Touch targets**: Ensure all inputs have `min-h-[44px]`
-
-### Database Migration
 ```sql
-ALTER TABLE complaints 
-  ADD COLUMN incident_date date,
-  ADD COLUMN incident_time time without time zone;
+ALTER TABLE complaints ADD COLUMN submitted_to uuid;
 ```
+
+### Form Changes (ComplaintManagement.tsx)
+
+1. **New required field**: "Submit To" dropdown showing only staff with admin or manager roles, placed prominently in the "Who and When" section (above the existing "Staff Member" field)
+2. **Form state**: Add `submitted_to` to `formData` and `resetForm`
+3. **Validation**: Block submission if `submitted_to` is empty -- show a toast error
+4. **Insert logic**: Include `submitted_to` in the Supabase insert call
+5. **Complaint card display**: Show "Submitted To: [Name]" in complaint cards so users can see who received the complaint
+
+### Dropdown Behavior
+
+The "Submit To" dropdown will filter `staffList` to only show staff with roles `admin` or `manager`:
+
+```
+staffList.filter(s => ['admin', 'manager'].includes(s.role))
+```
+
+### Visual Layout
+
+The "Who and When" section will have:
+- **Submit To** (required, with a red asterisk) -- admin/manager list only
+- **Complaint Against** (optional) -- all staff
+- **Incident Date / Time** (optional, side-by-side)
 
 ### Files to Modify
 
 | File | Change |
 |------|--------|
-| `src/components/ComplaintManagement.tsx` | Remove admin filter from staff dropdown, add incident_date/incident_time to form state and submission, restructure form into card sections, improve mobile layout |
-| New migration | Add `incident_date` and `incident_time` columns to `complaints` table |
+| New migration | Add `submitted_to` column to `complaints` table |
+| `src/components/ComplaintManagement.tsx` | Add "Submit To" field, validation, display in cards |
+| `src/integrations/supabase/types.ts` | Auto-updated with new column |
 
 ### What Does NOT Change
-- All complaint listing, filtering, status update logic
-- RLS policies (new columns inherit existing table policies)
-- Stats cards clickable behavior (just implemented)
+- Stats cards, filters, status update logic
 - Admin response dialog
-- Report generation
+- RLS policies (new column inherits existing table policies)
+- Report generation columns (will add submitted_to to report)
 
