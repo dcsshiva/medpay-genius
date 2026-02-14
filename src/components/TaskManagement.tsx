@@ -442,6 +442,16 @@ const TaskManagement = () => {
     return statusMatch && priorityMatch;
   });
 
+  const statusOrder: Record<string, number> = {
+    in_progress: 0,
+    pending: 1,
+    completed: 2
+  };
+
+  const sortedTasks = [...filteredTasks].sort((a, b) => {
+    return (statusOrder[a.status] ?? 1) - (statusOrder[b.status] ?? 1);
+  });
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -795,7 +805,7 @@ const TaskManagement = () => {
 
       {/* Tasks List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredTasks.map((task) => (
+        {sortedTasks.map((task) => (
           <Card key={task.id}>
             <CardHeader className="pb-3">
               <div className="flex justify-between items-start">
