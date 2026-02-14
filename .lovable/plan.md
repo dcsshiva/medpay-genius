@@ -1,33 +1,27 @@
 
 
-## Fix "Staff record not found" Error in Complaint Submission
+## Fix: "complaints_category_check" Constraint Violation
 
-### Root Cause
+### Problem
 
-The complaint submission code (lines 289-303) tries to find the staff record by:
-1. Looking up `profiles` table by `user_id`
-2. Using that profile's `id` to look up `staff` table
+The `complaints` table has a hardcoded CHECK constraint that only allows these category values:
+`general`, `equipment`, `facility`, `workload`, `policy`, `safety`, `other`
 
-This fails for custom auth users (staff logging in with username/password) because the `profiles` table may not have a matching record, or the IDs don't align. The staff ID is already available in `user.user_metadata.original_id` for custom auth users.
+But the complaint categories are now managed dynamically through the `complaint_categories` master table, which has different codes like `service_quality`, `staff_behavior`, `billing_issues`, `medical_care`. When a user selects one of these, the insert fails.
 
 ### Fix
 
-Replace the broken profile-to-staff lookup with the existing `getStaffId()` utility from `src/lib/staffUtils.ts`, which already handles both custom auth and Supabase auth users correctly.
+Run a single database migration to drop the outdated check constraint:
 
-### File to Modify
-
-**`src/components/ComplaintManagement.tsx`**
-
-1. Import `getStaffId` from `@/lib/staffUtils`
-2. Replace lines 288-303 (the profile lookup + staff lookup) with:
-
-```typescript
-const staffId = await getStaffId(user);
-if (!staffId) throw new Error('Staff record not found');
+```sql
+ALTER TABLE complaints DROP CONSTRAINT complaints_category_check;
 ```
 
-3. Use `staffId` as `raised_by` in the insert call (line 312)
+No code changes needed -- the form already correctly uses `category_code` from the master table.
 
-### No Other Changes
-- Form UI, validation, dropdowns, and all other logic remain the same
-- Database schema unchanged
+### Files to Modify
+
+| File | Change |
+|------|--------|
+| New migration | Drop `complaints_category_check` constraint |
+
