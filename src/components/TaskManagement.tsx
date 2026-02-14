@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -248,8 +248,28 @@ const TaskManagement = () => {
     }
   };
 
+  const isRegisteringCompletionRef = useRef(false);
+  const [registeringTaskId, setRegisteringTaskId] = useState<string | null>(null);
+
   const registerCompletion = async (taskId: string) => {
+    if (isRegisteringCompletionRef.current) return;
+    isRegisteringCompletionRef.current = true;
+    setRegisteringTaskId(taskId);
+
     try {
+      // Fresh DB check to prevent race conditions
+      const { data: freshTask } = await supabase
+        .from('tasks')
+        .select('actual_completed_at')
+        .eq('id', taskId)
+        .maybeSingle();
+
+      if (freshTask?.actual_completed_at) {
+        toast({ title: "Already Registered", description: "Completion was already registered." });
+        fetchTasks();
+        return;
+      }
+
       const { error } = await supabase
         .from('tasks')
         .update({ 
@@ -272,6 +292,9 @@ const TaskManagement = () => {
         title: "Error",
         description: error.message || "Failed to register completion time"
       });
+    } finally {
+      isRegisteringCompletionRef.current = false;
+      setRegisteringTaskId(null);
     }
   };
 
@@ -805,10 +828,11 @@ const TaskManagement = () => {
                     size="sm" 
                     variant="outline"
                     onClick={() => registerCompletion(task.id)}
+                    disabled={registeringTaskId === task.id}
                     className="gap-1"
                   >
                     <Timer className="h-4 w-4" />
-                    Register Completion
+                    {registeringTaskId === task.id ? 'Registering...' : 'Register Completion'}
                   </Button>
                 )}
               </div>
