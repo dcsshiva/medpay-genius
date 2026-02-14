@@ -6,10 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Calendar, Download, Upload, Loader2 } from 'lucide-react';
+import { Calendar, Download, Upload, Loader2, BarChart3 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
+import StaffAttendanceReports from './StaffAttendanceReports';
 
 interface StaffRow {
   id: string;
@@ -192,115 +194,132 @@ const StaffAttendanceManagement: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <CardTitle className="text-xl flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Staff Attendance
-            </CardTitle>
-            <div className="flex flex-wrap items-center gap-2">
-              <Input
-                type="date"
-                value={selectedDate}
-                onChange={e => setSelectedDate(e.target.value)}
-                className="w-auto"
-              />
-              <Button variant="outline" size="sm" onClick={downloadTemplate}>
-                <Download className="h-4 w-4 mr-1" /> Template
-              </Button>
-              <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={importing}>
-                {importing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}
-                Import
-              </Button>
-              <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          {/* Summary chips */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            <span className="text-xs px-2 py-1 rounded-full bg-muted font-medium">Total: {staffList.length}</span>
-            <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 font-medium">Present: {presentCount}</span>
-            <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-700 font-medium">Absent: {absentCount}</span>
-            <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 font-medium">Late: {lateCount}</span>
-            <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground font-medium">Unmarked: {unmarkedCount}</span>
-          </div>
+      <Tabs defaultValue="daily" className="w-full">
+        <TabsList>
+          <TabsTrigger value="daily" className="gap-1.5">
+            <Calendar className="h-4 w-4" /> Daily Entry
+          </TabsTrigger>
+          <TabsTrigger value="reports" className="gap-1.5">
+            <BarChart3 className="h-4 w-4" /> Reports
+          </TabsTrigger>
+        </TabsList>
 
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : (
-            <div className="border rounded-md overflow-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[80px]">Code</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead className="hidden md:table-cell">Role</TableHead>
-                    <TableHead className="hidden md:table-cell">Department</TableHead>
-                    <TableHead className="w-[150px]">Status</TableHead>
-                    <TableHead className="w-[120px] hidden sm:table-cell">Shift Start</TableHead>
-                    <TableHead className="w-[120px] hidden sm:table-cell">Shift End</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {staffList.map(staff => {
-                    const att = attendanceMap[staff.id];
-                    return (
-                      <TableRow key={staff.id}>
-                        <TableCell className="font-mono text-xs">{staff.staff_code}</TableCell>
-                        <TableCell className="font-medium text-sm">{staff.full_name}</TableCell>
-                        <TableCell className="hidden md:table-cell text-xs capitalize">{staff.role?.replace('_', ' ')}</TableCell>
-                        <TableCell className="hidden md:table-cell text-xs">{staff.department || '-'}</TableCell>
-                        <TableCell>
-                          <Select
-                            value={att?.attendance_status || ''}
-                            onValueChange={val => upsertAttendance(staff.id, 'attendance_status', val)}
-                          >
-                            <SelectTrigger className={`h-8 text-xs ${att ? getStatusColor(att.attendance_status) : ''}`}>
-                              <SelectValue placeholder="Select" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {ATTENDANCE_STATUSES.map(s => (
-                                <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          <Input
-                            type="time"
-                            value={att?.shift_start_time || ''}
-                            onChange={e => upsertAttendance(staff.id, 'shift_start_time', e.target.value)}
-                            className="h-8 text-xs"
-                          />
-                        </TableCell>
-                        <TableCell className="hidden sm:table-cell">
-                          <Input
-                            type="time"
-                            value={att?.shift_end_time || ''}
-                            onChange={e => upsertAttendance(staff.id, 'shift_end_time', e.target.value)}
-                            className="h-8 text-xs"
-                          />
-                        </TableCell>
+        <TabsContent value="daily">
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <CardTitle className="text-xl flex items-center gap-2">
+                  <Calendar className="h-5 w-5" />
+                  Staff Attendance
+                </CardTitle>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Input
+                    type="date"
+                    value={selectedDate}
+                    onChange={e => setSelectedDate(e.target.value)}
+                    className="w-auto"
+                  />
+                  <Button variant="outline" size="sm" onClick={downloadTemplate}>
+                    <Download className="h-4 w-4 mr-1" /> Template
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={importing}>
+                    {importing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}
+                    Import
+                  </Button>
+                  <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {/* Summary chips */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                <span className="text-xs px-2 py-1 rounded-full bg-muted font-medium">Total: {staffList.length}</span>
+                <span className="text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 font-medium">Present: {presentCount}</span>
+                <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-700 font-medium">Absent: {absentCount}</span>
+                <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 font-medium">Late: {lateCount}</span>
+                <span className="text-xs px-2 py-1 rounded-full bg-muted text-muted-foreground font-medium">Unmarked: {unmarkedCount}</span>
+              </div>
+
+              {loading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <div className="border rounded-md overflow-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[80px]">Code</TableHead>
+                        <TableHead>Name</TableHead>
+                        <TableHead className="hidden md:table-cell">Role</TableHead>
+                        <TableHead className="hidden md:table-cell">Department</TableHead>
+                        <TableHead className="w-[150px]">Status</TableHead>
+                        <TableHead className="w-[120px] hidden sm:table-cell">Shift Start</TableHead>
+                        <TableHead className="w-[120px] hidden sm:table-cell">Shift End</TableHead>
                       </TableRow>
-                    );
-                  })}
-                  {staffList.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                        No active staff found
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                    </TableHeader>
+                    <TableBody>
+                      {staffList.map(staff => {
+                        const att = attendanceMap[staff.id];
+                        return (
+                          <TableRow key={staff.id}>
+                            <TableCell className="font-mono text-xs">{staff.staff_code}</TableCell>
+                            <TableCell className="font-medium text-sm">{staff.full_name}</TableCell>
+                            <TableCell className="hidden md:table-cell text-xs capitalize">{staff.role?.replace('_', ' ')}</TableCell>
+                            <TableCell className="hidden md:table-cell text-xs">{staff.department || '-'}</TableCell>
+                            <TableCell>
+                              <Select
+                                value={att?.attendance_status || ''}
+                                onValueChange={val => upsertAttendance(staff.id, 'attendance_status', val)}
+                              >
+                                <SelectTrigger className={`h-8 text-xs ${att ? getStatusColor(att.attendance_status) : ''}`}>
+                                  <SelectValue placeholder="Select" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {ATTENDANCE_STATUSES.map(s => (
+                                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </TableCell>
+                            <TableCell className="hidden sm:table-cell">
+                              <Input
+                                type="time"
+                                value={att?.shift_start_time || ''}
+                                onChange={e => upsertAttendance(staff.id, 'shift_start_time', e.target.value)}
+                                className="h-8 text-xs"
+                              />
+                            </TableCell>
+                            <TableCell className="hidden sm:table-cell">
+                              <Input
+                                type="time"
+                                value={att?.shift_end_time || ''}
+                                onChange={e => upsertAttendance(staff.id, 'shift_end_time', e.target.value)}
+                                className="h-8 text-xs"
+                              />
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                      {staffList.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                            No active staff found
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="reports">
+          <StaffAttendanceReports />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
