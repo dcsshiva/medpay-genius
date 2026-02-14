@@ -89,7 +89,7 @@ serve(async (req) => {
       throw new Error('SoftSMS configuration is incomplete. Please contact the administrator.');
     }
 
-    const message = encodeURIComponent(`Your OTP is ${otp}`);
+    const message = encodeURIComponent(`Dear user, your verification code is ${otp} Complete verification WestMed Hospital`);
     const smsUrl = `https://softsms.in/app/smsapi/index.php?key=${softSmsApiKey}&type=text&contacts=91${mobile}&senderid=${softSmsSenderId}&peid=${softSmsPeId}&templateid=${softSmsTemplateId}&msg=${message}`;
 
     const smsResponse = await fetch(smsUrl, { method: 'GET' });
