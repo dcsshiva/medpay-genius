@@ -1,0 +1,1 @@
+ALTER TABLE public.complaints ADD COLUMN submitted_to uuid REFERENCES public.staff(id);

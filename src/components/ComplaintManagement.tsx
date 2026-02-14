@@ -37,6 +37,7 @@ interface Complaint {
   taken_care_at?: string;
   action_notes?: string;
   created_at: string;
+  submitted_to?: string;
   raised_by_staff: {
     staff_code: string;
     full_name: string;
@@ -51,6 +52,11 @@ interface Complaint {
     full_name: string;
   };
   complaint_against_staff?: {
+    staff_code: string;
+    full_name: string;
+    role: string;
+  };
+  submitted_to_staff?: {
     staff_code: string;
     full_name: string;
     role: string;
@@ -88,7 +94,8 @@ const ComplaintManagement = () => {
     priority: 'medium',
     complaint_against: '',
     incident_date: '',
-    incident_time: ''
+    incident_time: '',
+    submitted_to: ''
   });
 
   useEffect(() => {
@@ -213,6 +220,7 @@ const ComplaintManagement = () => {
           taken_care_at,
           action_notes,
           created_at,
+          submitted_to,
           raised_by_staff:raised_by (
             staff_code,
             full_name,
@@ -227,6 +235,11 @@ const ComplaintManagement = () => {
             full_name
           ),
           complaint_against_staff:complaint_against (
+            staff_code,
+            full_name,
+            role
+          ),
+          submitted_to_staff:submitted_to (
             staff_code,
             full_name,
             role
@@ -262,6 +275,15 @@ const ComplaintManagement = () => {
       return;
     }
 
+    if (!formData.submitted_to) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Please select an admin/manager to submit this complaint to"
+      });
+      return;
+    }
+
     try {
       // Get current user's staff record
       const { data: profile } = await supabase
@@ -291,6 +313,7 @@ const ComplaintManagement = () => {
           complaint_against: formData.complaint_against || null,
           incident_date: formData.incident_date || null,
           incident_time: formData.incident_time || null,
+          submitted_to: formData.submitted_to || null,
           status: 'open'
         } as any);
 
@@ -445,7 +468,8 @@ const ComplaintManagement = () => {
       priority: 'medium',
       complaint_against: '',
       incident_date: '',
-      incident_time: ''
+      incident_time: '',
+      submitted_to: ''
     });
   };
 
@@ -568,7 +592,27 @@ const ComplaintManagement = () => {
               <div className="rounded-lg border border-border p-4 space-y-3">
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Who & When</h3>
                 <div className="space-y-2">
-                  <Label htmlFor="complaint_against">Staff Member (Optional)</Label>
+                  <Label htmlFor="submitted_to">Submit To <span className="text-destructive">*</span></Label>
+                  <Select 
+                    value={formData.submitted_to || undefined} 
+                    onValueChange={(value) => setFormData({ ...formData, submitted_to: value || '' })}
+                  >
+                    <SelectTrigger className="min-h-[44px]">
+                      <SelectValue placeholder="Select admin/manager to submit to" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {staffList
+                        .filter(s => ['admin', 'manager'].includes(s.role))
+                        .map((staff) => (
+                          <SelectItem key={staff.id} value={staff.id}>
+                            {staff.full_name} ({staff.staff_code}) - {staff.role}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="complaint_against">Complaint Against (Optional)</Label>
                   <Select 
                     value={formData.complaint_against || undefined} 
                     onValueChange={(value) => setFormData({ ...formData, complaint_against: value || '' })}
@@ -831,6 +875,16 @@ const ComplaintManagement = () => {
                     {complaint.raised_by_staff.full_name} ({complaint.raised_by_staff.staff_code})
                   </span>
                 </div>
+
+                {complaint.submitted_to_staff && (
+                  <div className="p-2 bg-purple-50 border border-purple-200 rounded-sm">
+                    <p className="text-xs text-purple-700 font-medium mb-1">Submitted To:</p>
+                    <p className="text-sm">
+                      {complaint.submitted_to_staff.full_name} ({complaint.submitted_to_staff.staff_code})
+                    </p>
+                    <p className="text-xs text-muted-foreground">{complaint.submitted_to_staff.role}</p>
+                  </div>
+                )}
 
                 {complaint.complaint_against_staff && (
                   <div className="p-2 bg-amber-50 border border-amber-200 rounded-sm">
