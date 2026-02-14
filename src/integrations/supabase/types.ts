@@ -1503,6 +1503,33 @@ export type Database = {
         }
         Relationships: []
       }
+      sidebar_menu_config: {
+        Row: {
+          display_order: number
+          id: string
+          is_visible: boolean
+          menu_item_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          display_order?: number
+          id?: string
+          is_visible?: boolean
+          menu_item_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          display_order?: number
+          id?: string
+          is_visible?: boolean
+          menu_item_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       staff: {
         Row: {
           account_holder_name: string | null

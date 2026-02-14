@@ -28,6 +28,7 @@ import { formatCurrency } from '@/lib/currency';
 import { isStaffRole } from '@/lib/staffUtils';
 import { useNavigationTracking } from '@/hooks/useNavigationTracking';
 import { useQuickAccessItems } from '@/hooks/useQuickAccessItems';
+import { useMenuVisibility } from '@/hooks/useMenuVisibility';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { usePaymentStatsColors } from '@/hooks/usePaymentStatsColors';
 import { cn } from '@/lib/utils';
@@ -47,6 +48,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const { userRole, userDesignation, userProfile } = useAuth();
   const { open } = useSidebar();
   const { trackNavigation } = useNavigationTracking();
+  const { isItemVisible } = useMenuVisibility();
   const { paidColor, unpaidColor, totalColor } = usePaymentStatsColors();
   const [stats, setStats] = useState<NavigationStats>({
     paidAmount: 0,
@@ -91,12 +93,14 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
     return () => clearInterval(interval);
   }, [userRole]);
 
-  const navigationItems = getNavigationItems({
+  const allNavigationItems = getNavigationItems({
     userRole,
     userDesignation,
     userProfile
   });
-  const quickAccessItems = useQuickAccessItems(navigationItems);
+  // Filter by admin-configured visibility
+  const navigationItems = allNavigationItems.filter(item => isItemVisible(item.id));
+  const quickAccessItems = useQuickAccessItems(allNavigationItems);
   const isCollapsed = !open;
 
   return (
