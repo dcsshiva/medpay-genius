@@ -562,8 +562,11 @@ const TaskManagement = () => {
       </Dialog>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <Card>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+        <Card
+          className={`cursor-pointer transition-all hover:shadow-md ${statusFilter === 'pending' ? 'ring-2 ring-primary border-primary' : ''}`}
+          onClick={() => setStatusFilter(prev => prev === 'pending' ? 'all' : 'pending')}
+        >
           <CardContent className="p-6">
             <div className="flex items-center">
               <Clock className="h-8 w-8 text-westmed-teal" />
@@ -575,7 +578,10 @@ const TaskManagement = () => {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all hover:shadow-md ${statusFilter === 'in_progress' ? 'ring-2 ring-warning border-warning' : ''}`}
+          onClick={() => setStatusFilter(prev => prev === 'in_progress' ? 'all' : 'in_progress')}
+        >
           <CardContent className="p-6">
             <div className="flex items-center">
               <AlertCircle className="h-8 w-8 text-warning" />
@@ -587,7 +593,10 @@ const TaskManagement = () => {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all hover:shadow-md ${statusFilter === 'completed' ? 'ring-2 ring-success border-success' : ''}`}
+          onClick={() => setStatusFilter(prev => prev === 'completed' ? 'all' : 'completed')}
+        >
           <CardContent className="p-6">
             <div className="flex items-center">
               <CheckCircle className="h-8 w-8 text-success" />
@@ -599,7 +608,10 @@ const TaskManagement = () => {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card
+          className={`cursor-pointer transition-all hover:shadow-md ${statusFilter === 'overdue' ? 'ring-2 ring-destructive border-destructive' : ''}`}
+          onClick={() => setStatusFilter(prev => prev === 'overdue' ? 'all' : 'overdue')}
+        >
           <CardContent className="p-6">
             <div className="flex items-center">
               <AlertCircle className="h-8 w-8 text-destructive" />
