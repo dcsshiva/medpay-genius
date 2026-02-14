@@ -17,12 +17,13 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/lib/auth';
-import { Settings as SettingsIcon, Shield, Eye, Users, Lock, Trash2, AlertTriangle, Mail, Smartphone, RefreshCw, Download, Check, Info } from 'lucide-react';
+import { Settings as SettingsIcon, Shield, Eye, Users, Lock, Trash2, AlertTriangle, Mail, Smartphone, RefreshCw, Download, Check, Info, LayoutList } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { UserAccessManagement } from './UserAccessManagement';
 import { AuthEmailSync } from './AuthEmailSync';
 import QuickAccessConfig from './QuickAccessConfig';
+import MenuVisibilitySettings from './MenuVisibilitySettings';
 import { usePWA } from '@/hooks/usePWA';
 import { useVersionInfo } from '@/hooks/useVersionInfo';
 import { formatDateTimeIST } from '@/lib/dateUtils';
@@ -117,16 +118,20 @@ const Settings = () => {
       </div>
 
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="general">General Settings</TabsTrigger>
           <TabsTrigger value="access" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
-            User Access Management
+            User Access
+          </TabsTrigger>
+          <TabsTrigger value="menu-visibility" className="flex items-center gap-2">
+            <LayoutList className="h-4 w-4" />
+            Menu Visibility
           </TabsTrigger>
           {userDesignation === 'super_admin' && (
             <TabsTrigger value="auth-sync" className="flex items-center gap-2">
               <Mail className="h-4 w-4" />
-              Auth Synchronization
+              Auth Sync
             </TabsTrigger>
           )}
         </TabsList>
@@ -468,6 +473,10 @@ const Settings = () => {
 
         <TabsContent value="access">
           <UserAccessManagement />
+        </TabsContent>
+
+        <TabsContent value="menu-visibility">
+          <MenuVisibilitySettings />
         </TabsContent>
 
         {userRole === 'admin' && (
