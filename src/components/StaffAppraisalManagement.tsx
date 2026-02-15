@@ -183,10 +183,8 @@ export default function StaffAppraisalManagement() {
   // Appraisal form state
   const [showAppraisalForm, setShowAppraisalForm] = useState(false);
   const [selectedStaffForAppraisal, setSelectedStaffForAppraisal] = useState("");
-  const [appraisalPeriodStart, setAppraisalPeriodStart] = useState("");
-  const [appraisalPeriodEnd, setAppraisalPeriodEnd] = useState("");
-  const [selectedAppraisalReasonId, setSelectedAppraisalReasonId] = useState("");
-  const [appraisalReasons, setAppraisalReasons] = useState<{ id: string; reason_name: string }[]>([]);
+  const [appraisalMonth, setAppraisalMonth] = useState("");
+  const [appraisalYear, setAppraisalYear] = useState("");
   const [overallRating, setOverallRating] = useState("");
   const [overallRatingOverride, setOverallRatingOverride] = useState(false);
   const [strengths, setStrengths] = useState("");
@@ -258,7 +256,6 @@ export default function StaffAppraisalManagement() {
         fetchAppraisals(),
         fetchWarnings(),
         fetchDailyActivities(),
-        fetchAppraisalReasons(),
         fetchCriteria(),
       ]);
     } catch (error) {
@@ -283,15 +280,6 @@ export default function StaffAppraisalManagement() {
     setCriteriaList(data || []);
   };
 
-  const fetchAppraisalReasons = async () => {
-    const { data, error } = await supabase
-      .from("appraisal_reasons")
-      .select("id, reason_name")
-      .eq("is_active", true)
-      .order("display_order");
-    if (error) throw error;
-    setAppraisalReasons(data || []);
-  };
 
   const fetchStaff = async () => {
     const { data, error } = await supabase
@@ -353,7 +341,7 @@ export default function StaffAppraisalManagement() {
   const handleSubmitAppraisal = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!selectedStaffForAppraisal || !appraisalPeriodStart || !appraisalPeriodEnd || !overallRating) {
+    if (!selectedStaffForAppraisal || !appraisalMonth || !appraisalYear || !overallRating) {
       toast({ title: "Error", description: "Please fill in all required fields", variant: "destructive" });
       return;
     }
@@ -381,10 +369,18 @@ export default function StaffAppraisalManagement() {
       criteriaCodeMap[c.criteria_code] = Math.round((criteriaScores[c.id] ?? 0) / 20); // Convert 0-100% to 1-5 scale
     });
 
+    // Derive period start/end from selected month-year
+    const year = parseInt(appraisalYear);
+    const month = parseInt(appraisalMonth) - 1; // JS months are 0-indexed
+    const periodStart = new Date(year, month, 1);
+    const periodEnd = new Date(year, month + 1, 0); // last day of month
+    const periodStartStr = `${year}-${appraisalMonth.padStart(2, '0')}-01`;
+    const periodEndStr = `${year}-${appraisalMonth.padStart(2, '0')}-${periodEnd.getDate().toString().padStart(2, '0')}`;
+
     const { data: appraisalData, error } = await supabase.from("staff_appraisals").insert([{
       staff_id: selectedStaffForAppraisal,
-      appraisal_period_start: appraisalPeriodStart,
-      appraisal_period_end: appraisalPeriodEnd,
+      appraisal_period_start: periodStartStr,
+      appraisal_period_end: periodEndStr,
       overall_rating: overallRating as any,
       punctuality_rating: criteriaCodeMap['punctuality'] || 3,
       work_quality_rating: criteriaCodeMap['work_quality'] || 3,
@@ -397,7 +393,6 @@ export default function StaffAppraisalManagement() {
       attendance_reliability_rating: criteriaCodeMap['attendance_reliability'] || 3,
       initiative_rating: criteriaCodeMap['initiative'] || 3,
       training_participation_rating: criteriaCodeMap['training_participation'] || 3,
-      appraisal_reason_id: selectedAppraisalReasonId || null,
       strengths,
       areas_for_improvement: areasForImprovement,
       manager_comments: managerComments,
@@ -436,9 +431,8 @@ export default function StaffAppraisalManagement() {
   const resetAppraisalForm = () => {
     setShowAppraisalForm(false);
     setSelectedStaffForAppraisal("");
-    setAppraisalPeriodStart("");
-    setAppraisalPeriodEnd("");
-    setSelectedAppraisalReasonId("");
+    setAppraisalMonth("");
+    setAppraisalYear("");
     setOverallRating("");
     setOverallRatingOverride(false);
     setStrengths("");
@@ -591,26 +585,39 @@ export default function StaffAppraisalManagement() {
                         </SelectContent>
                       </Select>
                     </div>
-                    {appraisalReasons.length > 0 && (
-                      <div className="space-y-2">
-                        <Label>Appraisal Reason</Label>
-                        <Select value={selectedAppraisalReasonId} onValueChange={setSelectedAppraisalReasonId}>
-                          <SelectTrigger><SelectValue placeholder="Select reason (optional)" /></SelectTrigger>
+                    <div className="space-y-2">
+                      <Label>Appraisal Month *</Label>
+                      <div className="flex gap-2">
+                        <Select value={appraisalMonth} onValueChange={setAppraisalMonth}>
+                          <SelectTrigger className="flex-1"><SelectValue placeholder="Month" /></SelectTrigger>
                           <SelectContent>
-                            {appraisalReasons.map(reason => (
-                              <SelectItem key={reason.id} value={reason.id}>{reason.reason_name}</SelectItem>
+                            {[
+                              { value: "1", label: "January" },
+                              { value: "2", label: "February" },
+                              { value: "3", label: "March" },
+                              { value: "4", label: "April" },
+                              { value: "5", label: "May" },
+                              { value: "6", label: "June" },
+                              { value: "7", label: "July" },
+                              { value: "8", label: "August" },
+                              { value: "9", label: "September" },
+                              { value: "10", label: "October" },
+                              { value: "11", label: "November" },
+                              { value: "12", label: "December" },
+                            ].map(m => (
+                              <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select value={appraisalYear} onValueChange={setAppraisalYear}>
+                          <SelectTrigger className="w-[100px]"><SelectValue placeholder="Year" /></SelectTrigger>
+                          <SelectContent>
+                            {[new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1].map(y => (
+                              <SelectItem key={y} value={y.toString()}>{y}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
-                    )}
-                    <div className="space-y-2">
-                      <Label>Period Start *</Label>
-                      <Input type="date" value={appraisalPeriodStart} onChange={(e) => setAppraisalPeriodStart(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Period End *</Label>
-                      <Input type="date" value={appraisalPeriodEnd} onChange={(e) => setAppraisalPeriodEnd(e.target.value)} />
                     </div>
                     <div className="space-y-2">
                       <Label>Next Review Date</Label>
