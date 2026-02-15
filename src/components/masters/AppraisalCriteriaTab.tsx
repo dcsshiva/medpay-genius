@@ -256,7 +256,13 @@ const AppraisalCriteriaTab = () => {
               <Input
                 id="criteria_name"
                 value={formData.criteria_name}
-                onChange={(e) => setFormData({ ...formData, criteria_name: e.target.value })}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  const code = !selectedCriteria
+                    ? name.trim().toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, '_')
+                    : formData.criteria_code;
+                  setFormData({ ...formData, criteria_name: name, criteria_code: code });
+                }}
                 placeholder="e.g., Punctuality"
               />
             </div>
@@ -265,8 +271,8 @@ const AppraisalCriteriaTab = () => {
               <Input
                 id="criteria_code"
                 value={formData.criteria_code}
-                onChange={(e) => setFormData({ ...formData, criteria_code: e.target.value })}
-                placeholder="e.g., punctuality"
+                disabled
+                placeholder="Auto-generated from name"
               />
             </div>
             <div>
