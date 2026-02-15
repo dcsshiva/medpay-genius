@@ -1,37 +1,36 @@
 
 
-## Fix: Doctor Dashboard Showing "No Doctors Found"
+## Fix: Payment Mode Dialog Overflowing When Cheque Is Selected
 
 ### Problem
-Dr.Sanjay (DOC0112) is logged in and viewing the Doctor Hub, but sees "No doctors found matching ''". This is because the doctor's record has `is_active = false` in the database, and the Doctor Hub query filters for only active doctors.
+When selecting "Cheque Issue" in the Payment Mode dialog, the cheque details form expands the dialog beyond the visible screen area. The Cancel/Confirm buttons get pushed off-screen.
 
-### Solution
-When a doctor is viewing their own dashboard (i.e., `filterDoctorId` is provided), skip the `is_active` filter so they can always see their own payment data regardless of active status.
+### Root Cause
+In `src/components/PaymentModeDialog.tsx`, the dialog content area uses `flex-1 overflow-y-auto` but the overall dialog container needs `overflow-hidden` to properly constrain the flex layout within `max-h-[90vh]`.
 
 ### Changes
 
-**File: `src/components/DoctorHub.tsx`** (line ~109)
+**File: `src/components/PaymentModeDialog.tsx`**
 
-- Move the `.eq('is_active', true)` filter inside a condition so it only applies when viewing all doctors (admin/manager view), not when a specific doctor is viewing their own dashboard.
+1. Add `overflow-hidden` to the `DialogContent` container so the flex layout properly constrains children within `max-h-[90vh]`.
+2. Ensure the scrollable content div has proper min-height constraints with `min-h-0` (a common flexbox overflow fix).
+3. For the mobile Sheet view, add similar overflow constraints to prevent the same issue on mobile.
 
 ```
-Before:
-  query = supabase.from('doctors').select(...).eq('is_active', true);
-  if (filterDoctorId) query = query.eq('id', filterDoctorId);
+Before (line ~195):
+<DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col">
 
 After:
-  query = supabase.from('doctors').select(...);
-  if (filterDoctorId) {
-    query = query.eq('id', filterDoctorId);
-  } else {
-    query = query.eq('is_active', true);
-  }
+<DialogContent className="sm:max-w-[500px] max-h-[90vh] flex flex-col overflow-hidden">
 ```
 
-This ensures:
-- Doctors always see their own dashboard, even if marked inactive
-- Admin/manager views still only show active doctors in the list
+```
+Before (line ~203):
+<div className="flex-1 overflow-y-auto pr-2">
 
-### Additional Issue: NotificationCenter Infinite Loop
-The console logs show a "Maximum update depth exceeded" warning from `NotificationCenter.tsx`. This is a separate bug caused by a `setState` inside a `useEffect` creating a render loop. This should be investigated separately if needed.
+After:
+<div className="flex-1 overflow-y-auto pr-2 min-h-0">
+```
+
+This is a standard flexbox fix: without `min-h-0`, flex children default to `min-height: auto` which prevents them from shrinking below their content size, causing overflow.
 
