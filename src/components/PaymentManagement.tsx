@@ -41,6 +41,8 @@ import ReportGeneration from './ReportGeneration';
 import PaymentManagementTable from './PaymentManagementTable';
 import BankAdviceReports from './BankAdviceReports';
 import PartPaymentDialog from './PartPaymentDialog';
+import { PaymentModeDialog, PaymentMode, ChequeDetails } from './PaymentModeDialog';
+import { calculateTDS } from '@/lib/tdsUtils';
 import PaymentReleaseHistory from './PaymentReleaseHistory';
 import { useWebsiteSettings } from '@/hooks/useWebsiteSettings';
 import { StatsCard } from '@/components/ui/stats-card';
@@ -192,6 +194,10 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
   const [showPartPaymentDialog, setShowPartPaymentDialog] = useState(false);
   const [showReleaseHistoryDialog, setShowReleaseHistoryDialog] = useState(false);
   const [partPaymentTarget, setPartPaymentTarget] = useState<Payment | null>(null);
+  
+  // Payment mode dialog state
+  const [paymentModeDialogOpen, setPaymentModeDialogOpen] = useState(false);
+  const [processingPaymentMode, setProcessingPaymentMode] = useState(false);
   
   const { data: websiteSettings } = useWebsiteSettings();
   const [transactionTypeSelections, setTransactionTypeSelections] = useState<Map<string, string>>(new Map());
@@ -1700,6 +1706,102 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
       });
     } finally {
       setGeneratingBankAdvice(false);
+    }
+  };
+
+  const handlePaymentModeConfirm = async (mode: PaymentMode, chequeDetails?: ChequeDetails) => {
+    if (mode === 'bank') {
+      setPaymentModeDialogOpen(false);
+      handleOpenBankAdviceReview();
+      return;
+    }
+
+    // Cash or Cheque mode - update DB directly
+    setProcessingPaymentMode(true);
+    try {
+      const selectedPaymentIds = Array.from(selectedPaymentsForBankAdvice);
+      
+      // Fetch payment data with doctor details
+      const { data: paymentsData, error: fetchError } = await supabase
+        .from('payments')
+        .select(`
+          *,
+          doctors!inner (
+            id, doctor_code, full_name, ifsc_code,
+            bank_account_number, account_holder_name, bank_name, branch_name
+          )
+        `)
+        .in('id', selectedPaymentIds);
+
+      if (fetchError) throw fetchError;
+
+      // Update each payment
+      for (const payment of (paymentsData || [])) {
+        const tds = calculateTDS(payment.total_amount);
+        
+        const updateData: any = {
+          gross_amount: tds.grossAmount,
+          tds_amount: tds.tdsAmount,
+          tds_percentage: tds.tdsPercentage,
+          net_amount: tds.netAmount,
+          payment_mode: mode,
+          bank_advice_generated: true,
+          bank_advice_generated_at: new Date().toISOString(),
+          bank_advice_generated_by: user?.id,
+        };
+
+        if (mode === 'cheque' && chequeDetails) {
+          updateData.cheque_number = chequeDetails.cheque_number;
+          updateData.cheque_date = chequeDetails.cheque_date;
+          updateData.cheque_bank_name = chequeDetails.cheque_bank_name;
+        }
+
+        const { error: updateError } = await supabase
+          .from('payments')
+          .update(updateData)
+          .eq('id', payment.id);
+
+        if (updateError) throw updateError;
+      }
+
+      // Record in bank_advice_history
+      const totalNetAmount = (paymentsData || []).reduce((sum, p) => {
+        const tds = calculateTDS(p.total_amount);
+        return sum + tds.netAmount;
+      }, 0);
+
+      const { error: historyError } = await supabase
+        .from('bank_advice_history')
+        .insert({
+          filename: `${mode.toUpperCase()}_PAYMENT_${format(new Date(), 'yyyyMMdd_HHmmss')}`,
+          payment_count: selectedPaymentIds.length,
+          total_amount: totalNetAmount,
+          payment_ids: selectedPaymentIds,
+          payment_mode: mode,
+          generated_by: user?.id,
+        });
+
+      if (historyError) {
+        console.error('Error saving to history:', historyError);
+      }
+
+      toast({
+        title: "Success",
+        description: `${selectedPaymentIds.length} payment(s) processed as ${mode === 'cheque' ? 'cheque' : 'cash'} payment`
+      });
+
+      setSelectedPaymentsForBankAdvice(new Set());
+      setPaymentModeDialogOpen(false);
+      fetchPayments();
+    } catch (error: any) {
+      console.error('Error processing payment mode:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to process payments"
+      });
+    } finally {
+      setProcessingPaymentMode(false);
     }
   };
 
@@ -3271,7 +3373,17 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                   </p>
                 </div>
                 <Button
-                  onClick={handleOpenBankAdviceReview}
+                  onClick={() => {
+                    if (selectedPaymentsForBankAdvice.size === 0) {
+                      toast({
+                        variant: "destructive",
+                        title: "No Payments Selected",
+                        description: "Please select at least one payment to process"
+                      });
+                      return;
+                    }
+                    setPaymentModeDialogOpen(true);
+                  }}
                   disabled={selectedPaymentsForBankAdvice.size === 0 || generatingBankAdvice}
                 >
                   <Download className="h-4 w-4 mr-2" />
@@ -3699,6 +3811,18 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
           onOpenChange={setShowReleaseHistoryDialog}
           payment={partPaymentTarget}
           onRefresh={fetchPayments}
+        />
+
+        {/* Payment Mode Dialog */}
+        <PaymentModeDialog
+          open={paymentModeDialogOpen}
+          onOpenChange={setPaymentModeDialogOpen}
+          onConfirm={handlePaymentModeConfirm}
+          selectedCount={selectedPaymentsForBankAdvice.size}
+          totalAmount={payments
+            .filter(p => selectedPaymentsForBankAdvice.has(p.id))
+            .reduce((sum, p) => sum + (p.net_amount || p.total_amount), 0)}
+          isLoading={processingPaymentMode}
         />
       </div>
    );
