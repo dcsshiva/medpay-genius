@@ -32,7 +32,6 @@ const AppraisalCriteriaTab = () => {
     criteria_name: '',
     criteria_code: '',
     description: '',
-    weight: '1.0',
     is_active: true,
   });
 
@@ -62,7 +61,6 @@ const AppraisalCriteriaTab = () => {
       criteria_name: '',
       criteria_code: '',
       description: '',
-      weight: '1.0',
       is_active: true,
     });
     setEditDialogOpen(true);
@@ -74,7 +72,6 @@ const AppraisalCriteriaTab = () => {
       criteria_name: item.criteria_name,
       criteria_code: item.criteria_code,
       description: item.description || '',
-      weight: String(item.weight),
       is_active: item.is_active,
     });
     setEditDialogOpen(true);
@@ -87,12 +84,6 @@ const AppraisalCriteriaTab = () => {
         return;
       }
 
-      const weightNum = parseFloat(formData.weight);
-      if (isNaN(weightNum) || weightNum <= 0) {
-        toast.error('Weight must be a positive number');
-        return;
-      }
-
       if (selectedCriteria) {
         const { error } = await (supabase as any)
           .from('appraisal_criteria_master')
@@ -100,7 +91,7 @@ const AppraisalCriteriaTab = () => {
             criteria_name: formData.criteria_name.trim(),
             criteria_code: formData.criteria_code.trim(),
             description: formData.description.trim() || null,
-            weight: weightNum,
+            weight: 1.0,
             is_active: formData.is_active,
           })
           .eq('id', selectedCriteria.id);
@@ -115,7 +106,7 @@ const AppraisalCriteriaTab = () => {
             criteria_name: formData.criteria_name.trim(),
             criteria_code: formData.criteria_code.trim(),
             description: formData.description.trim() || null,
-            weight: weightNum,
+            weight: 1.0,
             is_active: formData.is_active,
             display_order: maxOrder + 1,
           });
@@ -196,7 +187,7 @@ const AppraisalCriteriaTab = () => {
                 <TableHead>Name</TableHead>
                 <TableHead>Code</TableHead>
                 <TableHead>Description</TableHead>
-                <TableHead>Weight</TableHead>
+                
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -210,9 +201,6 @@ const AppraisalCriteriaTab = () => {
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {item.description || '-'}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{item.weight}x</Badge>
                   </TableCell>
                   <TableCell>
                     <Badge variant={item.is_active ? 'default' : 'secondary'}>
@@ -273,18 +261,6 @@ const AppraisalCriteriaTab = () => {
                 value={formData.criteria_code}
                 disabled
                 placeholder="Auto-generated from name"
-              />
-            </div>
-            <div>
-              <Label htmlFor="weight">Weight</Label>
-              <Input
-                id="weight"
-                type="number"
-                step="0.1"
-                min="0.1"
-                value={formData.weight}
-                onChange={(e) => setFormData({ ...formData, weight: e.target.value })}
-                placeholder="1.0"
               />
             </div>
             <div>
