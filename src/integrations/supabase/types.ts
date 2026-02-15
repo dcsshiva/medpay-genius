@@ -59,6 +59,45 @@ export type Database = {
         }
         Relationships: []
       }
+      appraisal_criteria_master: {
+        Row: {
+          created_at: string
+          criteria_code: string
+          criteria_name: string
+          description: string | null
+          display_order: number
+          id: string
+          is_active: boolean
+          max_score: number
+          updated_at: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          criteria_code: string
+          criteria_name: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          max_score?: number
+          updated_at?: string
+          weight?: number
+        }
+        Update: {
+          created_at?: string
+          criteria_code?: string
+          criteria_name?: string
+          description?: string | null
+          display_order?: number
+          id?: string
+          is_active?: boolean
+          max_score?: number
+          updated_at?: string
+          weight?: number
+        }
+        Relationships: []
+      }
       appraisal_reasons: {
         Row: {
           created_at: string
@@ -1703,6 +1742,45 @@ export type Database = {
             columns: ["staff_category_id"]
             isOneToOne: false
             referencedRelation: "staff_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_appraisal_scores: {
+        Row: {
+          appraisal_id: string
+          created_at: string
+          criteria_id: string
+          id: string
+          score_value: number
+        }
+        Insert: {
+          appraisal_id: string
+          created_at?: string
+          criteria_id: string
+          id?: string
+          score_value?: number
+        }
+        Update: {
+          appraisal_id?: string
+          created_at?: string
+          criteria_id?: string
+          id?: string
+          score_value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_appraisal_scores_appraisal_id_fkey"
+            columns: ["appraisal_id"]
+            isOneToOne: false
+            referencedRelation: "staff_appraisals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_appraisal_scores_criteria_id_fkey"
+            columns: ["criteria_id"]
+            isOneToOne: false
+            referencedRelation: "appraisal_criteria_master"
             referencedColumns: ["id"]
           },
         ]
