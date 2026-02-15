@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, ClipboardCheck, AlertTriangle, Calendar, Search, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { VendorSearchCombobox } from "@/components/ui/vendor-search-combobox";
 import { formatDateIST, formatDateTimeIST, formatInputDateIST, getCurrentISTDate, formatLongDateIST } from '@/lib/dateUtils';
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
@@ -576,14 +577,14 @@ export default function StaffAppraisalManagement() {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label>Staff Member *</Label>
-                      <Select value={selectedStaffForAppraisal} onValueChange={setSelectedStaffForAppraisal}>
-                        <SelectTrigger><SelectValue placeholder="Select staff" /></SelectTrigger>
-                        <SelectContent>
-                          {staffList.map(staff => (
-                            <SelectItem key={staff.id} value={staff.id}>{staff.full_name} ({staff.staff_code})</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <VendorSearchCombobox
+                        items={staffList.map(s => ({ id: s.id, code: s.staff_code, name: s.full_name }))}
+                        value={selectedStaffForAppraisal}
+                        onValueChange={setSelectedStaffForAppraisal}
+                        placeholder="Search staff by name or code..."
+                        searchPlaceholder="Type to search staff..."
+                        emptyMessage="No staff found."
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label>Appraisal Month *</Label>
