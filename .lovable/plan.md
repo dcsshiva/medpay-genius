@@ -1,33 +1,15 @@
 
 
-## Remove Appraisal Reason & Replace Period Start/End with Month-Year Selector
+## Replace Staff Member Dropdown with Searchable Combobox
 
 ### What
-1. Remove the **Appraisal Reason** dropdown from the Create Performance Appraisal form
-2. Replace **Period Start** and **Period End** date inputs with a single **Appraisal Month** selector (e.g., "January 2026")
-3. Keep the **Next Review Date** field as-is
+Replace the standard `<Select>` dropdown for "Staff Member" in the Create Performance Appraisal form with a searchable combobox (similar to the existing `VendorSearchCombobox` pattern), allowing users to filter staff by name or staff code.
 
 ### Changes
 
 **File: `src/components/StaffAppraisalManagement.tsx`**
 
-**State changes:**
-- Remove `selectedAppraisalReasonId` and `appraisalReasons` state variables
-- Remove `appraisalPeriodStart` and `appraisalPeriodEnd` state variables
-- Add `appraisalMonth` (string, e.g. "2026-01") state variable
-- Remove `fetchAppraisalReasons` function and its call in the `useEffect` Promise.all
-
-**Form UI changes (lines ~594-614):**
-- Remove the Appraisal Reason `<Select>` block (lines 594-606)
-- Replace Period Start and Period End inputs with a single **Appraisal Month** selector using two side-by-side `<Select>` dropdowns:
-  - Month selector (January-December)
-  - Year selector (current year and next year)
-
-**Submit logic (`handleSubmitAppraisal`):**
-- Derive `appraisal_period_start` (first day of selected month) and `appraisal_period_end` (last day of selected month) from `appraisalMonth`
-- Remove `appraisal_reason_id` from the insert payload
-- Update validation to check `appraisalMonth` instead of start/end dates
-
-**Reset logic (after successful save):**
-- Replace clearing `appraisalPeriodStart`, `appraisalPeriodEnd`, `selectedAppraisalReasonId` with clearing `appraisalMonth`
+1. Import the `VendorSearchCombobox` component (it already supports `id`, `code`, `name` items -- matching staff data perfectly)
+2. Replace the `<Select>` block (lines 579-586) with `<VendorSearchCombobox>`, mapping `staffList` items to `{ id, code: staff_code, name: full_name }`
+3. No state changes needed -- `selectedStaffForAppraisal` and `setSelectedStaffForAppraisal` already work with staff `id` values
 
