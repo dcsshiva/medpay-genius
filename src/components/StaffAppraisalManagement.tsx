@@ -358,6 +358,23 @@ export default function StaffAppraisalManagement() {
       return;
     }
 
+    // Ensure the current user has a profile record (required by FK constraint)
+    if (user?.id) {
+      const { data: existingProfile } = await supabase.from("profiles").select("id").eq("user_id", user.id).maybeSingle();
+      if (!existingProfile) {
+        const { error: profileError } = await supabase.from("profiles").insert({
+          user_id: user.id,
+          full_name: user.user_metadata?.full_name || user.email || 'Unknown',
+          role: (user.user_metadata?.role as any) || 'admin',
+        } as any);
+        if (profileError) {
+          console.error('Failed to create profile:', profileError);
+          toast({ title: "Error", description: "Could not verify user profile. Please contact admin.", variant: "destructive" });
+          return;
+        }
+      }
+    }
+
     // Map criteria scores to legacy columns for backward compatibility
     const criteriaCodeMap: Record<string, number> = {};
     criteriaList.forEach(c => {
