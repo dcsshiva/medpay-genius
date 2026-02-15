@@ -9,6 +9,7 @@ import PermissionReasonsTab from '@/components/masters/PermissionReasonsTab';
 import VisitReasonsTab from '@/components/masters/VisitReasonsTab';
 import InsuranceCompaniesTab from '@/components/masters/InsuranceCompaniesTab';
 import AppraisalReasonsTab from '@/components/masters/AppraisalReasonsTab';
+import AppraisalCriteriaTab from '@/components/masters/AppraisalCriteriaTab';
 import ComplaintCategoriesTab from '@/components/masters/ComplaintCategoriesTab';
 import QuickPaymentTypesTab from '@/components/masters/QuickPaymentTypesTab';
 import VendorDetailsTab from '@/components/masters/VendorDetailsTab';
@@ -38,6 +39,7 @@ const MasterDataManagement = () => {
           <TabsTrigger value="visit-reasons">Visit Reasons</TabsTrigger>
           <TabsTrigger value="insurance-companies">Insurance</TabsTrigger>
           <TabsTrigger value="appraisal-reasons">Appraisals</TabsTrigger>
+          <TabsTrigger value="appraisal-criteria">Appraisal Criteria</TabsTrigger>
           <TabsTrigger value="complaint-categories">Complaints</TabsTrigger>
           <TabsTrigger value="quick-payment-types">Quick Pay</TabsTrigger>
           <TabsTrigger value="vendors">Vendors</TabsTrigger>
@@ -73,6 +75,10 @@ const MasterDataManagement = () => {
 
         <TabsContent value="appraisal-reasons" className="mt-6">
           <AppraisalReasonsTab />
+        </TabsContent>
+
+        <TabsContent value="appraisal-criteria" className="mt-6">
+          <AppraisalCriteriaTab />
         </TabsContent>
 
         <TabsContent value="complaint-categories" className="mt-6">
