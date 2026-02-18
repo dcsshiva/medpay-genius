@@ -131,15 +131,34 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
           const paid_amount = (paidPayments || []).reduce((sum, p) => sum + Number(p.net_amount || 0), 0);
           const paid_count = paidPayments?.length || 0;
 
-          // Unpaid: unprocessed visits
-          const { data: unpaidVisits } = await supabase
+          // Unpaid: unprocessed visits + visits in payments where bank_advice_generated=false
+          const { data: unprocessedVisits } = await supabase
             .from('visits')
-            .select('visit_payment')
+            .select('id, visit_payment')
             .eq('doctor_id', doctor.id)
             .eq('is_processed', false);
 
-          const unpaid_amount = (unpaidVisits || []).reduce((sum, v) => sum + Number(v.visit_payment || 0), 0);
-          const unpaid_visits_count = unpaidVisits?.length || 0;
+          // Also get visits linked to payments that haven't had bank advice generated
+          const { data: pendingPaymentVisits } = await supabase
+            .from('payment_visits')
+            .select(`
+              visit_id,
+              visits!inner (id, visit_payment),
+              payments!inner (id, bank_advice_generated, doctor_id)
+            `)
+            .eq('payments.bank_advice_generated', false)
+            .eq('payments.doctor_id', doctor.id);
+
+          // Filter to only this doctor's pending payment visits and deduplicate
+          const unprocessedIds = new Set((unprocessedVisits || []).map(v => v.id));
+          const pendingVisitsForDoctor = (pendingPaymentVisits || []).filter((pv: any) => {
+            return pv.visits && !unprocessedIds.has(pv.visits.id);
+          });
+
+          const unprocessedAmount = (unprocessedVisits || []).reduce((sum, v) => sum + Number(v.visit_payment || 0), 0);
+          const pendingPaymentAmount = pendingVisitsForDoctor.reduce((sum: number, pv: any) => sum + Number(pv.visits?.visit_payment || 0), 0);
+          const unpaid_amount = unprocessedAmount + pendingPaymentAmount;
+          const unpaid_visits_count = (unprocessedVisits?.length || 0) + pendingVisitsForDoctor.length;
 
           return {
             id: doctor.id,
@@ -365,6 +384,32 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
       if (paymentsError) throw paymentsError;
 
       // Combine unprocessed visits with visits in pending payments
+      const unprocessedVisitIds = new Set((visitsData || []).map(v => v.id));
+      
+      // Extract visits from pending payments that aren't already in the unprocessed list
+      const pendingPaymentVisitsList: UnpaidVisit[] = [];
+      (paymentsData || []).forEach((payment: any) => {
+        const statusLabel = payment.status === 'pending' ? 'Pending Approval' 
+          : payment.status === 'manager_approved' ? 'Manager Approved'
+          : payment.status === 'admin_approved' ? 'Admin Approved'
+          : 'In Payment';
+        
+        (payment.payment_visits || []).forEach((pv: any) => {
+          if (pv.visits && !unprocessedVisitIds.has(pv.visits.id)) {
+            pendingPaymentVisitsList.push({
+              id: pv.visits.id,
+              visit_code: pv.visits.visit_code,
+              visit_date: pv.visits.visit_date,
+              patient_name: pv.visits.patient_name,
+              visit_payment: pv.visits.visit_payment,
+              payment_type: pv.visits.payment_type,
+              is_processed: true,
+              payment_status: statusLabel,
+            });
+          }
+        });
+      });
+
       const allUnpaidVisits: UnpaidVisit[] = [
         ...(visitsData || []).map((v) => ({
           id: v.id,
@@ -376,6 +421,7 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
           is_processed: v.is_processed,
           payment_status: 'unprocessed',
         })),
+        ...pendingPaymentVisitsList,
       ];
 
       setUnpaidVisits(allUnpaidVisits);
