@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronUp, Clock, Receipt, Calendar, FileText } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, Receipt, Calendar, FileText, CheckCircle2, AlertCircle, IndianRupee } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateIST } from '@/lib/dateUtils';
 import DoctorHistoryExport from './DoctorHistoryExport';
@@ -103,6 +103,42 @@ const DoctorHubMobile: React.FC<DoctorHubMobileProps> = ({
           <span>•</span>
           <span>{doctor.full_name}</span>
         </div>
+      </div>
+
+      {/* Clickable Summary Cards */}
+      <div className="px-4 mt-4 grid grid-cols-3 gap-3">
+        <Card 
+          className={`cursor-pointer active:scale-95 transition-transform ${activeTab === 'paid' ? 'ring-2 ring-success' : ''}`}
+          onClick={() => handleTabChange('paid')}
+        >
+          <CardContent className="p-3 text-center">
+            <CheckCircle2 className="h-5 w-5 text-success mx-auto mb-1" />
+            <p className="text-lg font-bold text-success">{formatCurrency(doctor.paid_amount)}</p>
+            <p className="text-xs text-muted-foreground">Paid ({doctor.paid_count})</p>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className={`cursor-pointer active:scale-95 transition-transform ${activeTab === 'unpaid' ? 'ring-2 ring-warning' : ''}`}
+          onClick={() => handleTabChange('unpaid')}
+        >
+          <CardContent className="p-3 text-center">
+            <AlertCircle className="h-5 w-5 text-warning mx-auto mb-1" />
+            <p className="text-lg font-bold text-warning">{formatCurrency(doctor.unpaid_amount)}</p>
+            <p className="text-xs text-muted-foreground">Unpaid ({doctor.unpaid_visits_count})</p>
+          </CardContent>
+        </Card>
+
+        <Card 
+          className={`cursor-pointer active:scale-95 transition-transform ${activeTab === 'all' ? 'ring-2 ring-primary' : ''}`}
+          onClick={() => handleTabChange('all')}
+        >
+          <CardContent className="p-3 text-center">
+            <IndianRupee className="h-5 w-5 text-primary mx-auto mb-1" />
+            <p className="text-lg font-bold text-primary">{formatCurrency(doctor.total_amount)}</p>
+            <p className="text-xs text-muted-foreground">Total</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Quick Actions & Filters */}
@@ -375,8 +411,8 @@ const UnpaidVisitCard: React.FC<{ visit: UnpaidVisit }> = ({ visit }) => {
       <CardContent className="p-4 space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-sm font-semibold">{visit.visit_code}</span>
-          <Badge variant="secondary" className="text-xs">
-            {visit.payment_status === 'unprocessed' ? 'Unprocessed' : 'In Payment'}
+          <Badge variant={visit.payment_status === 'unprocessed' ? 'secondary' : 'outline'} className="text-xs">
+            {visit.payment_status === 'unprocessed' ? 'Unprocessed' : visit.payment_status || 'In Payment'}
           </Badge>
         </div>
         <p className="text-sm text-foreground">{visit.patient_name}</p>

@@ -277,6 +277,18 @@ const StaffMobileDashboard: React.FC<StaffMobileDashboardProps> = ({ onNavigate 
           </CardContent>
         </Card>
 
+        {/* Rejected This Month */}
+        <Card className="cursor-pointer active:scale-95 transition-transform border-destructive/30" onClick={() => onNavigate('leave-permission')}>
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between mb-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              {stats.rejectedLeaveThisMonth > 0 && <Badge variant="secondary" className="text-xs">{stats.rejectedLeaveThisMonth}</Badge>}
+            </div>
+            <p className="text-2xl font-bold text-destructive">{stats.rejectedLeaveThisMonth}</p>
+            <p className="text-xs text-muted-foreground">Rejected (Month)</p>
+          </CardContent>
+        </Card>
+
         {/* Latest Appraisal Rating */}
         {latestAppraisal && (
           <Card className="cursor-pointer active:scale-95 transition-transform" onClick={() => setShowAppraisalView(true)}>
