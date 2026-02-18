@@ -821,7 +821,7 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
                     </TableCell>
                     <TableCell className="font-semibold">{doctor.full_name}</TableCell>
                     <TableCell className="text-right">
-                      <div className="flex flex-col items-end">
+                      <div className="flex flex-col items-end cursor-pointer hover:underline active:scale-95 transition-transform" onClick={() => handleDoctorClick(doctor.id, 'paid')}>
                         <span className="font-semibold text-green-600">
                           {formatCurrency(doctor.paid_amount)}
                         </span>
@@ -831,7 +831,7 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex flex-col items-end">
+                      <div className="flex flex-col items-end cursor-pointer hover:underline active:scale-95 transition-transform" onClick={() => handleDoctorClick(doctor.id, 'unpaid')}>
                         <span className="font-semibold text-orange-600">
                           {formatCurrency(doctor.unpaid_amount)}
                         </span>
@@ -841,9 +841,11 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
                       </div>
                     </TableCell>
                     <TableCell className="text-right">
-                      <span className="font-bold text-blue-600">
-                        {formatCurrency(doctor.total_amount)}
-                      </span>
+                      <div className="cursor-pointer hover:underline active:scale-95 transition-transform" onClick={() => handleDoctorClick(doctor.id, 'total')}>
+                        <span className="font-bold text-blue-600">
+                          {formatCurrency(doctor.total_amount)}
+                        </span>
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center justify-center gap-1">
