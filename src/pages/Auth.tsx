@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import westmedBanner from "@/assets/westmed-banner.png";
 import westmedLogo from "@/assets/westmed-logo.png";
 import Footer from "@/components/Footer";
+import DNSHelpBanner from "@/components/DNSHelpBanner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { formatMobileNumber, validateMobileNumber } from "@/lib/validators";
 
@@ -328,6 +329,8 @@ const Auth: React.FC = () => {
             <h1 className="text-3xl font-bold text-white drop-shadow-lg">WestMed Hospital</h1>
             <p className="text-white/90 drop-shadow-md">Hospital Management System</p>
           </div>
+
+          <DNSHelpBanner />
 
           <Card>
             <CardHeader className="pb-3">
