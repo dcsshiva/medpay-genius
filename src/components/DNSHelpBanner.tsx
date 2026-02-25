@@ -41,6 +41,10 @@ const DNSHelpBanner: React.FC = () => {
           Changing your device's DNS to a public DNS (like Google or Cloudflare) usually fixes this.
         </p>
 
+        <div className="rounded-md bg-primary/10 border border-primary/20 px-3 py-2 text-sm font-medium text-primary">
+          🔐 Emergency login is available using your pre-shared access code. Select the <b>Email OTP</b> tab to sign in.
+        </div>
+
         <div className="flex flex-wrap gap-2 text-xs">
           <span className="rounded bg-muted px-2 py-1 font-mono">Google: 8.8.8.8</span>
           <span className="rounded bg-muted px-2 py-1 font-mono">Cloudflare: 1.1.1.1</span>
