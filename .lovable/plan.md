@@ -1,42 +1,90 @@
 
 
-## Add DNS Troubleshooting Banner on Login Page
+## Bypass Supabase Auth API: Edge-Function-Only Login
 
 ### Problem
-Supabase has a confirmed incident: ISP DNS providers in India cannot resolve Supabase domains. This causes "Failed to fetch" on all auth calls. The fix is on users' devices (change DNS settings), not in app code.
+Both login methods (Email OTP and Mobile OTP) currently depend on Supabase's `/auth/v1/*` endpoints, which are unreachable when ISPs block `*.supabase.co` DNS resolution. Even the Mobile OTP flow -- which successfully sends and verifies SMS via edge functions -- still calls `supabase.auth.verifyOtp()` at the end, which hits the blocked Auth API.
 
-### What we'll build
-A lightweight connectivity check + help banner on the Auth page that:
-1. On mount, pings Supabase (`/auth/v1/health` or similar) with a short timeout
-2. If unreachable, shows a prominent banner with DNS change instructions
-3. Includes step-by-step guides for Android, iPhone, and Windows
-4. Disappears automatically once connectivity is restored
+### Solution: Direct Session Login (No Auth API Needed)
+Make the Mobile OTP login path work **entirely through edge functions + the `user_sessions` table**, without ever touching Supabase Auth endpoints. This means work can continue even when Supabase Auth is DNS-blocked.
 
-### Implementation
+---
 
-#### 1. Create connectivity check utility
-**New file:** `src/lib/connectivityCheck.ts`
-- Export an `async checkSupabaseReachable(): Promise<boolean>` function
-- Fetches the Supabase project URL with a 5-second timeout
-- Returns `true`/`false`
+### How it works today vs. the proposed change
 
-#### 2. Add DNS help banner component
-**New file:** `src/components/DNSHelpBanner.tsx`
-- Uses the connectivity check on mount and on retry
-- Shows a collapsible card with:
-  - "Connection issue detected" heading
-  - Recommended DNS servers (Cloudflare 1.1.1.1, Google 8.8.8.8)
-  - Expandable sections for Android / iPhone / Windows DNS change steps
-  - A "Retry Connection" button
-- Styled with existing UI components (Alert, Accordion, Button)
+**Current flow (blocked by DNS):**
+```text
+Phone --> send-otp (edge fn) --> SMS sent [OK]
+Phone --> verify-otp (edge fn) --> returns hashed_token [OK]
+Client --> supabase.auth.verifyOtp(hashed_token) --> BLOCKED by DNS
+```
 
-#### 3. Integrate into Auth page
-**Modified file:** `src/pages/Auth.tsx`
-- Render `<DNSHelpBanner />` above the login card
-- No changes to login logic itself
+**Proposed flow (bypasses Auth API entirely):**
+```text
+Phone --> send-otp (edge fn) --> SMS sent [OK]
+Phone --> verify-otp (edge fn) --> returns user data + JWT [OK]
+Client --> creates user_sessions row directly --> logged in [OK]
+```
 
-### Technical notes
-- No new dependencies needed
-- The banner is purely informational and client-side
-- Once the ISP/Supabase issue resolves, the banner auto-hides (connectivity check passes)
-- Zero impact on existing auth flow or other pages
+---
+
+### Implementation Steps
+
+#### 1. Update `verify-otp` edge function
+- After successful OTP verification, instead of generating a `magiclink` hashed token (which requires client-side Auth API call), generate a **custom session token** server-side
+- Return user data (id, user_id, full_name, role, designation) directly
+- Remove the `hashed_token` field from the response; add a `session_token` field instead
+- The edge function already has service role access, so it can insert into `user_sessions` directly
+
+#### 2. Update `verifyMobileOTP` in `src/lib/auth.tsx`
+- When `verify-otp` returns successfully with a `session_token`:
+  - Skip the `supabase.auth.verifyOtp()` call entirely
+  - Store the session token in localStorage
+  - Build the mock user/session objects from the returned user data (same pattern already used for username/password login fallback)
+  - Set user state and navigate to dashboard
+- This path never touches `/auth/v1/*`
+
+#### 3. Add a "DNS Bypass Mode" indicator
+- On the Auth page, when the connectivity check detects Supabase is unreachable, automatically switch to Mobile OTP tab and show a note: "Email login unavailable due to network issues. Please use Mobile OTP."
+- Disable the Email OTP tab when DNS check fails (since email OTP requires Auth API)
+
+#### 4. Edge function creates session row directly
+- The `verify-otp` function will insert into `user_sessions` table with the service role key
+- Returns session token to client
+- Client stores it and uses existing `getActiveSession()` / `get_session_by_token` RPC for all subsequent authenticated calls
+
+---
+
+### Technical Details
+
+**verify-otp edge function changes:**
+- Remove `generateAuthToken` (magic link generation)
+- Add direct `user_sessions` insert with generated session token
+- Return: `{ success, session_token, user: { user_type, id, user_id, full_name, role, designation } }`
+
+**auth.tsx `verifyMobileOTP` changes:**
+- Check if response has `session_token` (new path) vs `hashed_token` (legacy path)
+- If `session_token`: skip `supabase.auth.verifyOtp`, store token, build mock session
+- If `hashed_token`: keep existing flow as fallback for when DNS works
+
+**Auth.tsx UI changes:**
+- When DNS check fails: auto-select Mobile tab, disable Email tab with tooltip explaining why
+- Show small info banner: "Email login requires internet connectivity to authentication servers. Use Mobile OTP instead."
+
+---
+
+### What this enables
+- Staff and doctors can log in via Mobile OTP even when Supabase Auth API is completely unreachable
+- All app features that use `user_sessions` and RPC functions (which go through edge functions or direct DB) continue to work
+- Email OTP remains available as a secondary option when DNS is working
+- No database schema changes needed -- reuses existing `user_sessions` table
+
+### Limitations
+- RLS policies that check `auth.uid()` will not work in this mode (but the app already handles this via `SECURITY DEFINER` functions and `user_sessions`)
+- Email OTP will still be unavailable during DNS outages (this is expected and communicated to users)
+
+### Risk Assessment
+- Low risk: the fallback mock-session pattern is already proven in the codebase (used by username/password login)
+- No schema changes required
+- Backward compatible: if `hashed_token` is returned (DNS working), the existing Auth flow still works
+
