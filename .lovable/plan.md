@@ -1,94 +1,113 @@
 
-## Stabilize Login by Fixing Edge Function Health + Browser CORS Compatibility
+## Stabilize OTP Login for Persistent “Failed to fetch” in Preview (Auth API path)
 
-### What I found
-- Your Supabase screenshot shows **Auth is healthy** but **Edge Functions are unhealthy**.
-- I checked live function behavior:
-  - `send-otp`, `verify-otp`, `create-user`, `update-user-credentials`, etc. are reachable and returning expected auth/validation errors when called directly.
-  - `chatbot` is repeatedly throwing `TypeError: messages is not iterable` (confirmed in edge logs), which can keep Edge Functions in an unhealthy state.
-- I also found a likely browser-side blocker for OTP login:
-  - Most edge functions use limited CORS headers:
-    - `authorization, x-client-info, apikey, content-type`
-  - They are missing modern Supabase client headers:
-    - `x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version`
-  - This can cause browser preflight failure (`Failed to fetch`) even when function code is otherwise fine.
+### What I verified from the current state
+- The user-facing error is at **Email OTP send** (`Failed to Send OTP -> Failed to fetch`), not only mobile OTP.
+- Recent network traces show repeated failures to:
+  - `POST /auth/v1/token?grant_type=refresh_token`
+  - `POST /auth/v1/otp`
+- The failing calls are against **Supabase Auth endpoints** (not edge functions), so fixing only edge functions is not enough.
+- In this codebase, auth recovery currently clears only `sb-*-auth-token` + local signOut, but repeated refresh loops can still continue in some browsers/sessions.
+- The app also uses PWA/service worker + cached runtime routes, which can make stale/broken client state persist longer across reloads.
 
 ---
 
-## Implementation approach
+## Root issue framing
+This is a **client-session corruption + persistent browser state** problem on top of network fetch failures:
+1. stale/corrupted Supabase auth artifacts can keep refresh loops alive
+2. OTP calls then fail in the same broken state
+3. users remain stuck unless they manually clear browser storage/cache
 
-### 1) Fix the unhealthy function behavior (chatbot)
-**File:** `supabase/functions/chatbot/index.ts`
-
-- Add safe request parsing:
-  - If request body is empty/invalid JSON, return `400` (not `500`)
-  - Validate `messages` is an array before using `...messages`
-- Add a lightweight health response:
-  - For `GET` (or `GET /`), return `200` with `{ ok: true }`
-- Keep current streaming behavior unchanged for valid chat requests.
-
-**Why:** Prevent repeated runtime 500s from malformed pings/requests, which likely drives the “Edge Functions unhealthy” state.
+So the fix should be **self-healing inside the app**, not only backend-side.
 
 ---
 
-### 2) Standardize CORS headers on all browser-invoked functions
-**Files:**
-- `supabase/functions/send-otp/index.ts`
-- `supabase/functions/verify-otp/index.ts`
-- `supabase/functions/create-user/index.ts`
-- `supabase/functions/update-user-credentials/index.ts`
-- `supabase/functions/get-user-emails/index.ts`
-- `supabase/functions/sync-auth-emails/index.ts`
+## Implementation plan
 
-- Update `Access-Control-Allow-Headers` to include the full Supabase browser header set:
-  - `authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version`
-- Ensure OPTIONS preflight always returns these headers.
-
-**Why:** This removes browser preflight incompatibilities that surface as login “Failed to fetch” on mobile OTP flows.
-
----
-
-### 3) Harden request validation to avoid false unhealthy signals
-**Same edge function files as above**
-
-- Ensure non-OPTIONS requests with bad/empty JSON return `400` with clear error payload (not uncaught exceptions/500).
-- Keep authorization checks as-is (401/403 where appropriate).
-
-**Why:** Avoid health monitor noise and improve observability.
-
----
-
-### 4) Improve client-side login error clarity (small UX hardening)
+### 1) Expand auth self-healing to a full “hard reset” path
 **File:** `src/lib/auth.tsx`
 
-- In `sendMobileOTP` and `verifyMobileOTP` catch blocks:
-  - Normalize Supabase function errors into user-friendly messages
-  - Distinguish connectivity/CORS vs validation errors
-- Keep existing auth recovery logic (local auth cache cleanup + retry) unchanged.
+Add a stronger recovery helper (keep current one, but extend it):
+- clear all likely Supabase auth storage keys (not only exact `sb-*-auth-token`, also variant/migrated keys)
+- clear auth keys from both `localStorage` and `sessionStorage`
+- local-only `supabase.auth.signOut({ scope: "local" })`
+- invalidate app custom token (`supabase_session_token`) when appropriate
+- optionally clear stale service worker caches used by this app (only in recovery flow, not normal flow)
 
-**Why:** Users/admins can quickly tell whether issue is input-related, permissions-related, or network/CORS-related.
+Use this helper in:
+- initial session bootstrap (`loadSession`) when any auth fetch failure occurs
+- `signInWithOTP` retry path
+- `verifyOTP` retry path
+- `sendMobileOTP` retry path
+- `verifyMobileOTP` retry path
+
+Retry behavior:
+- on fetch/network-like auth failure, run recovery once and retry once
+- prevent infinite retries
+
+---
+
+### 2) Add targeted detection for “broken persisted session loop”
+**File:** `src/lib/auth.tsx`
+
+Introduce a guard that detects obviously invalid persisted session payloads (e.g., malformed refresh token/session shape) before normal auth flow proceeds.
+
+If malformed:
+- immediately run recovery helper
+- skip auto-refresh loop startup from broken state
+
+This stops endless `grant_type=refresh_token` failing loops from poisoning login attempts.
+
+---
+
+### 3) Expose a user-triggered “Fix Login” action on Auth screen
+**File:** `src/pages/Auth.tsx`
+
+Add a small secondary button in the login page, e.g.:
+- “Having trouble signing in? Fix login”
+- calls a recovery function from auth context (`repairAuthState`)
+
+Behavior:
+- clears stale auth/browser state safely
+- reloads the page
+- shows clear toast message (“Login state reset. Please try OTP again.”)
+
+This gives non-technical users a one-click recovery instead of manual cache/storage clearing.
+
+---
+
+### 4) Improve error messaging for faster diagnosis
+**Files:** `src/lib/auth.tsx`, `src/pages/Auth.tsx`
+
+Normalize fetch failures into clearer messages:
+- distinguish “network/auth service unreachable” vs “invalid email/OTP”
+- keep existing destructive toast style but with actionable copy
+
+Example intent:
+- “Couldn’t reach sign-in service. We reset local login state and retried. Please try once more.”
+
+---
+
+### 5) Keep existing edge-function CORS hardening (already done), no rollback there
+No additional edge CORS changes for this pass unless logs prove new preflight failures. Current user symptom is Auth API path (`/auth/v1/*`).
 
 ---
 
 ## Validation checklist after implementation
-
-1. **Edge health**
-   - Supabase dashboard should move from “Edge Functions Unhealthy” to healthy after error rate drops.
-2. **Mobile OTP login**
-   - `send-otp` works from browser preview without preflight errors.
-   - `verify-otp` completes and session is established.
-3. **Email OTP login**
-   - Still works as before (no regressions).
-4. **Logs**
-   - No recurring `messages is not iterable` in chatbot logs.
-5. **Cross-project confidence**
-   - Apply same function-header and chatbot hardening pattern to your other affected workspace projects (`kmm connect`, `HealthCore Foundation`) if they share this edge function structure.
+1. Fresh load on `/` with stale storage present:
+   - no endless refresh-token failure loop
+2. Click **Send 6-Digit OTP**:
+   - request succeeds or fails with clear, specific message
+3. If first call fails:
+   - app auto-recovers once and retries
+4. “Fix Login” button:
+   - clears broken state and allows OTP flow to proceed
+5. Repeat in preview and published URLs
+6. Confirm this pattern can be reused in the other affected workspace projects (`kmm connect`, `HealthCore Foundation`)
 
 ---
 
-## Technical notes / risk control
-- This is a low-risk hardening pass: no schema migration, no auth model rewrite.
-- Primary risk is accidental response-shape change in edge functions; we’ll preserve existing success/error JSON contracts.
-- The fix targets both symptoms:
-  - unhealthy edge status (chatbot 500 loop)
-  - browser login failures tied to CORS preflight header mismatch.
+## Technical notes
+- This plan focuses on resilient client recovery because the failing path is `supabase.co/auth/v1/*`, not just edge functions.
+- It avoids schema changes/migrations and keeps auth model intact.
+- Risk is low; behavior changes are limited to error/recovery paths and explicit user recovery action.
