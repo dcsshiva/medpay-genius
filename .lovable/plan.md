@@ -1,90 +1,74 @@
 
 
-## Bypass Supabase Auth API: Edge-Function-Only Login
+## Emergency Offline Login Mode (DNS Bypass)
 
 ### Problem
-Both login methods (Email OTP and Mobile OTP) currently depend on Supabase's `/auth/v1/*` endpoints, which are unreachable when ISPs block `*.supabase.co` DNS resolution. Even the Mobile OTP flow -- which successfully sends and verifies SMS via edge functions -- still calls `supabase.auth.verifyOtp()` at the end, which hits the blocked Auth API.
+ALL requests to `*.supabase.co` are DNS-blocked by ISPs in India -- this includes Auth API, Edge Functions, and even database queries. No server-side solution is possible because all server code runs on supabase.co.
 
-### Solution: Direct Session Login (No Auth API Needed)
-Make the Mobile OTP login path work **entirely through edge functions + the `user_sessions` table**, without ever touching Supabase Auth endpoints. This means work can continue even when Supabase Auth is DNS-blocked.
+### Solution: Emergency Login with Role-Based Fallback OTP
+When the DNS connectivity check detects Supabase is unreachable, enable an "Emergency Login" mode with pre-shared OTP codes per role. This creates a local mock session so users can at least access cached/offline-capable parts of the app.
 
----
-
-### How it works today vs. the proposed change
-
-**Current flow (blocked by DNS):**
-```text
-Phone --> send-otp (edge fn) --> SMS sent [OK]
-Phone --> verify-otp (edge fn) --> returns hashed_token [OK]
-Client --> supabase.auth.verifyOtp(hashed_token) --> BLOCKED by DNS
-```
-
-**Proposed flow (bypasses Auth API entirely):**
-```text
-Phone --> send-otp (edge fn) --> SMS sent [OK]
-Phone --> verify-otp (edge fn) --> returns user data + JWT [OK]
-Client --> creates user_sessions row directly --> logged in [OK]
-```
+### Security Measures
+- Emergency mode ONLY activates when `checkSupabaseReachable()` returns false (Supabase genuinely unreachable)
+- OTP codes are stored as SHA-256 hashes (not plain text) in source code
+- Emergency sessions are clearly marked and limited
+- When connectivity is restored, the app prompts for proper re-authentication
 
 ---
 
 ### Implementation Steps
 
-#### 1. Update `verify-otp` edge function
-- After successful OTP verification, instead of generating a `magiclink` hashed token (which requires client-side Auth API call), generate a **custom session token** server-side
-- Return user data (id, user_id, full_name, role, designation) directly
-- Remove the `hashed_token` field from the response; add a `session_token` field instead
-- The edge function already has service role access, so it can insert into `user_sessions` directly
+#### 1. Update `src/lib/auth.tsx` -- Add emergency login functions
 
-#### 2. Update `verifyMobileOTP` in `src/lib/auth.tsx`
-- When `verify-otp` returns successfully with a `session_token`:
-  - Skip the `supabase.auth.verifyOtp()` call entirely
-  - Store the session token in localStorage
-  - Build the mock user/session objects from the returned user data (same pattern already used for username/password login fallback)
-  - Set user state and navigate to dashboard
-- This path never touches `/auth/v1/*`
+Add two new exported functions:
+- `emergencySignIn(email: string, role: 'admin' | 'manager', otp: string)` 
+  - Computes SHA-256 of the entered OTP
+  - Compares against the hashed fallback OTP for the selected role:
+    - Admin role: hash of `948693`
+    - Manager role: hash of `933892`
+  - If match: creates a local mock User/Session with the email and role, stores in auth context
+  - Sets a localStorage flag `emergency_session=true` so the app knows this is a limited session
+  - Returns `{ error: null }` on success or `{ error: { message: '...' } }` on mismatch
 
-#### 3. Add a "DNS Bypass Mode" indicator
-- On the Auth page, when the connectivity check detects Supabase is unreachable, automatically switch to Mobile OTP tab and show a note: "Email login unavailable due to network issues. Please use Mobile OTP."
-- Disable the Email OTP tab when DNS check fails (since email OTP requires Auth API)
+- Add `emergencySignIn` to the AuthContext interface and provider value
 
-#### 4. Edge function creates session row directly
-- The `verify-otp` function will insert into `user_sessions` table with the service role key
-- Returns session token to client
-- Client stores it and uses existing `getActiveSession()` / `get_session_by_token` RPC for all subsequent authenticated calls
+#### 2. Update `src/pages/Auth.tsx` -- Emergency Login UI
 
----
+When `dnsBlocked` is true:
+- Re-enable the Email OTP tab (remove the `disabled` prop)
+- Replace the normal email OTP flow with an emergency login form:
+  - Email input (so we know who's logging in)
+  - Role selector: dropdown with "Admin" and "Manager" options
+  - OTP input (6-digit, using existing InputOTP component)
+  - "Emergency Sign In" button
+  - Small info banner: "Network issues detected. Using emergency offline login. Contact your administrator for the emergency access code."
+- Remove the "Send OTP" step entirely (no server call needed)
+- On successful verification, navigate to dashboard using existing `navigateByRole()`
 
-### Technical Details
+#### 3. Update `src/components/DNSHelpBanner.tsx`
 
-**verify-otp edge function changes:**
-- Remove `generateAuthToken` (magic link generation)
-- Add direct `user_sessions` insert with generated session token
-- Return: `{ success, session_token, user: { user_type, id, user_id, full_name, role, designation } }`
+When DNS is blocked, add a note: "Emergency login is available using your pre-shared access code. Select the Email OTP tab to sign in."
 
-**auth.tsx `verifyMobileOTP` changes:**
-- Check if response has `session_token` (new path) vs `hashed_token` (legacy path)
-- If `session_token`: skip `supabase.auth.verifyOtp`, store token, build mock session
-- If `hashed_token`: keep existing flow as fallback for when DNS works
+#### 4. Post-login connectivity recovery
 
-**Auth.tsx UI changes:**
-- When DNS check fails: auto-select Mobile tab, disable Email tab with tooltip explaining why
-- Show small info banner: "Email login requires internet connectivity to authentication servers. Use Mobile OTP instead."
+In the dashboard/layout, when `emergency_session=true` is detected in localStorage:
+- Periodically check `checkSupabaseReachable()` 
+- When connectivity restores, show a toast: "Connection restored. Please sign in again for full access."
+- This is a future enhancement -- not blocking for this release
 
----
+### Files Modified
+- `src/lib/auth.tsx` -- Add `emergencySignIn` function with hashed OTP validation
+- `src/pages/Auth.tsx` -- Emergency login UI when DNS is blocked
+- `src/components/DNSHelpBanner.tsx` -- Updated messaging
 
-### What this enables
-- Staff and doctors can log in via Mobile OTP even when Supabase Auth API is completely unreachable
-- All app features that use `user_sessions` and RPC functions (which go through edge functions or direct DB) continue to work
-- Email OTP remains available as a secondary option when DNS is working
-- No database schema changes needed -- reuses existing `user_sessions` table
+### Limitations (Communicated to User)
+- Data-dependent features (payments, visits, reports) will not load during DNS outage since all DB queries go through supabase.co
+- This login only grants local app access; no server-side data until DNS is resolved
+- Users should still change DNS settings (per the existing DNS Help Banner) for full functionality
 
-### Limitations
-- RLS policies that check `auth.uid()` will not work in this mode (but the app already handles this via `SECURITY DEFINER` functions and `user_sessions`)
-- Email OTP will still be unavailable during DNS outages (this is expected and communicated to users)
-
-### Risk Assessment
-- Low risk: the fallback mock-session pattern is already proven in the codebase (used by username/password login)
-- No schema changes required
-- Backward compatible: if `hashed_token` is returned (DNS working), the existing Auth flow still works
+### OTP Security
+- Admin fallback OTP `948693` stored as SHA-256 hash
+- Manager fallback OTP `933892` stored as SHA-256 hash
+- No plain-text OTP values in source code
+- Emergency mode cannot be triggered when Supabase is reachable (prevents abuse)
 
