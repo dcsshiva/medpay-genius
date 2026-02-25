@@ -19,6 +19,7 @@ import Footer from "@/components/Footer";
 import DNSHelpBanner from "@/components/DNSHelpBanner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { formatMobileNumber, validateMobileNumber } from "@/lib/validators";
+import { checkSupabaseReachable } from "@/lib/connectivityCheck";
 
 const Auth: React.FC = () => {
   const navigate = useNavigate();
@@ -31,6 +32,7 @@ const Auth: React.FC = () => {
   const { loading: authLoading } = useAuth();
   const [formLoading, setFormLoading] = useState(false);
   const [loginMethod, setLoginMethod] = useState<'email' | 'mobile'>('email');
+  const [dnsBlocked, setDnsBlocked] = useState(false);
 
   // Email OTP state
   const [email, setEmail] = useState<string>("");
@@ -50,6 +52,20 @@ const Auth: React.FC = () => {
       navigate('/dashboard');
     }
   }, [authLoading, user, navigate]);
+
+  // DNS connectivity check — auto-switch to Mobile OTP if blocked
+  useEffect(() => {
+    const check = async () => {
+      const ok = await checkSupabaseReachable();
+      if (!ok) {
+        setDnsBlocked(true);
+        setLoginMethod('mobile');
+      } else {
+        setDnsBlocked(false);
+      }
+    };
+    check();
+  }, []);
 
   // Auto-verify Email OTP when all 6 digits are entered
   useEffect(() => {
@@ -339,9 +355,9 @@ const Auth: React.FC = () => {
             </CardHeader>
 
             <CardContent>
-              <Tabs value={loginMethod} onValueChange={(v) => setLoginMethod(v as 'email' | 'mobile')} className="w-full">
+              <Tabs value={loginMethod} onValueChange={(v) => { if (v === 'email' && dnsBlocked) return; setLoginMethod(v as 'email' | 'mobile'); }} className="w-full">
                 <TabsList className="grid w-full grid-cols-2 mb-4">
-                  <TabsTrigger value="email" className="flex items-center gap-1.5">
+                  <TabsTrigger value="email" className="flex items-center gap-1.5" disabled={dnsBlocked} title={dnsBlocked ? 'Email login unavailable due to network issues' : undefined}>
                     <Mail className="h-4 w-4" />
                     Email OTP
                   </TabsTrigger>
@@ -350,6 +366,12 @@ const Auth: React.FC = () => {
                     Mobile OTP
                   </TabsTrigger>
                 </TabsList>
+
+                {dnsBlocked && (
+                  <div className="mb-3 rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+                    ⚠️ Email login is unavailable due to network issues. Please use Mobile OTP.
+                  </div>
+                )}
 
                 {/* Email OTP Tab */}
                 <TabsContent value="email">

@@ -80,19 +80,43 @@ serve(async (req) => {
       })
       .eq('id', otpRecord.id);
 
-    // Helper: generate magic link token for a user email
-    const generateAuthToken = async (email: string) => {
-      const { data: linkData, error: linkError } = await supabaseClient.auth.admin.generateLink({
-        type: 'magiclink',
-        email: email,
-      });
+    // Helper: generate a custom session token and insert into user_sessions directly
+    const createDirectSession = async (userData: {
+      user_type: string;
+      original_id: string;
+      user_id: string;
+      username: string;
+      full_name: string;
+      role: string;
+    }) => {
+      const sessionToken = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const refreshToken = `refresh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+      const timeoutDuration = ['admin', 'manager'].includes(userData.role) ? 300 : 180;
 
-      if (linkError) {
-        console.error('Error generating magic link:', linkError);
+      const { error: insertError } = await supabaseClient
+        .from('user_sessions')
+        .insert({
+          user_id: userData.user_id,
+          user_type: userData.user_type,
+          original_id: userData.original_id,
+          session_token: sessionToken,
+          refresh_token: refreshToken,
+          username: userData.username,
+          full_name: userData.full_name,
+          role: userData.role,
+          expires_at: expiresAt.toISOString(),
+          idle_timeout_seconds: timeoutDuration,
+          last_activity_at: new Date().toISOString(),
+          is_active: true
+        });
+
+      if (insertError) {
+        console.error('Failed to create session:', insertError);
         return null;
       }
 
-      return linkData?.properties?.hashed_token || null;
+      return sessionToken;
     };
 
     // Find user by mobile number in staff or doctors table
@@ -104,28 +128,41 @@ serve(async (req) => {
       .single();
 
     if (staffUser) {
-      // Get email for session creation
-      const { data: userData } = await supabaseClient.auth.admin.getUserById(staffUser.user_id);
-      const userEmail = userData?.user?.email;
-
-      // Generate auth token for real Supabase session
-      let hashed_token = null;
-      if (userEmail) {
-        hashed_token = await generateAuthToken(userEmail);
+      // Get designation for the user
+      let designation = staffUser.role || 'staff';
+      if (staffUser.user_id) {
+        const { data: desigData } = await supabaseClient
+          .from('user_designations')
+          .select('designation')
+          .eq('user_id', staffUser.user_id)
+          .single();
+        if (desigData?.designation) {
+          designation = desigData.designation;
+        }
       }
+
+      // Create direct session
+      const sessionToken = await createDirectSession({
+        user_type: 'staff',
+        original_id: staffUser.id,
+        user_id: staffUser.user_id || staffUser.id,
+        username: mobile,
+        full_name: staffUser.full_name,
+        role: designation
+      });
 
       return new Response(
         JSON.stringify({
           success: true,
           message: 'OTP verified successfully',
-          hashed_token,
+          session_token: sessionToken,
           user: {
             user_type: 'staff',
             id: staffUser.id,
-            user_id: staffUser.user_id,
+            user_id: staffUser.user_id || staffUser.id,
             full_name: staffUser.full_name,
-            role: staffUser.role,
-            email: userEmail
+            role: designation,
+            designation: designation
           }
         }),
         {
@@ -144,27 +181,41 @@ serve(async (req) => {
       .single();
 
     if (doctorUser) {
-      const { data: userData } = await supabaseClient.auth.admin.getUserById(doctorUser.user_id);
-      const userEmail = userData?.user?.email;
-
-      // Generate auth token for real Supabase session
-      let hashed_token = null;
-      if (userEmail) {
-        hashed_token = await generateAuthToken(userEmail);
+      // Get designation
+      let designation = 'doctor';
+      if (doctorUser.user_id) {
+        const { data: desigData } = await supabaseClient
+          .from('user_designations')
+          .select('designation')
+          .eq('user_id', doctorUser.user_id)
+          .single();
+        if (desigData?.designation) {
+          designation = desigData.designation;
+        }
       }
+
+      // Create direct session
+      const sessionToken = await createDirectSession({
+        user_type: 'doctor',
+        original_id: doctorUser.id,
+        user_id: doctorUser.user_id || doctorUser.id,
+        username: mobile,
+        full_name: doctorUser.full_name || doctorUser.doctor_code,
+        role: designation
+      });
 
       return new Response(
         JSON.stringify({
           success: true,
           message: 'OTP verified successfully',
-          hashed_token,
+          session_token: sessionToken,
           user: {
             user_type: 'doctor',
             id: doctorUser.id,
-            user_id: doctorUser.user_id,
-            full_name: doctorUser.full_name,
-            role: 'doctor',
-            email: userEmail
+            user_id: doctorUser.user_id || doctorUser.id,
+            full_name: doctorUser.full_name || doctorUser.doctor_code,
+            role: designation,
+            designation: designation
           }
         }),
         {
