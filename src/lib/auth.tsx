@@ -92,11 +92,11 @@ const invalidateSession = async (sessionToken?: string) => {
   window.localStorage.removeItem('supabase_session_token');
 };
 
-// Comprehensive auth state cleanup - clears ALL Supabase auth artifacts
+// Comprehensive auth state cleanup - clears ALL Supabase auth artifacts + SW + caches
 const hardResetAuthState = async () => {
   if (typeof window === 'undefined') return;
 
-  // Clear all Supabase auth keys from both localStorage and sessionStorage
+  // 1. Clear all Supabase auth keys from both localStorage and sessionStorage
   const clearSupabaseKeys = (storage: Storage) => {
     const keysToRemove = Object.keys(storage).filter(
       (key) => key.startsWith('sb-') || key.includes('supabase')
@@ -110,18 +110,30 @@ const hardResetAuthState = async () => {
   // Also clear our custom session token
   window.localStorage.removeItem('supabase_session_token');
 
-  // Reset in-memory auth state without network call
+  // 2. Reset in-memory auth state without network call
   try {
     await supabase.auth.signOut({ scope: 'local' });
   } catch (_) {
     // Ignore - we're already cleaning up
   }
 
-  // Clear service worker caches that may hold stale auth responses
+  // 3. Unregister ALL service workers (removes stale SW that may intercept/cache auth traffic)
+  if ('serviceWorker' in navigator) {
+    try {
+      const registrations = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(registrations.map((r) => r.unregister()));
+      console.log('[hardReset] Unregistered', registrations.length, 'service worker(s)');
+    } catch (_) {
+      // Ignore SW cleanup failures
+    }
+  }
+
+  // 4. Clear ALL browser caches (removes stale cached auth/API responses)
   if ('caches' in window) {
     try {
       const cacheNames = await caches.keys();
       await Promise.all(cacheNames.map((name) => caches.delete(name)));
+      console.log('[hardReset] Cleared', cacheNames.length, 'cache(s)');
     } catch (_) {
       // Ignore cache cleanup failures
     }

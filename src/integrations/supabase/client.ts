@@ -5,7 +5,83 @@ import type { Database } from './types';
 const SUPABASE_URL = "https://chbntbekbgetbyyxapqh.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYm50YmVrYmdldGJ5eXhhcHFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5NTM5NDcsImV4cCI6MjA3MjUyOTk0N30.iTlMXOoynJFKE0djf0LAZoaeLY6O07uYM5UxtS8jcDc";
 
+// Storage key version — bump this to invalidate all old persisted sessions
+const STORAGE_VERSION = 'v2';
+
+// One-time migration: wipe old-format auth keys on first load with new version
+const AUTH_MIGRATED_KEY = `__auth_storage_migrated_${STORAGE_VERSION}`;
+if (typeof window !== 'undefined' && !window.localStorage.getItem(AUTH_MIGRATED_KEY)) {
+  try {
+    const keysToRemove = Object.keys(window.localStorage).filter(
+      (k) => k.startsWith('sb-') || k.includes('supabase')
+    );
+    keysToRemove.forEach((k) => window.localStorage.removeItem(k));
+    const sessionKeysToRemove = Object.keys(window.sessionStorage).filter(
+      (k) => k.startsWith('sb-') || k.includes('supabase')
+    );
+    sessionKeysToRemove.forEach((k) => window.sessionStorage.removeItem(k));
+    window.localStorage.setItem(AUTH_MIGRATED_KEY, Date.now().toString());
+    console.log('[auth-bootstrap] Cleared legacy auth keys for storage version', STORAGE_VERSION);
+  } catch (_) {
+    // Ignore storage errors
+  }
+}
+
+// Validate persisted auth token shape before Supabase SDK reads it
+const isValidAuthPayload = (raw: string | null): boolean => {
+  if (!raw) return false;
+  try {
+    const parsed = JSON.parse(raw);
+    // Supabase stores { access_token, refresh_token, ... } or nested under a key
+    const refreshToken = parsed?.refresh_token;
+    if (!refreshToken || typeof refreshToken !== 'string' || refreshToken.length < 20) {
+      return false;
+    }
+    const accessToken = parsed?.access_token;
+    if (!accessToken || typeof accessToken !== 'string' || accessToken.length < 20) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+// Custom storage wrapper that validates auth payloads before returning them
+const validatingStorage: Storage & { getItem: (key: string) => string | null } = {
+  get length() { return window.localStorage.length; },
+  key(index: number) { return window.localStorage.key(index); },
+  clear() { window.localStorage.clear(); },
+  getItem(key: string): string | null {
+    const raw = window.localStorage.getItem(key);
+    // Only validate auth token keys
+    if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+      if (!isValidAuthPayload(raw)) {
+        if (raw !== null) {
+          console.warn('[auth-bootstrap] Removing malformed auth token from storage:', key);
+          window.localStorage.removeItem(key);
+        }
+        return null;
+      }
+    }
+    return raw;
+  },
+  setItem(key: string, value: string) {
+    window.localStorage.setItem(key, value);
+  },
+  removeItem(key: string) {
+    window.localStorage.removeItem(key);
+  },
+};
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth: {
+    storage: validatingStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
+});
