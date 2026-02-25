@@ -92,6 +92,20 @@ const invalidateSession = async (sessionToken?: string) => {
   window.localStorage.removeItem('supabase_session_token');
 };
 
+const clearCorruptedSupabaseAuthStorage = async () => {
+  if (typeof window === 'undefined') return;
+
+  // Supabase JS persists auth state in keys like: sb-<project-ref>-auth-token
+  const authStorageKeys = Object.keys(window.localStorage).filter(
+    (key) => key.startsWith('sb-') && key.endsWith('-auth-token')
+  );
+
+  authStorageKeys.forEach((key) => window.localStorage.removeItem(key));
+
+  // Ensure in-memory auth state also gets reset without requiring network
+  await supabase.auth.signOut({ scope: 'local' });
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -169,7 +183,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const loadSession = async () => {
       try {
         // Priority 1: Check for a real Supabase auth session
-        const { data: { session: supaSession } } = await supabase.auth.getSession();
+        // If persisted auth storage is corrupted, clear and retry once.
+        let supaSession: Session | null = null;
+
+        try {
+          const { data } = await supabase.auth.getSession();
+          supaSession = data.session;
+        } catch (sessionError: any) {
+          const isFetchFailure = /failed to fetch/i.test(sessionError?.message || '');
+          if (isFetchFailure) {
+            console.warn('Supabase session refresh failed. Clearing persisted auth state and retrying once.');
+            await clearCorruptedSupabaseAuthStorage();
+            const { data } = await supabase.auth.getSession();
+            supaSession = data.session;
+          } else {
+            throw sessionError;
+          }
+        }
         
         if (supaSession?.user) {
           console.log('Restored real Supabase session for user:', supaSession.user.id);
