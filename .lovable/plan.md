@@ -1,113 +1,81 @@
 
-## Stabilize OTP Login for Persistent “Failed to fetch” in Preview (Auth API path)
+Goal: resolve the remaining login failure loop by fixing the part that still happens before your current recovery logic can help.
 
-### What I verified from the current state
-- The user-facing error is at **Email OTP send** (`Failed to Send OTP -> Failed to fetch`), not only mobile OTP.
-- Recent network traces show repeated failures to:
-  - `POST /auth/v1/token?grant_type=refresh_token`
-  - `POST /auth/v1/otp`
-- The failing calls are against **Supabase Auth endpoints** (not edge functions), so fixing only edge functions is not enough.
-- In this codebase, auth recovery currently clears only `sb-*-auth-token` + local signOut, but repeated refresh loops can still continue in some browsers/sessions.
-- The app also uses PWA/service worker + cached runtime routes, which can make stale/broken client state persist longer across reloads.
+What I verified from your latest evidence:
+- In your browser preview, requests to `POST /auth/v1/token?grant_type=refresh_token` and `POST /auth/v1/otp` still fail with `TypeError: Failed to fetch`.
+- The failing refresh token value is very short (`3ftjehm6fgdr`), which is not a normal Supabase refresh token shape.
+- I reproduced the same login flow in a clean remote browser session and OTP send succeeds (`200`), which strongly indicates a persisted client-state/runtime problem rather than an always-broken backend endpoint.
+- Edge Function health being unhealthy is still important, but your current blocker is Auth API fetch from affected browser state.
 
----
+Do I know what the issue is?
+- Yes: the failure is most likely caused by corrupted/stale persisted auth state (and possibly stale service worker state) being loaded too early by Supabase client initialization, creating a refresh loop that poisons OTP calls before your current in-app recovery can fully stabilize.
 
-## Root issue framing
-This is a **client-session corruption + persistent browser state** problem on top of network fetch failures:
-1. stale/corrupted Supabase auth artifacts can keep refresh loops alive
-2. OTP calls then fail in the same broken state
-3. users remain stuck unless they manually clear browser storage/cache
+Implementation approach (next patch)
+1) Prevent bad auth state from ever being loaded at client bootstrap
+- File: `src/integrations/supabase/client.ts`
+- Add explicit `createClient(..., { auth: ... })` config with a storage wrapper that validates persisted auth payload before returning it to Supabase.
+- If stored auth payload is malformed (missing/invalid refresh token shape), remove it and return `null`.
+- Add a storage key version bump (e.g. new auth storage key suffix) to hard-cut old corrupted persisted sessions.
+- Why: this runs earlier than `AuthProvider` recovery, preventing refresh-loop startup.
 
-So the fix should be **self-healing inside the app**, not only backend-side.
+2) Fully stop stale SW control during “Fix Login”
+- File: `src/lib/auth.tsx`
+- Extend `hardResetAuthState` to:
+  - unregister all service workers (`navigator.serviceWorker.getRegistrations().unregister()`),
+  - then clear caches,
+  - then clear auth keys and local signout.
+- Keep existing storage cleanup, but strengthen key matching and malformed-token detection (accept both top-level and nested Supabase token formats).
+- Why: clearing cache alone does not remove a stale controlling service worker.
 
----
+3) Add a pre-auth refresh-loop kill switch
+- File: `src/lib/auth.tsx`
+- Before normal `getSession`, detect repeated fetch failure patterns; on trigger:
+  - stop auto-refresh attempts,
+  - clear in-memory + persisted auth,
+  - attempt one clean re-init path only.
+- Ensure no infinite retry loops.
+- Why: prevents repeated failed refresh attempts from starving login requests.
 
-## Implementation plan
+4) Remove Supabase API runtime caching from PWA strategy
+- File: `vite.config.ts`
+- Remove/limit the Workbox runtime cache rule that targets `*.supabase.co`.
+- Keep static asset/image caching only.
+- Why: Auth/API traffic should not be part of app-level runtime cache behavior; this avoids stale or undefined behavior across releases.
 
-### 1) Expand auth self-healing to a full “hard reset” path
-**File:** `src/lib/auth.tsx`
+5) Improve user-facing diagnostics on auth failures
+- Files: `src/lib/auth.tsx`, `src/pages/Auth.tsx`
+- Differentiate these cases in message copy:
+  - “Service unreachable from this browser runtime”
+  - “Invalid OTP/email”
+  - “Login state corrupted and reset performed”
+- Keep “Fix Login” as a one-click action, but confirm completion text after reset path succeeds.
 
-Add a stronger recovery helper (keep current one, but extend it):
-- clear all likely Supabase auth storage keys (not only exact `sb-*-auth-token`, also variant/migrated keys)
-- clear auth keys from both `localStorage` and `sessionStorage`
-- local-only `supabase.auth.signOut({ scope: "local" })`
-- invalidate app custom token (`supabase_session_token`) when appropriate
-- optionally clear stale service worker caches used by this app (only in recovery flow, not normal flow)
+Validation plan
+1. In affected preview session:
+- Click “Fix Login” once.
+- Confirm service workers are unregistered, caches cleared, and page reloads.
+- Confirm refresh-token loop no longer appears immediately.
 
-Use this helper in:
-- initial session bootstrap (`loadSession`) when any auth fetch failure occurs
-- `signInWithOTP` retry path
-- `verifyOTP` retry path
-- `sendMobileOTP` retry path
-- `verifyMobileOTP` retry path
+2. Email OTP:
+- `POST /auth/v1/otp` should return 200 or a normal API error body (not Failed to fetch).
 
-Retry behavior:
-- on fetch/network-like auth failure, run recovery once and retry once
-- prevent infinite retries
+3. Mobile OTP:
+- `send-otp` and `verify-otp` should behave normally.
 
----
+4. Regression checks:
+- Existing signed-in users should only be logged out once due to storage key migration.
+- Published URL and preview URL both tested.
 
-### 2) Add targeted detection for “broken persisted session loop”
-**File:** `src/lib/auth.tsx`
+5. Cross-project reuse:
+- Apply same bootstrap storage guard + SW unregister + PWA cache scope fix to `kmm connect` and `HealthCore Foundation` for consistent behavior.
 
-Introduce a guard that detects obviously invalid persisted session payloads (e.g., malformed refresh token/session shape) before normal auth flow proceeds.
+Risk and tradeoffs
+- Short-term impact: users may need one-time re-login (expected and acceptable for stabilization).
+- Benefit: removes persistent “stuck browser state” as a class of issues and reduces repeated support loops.
 
-If malformed:
-- immediately run recovery helper
-- skip auto-refresh loop startup from broken state
-
-This stops endless `grant_type=refresh_token` failing loops from poisoning login attempts.
-
----
-
-### 3) Expose a user-triggered “Fix Login” action on Auth screen
-**File:** `src/pages/Auth.tsx`
-
-Add a small secondary button in the login page, e.g.:
-- “Having trouble signing in? Fix login”
-- calls a recovery function from auth context (`repairAuthState`)
-
-Behavior:
-- clears stale auth/browser state safely
-- reloads the page
-- shows clear toast message (“Login state reset. Please try OTP again.”)
-
-This gives non-technical users a one-click recovery instead of manual cache/storage clearing.
-
----
-
-### 4) Improve error messaging for faster diagnosis
-**Files:** `src/lib/auth.tsx`, `src/pages/Auth.tsx`
-
-Normalize fetch failures into clearer messages:
-- distinguish “network/auth service unreachable” vs “invalid email/OTP”
-- keep existing destructive toast style but with actionable copy
-
-Example intent:
-- “Couldn’t reach sign-in service. We reset local login state and retried. Please try once more.”
-
----
-
-### 5) Keep existing edge-function CORS hardening (already done), no rollback there
-No additional edge CORS changes for this pass unless logs prove new preflight failures. Current user symptom is Auth API path (`/auth/v1/*`).
-
----
-
-## Validation checklist after implementation
-1. Fresh load on `/` with stale storage present:
-   - no endless refresh-token failure loop
-2. Click **Send 6-Digit OTP**:
-   - request succeeds or fails with clear, specific message
-3. If first call fails:
-   - app auto-recovers once and retries
-4. “Fix Login” button:
-   - clears broken state and allows OTP flow to proceed
-5. Repeat in preview and published URLs
-6. Confirm this pattern can be reused in the other affected workspace projects (`kmm connect`, `HealthCore Foundation`)
-
----
-
-## Technical notes
-- This plan focuses on resilient client recovery because the failing path is `supabase.co/auth/v1/*`, not just edge functions.
-- It avoids schema changes/migrations and keeps auth model intact.
-- Risk is low; behavior changes are limited to error/recovery paths and explicit user recovery action.
+Technical execution order
+1. `client.ts` bootstrap guard + storage key version
+2. `auth.tsx` hard reset upgrade + refresh-loop kill switch
+3. `vite.config.ts` runtime cache scope tightening
+4. auth error message normalization in UI
+5. verify end-to-end in preview and published
