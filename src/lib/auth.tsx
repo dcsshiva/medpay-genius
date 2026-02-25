@@ -898,9 +898,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!data.success) throw new Error(data.error || 'Failed to verify OTP');
 
       const userData = data.user;
-      const hashedToken = data.hashed_token;
+      const sessionToken = data.session_token;
 
-      // If we have a hashed_token, establish a real Supabase Auth session
+      // New path: edge function created the session directly, no Auth API needed
+      if (sessionToken && userData) {
+        console.log('Mobile OTP: Direct session established (DNS-bypass mode)');
+        
+        // Store the session token
+        window.localStorage.setItem('supabase_session_token', sessionToken);
+
+        const mockUser = {
+          id: userData.user_id,
+          email: `${mobile}@westmed.local`,
+          app_metadata: {},
+          aud: 'authenticated',
+          created_at: new Date().toISOString(),
+          user_metadata: {
+            full_name: userData.full_name,
+            role: userData.role,
+            user_type: userData.user_type,
+            original_id: userData.id,
+            auth_user_id: userData.user_id
+          }
+        } as User;
+
+        const mockSession = {
+          user: mockUser,
+          access_token: sessionToken,
+          refresh_token: '',
+          expires_in: 86400,
+          expires_at: Math.floor(Date.now() / 1000) + 86400,
+          token_type: 'bearer'
+        } as Session;
+
+        setUser(mockUser);
+        setSession(mockSession);
+        setUserRole(userData.role || userData.designation || 'staff');
+        setUserDesignation(userData.designation || null);
+        setUserProfile({
+          id: userData.id,
+          user_id: userData.user_id,
+          full_name: userData.full_name,
+          role: userData.role || userData.designation || 'staff',
+          user_type: userData.user_type
+        });
+
+        return { error: null };
+      }
+
+      // Legacy fallback: hashed_token path (when DNS is working)
+      const hashedToken = data.hashed_token;
       if (hashedToken) {
         const { data: authData, error: authError } = await supabase.auth.verifyOtp({
           token_hash: hashedToken,
@@ -913,12 +960,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         if (authData.user && authData.session) {
-          // Real Supabase session established - same flow as email OTP
           setUser(authData.user);
           setSession(authData.session);
-          console.log('Mobile OTP: Real Supabase session established for user:', authData.user.id);
 
-          // Fetch designation from user_designations
           const { data: designation } = await supabase
             .from('user_designations')
             .select('designation')
@@ -953,12 +997,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Fallback: if no hashed_token (shouldn't happen normally)
+      // Final fallback: userData without any token
       if (userData) {
-        console.warn('Mobile OTP: No hashed_token received, falling back to pseudo-session');
+        console.warn('Mobile OTP: No token received, falling back to pseudo-session');
         const pseudoUser: any = {
           id: userData.user_id,
-          email: userData.email || `${mobile}@westmed.local`,
+          email: `${mobile}@westmed.local`,
           user_metadata: {
             full_name: userData.full_name,
             role: userData.role
