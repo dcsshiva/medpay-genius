@@ -92,18 +92,56 @@ const invalidateSession = async (sessionToken?: string) => {
   window.localStorage.removeItem('supabase_session_token');
 };
 
-const clearCorruptedSupabaseAuthStorage = async () => {
+// Comprehensive auth state cleanup - clears ALL Supabase auth artifacts
+const hardResetAuthState = async () => {
   if (typeof window === 'undefined') return;
 
-  // Supabase JS persists auth state in keys like: sb-<project-ref>-auth-token
-  const authStorageKeys = Object.keys(window.localStorage).filter(
-    (key) => key.startsWith('sb-') && key.endsWith('-auth-token')
-  );
+  // Clear all Supabase auth keys from both localStorage and sessionStorage
+  const clearSupabaseKeys = (storage: Storage) => {
+    const keysToRemove = Object.keys(storage).filter(
+      (key) => key.startsWith('sb-') || key.includes('supabase')
+    );
+    keysToRemove.forEach((key) => storage.removeItem(key));
+  };
 
-  authStorageKeys.forEach((key) => window.localStorage.removeItem(key));
+  clearSupabaseKeys(window.localStorage);
+  clearSupabaseKeys(window.sessionStorage);
 
-  // Ensure in-memory auth state also gets reset without requiring network
-  await supabase.auth.signOut({ scope: 'local' });
+  // Also clear our custom session token
+  window.localStorage.removeItem('supabase_session_token');
+
+  // Reset in-memory auth state without network call
+  try {
+    await supabase.auth.signOut({ scope: 'local' });
+  } catch (_) {
+    // Ignore - we're already cleaning up
+  }
+
+  // Clear service worker caches that may hold stale auth responses
+  if ('caches' in window) {
+    try {
+      const cacheNames = await caches.keys();
+      await Promise.all(cacheNames.map((name) => caches.delete(name)));
+    } catch (_) {
+      // Ignore cache cleanup failures
+    }
+  }
+};
+
+// Alias for backward compatibility
+const clearCorruptedSupabaseAuthStorage = hardResetAuthState;
+
+// Helper: detect if an error is a fetch/network failure
+const isFetchError = (err: any): boolean => {
+  if (!err) return false;
+  const msg = err?.message || err?.error_description || String(err);
+  return /failed to fetch|networkerror|network request failed|load failed/i.test(msg);
+};
+
+// Exported repair function for UI "Fix Login" button
+export const repairAuthState = async () => {
+  await hardResetAuthState();
+  window.location.reload();
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -182,20 +220,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const loadSession = async () => {
       try {
+        // Guard: detect broken persisted session before getSession triggers refresh loops
+        try {
+          const storageKey = Object.keys(window.localStorage).find(
+            (k) => k.startsWith('sb-') && k.endsWith('-auth-token')
+          );
+          if (storageKey) {
+            const raw = window.localStorage.getItem(storageKey);
+            if (raw) {
+              try {
+                const parsed = JSON.parse(raw);
+                // If refresh_token is obviously broken (too short / missing), nuke it
+                if (!parsed?.refresh_token || typeof parsed.refresh_token !== 'string' || parsed.refresh_token.length < 10) {
+                  console.warn('Detected malformed persisted auth session — clearing before getSession');
+                  await hardResetAuthState();
+                }
+              } catch {
+                // Unparseable JSON — clear it
+                console.warn('Unparseable auth storage — clearing');
+                await hardResetAuthState();
+              }
+            }
+          }
+        } catch (_) {
+          // Guard itself should never block login
+        }
+
         // Priority 1: Check for a real Supabase auth session
-        // If persisted auth storage is corrupted, clear and retry once.
         let supaSession: Session | null = null;
 
         try {
           const { data } = await supabase.auth.getSession();
           supaSession = data.session;
         } catch (sessionError: any) {
-          const isFetchFailure = /failed to fetch/i.test(sessionError?.message || '');
-          if (isFetchFailure) {
+          if (isFetchError(sessionError)) {
             console.warn('Supabase session refresh failed. Clearing persisted auth state and retrying once.');
-            await clearCorruptedSupabaseAuthStorage();
-            const { data } = await supabase.auth.getSession();
-            supaSession = data.session;
+            await hardResetAuthState();
+            try {
+              const { data } = await supabase.auth.getSession();
+              supaSession = data.session;
+            } catch (_) {
+              // Give up — user will land on login page with clean state
+              console.warn('Session recovery retry also failed. Starting fresh.');
+            }
           } else {
             throw sessionError;
           }
@@ -602,9 +669,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       });
       
-      if (error) return { error };
+      if (error) {
+        // If it's a fetch error, try recovery once then retry
+        if (isFetchError(error)) {
+          console.warn('OTP send hit fetch error, running auth recovery and retrying once...');
+          await hardResetAuthState();
+          const { error: retryError } = await supabase.auth.signInWithOtp({
+            email: email,
+            options: { shouldCreateUser: false }
+          });
+          if (retryError) return { error: { message: "Couldn't reach sign-in service. Please check your connection and try again." } };
+          return { error: null };
+        }
+        return { error };
+      }
       return { error: null };
     } catch (error: any) {
+      if (isFetchError(error)) {
+        console.warn('OTP send threw fetch error, running auth recovery and retrying once...');
+        await hardResetAuthState();
+        try {
+          const { error: retryError } = await supabase.auth.signInWithOtp({
+            email: email,
+            options: { shouldCreateUser: false }
+          });
+          if (retryError) return { error: { message: "Couldn't reach sign-in service after recovery. Please try again." } };
+          return { error: null };
+        } catch (_) {
+          return { error: { message: "Sign-in service unreachable. Please check your internet connection." } };
+        }
+      }
       return { error: { message: 'Failed to send OTP' } };
     }
   };
@@ -754,12 +848,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         body: { mobile }
       });
 
-      if (error) throw error;
+      if (error) {
+        if (isFetchError(error)) {
+          console.warn('Mobile OTP send hit fetch error, running auth recovery and retrying...');
+          await hardResetAuthState();
+          const { data: retryData, error: retryError } = await supabase.functions.invoke('send-otp', {
+            body: { mobile }
+          });
+          if (retryError) return { error: { message: "Couldn't reach OTP service. Please check your connection." } };
+          if (!retryData?.success) return { error: { message: retryData?.error || 'Failed to send OTP after recovery' } };
+          return { error: null };
+        }
+        throw error;
+      }
       if (!data.success) throw new Error(data.error || 'Failed to send OTP');
 
       return { error: null };
     } catch (error: any) {
       console.error('Send mobile OTP error:', error);
+      if (isFetchError(error)) {
+        await hardResetAuthState();
+        return { error: { message: "OTP service unreachable. Login state has been reset — please try again." } };
+      }
       return { error: { message: error.message || 'Failed to send OTP' } };
     }
   };

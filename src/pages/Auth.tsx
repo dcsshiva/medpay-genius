@@ -5,11 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth } from "@/lib/auth";
+import { useAuth, repairAuthState } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { usePWA } from "@/hooks/usePWA";
 import { useVersionInfo } from "@/hooks/useVersionInfo";
-import { Mail, Download, RefreshCw, Check, Smartphone, BookOpen } from "lucide-react";
+import { Mail, Download, RefreshCw, Check, Smartphone, BookOpen, ShieldAlert } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
@@ -538,6 +538,26 @@ const Auth: React.FC = () => {
               </Tabs>
             </CardContent>
           </Card>
+
+          {/* Fix Login recovery button */}
+          <div className="mt-3 text-center">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-white/70 hover:text-white hover:bg-white/10 text-xs"
+              onClick={async () => {
+                toast({
+                  title: "Resetting login state...",
+                  description: "Clearing cached data and reloading.",
+                });
+                // Small delay so the toast is visible
+                setTimeout(() => repairAuthState(), 500);
+              }}
+            >
+              <ShieldAlert className="h-3 w-3 mr-1" />
+              Having trouble? Fix Login
+            </Button>
+          </div>
 
           {/* PWA Install & Update Section */}
           <div className="mt-4 space-y-2">
