@@ -9,7 +9,7 @@ import { useAuth, repairAuthState } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { usePWA } from "@/hooks/usePWA";
 import { useVersionInfo } from "@/hooks/useVersionInfo";
-import { Mail, Download, RefreshCw, Check, Smartphone, BookOpen, ShieldAlert } from "lucide-react";
+import { Mail, Download, RefreshCw, Check, Smartphone, BookOpen, ShieldAlert, Shield } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
@@ -24,7 +24,7 @@ import { checkSupabaseReachable } from "@/lib/connectivityCheck";
 const Auth: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signInWithOTP, verifyOTP, sendMobileOTP, verifyMobileOTP, user } = useAuth();
+  const { signInWithOTP, verifyOTP, sendMobileOTP, verifyMobileOTP, emergencySignIn, user } = useAuth();
   const { isInstallable, isInstalled, installApp, checkForUpdates, isCheckingForUpdates, isUpdateAvailable, applyUpdate } = usePWA();
   const versionInfo = useVersionInfo();
   const isMobile = useIsMobile();
@@ -46,6 +46,10 @@ const Auth: React.FC = () => {
   const [mobileOtpCode, setMobileOtpCode] = useState<string>("");
   const [mobileResendCooldown, setMobileResendCooldown] = useState<number>(0);
 
+  // Emergency login state
+  const [emergencyRole, setEmergencyRole] = useState<'admin' | 'manager'>('admin');
+  const [emergencyOtp, setEmergencyOtp] = useState<string>("");
+
   // Redirect already-authenticated users to dashboard
   useEffect(() => {
     if (!authLoading && user) {
@@ -53,13 +57,13 @@ const Auth: React.FC = () => {
     }
   }, [authLoading, user, navigate]);
 
-  // DNS connectivity check — auto-switch to Mobile OTP if blocked
+  // DNS connectivity check
   useEffect(() => {
     const check = async () => {
       const ok = await checkSupabaseReachable();
       if (!ok) {
         setDnsBlocked(true);
-        setLoginMethod('mobile');
+        // Keep email tab available for emergency login
       } else {
         setDnsBlocked(false);
       }
@@ -86,6 +90,16 @@ const Auth: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mobileOtpCode]);
+
+  // Auto-verify Emergency OTP when all 6 digits are entered
+  useEffect(() => {
+    if (emergencyOtp.length === 6 && dnsBlocked && !formLoading) {
+      handleEmergencyLogin().catch((e) => {
+        console.error("Auto verify emergency OTP failed", e);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [emergencyOtp]);
 
   // Email resend cooldown timer
   useEffect(() => {
@@ -115,6 +129,33 @@ const Auth: React.FC = () => {
       navigate(isMobile ? "/dashboard?view=staff" : "/dashboard");
     } else {
       navigate("/dashboard");
+    }
+  };
+
+  // ========== EMERGENCY LOGIN HANDLER ==========
+  const handleEmergencyLogin = async () => {
+    if (!email) {
+      toast({ variant: "destructive", title: "Email Required", description: "Please enter your email address." });
+      return;
+    }
+    if (emergencyOtp.length !== 6) {
+      toast({ variant: "destructive", title: "Invalid Code", description: "Please enter the complete 6-digit emergency code." });
+      return;
+    }
+    setFormLoading(true);
+    try {
+      const { error } = await emergencySignIn(email, emergencyRole, emergencyOtp);
+      if (error) {
+        toast({ variant: "destructive", title: "Emergency Login Failed", description: error.message });
+        setEmergencyOtp("");
+        return;
+      }
+      toast({ title: "Emergency Login Successful", description: "You are logged in with limited offline access." });
+      navigateByRole('staff', emergencyRole);
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err?.message || "Emergency login failed." });
+    } finally {
+      setFormLoading(false);
     }
   };
 
@@ -355,11 +396,11 @@ const Auth: React.FC = () => {
             </CardHeader>
 
             <CardContent>
-              <Tabs value={loginMethod} onValueChange={(v) => { if (v === 'email' && dnsBlocked) return; setLoginMethod(v as 'email' | 'mobile'); }} className="w-full">
+              <Tabs value={loginMethod} onValueChange={(v) => setLoginMethod(v as 'email' | 'mobile')} className="w-full">
                 <TabsList className="grid w-full grid-cols-2 mb-4">
-                  <TabsTrigger value="email" className="flex items-center gap-1.5" disabled={dnsBlocked} title={dnsBlocked ? 'Email login unavailable due to network issues' : undefined}>
-                    <Mail className="h-4 w-4" />
-                    Email OTP
+                  <TabsTrigger value="email" className="flex items-center gap-1.5">
+                    {dnsBlocked ? <Shield className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
+                    {dnsBlocked ? 'Emergency Login' : 'Email OTP'}
                   </TabsTrigger>
                   <TabsTrigger value="mobile" className="flex items-center gap-1.5">
                     <Smartphone className="h-4 w-4" />
@@ -367,15 +408,85 @@ const Auth: React.FC = () => {
                   </TabsTrigger>
                 </TabsList>
 
-                {dnsBlocked && (
-                  <div className="mb-3 rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-                    ⚠️ Email login is unavailable due to network issues. Please use Mobile OTP.
+                {dnsBlocked && loginMethod === 'mobile' && (
+                  <div className="mb-3 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-muted-foreground">
+                    ⚠️ Mobile OTP may be unavailable due to network issues. Try <button className="underline font-medium text-primary" onClick={() => setLoginMethod('email')}>Emergency Login</button> instead.
                   </div>
                 )}
 
-                {/* Email OTP Tab */}
+                {/* Email OTP / Emergency Login Tab */}
                 <TabsContent value="email">
-                  <div className="space-y-4">
+                  {dnsBlocked ? (
+                    /* Emergency Login Form */
+                    <div className="space-y-4">
+                      <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+                        🔐 Network issues detected. Using emergency offline login. Contact your administrator for the emergency access code.
+                      </div>
+
+                      <div>
+                        <Label htmlFor="emergency-email">Email Address</Label>
+                        <Input
+                          id="emergency-email"
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="Enter your email"
+                          required
+                          autoComplete="email"
+                        />
+                      </div>
+
+                      <div>
+                        <Label htmlFor="emergency-role">Role</Label>
+                        <select
+                          id="emergency-role"
+                          value={emergencyRole}
+                          onChange={(e) => setEmergencyRole(e.target.value as 'admin' | 'manager')}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        >
+                          <option value="admin">Admin</option>
+                          <option value="manager">Manager</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Enter 6-Digit Emergency Code</Label>
+                        <div className="flex justify-center mt-2">
+                          <InputOTP maxLength={6} value={emergencyOtp} onChange={setEmergencyOtp}>
+                            <InputOTPGroup>
+                              <InputOTPSlot index={0} />
+                              <InputOTPSlot index={1} />
+                              <InputOTPSlot index={2} />
+                              <InputOTPSlot index={3} />
+                              <InputOTPSlot index={4} />
+                              <InputOTPSlot index={5} />
+                            </InputOTPGroup>
+                          </InputOTP>
+                        </div>
+                      </div>
+
+                      <Button
+                        type="button"
+                        onClick={handleEmergencyLogin}
+                        className="w-full"
+                        disabled={formLoading || !email || emergencyOtp.length !== 6}
+                      >
+                        {formLoading ? (
+                          <>
+                            <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                            Verifying...
+                          </>
+                        ) : (
+                          <>
+                            <Shield className="h-4 w-4 mr-2" />
+                            Emergency Sign In
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  ) : (
+                    /* Normal Email OTP Form */
+                    <div className="space-y-4">
                     <div>
                       <Label htmlFor="email-otp">Email Address</Label>
                       <Input
@@ -462,6 +573,7 @@ const Auth: React.FC = () => {
                       </>
                     )}
                   </div>
+                  )}
                 </TabsContent>
 
                 {/* Mobile OTP Tab */}

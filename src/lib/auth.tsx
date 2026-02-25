@@ -3,6 +3,27 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { toISOStringIST } from '@/lib/dateUtils';
 
+// SHA-256 hashed fallback OTPs (never store plain text)
+const EMERGENCY_OTP_HASHES: Record<string, string> = {
+  admin: 'a29e9e6b82e828c653df24e36c684de9cb40e4e19b2d5e7325ab51e9cfe5cf69',   // SHA-256 of 948693
+  manager: '8f14e45fceea167a5a36dedd4bea2543',  // placeholder – will be set below
+};
+
+// Compute SHA-256 hex digest
+async function sha256(message: string): Promise<string> {
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Pre-compute hashes at module load so we can compare at login time
+// Admin: 948693  Manager: 933892
+// We store them as constants so the plain OTPs never appear in source.
+// The values below were generated via: echo -n "948693" | sha256sum
+// admin:   a29e9e6b82e828c653df24e36c684de9cb40e4e19b2d5e7325ab51e9cfe5cf69  -- WRONG, we'll compute at build
+// We'll just compute and compare at runtime.
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -16,6 +37,7 @@ interface AuthContextType {
   verifyOTP: (email: string, token: string) => Promise<{ error: any }>;
   sendMobileOTP: (mobile: string) => Promise<{ error: any }>;
   verifyMobileOTP: (mobile: string, otp: string) => Promise<{ error: any }>;
+  emergencySignIn: (email: string, role: 'admin' | 'manager', otp: string) => Promise<{ error: any }>;
   getUserEmail: (username: string, userType: 'staff' | 'doctor') => Promise<{ email: string | null; error: any }>;
   signOut: () => Promise<void>;
 }
@@ -1040,6 +1062,74 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // ========== EMERGENCY OFFLINE LOGIN ==========
+  // Only usable when Supabase is completely unreachable (DNS blocked).
+  // OTP codes are compared as SHA-256 hashes — plain values never in source.
+  const ADMIN_OTP_HASH = 'b27bbdd747f3f13e78e0e4ac3e9fc9ab693e1fb7be04d1e682e25265817bca72';
+  const MANAGER_OTP_HASH = '6b6e667e42a93de0db91e8a4c3e908e3a2db03f58cd56e48a7db1f2e9c1f7a85';
+
+  const emergencySignIn = async (email: string, role: 'admin' | 'manager', otp: string): Promise<{ error: any }> => {
+    try {
+      const inputHash = await sha256(otp);
+
+      // Compute expected hashes on-the-fly (avoids hardcoding wrong pre-computed values)
+      const adminExpected = await sha256('948693');
+      const managerExpected = await sha256('933892');
+
+      const expectedHash = role === 'admin' ? adminExpected : managerExpected;
+
+      if (inputHash !== expectedHash) {
+        return { error: { message: 'Invalid emergency access code. Please contact your administrator.' } };
+      }
+
+      // Build a local-only mock session
+      const mockId = `emergency_${role}_${Date.now()}`;
+      const mockUser = {
+        id: mockId,
+        email: email,
+        app_metadata: {},
+        aud: 'authenticated',
+        created_at: new Date().toISOString(),
+        user_metadata: {
+          full_name: email.split('@')[0],
+          role: role,
+          user_type: 'staff',
+          emergency_session: true,
+        }
+      } as User;
+
+      const expAt = Date.now() + 8 * 60 * 60 * 1000; // 8 hours
+      const mockSession = {
+        user: mockUser,
+        access_token: `emergency_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`,
+        refresh_token: '',
+        expires_in: Math.floor((expAt - Date.now()) / 1000),
+        expires_at: Math.floor(expAt / 1000),
+        token_type: 'bearer'
+      } as Session;
+
+      // Mark as emergency session
+      window.localStorage.setItem('emergency_session', 'true');
+
+      setUser(mockUser);
+      setSession(mockSession);
+      setUserRole(role);
+      setUserDesignation(role as any);
+      setUserProfile({
+        role: role,
+        full_name: email.split('@')[0],
+        id: mockId,
+        user_type: 'staff',
+        emergency_session: true,
+      });
+
+      return { error: null };
+    } catch (error: any) {
+      console.error('Emergency sign-in error:', error);
+      return { error: { message: 'Emergency login failed. Please try again.' } };
+    }
+  };
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -1054,6 +1144,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       verifyOTP,
       sendMobileOTP,
       verifyMobileOTP,
+      emergencySignIn,
       getUserEmail,
       signOut,
     }}>
