@@ -3050,7 +3050,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
         <>
           {/* Search Section */}
           <Card className="mb-4">
-            <CardContent className="pt-6">
+            <CardContent className="pt-4 md:pt-6 px-3 md:px-6">
               <div className="flex flex-col gap-4">
                 {/* Search Input with Autocomplete */}
                 <div className="relative">
@@ -3099,8 +3099,8 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                 </div>
                 
                 {/* Search Filter Buttons */}
-                <div className="flex flex-wrap gap-2 items-center">
-                  <span className="text-sm text-muted-foreground mr-2">Filter by:</span>
+                <div className="flex gap-2 items-center overflow-x-auto pb-1 -mx-1 px-1">
+                  <span className="text-sm text-muted-foreground mr-1 shrink-0">Filter:</span>
                   <Button
                     variant={searchFilter === 'all' ? 'default' : 'outline'}
                     size="sm"
@@ -3170,7 +3170,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
           </Card>
 
           {/* Enhanced Payment Statistics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 animate-fade-in">
+          <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6 animate-fade-in">
             <StatsCard
               title="Total Pending"
               value={formatCurrency(totalPending)}
@@ -3211,26 +3211,37 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
           </div>
 
           <Tabs value={activeSubTab} onValueChange={setActiveSubTab} className="w-full">
-          <div className="flex justify-between items-center mb-4">
-            <TabsList className={`grid w-full max-w-4xl ${userRole === 'doctor' ? 'grid-cols-3' : 'grid-cols-4'}`}>
-            <TabsTrigger value="waiting">Waiting for Approval ({waitingForApprovalPayments.length})</TabsTrigger>
-            <TabsTrigger value="paid">Waiting for bank approval ({fullyPaidPayments.length})</TabsTrigger>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-4">
+            <TabsList className={`w-full max-w-4xl overflow-x-auto flex ${userRole === 'doctor' ? '' : ''}`}>
+            <TabsTrigger value="waiting" className="text-xs md:text-sm whitespace-nowrap">
+              <span className="hidden md:inline">Waiting for Approval</span>
+              <span className="md:hidden">Approval</span>
+              {' '}({waitingForApprovalPayments.length})
+            </TabsTrigger>
+            <TabsTrigger value="paid" className="text-xs md:text-sm whitespace-nowrap">
+              <span className="hidden md:inline">Waiting for bank approval</span>
+              <span className="md:hidden">Bank</span>
+              {' '}({fullyPaidPayments.length})
+            </TabsTrigger>
             {userRole === 'doctor' && (
-              <TabsTrigger value="processed">
+              <TabsTrigger value="processed" className="text-xs md:text-sm whitespace-nowrap">
                 <CheckCircle className="h-4 w-4 mr-1" />
-                Processed Payment ({processedPayments.length})
+                <span className="hidden md:inline">Processed Payment</span>
+                <span className="md:hidden">Processed</span>
+                {' '}({processedPayments.length})
               </TabsTrigger>
             )}
             {userRole === 'admin' && (
-              <TabsTrigger value="bankadvice">
+              <TabsTrigger value="bankadvice" className="text-xs md:text-sm whitespace-nowrap">
                 <Building2 className="h-4 w-4 mr-1" />
                 Bank Advice ({payments.filter(p => p.is_fully_paid && !p.bank_advice_generated).length})
               </TabsTrigger>
             )}
             {userRole === 'admin' && (
-              <TabsTrigger value="history">
+              <TabsTrigger value="history" className="text-xs md:text-sm whitespace-nowrap">
                 <History className="h-4 w-4 mr-1" />
-                Bank Advice History
+                <span className="hidden md:inline">Bank Advice History</span>
+                <span className="md:hidden">History</span>
               </TabsTrigger>
             )}
           </TabsList>
@@ -3255,13 +3266,13 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
           </div>
 
           <TabsContent value="waiting" className="space-y-4">
-            <div className="flex justify-between items-center mb-4">
-              <div className="flex items-center gap-4">
-                <h3 className="text-lg font-semibold">Payments Waiting for Approval</h3>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-4">
+              <div className="flex flex-col md:flex-row items-start md:items-center gap-3 w-full md:w-auto">
+                <h3 className="text-base md:text-lg font-semibold">Payments Waiting for Approval</h3>
                 
                 {/* Bulk Approval Controls */}
                 {waitingForApprovalPayments.length > 0 && (userRole === 'admin' || userRole === 'manager') && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Badge variant="secondary" className="px-3 py-1">
                       {selectedForApproval.size} selected
                     </Badge>
@@ -3275,15 +3286,17 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                           onClick={handleBulkApproval}
                           disabled={submitting}
                         >
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          Approve All ({selectedForApproval.size})
+                          <CheckCircle className="h-4 w-4 mr-1 md:mr-2" />
+                          <span className="hidden md:inline">Approve All</span>
+                          <span className="md:hidden">Approve</span>
+                          {' '}({selectedForApproval.size})
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={handleClearAllApprovalSelection}
                         >
-                          Clear Selection
+                          Clear
                         </Button>
                       </>
                     ) : (

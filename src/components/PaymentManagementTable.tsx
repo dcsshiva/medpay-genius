@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Table,
   TableBody,
@@ -16,6 +17,11 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import { 
   Clock, 
   CheckCircle, 
@@ -27,10 +33,19 @@ import {
   AlertTriangle,
   History,
   CreditCard,
-  Building2
+  Building2,
+  ChevronDown,
+  MoreVertical
 } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateIST } from '@/lib/dateUtils';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Payment {
   id: string;
@@ -112,8 +127,10 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   selectedForApproval,
   onSelectForApproval,
 }) => {
+  const isMobile = useIsMobile();
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
   const [expandedPatients, setExpandedPatients] = useState<Set<string>>(new Set());
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -171,6 +188,195 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
     });
   }, [payments, sortConfig]);
 
+  const getMobileActions = (payment: Payment) => {
+    const actions: { label: string; icon: React.ReactNode; onClick: () => void; variant?: string }[] = [];
+    
+    if (userRole !== 'doctor' && payment.status !== 'rejected') {
+      if ((userRole === 'manager' && payment.status === 'pending') || 
+          (userRole === 'admin' && (payment.status === 'pending' || payment.status === 'manager_approved'))) {
+        actions.push({ label: 'Approve', icon: <CheckCircle className="h-4 w-4" />, onClick: () => onApprove(payment.id), variant: 'success' });
+        actions.push({ label: 'Reject', icon: <X className="h-4 w-4" />, onClick: () => onReject(payment.id), variant: 'destructive' });
+      }
+      if (userRole === 'admin' && payment.status === 'pending') {
+        if (onEdit) actions.push({ label: 'Edit', icon: <Edit className="h-4 w-4" />, onClick: () => onEdit(payment) });
+        if (onDelete) actions.push({ label: 'Delete', icon: <Trash2 className="h-4 w-4" />, onClick: () => onDelete(payment.id), variant: 'destructive' });
+      }
+      if (onMarkSuspect) actions.push({ label: payment.is_suspect ? 'Remove Suspect' : 'Mark Suspect', icon: <AlertTriangle className="h-4 w-4" />, onClick: () => onMarkSuspect(payment) });
+    }
+    if (payment.status === 'admin_approved' && onRecordPayment) {
+      actions.push({ label: 'Record Payment', icon: <CreditCard className="h-4 w-4" />, onClick: () => onRecordPayment(payment) });
+    }
+    if ((payment.status === 'admin_approved' || payment.cash_approval_status === 'approved' || payment.insurance_approval_status === 'approved') && 
+        onPartPayment && payment.release_status !== 'fully_released') {
+      actions.push({ label: 'Part Payment', icon: <Split className="h-4 w-4" />, onClick: () => onPartPayment(payment) });
+    }
+    if (payment.release_count && payment.release_count > 0 && onViewReleaseHistory) {
+      actions.push({ label: `Releases (${payment.release_count})`, icon: <History className="h-4 w-4" />, onClick: () => onViewReleaseHistory(payment) });
+    }
+    if (onViewTransactions) {
+      actions.push({ label: 'History', icon: <History className="h-4 w-4" />, onClick: () => onViewTransactions(payment) });
+    }
+    return actions;
+  };
+
+  // Mobile Card View
+  if (isMobile) {
+    return (
+      <div className="space-y-3">
+        {sortedPayments.length === 0 ? (
+          <div className="text-center text-muted-foreground py-8">No payments found</div>
+        ) : (
+          sortedPayments.map((payment) => {
+            const isExpanded = expandedCards.has(payment.id);
+            const actions = getMobileActions(payment);
+            return (
+              <Card key={payment.id} className={payment.is_suspect ? 'border-destructive/50 bg-destructive/5' : ''}>
+                <CardContent className="p-4">
+                  {/* Header: Doctor + Checkbox + Actions */}
+                  <div className="flex items-start justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      {showApprovalCheckbox && onSelectForApproval && (
+                        <Checkbox
+                          checked={selectedForApproval?.has(payment.id) || false}
+                          onCheckedChange={(checked) => onSelectForApproval(payment.id, !!checked)}
+                        />
+                      )}
+                      {showBankAdviceCheckbox && onSelectPayment && (
+                        <Checkbox
+                          checked={selectedPayments?.has(payment.id)}
+                          onCheckedChange={(checked) => onSelectPayment(payment.id, checked as boolean)}
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <div className="font-semibold text-sm truncate">{payment.doctors?.profiles?.full_name || 'Unknown'}</div>
+                        <div className="text-xs text-muted-foreground">{payment.doctors?.doctor_code}</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {payment.is_suspect && (
+                        <Badge variant="destructive" className="text-[10px] px-1.5 py-0.5">
+                          <AlertTriangle className="h-3 w-3 mr-0.5" />
+                          SUSPECT
+                        </Badge>
+                      )}
+                      {getStatusBadge(payment.status)}
+                      {actions.length > 0 && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            {actions.map((action, i) => (
+                              <DropdownMenuItem key={i} onClick={action.onClick}>
+                                {action.icon}
+                                <span className="ml-2">{action.label}</span>
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Release status */}
+                  {payment.release_status && payment.release_status !== 'not_started' && (
+                    <Badge 
+                      variant={payment.release_status === 'fully_released' ? 'default' : 'secondary'}
+                      className="text-xs mb-2"
+                    >
+                      {payment.release_status === 'fully_released' ? 'Fully Released' : `Released ${payment.release_count || 0}x`}
+                    </Badge>
+                  )}
+
+                  {/* Key Amounts Grid */}
+                  <div className="grid grid-cols-3 gap-2 mb-2">
+                    <div className="bg-muted/50 rounded-md p-2 text-center">
+                      <div className="text-[10px] text-muted-foreground uppercase">Total</div>
+                      <div className="text-sm font-bold text-primary">{formatCurrency(payment.total_amount)}</div>
+                    </div>
+                    <div className="bg-muted/50 rounded-md p-2 text-center">
+                      <div className="text-[10px] text-muted-foreground uppercase">Net</div>
+                      <div className="text-sm font-bold text-success">{formatCurrency(payment.net_amount || (payment.gross_amount || payment.total_amount) * 0.90)}</div>
+                    </div>
+                    <div className="bg-muted/50 rounded-md p-2 text-center">
+                      <div className="text-[10px] text-muted-foreground uppercase">Remaining</div>
+                      <div className="text-sm font-bold text-warning">
+                        {formatCurrency(
+                          payment.total_released_gross 
+                            ? (payment.gross_amount || payment.total_amount) - payment.total_released_gross
+                            : payment.paid_amount && payment.paid_amount > 0
+                              ? (payment.gross_amount || payment.total_amount) - (payment.paid_amount / 0.9)
+                              : (payment.gross_amount || payment.total_amount)
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Expandable Details */}
+                  <Collapsible open={isExpanded} onOpenChange={() => {
+                    const next = new Set(expandedCards);
+                    isExpanded ? next.delete(payment.id) : next.add(payment.id);
+                    setExpandedCards(next);
+                  }}>
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="sm" className="w-full h-7 text-xs text-muted-foreground">
+                        <ChevronDown className={`h-3 w-3 mr-1 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                        {isExpanded ? 'Less details' : 'More details'}
+                      </Button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <div className="mt-2 space-y-2 text-xs border-t pt-2">
+                        {payment.discharge_date && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Discharge</span>
+                            <span className="font-medium">{formatDateIST(payment.discharge_date)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Gross</span>
+                          <span className="font-medium">{formatCurrency(payment.gross_amount || payment.total_amount)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">TDS (10%)</span>
+                          <span className="font-medium text-destructive">-{formatCurrency(payment.tds_amount || (payment.gross_amount || payment.total_amount) * 0.10)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Net Paid</span>
+                          <span className="font-medium text-success">{formatCurrency(payment.total_released_net || payment.paid_amount || 0)}</span>
+                        </div>
+                        {/* Payment Types */}
+                        {((payment.cash_total ?? 0) > 0 || (payment.insurance_total ?? 0) > 0) && (
+                          <div className="flex flex-wrap gap-1.5 pt-1">
+                            {(payment.cash_total ?? 0) > 0 && (
+                              <Badge variant="secondary" className="text-[10px]">Cash: {formatCurrency(payment.cash_total || 0)}</Badge>
+                            )}
+                            {(payment.insurance_total ?? 0) > 0 && (
+                              <Badge variant="secondary" className="text-[10px]">Insurance: {formatCurrency(payment.insurance_total || 0)}</Badge>
+                            )}
+                          </div>
+                        )}
+                        {/* Patient Names */}
+                        {payment.patient_names && payment.patient_names.length > 0 && (
+                          <div>
+                            <span className="text-muted-foreground">Patients: </span>
+                            <span>{payment.patient_names.slice(0, 3).join(', ')}{payment.patient_names.length > 3 ? ` +${payment.patient_names.length - 3}` : ''}</span>
+                          </div>
+                        )}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </div>
+    );
+  }
+
+  // Desktop Table View
   return (
     <TooltipProvider>
       <div className="rounded-md border">
@@ -363,10 +569,8 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                   <div className="text-sm">
                     <div className="font-medium">
                       {formatCurrency(
-                        // Use new part payment fields if available
                         payment.total_released_gross 
                           ? (payment.gross_amount || payment.total_amount) - payment.total_released_gross
-                          // Fallback for old payments: convert net paid to gross (divide by 0.9 as TDS is 10%)
                           : payment.paid_amount && payment.paid_amount > 0
                             ? (payment.gross_amount || payment.total_amount) - (payment.paid_amount / 0.9)
                             : (payment.gross_amount || payment.total_amount)
@@ -384,7 +588,6 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                       </Badge>
                     )}
                     {getStatusBadge(payment.status)}
-                    {/* Show release status if partial */}
                     {payment.release_status && payment.release_status !== 'not_started' && (
                       <Badge 
                         variant={payment.release_status === 'fully_released' ? 'default' : 'secondary'}
@@ -509,7 +712,6 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                         </TooltipContent>
                       </Tooltip>
                     )}
-                    {/* Part Payment Button - Show for approved payments with remaining amount */}
                     {(payment.status === 'admin_approved' || 
                       payment.cash_approval_status === 'approved' || 
                       payment.insurance_approval_status === 'approved') && 
@@ -531,7 +733,6 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                         </TooltipContent>
                       </Tooltip>
                     )}
-                    {/* Release History Button - Show if there are any releases */}
                     {(payment.release_count && payment.release_count > 0) && onViewReleaseHistory && (
                       <Tooltip>
                         <TooltipTrigger asChild>
@@ -569,7 +770,6 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                   </div>
                   </TableCell>
                 </TableRow>
-                {/* Show detailed breakdown for insurance payments */}
                 {(payment.insurance_total ?? 0) > 0 && (
                   <TableRow className="bg-blue-50/50 dark:bg-blue-950/20 border-t-0">
                     <TableCell colSpan={showBankAdviceCheckbox ? 10 : 9} className="py-2">
