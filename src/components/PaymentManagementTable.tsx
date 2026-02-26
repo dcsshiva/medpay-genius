@@ -128,7 +128,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   onSelectForApproval,
 }) => {
   const isMobile = useIsMobile();
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'discharge_date', direction: 'desc' });
   const [expandedPatients, setExpandedPatients] = useState<Set<string>>(new Set());
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
 
