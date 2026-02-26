@@ -1,41 +1,46 @@
 
 
-## Add Smart Search with Autocomplete to Cash/Insurance Payment Management
+## Simplify Cash/Insurance Payment Management for All Devices
 
-### Current State
-The Cash/Insurance Payment Management screens already have a search bar with filter chips (All Fields, Doctor Name, Doctor Code, Patient Name). However, the search is basic text filtering -- it does NOT provide autocomplete suggestions as you type, unlike the Lite versions which have smart dropdown suggestions.
+### Problem
+The Payment Management screens have 12+ table columns, long tab labels, and desktop-oriented layouts that are hard to use on tablets and phones.
 
-### What Changes
-Add smart autocomplete suggestions to the existing search in `PaymentManagement.tsx`, matching the behavior in the Lite versions:
-- When user types 2+ characters, fetch matching suggestions from the database
-- Show a dropdown with clickable suggestions
-- Works for Doctor Name, Doctor Code, and Patient Name filters
+### Changes
+
+**1. Mobile Card View in PaymentManagementTable (`src/components/PaymentManagementTable.tsx`)**
+- Import `useIsMobile` hook
+- On mobile, replace the wide table with a stacked card layout showing:
+  - Doctor name + code (header)
+  - Key amounts: Total, Net Payable, Remaining (compact grid)
+  - Status badge + action buttons (footer)
+  - Expandable section for TDS/Gross details
+- Keep the full table on desktop (no changes)
+
+**2. Responsive Stats Cards (`src/components/PaymentManagement.tsx`)**
+- Change stats grid from `grid-cols-1 md:grid-cols-2 lg:grid-cols-4` to `grid-cols-2 md:grid-cols-2 lg:grid-cols-4`
+- This gives a 2x2 grid on mobile instead of stacking vertically
+
+**3. Mobile-Friendly Tabs (`src/components/PaymentManagement.tsx`)**
+- Make tab labels shorter on mobile using responsive text:
+  - "Waiting for Approval (29)" becomes "Approval (29)"
+  - "Waiting for bank approval (0)" becomes "Bank (0)"
+  - "Bank Advice (2)" stays short
+  - "Bank Advice History" becomes "History"
+- Add horizontal scroll to TabsList with `overflow-x-auto`
+
+**4. Compact Search Section (`src/components/PaymentManagement.tsx`)**
+- Make filter buttons scrollable horizontally on mobile instead of wrapping
+- Reduce padding on mobile for the search card
+
+**5. Mobile-Friendly Bulk Approval Controls (`src/components/PaymentManagement.tsx`)**
+- Stack the "Payments Waiting for Approval" heading and bulk controls vertically on mobile
+- Use full-width buttons on small screens
 
 ### Technical Details
 
-**File: `src/components/PaymentManagement.tsx`**
+**Files modified:**
+- `src/components/PaymentManagementTable.tsx` -- Add mobile card view with `useIsMobile`
+- `src/components/PaymentManagement.tsx` -- Responsive stats grid, compact tabs, scrollable filters, stacked bulk controls
 
-1. **Add imports**: Import `useCallback` from React, `debounce` from `@/lib/utils`, `Popover`/`PopoverContent`/`PopoverTrigger`, `Command`/`CommandEmpty`/`CommandGroup`/`CommandItem`/`CommandList`, and `ScrollArea`
+**No new dependencies needed.** Uses existing `useIsMobile` hook and Tailwind responsive classes.
 
-2. **Add state variables** (near line 214):
-   - `suggestions: string[]` -- autocomplete suggestion list
-   - `showSuggestions: boolean` -- controls dropdown visibility
-   - `loadingSuggestions: boolean` -- loading state
-
-3. **Add `fetchSuggestions` function** (debounced, 300ms):
-   - For `doctor_name`: query `doctors` table, `ilike` on `full_name`
-   - For `doctor_code`: query `doctors` table, `ilike` on `doctor_code`
-   - For `patient_name`: query `visits` table, `ilike` on `patient_name`
-   - For `insurance_name`: query `insurance_companies` table, `ilike` on `company_name`
-   - Limit to 10 results, deduplicate
-
-4. **Update search input** (around line 3000-3008):
-   - Wrap the existing `Input` in a `Popover` component
-   - On input change, call `fetchSuggestions` when 2+ characters are typed
-   - Show suggestion dropdown with clickable items
-   - On suggestion select, set `searchTerm` to the selected value and close dropdown
-
-### Visual Changes
-- When typing in the search box with a filter selected, a dropdown appears showing matching suggestions from the database
-- Clicking a suggestion fills the search box and filters results
-- Loading state shown while fetching suggestions
