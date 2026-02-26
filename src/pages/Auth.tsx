@@ -57,6 +57,8 @@ const Auth: React.FC = () => {
     }
   }, [authLoading, user, navigate]);
 
+
+
   // DNS connectivity check
   useEffect(() => {
     const check = async () => {
@@ -366,6 +368,18 @@ const Auth: React.FC = () => {
       setFormLoading(false);
     }
   };
+
+  // While auth is loading, show a loading spinner instead of the login form
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Checking session...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
