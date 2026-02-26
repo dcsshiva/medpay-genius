@@ -244,6 +244,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   code: p.code
                 });
               }
+            } else {
+              // Fallback to profiles table when designation not found
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('user_id', supaSession.user.id)
+                .maybeSingle();
+              if (profile) {
+                setUserRole(profile.role);
+                setUserDesignation(profile.role as any);
+                setUserProfile(profile);
+              }
             }
           } catch (err) {
             console.error('Error fetching designation on auth change:', err);
@@ -334,6 +346,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               .maybeSingle();
             if (profile) {
               setUserRole(profile.role);
+              setUserDesignation(profile.role as any);
               setUserProfile(profile);
             }
           }
@@ -587,16 +600,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           .eq('user_id', data.user.id)
           .maybeSingle();
 
-      if (designation?.designation) {
-        // Use designation for both role and designation
-        setUserRole(designation.designation);
-        setUserDesignation(designation.designation);
-        setUserProfile({
-          id: data.user.id,
-          user_id: data.user.id,
-          full_name: email,
-          role: designation.designation
-        });
+        if (designation?.designation) {
+          // Use designation for both role and designation
+          setUserRole(designation.designation);
+          setUserDesignation(designation.designation);
+          setUserProfile({
+            id: data.user.id,
+            user_id: data.user.id,
+            full_name: email,
+            role: designation.designation
+          });
           
           try {
             await createUserSession({
