@@ -33,12 +33,13 @@ const isValidAuthPayload = (raw: string | null): boolean => {
   try {
     const parsed = JSON.parse(raw);
     // Supabase stores { access_token, refresh_token, ... } or nested under a key
+    // Keep minimum length guard conservative to avoid rejecting valid short-lived OTP refresh tokens.
     const refreshToken = parsed?.refresh_token;
-    if (!refreshToken || typeof refreshToken !== 'string' || refreshToken.length < 20) {
+    if (!refreshToken || typeof refreshToken !== 'string' || refreshToken.length < 10) {
       return false;
     }
     const accessToken = parsed?.access_token;
-    if (!accessToken || typeof accessToken !== 'string' || accessToken.length < 20) {
+    if (!accessToken || typeof accessToken !== 'string' || accessToken.length < 10) {
       return false;
     }
     return true;

@@ -825,6 +825,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (profile) {
             // Profile exists, use it
             setUserRole(profile.role);
+            setUserDesignation(profile.role as any);
             setUserProfile(profile);
             
             try {
