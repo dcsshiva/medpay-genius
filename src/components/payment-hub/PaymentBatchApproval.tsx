@@ -121,8 +121,8 @@ const PaymentBatchApproval = () => {
       setProcessing(true);
 
       const updateField = userRole === 'admin' 
-        ? { status: 'approved_by_admin' as const, admin_approved_at: new Date().toISOString() }
-        : { status: 'approved_by_manager' as const, manager_approved_at: new Date().toISOString() };
+        ? { status: 'admin_approved' as const, admin_approved_at: new Date().toISOString() }
+        : { status: 'manager_approved' as const, manager_approved_at: new Date().toISOString() };
 
       const { error } = await supabase
         .from('payments')
