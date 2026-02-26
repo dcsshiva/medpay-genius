@@ -14,7 +14,7 @@ export async function checkSupabaseReachable(): Promise<boolean> {
       cache: 'no-store',
     });
     clearTimeout(timeout);
-    return res.ok;
+    return true;
   } catch {
     return false;
   }
