@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -66,6 +67,7 @@ interface DoctorHubProps {
 }
 
 const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
+  const navigate = useNavigate();
   const [doctors, setDoctors] = useState<DoctorSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedDoctor, setExpandedDoctor] = useState<string | null>(null);
@@ -1103,11 +1105,24 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
                                             <TableCell>
                                               <Badge variant="outline">{visit.payment_type}</Badge>
                                             </TableCell>
-                                            <TableCell className="font-semibold text-orange-600">
-                                              {formatCurrency(visit.visit_payment)}
+                                            <TableCell>
+                                              <button
+                                                onClick={() => navigate(`/dashboard?view=${visit.payment_type === 'cash' ? 'cash-payments-lite' : 'insurance-payments-lite'}`)}
+                                                className="font-semibold text-orange-600 underline decoration-dotted underline-offset-2 hover:decoration-solid cursor-pointer hover:opacity-80 transition-opacity"
+                                                title={`Click to process in ${visit.payment_type === 'cash' ? 'Cash' : 'Insurance'} Payments`}
+                                              >
+                                                {formatCurrency(visit.visit_payment)}
+                                              </button>
                                             </TableCell>
                                             <TableCell>
-                                              <Badge variant="secondary">{visit.payment_status}</Badge>
+                                              <button
+                                                onClick={() => navigate(`/dashboard?view=${visit.payment_type === 'cash' ? 'cash-payments-lite' : 'insurance-payments-lite'}`)}
+                                                title={`Click to process in ${visit.payment_type === 'cash' ? 'Cash' : 'Insurance'} Payments`}
+                                              >
+                                                <Badge variant="secondary" className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors">
+                                                  {visit.payment_status}
+                                                </Badge>
+                                              </button>
                                             </TableCell>
                                           </TableRow>
                                         ))}
