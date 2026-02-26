@@ -199,6 +199,11 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
   const [paymentModeDialogOpen, setPaymentModeDialogOpen] = useState(false);
   const [processingPaymentMode, setProcessingPaymentMode] = useState(false);
   
+  // Delete confirmation dialog state
+  const [deletePaymentId, setDeletePaymentId] = useState<string | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  
   const { data: websiteSettings } = useWebsiteSettings();
   const [transactionTypeSelections, setTransactionTypeSelections] = useState<Map<string, string>>(new Map());
   const [bulkTransactionType, setBulkTransactionType] = useState<string>('NEFT TRANSFER');
@@ -1587,13 +1592,26 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
       return;
     }
 
-    if (!confirm('Are you sure you want to delete this payment advice?')) return;
+    setDeletePaymentId(paymentId);
+    setDeletePassword('');
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeleteWithPassword = async () => {
+    if (deletePassword !== '9629945305') {
+      toast({
+        variant: "destructive",
+        title: "Incorrect Password",
+        description: "The password you entered is incorrect. Deletion cancelled."
+      });
+      return;
+    }
 
     try {
       const { error } = await supabase
         .from('payments')
         .delete()
-        .eq('id', paymentId);
+        .eq('id', deletePaymentId!);
 
       if (error) throw error;
 
@@ -1610,6 +1628,10 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
         title: "Error",
         description: error.message || "Failed to delete payment advice"
       });
+    } finally {
+      setShowDeleteDialog(false);
+      setDeletePaymentId(null);
+      setDeletePassword('');
     }
   };
 
@@ -3929,6 +3951,54 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
             .reduce((sum, p) => sum + (p.net_amount || p.total_amount), 0)}
           isLoading={processingPaymentMode}
         />
+
+        {/* Delete Confirmation Dialog */}
+        <Dialog open={showDeleteDialog} onOpenChange={(open) => {
+          if (!open) {
+            setShowDeleteDialog(false);
+            setDeletePaymentId(null);
+            setDeletePassword('');
+          }
+        }}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <AlertTriangle className="h-5 w-5" />
+                Confirm Delete Payment
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                This action is <strong>irreversible</strong>. The payment advice and all associated data will be permanently deleted.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="delete-password">Enter Admin Password to confirm</Label>
+                <Input
+                  id="delete-password"
+                  type="password"
+                  placeholder="Enter password"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') confirmDeleteWithPassword();
+                  }}
+                />
+              </div>
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button variant="outline" onClick={() => {
+                setShowDeleteDialog(false);
+                setDeletePaymentId(null);
+                setDeletePassword('');
+              }}>
+                Cancel
+              </Button>
+              <Button variant="destructive" onClick={confirmDeleteWithPassword} disabled={!deletePassword}>
+                Confirm Delete
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
    );
 };
