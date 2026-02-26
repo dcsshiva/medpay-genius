@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,7 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/currency';
-import { cn } from '@/lib/utils';
+import { cn, debounce } from '@/lib/utils';
 import { 
   Plus, 
   CreditCard, 
@@ -213,6 +213,62 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
   // Search functionality
   const [searchTerm, setSearchTerm] = useState('');
   const [searchFilter, setSearchFilter] = useState<'all' | 'doctor_name' | 'doctor_code' | 'patient_name' | 'insurance_name'>('all');
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [loadingSuggestions, setLoadingSuggestions] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+
+  // Close suggestions on outside click
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        suggestionsRef.current && !suggestionsRef.current.contains(e.target as Node) &&
+        searchInputRef.current && !searchInputRef.current.contains(e.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Debounced fetch suggestions
+  const fetchSuggestionsRaw = useCallback(async (term: string, filter: string) => {
+    if (term.length < 2 || filter === 'all') {
+      setSuggestions([]);
+      setShowSuggestions(false);
+      return;
+    }
+    setLoadingSuggestions(true);
+    try {
+      let results: string[] = [];
+      if (filter === 'doctor_name') {
+        const { data } = await supabase.from('doctors').select('full_name').ilike('full_name', `%${term}%`).limit(10);
+        results = (data || []).map(d => d.full_name).filter(Boolean) as string[];
+      } else if (filter === 'doctor_code') {
+        const { data } = await supabase.from('doctors').select('doctor_code').ilike('doctor_code', `%${term}%`).limit(10);
+        results = (data || []).map(d => d.doctor_code);
+      } else if (filter === 'patient_name') {
+        const { data } = await supabase.from('visits').select('patient_name').ilike('patient_name', `%${term}%`).limit(50);
+        results = [...new Set((data || []).map(d => d.patient_name))].slice(0, 10);
+      } else if (filter === 'insurance_name') {
+        const { data } = await supabase.from('insurance_companies').select('company_name').ilike('company_name', `%${term}%`).limit(10);
+        results = (data || []).map(d => d.company_name);
+      }
+      setSuggestions([...new Set(results)]);
+      setShowSuggestions(results.length > 0);
+    } catch (err) {
+      console.error('Error fetching suggestions:', err);
+    } finally {
+      setLoadingSuggestions(false);
+    }
+  }, []);
+
+  const debouncedFetchSuggestions = useCallback(
+    debounce((term: string, filter: string) => fetchSuggestionsRaw(term, filter), 300),
+    [fetchSuggestionsRaw]
+  );
 
   const [formData, setFormData] = useState({
     doctor_id: '',
@@ -2996,16 +3052,50 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
           <Card className="mb-4">
             <CardContent className="pt-6">
               <div className="flex flex-col gap-4">
-                {/* Search Input */}
+                {/* Search Input with Autocomplete */}
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
                   <Input
+                    ref={searchInputRef}
                     type="text"
-                    placeholder="Search payments..."
+                    placeholder={searchFilter === 'all' ? "Search payments..." : `Search by ${searchFilter.replace('_', ' ')}...`}
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSearchTerm(val);
+                      debouncedFetchSuggestions(val, searchFilter);
+                    }}
+                    onFocus={() => {
+                      if (suggestions.length > 0) setShowSuggestions(true);
+                    }}
                     className="pl-9"
                   />
+                  {/* Suggestions Dropdown */}
+                  {showSuggestions && (
+                    <div
+                      ref={suggestionsRef}
+                      className="absolute top-full left-0 right-0 z-50 mt-1 rounded-md border bg-popover text-popover-foreground shadow-md max-h-[200px] overflow-y-auto"
+                    >
+                      {loadingSuggestions ? (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">Loading...</div>
+                      ) : (
+                        suggestions.map((s, i) => (
+                          <button
+                            key={i}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors"
+                            onMouseDown={(e) => {
+                              e.preventDefault();
+                              setSearchTerm(s);
+                              setShowSuggestions(false);
+                              setSuggestions([]);
+                            }}
+                          >
+                            {s}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
                 
                 {/* Search Filter Buttons */}
@@ -3058,6 +3148,8 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                       onClick={() => {
                         setSearchTerm('');
                         setSearchFilter('all');
+                        setSuggestions([]);
+                        setShowSuggestions(false);
                       }}
                       className="ml-auto"
                     >
