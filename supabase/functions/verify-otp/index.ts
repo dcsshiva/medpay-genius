@@ -12,7 +12,6 @@ interface VerifyOTPRequest {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -20,7 +19,6 @@ serve(async (req) => {
   try {
     const { mobile, otp }: VerifyOTPRequest = await req.json();
 
-    // Validate inputs
     if (!mobile || !/^[0-9]{10}$/.test(mobile)) {
       throw new Error('Invalid mobile number');
     }
@@ -29,7 +27,6 @@ serve(async (req) => {
       throw new Error('Invalid OTP format');
     }
 
-    // Initialize Supabase client
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -50,12 +47,10 @@ serve(async (req) => {
       throw new Error('No valid OTP found. Please request a new OTP.');
     }
 
-    // Check if OTP has expired
     if (new Date(otpRecord.expires_at) < new Date()) {
       throw new Error('OTP has expired. Please request a new OTP.');
     }
 
-    // Check attempt limit (max 3 attempts)
     if (otpRecord.attempts >= 3) {
       throw new Error('Maximum attempts exceeded. Please request a new OTP.');
     }
@@ -66,7 +61,6 @@ serve(async (req) => {
       .update({ attempts: otpRecord.attempts + 1 })
       .eq('id', otpRecord.id);
 
-    // Verify OTP
     if (otpRecord.otp_code !== otp) {
       throw new Error('Invalid OTP. Please try again.');
     }
@@ -80,7 +74,29 @@ serve(async (req) => {
       })
       .eq('id', otpRecord.id);
 
-    // Helper: generate a custom session token and insert into user_sessions directly
+    // Helper: Try to generate a magic link for the auth user so client can establish real Supabase auth
+    const tryGenerateMagicLink = async (userId: string | null): Promise<string | null> => {
+      if (!userId) return null;
+      try {
+        // Get the user's email from auth.users
+        const { data: authUser, error: authErr } = await supabaseClient.auth.admin.getUserById(userId);
+        if (authErr || !authUser?.user?.email) return null;
+
+        // Generate a magic link (OTP) for this user
+        const { data: linkData, error: linkErr } = await supabaseClient.auth.admin.generateLink({
+          type: 'magiclink',
+          email: authUser.user.email,
+        });
+        if (linkErr || !linkData?.properties?.hashed_token) return null;
+
+        return linkData.properties.hashed_token;
+      } catch (e) {
+        console.error('Failed to generate magic link:', e);
+        return null;
+      }
+    };
+
+    // Helper: generate a custom session token as fallback
     const createDirectSession = async (userData: {
       user_type: string;
       original_id: string;
@@ -91,7 +107,7 @@ serve(async (req) => {
     }) => {
       const sessionToken = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const refreshToken = `refresh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
       const timeoutDuration = ['admin', 'manager'].includes(userData.role) ? 300 : 180;
 
       const { error: insertError } = await supabaseClient
@@ -119,7 +135,50 @@ serve(async (req) => {
       return sessionToken;
     };
 
-    // Find user by mobile number in staff or doctors table
+    // Helper: build successful response with magic link attempt
+    const buildResponse = async (userData: {
+      user_type: string;
+      id: string;
+      user_id: string | null;
+      full_name: string;
+      designation: string;
+    }) => {
+      // Try to generate magic link for real Supabase auth
+      const hashedToken = await tryGenerateMagicLink(userData.user_id);
+
+      // Always create a direct session as fallback
+      const sessionToken = await createDirectSession({
+        user_type: userData.user_type,
+        original_id: userData.id,
+        user_id: userData.user_id || userData.id,
+        username: mobile,
+        full_name: userData.full_name,
+        role: userData.designation
+      });
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'OTP verified successfully',
+          session_token: sessionToken,
+          hashed_token: hashedToken, // Will be null if magic link generation failed
+          user: {
+            user_type: userData.user_type,
+            id: userData.id,
+            user_id: userData.user_id || userData.id,
+            full_name: userData.full_name,
+            role: userData.designation,
+            designation: userData.designation
+          }
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200,
+        }
+      );
+    };
+
+    // Find user by mobile number in staff table
     const { data: staffUser } = await supabaseClient
       .from('staff')
       .select('id, user_id, full_name, role, phone')
@@ -128,7 +187,6 @@ serve(async (req) => {
       .single();
 
     if (staffUser) {
-      // Get designation for the user
       let designation = staffUser.role || 'staff';
       if (staffUser.user_id) {
         const { data: desigData } = await supabaseClient
@@ -141,35 +199,13 @@ serve(async (req) => {
         }
       }
 
-      // Create direct session
-      const sessionToken = await createDirectSession({
+      return await buildResponse({
         user_type: 'staff',
-        original_id: staffUser.id,
-        user_id: staffUser.user_id || staffUser.id,
-        username: mobile,
+        id: staffUser.id,
+        user_id: staffUser.user_id,
         full_name: staffUser.full_name,
-        role: designation
+        designation
       });
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'OTP verified successfully',
-          session_token: sessionToken,
-          user: {
-            user_type: 'staff',
-            id: staffUser.id,
-            user_id: staffUser.user_id || staffUser.id,
-            full_name: staffUser.full_name,
-            role: designation,
-            designation: designation
-          }
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        }
-      );
     }
 
     // Check doctors table
@@ -181,7 +217,6 @@ serve(async (req) => {
       .single();
 
     if (doctorUser) {
-      // Get designation
       let designation = 'doctor';
       if (doctorUser.user_id) {
         const { data: desigData } = await supabaseClient
@@ -194,35 +229,13 @@ serve(async (req) => {
         }
       }
 
-      // Create direct session
-      const sessionToken = await createDirectSession({
+      return await buildResponse({
         user_type: 'doctor',
-        original_id: doctorUser.id,
-        user_id: doctorUser.user_id || doctorUser.id,
-        username: mobile,
+        id: doctorUser.id,
+        user_id: doctorUser.user_id,
         full_name: doctorUser.full_name || doctorUser.doctor_code,
-        role: designation
+        designation
       });
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'OTP verified successfully',
-          session_token: sessionToken,
-          user: {
-            user_type: 'doctor',
-            id: doctorUser.id,
-            user_id: doctorUser.user_id || doctorUser.id,
-            full_name: doctorUser.full_name || doctorUser.doctor_code,
-            role: designation,
-            designation: designation
-          }
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        }
-      );
     }
 
     throw new Error('No user found with this mobile number');
