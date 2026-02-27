@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import * as XLSX from 'xlsx';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,7 @@ import {
 } from '@/lib/excelImportUtils';
 import { getSessionAuthHeaders } from '@/lib/sessionAuth';
 import { validatePAN, handleCreateUserError } from '@/lib/utils';
-
+import { validateMobileNumber, formatMobileNumber } from '@/lib/validators';
 interface Doctor {
   id: string;
   user_id?: string;
@@ -32,6 +32,7 @@ interface Doctor {
   specialization: string;
   is_active: boolean;
   email?: string;
+  mobile_number?: string;
   pan_number?: string;
   bank_account_number?: string;
   account_holder_name?: string;
@@ -68,6 +69,7 @@ const DoctorManagement = () => {
     email: '',
     password: '',
     pan_number: '',
+    mobile_number: '',
     bank_account_number: '',
     account_holder_name: '',
     bank_name: '',
@@ -75,6 +77,7 @@ const DoctorManagement = () => {
     ifsc_code: ''
   });
   const [emailError, setEmailError] = useState('');
+  const [mobileError, setMobileError] = useState('');
   const [importing, setImporting] = useState(false);
   const [importResults, setImportResults] = useState<ImportResults | null>(null);
   const [showImportResults, setShowImportResults] = useState(false);
@@ -122,6 +125,40 @@ const DoctorManagement = () => {
     return () => clearTimeout(timeoutId);
   }, [formData.email, editingDoctor]);
 
+  // Real-time mobile number duplicate validation with debouncing
+  useEffect(() => {
+    if (!formData.mobile_number.trim()) {
+      setMobileError('');
+      return;
+    }
+
+    if (!validateMobileNumber(formData.mobile_number)) {
+      setMobileError('Mobile number must be exactly 10 digits');
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      let query = supabase
+        .from('doctors')
+        .select('id')
+        .eq('mobile_number', formData.mobile_number);
+      
+      if (editingDoctor) {
+        query = query.neq('id', editingDoctor.id);
+      }
+
+      const { data: existing } = await query.maybeSingle();
+      
+      if (existing) {
+        setMobileError('This mobile number is already registered to another doctor');
+      } else {
+        setMobileError('');
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [formData.mobile_number, editingDoctor]);
+
   // Add a key to force re-render when dialog closes
   const handleDialogClose = () => {
     setDialogOpen(false);
@@ -142,6 +179,7 @@ const DoctorManagement = () => {
             doctor_code,
             specialization,
             is_active,
+            mobile_number,
             pan_number,
             bank_account_number,
             account_holder_name,
@@ -231,6 +269,27 @@ const DoctorManagement = () => {
       return;
     }
 
+    // Validate mobile number if provided
+    if (formData.mobile_number.trim() && !validateMobileNumber(formData.mobile_number)) {
+      toast({
+        variant: "destructive",
+        title: "Invalid Mobile Number",
+        description: "Mobile number must be exactly 10 digits"
+      });
+      setSubmitting(false);
+      return;
+    }
+
+    if (mobileError) {
+      toast({
+        variant: "destructive",
+        title: "Duplicate Mobile Number",
+        description: mobileError
+      });
+      setSubmitting(false);
+      return;
+    }
+
     try {
       if (editingDoctor) {
         // Validate doctor_code uniqueness (exclude current doctor)
@@ -261,6 +320,7 @@ const DoctorManagement = () => {
             specialization: formData.specialization,
             is_active: formData.is_active,
             pan_number: formData.pan_number || null,
+            mobile_number: formData.mobile_number.trim() || null,
             bank_account_number: formData.bank_account_number,
             account_holder_name: formData.account_holder_name,
             bank_name: formData.bank_name,
@@ -355,6 +415,7 @@ const DoctorManagement = () => {
               doctor_code: formData.doctor_code,
               specialization: formData.specialization,
               pan_number: formData.pan_number || null,
+              mobile_number: formData.mobile_number.trim() || null,
               bank_account_number: formData.bank_account_number,
               account_holder_name: formData.account_holder_name,
               bank_name: formData.bank_name,
@@ -403,12 +464,14 @@ const DoctorManagement = () => {
       email: '',
       password: '',
       pan_number: '',
+      mobile_number: '',
       bank_account_number: '',
       account_holder_name: '',
       bank_name: '',
       branch_name: '',
       ifsc_code: ''
     });
+    setMobileError('');
   };
 
   const handleEdit = (doctor: Doctor) => {
@@ -418,9 +481,10 @@ const DoctorManagement = () => {
       doctor_code: doctor.doctor_code,
       specialization: doctor.specialization,
       is_active: doctor.is_active,
-      email: doctor.email || '', // Show current email
-      password: '', // Don't pre-fill for security
+      email: doctor.email || '',
+      password: '',
       pan_number: doctor.pan_number || '',
+      mobile_number: doctor.mobile_number || '',
       bank_account_number: doctor.bank_account_number || '',
       account_holder_name: doctor.account_holder_name || '',
       bank_name: doctor.bank_name || '',
@@ -981,6 +1045,28 @@ const DoctorManagement = () => {
                       Update email address if needed
                     </p>
                   )}
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="mobile_number">Mobile Number (for OTP Login)</Label>
+                  <Input
+                    id="mobile_number"
+                    type="tel"
+                    value={formData.mobile_number}
+                    onChange={(e) => setFormData({ ...formData, mobile_number: formatMobileNumber(e.target.value) })}
+                    placeholder="9876543210"
+                    maxLength={10}
+                    className={mobileError ? 'border-destructive' : ''}
+                  />
+                  {mobileError && (
+                    <p className="text-sm text-destructive flex items-center gap-1 mt-1">
+                      <span className="text-xs">⚠️</span>
+                      {mobileError}
+                    </p>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    10-digit mobile number used for OTP-based login
+                  </p>
                 </div>
                 
                 <div className="space-y-2">
