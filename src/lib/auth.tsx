@@ -387,11 +387,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setSession(mockSession);
           setUserRole(sessionData.role);
           setUserDesignation(designation);
+          // For doctor sessions, normalize the doctor table ID via profile RPC
+          let resolvedId = sessionData.original_id;
+          if (sessionData.user_type === 'doctor' || designation === 'doctor') {
+            try {
+              const { data: profileData } = await supabase.rpc('get_user_complete_profile', { _user_id: sessionData.user_id });
+              if (profileData && typeof profileData === 'object' && !('error' in profileData)) {
+                const p = profileData as any;
+                if (p.designation === 'doctor' && p.id) {
+                  resolvedId = p.id;
+                }
+              }
+            } catch (e) {
+              console.warn('Failed to resolve doctor ID during session restore:', e);
+            }
+          }
+
           setUserProfile({
             role: sessionData.role,
             full_name: sessionData.full_name,
-            id: sessionData.original_id,
-            user_type: sessionData.user_type
+            id: resolvedId,
+            user_id: sessionData.user_id,
+            user_type: sessionData.user_type,
+            code: undefined
           });
         }
       } catch (error) {
@@ -810,7 +828,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           try {
             await createUserSession({
               user_type: userType,
-              original_id: data.user.id,
+              original_id: (userType === 'doctor' && doctorTableId) ? doctorTableId : data.user.id,
               user_id: data.user.id,
               username: email,
               full_name: fullName,
@@ -940,12 +958,83 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const userData = data.user;
       const sessionToken = data.session_token;
+      const hashedToken = data.hashed_token;
 
-      // New path: edge function created the session directly, no Auth API needed
+      // Priority 1: Use hashed_token to establish real Supabase auth session (RLS works)
+      if (hashedToken) {
+        try {
+          console.log('Mobile OTP: Attempting real Supabase auth via magic link token');
+          const { data: authData, error: authError } = await supabase.auth.verifyOtp({
+            token_hash: hashedToken,
+            type: 'magiclink'
+          });
+
+          if (!authError && authData?.user && authData?.session) {
+            console.log('Mobile OTP: Real Supabase auth session established');
+            setUser(authData.user);
+            setSession(authData.session);
+
+            const { data: designation } = await supabase
+              .from('user_designations')
+              .select('designation')
+              .eq('user_id', authData.user.id)
+              .maybeSingle();
+
+            const role = designation?.designation || userData?.role || 'staff';
+            setUserRole(role);
+            setUserDesignation(designation?.designation || null);
+
+            // Resolve doctor table ID from profile RPC
+            let resolvedId = userData?.id || authData.user.id;
+            let resolvedCode: string | undefined;
+            try {
+              const { data: profileData } = await supabase.rpc('get_user_complete_profile', { _user_id: authData.user.id });
+              if (profileData && typeof profileData === 'object' && !('error' in profileData)) {
+                const p = profileData as any;
+                if (p.designation === 'doctor' && p.id) {
+                  resolvedId = p.id;
+                  resolvedCode = p.code;
+                }
+              }
+            } catch (e) {
+              console.warn('Failed to resolve profile during mobile OTP auth:', e);
+            }
+
+            setUserProfile({
+              id: resolvedId,
+              user_id: authData.user.id,
+              full_name: userData?.full_name || authData.user.email || mobile,
+              role: role,
+              user_type: userData?.user_type,
+              code: resolvedCode
+            });
+
+            try {
+              await createUserSession({
+                user_type: userData?.user_type || 'mobile_otp',
+                original_id: resolvedId,
+                user_id: authData.user.id,
+                username: mobile,
+                full_name: userData?.full_name || authData.user.email || mobile,
+                role: role
+              });
+            } catch (e: any) {
+              console.error('createUserSession failed (mobile OTP auth):', e?.message || e);
+            }
+
+            return { error: null };
+          } else {
+            console.warn('Mobile OTP: Magic link auth failed, falling back to direct session:', authError?.message);
+          }
+        } catch (magicLinkErr) {
+          console.warn('Mobile OTP: Magic link auth error, falling back to direct session:', magicLinkErr);
+        }
+      }
+
+      // Priority 2: Direct session (DNS-bypass / magic link unavailable)
       if (sessionToken && userData) {
-        console.log('Mobile OTP: Direct session established (DNS-bypass mode)');
+        console.log('Mobile OTP: Direct session established (fallback mode)');
         
-        // Store the session token
         window.localStorage.setItem('supabase_session_token', sessionToken);
 
         const mockUser = {
@@ -987,56 +1076,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error: null };
       }
 
-      // Legacy fallback: hashed_token path (when DNS is working)
-      const hashedToken = data.hashed_token;
-      if (hashedToken) {
-        const { data: authData, error: authError } = await supabase.auth.verifyOtp({
-          token_hash: hashedToken,
-          type: 'magiclink'
-        });
-
-        if (authError) {
-          console.error('Failed to establish Supabase auth session:', authError);
-          throw new Error('Authentication failed. Please try again.');
-        }
-
-        if (authData.user && authData.session) {
-          setUser(authData.user);
-          setSession(authData.session);
-
-          const { data: designation } = await supabase
-            .from('user_designations')
-            .select('designation')
-            .eq('user_id', authData.user.id)
-            .maybeSingle();
-
-          const role = designation?.designation || userData?.role || 'staff';
-          setUserRole(role);
-          setUserDesignation(designation?.designation || null);
-          setUserProfile({
-            id: userData?.id || authData.user.id,
-            user_id: authData.user.id,
-            full_name: userData?.full_name || authData.user.email || mobile,
-            role: role,
-            user_type: userData?.user_type
-          });
-
-          try {
-            await createUserSession({
-              user_type: userData?.user_type || 'mobile_otp',
-              original_id: userData?.id || authData.user.id,
-              user_id: authData.user.id,
-              username: mobile,
-              full_name: userData?.full_name || authData.user.email || mobile,
-              role: role
-            });
-          } catch (e: any) {
-            console.error('createUserSession failed (mobile OTP):', e?.message || e);
-          }
-
-          return { error: null };
-        }
-      }
+      // (hashed_token path is now handled above as Priority 1)
 
       // Final fallback: userData without any token
       if (userData) {
