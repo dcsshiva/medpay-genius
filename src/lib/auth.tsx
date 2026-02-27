@@ -783,23 +783,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Fetch full profile to determine user_type
           let userType = 'staff';
           let fullName = email;
+          let doctorTableId: string | undefined;
+          let doctorCode: string | undefined;
           try {
             const { data: profileData } = await supabase.rpc('get_user_complete_profile', { _user_id: data.user.id });
             if (profileData && typeof profileData === 'object' && !('error' in profileData)) {
               const p = profileData as any;
               userType = p.designation === 'doctor' ? 'doctor' : 'staff';
               fullName = p.full_name || email;
+              doctorTableId = p.id;
+              doctorCode = p.code;
             }
           } catch (profileErr) {
             console.error('Failed to fetch complete profile:', profileErr);
           }
           
           setUserProfile({
-            id: data.user.id,
+            id: (userType === 'doctor' && doctorTableId) ? doctorTableId : data.user.id,
             user_id: data.user.id,
             full_name: fullName,
             role: designation.designation,
-            user_type: userType
+            user_type: userType,
+            code: doctorCode
           });
           
           try {
