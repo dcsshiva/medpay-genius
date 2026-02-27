@@ -13,7 +13,8 @@ import AppraisalCriteriaTab from '@/components/masters/AppraisalCriteriaTab';
 import ComplaintCategoriesTab from '@/components/masters/ComplaintCategoriesTab';
 import QuickPaymentTypesTab from '@/components/masters/QuickPaymentTypesTab';
 import VendorDetailsTab from '@/components/masters/VendorDetailsTab';
-
+import DepartmentRoleMappingTab from '@/components/masters/DepartmentRoleMappingTab';
+import RoleAppraisalCriteriaTab from '@/components/masters/RoleAppraisalCriteriaTab';
 const MasterDataManagement = () => {
   const [activeTab, setActiveTab] = useState('roles');
   
@@ -38,7 +39,8 @@ const MasterDataManagement = () => {
           <TabsTrigger value="permission-reasons">Permission Reasons</TabsTrigger>
           <TabsTrigger value="visit-reasons">Visit Reasons</TabsTrigger>
           <TabsTrigger value="insurance-companies">Insurance</TabsTrigger>
-          
+          <TabsTrigger value="dept-role-mapping">Dept-Role Mapping</TabsTrigger>
+          <TabsTrigger value="parameter-master">Parameter Master</TabsTrigger>
           <TabsTrigger value="appraisal-criteria">Appraisal Criteria</TabsTrigger>
           <TabsTrigger value="complaint-categories">Complaints</TabsTrigger>
           <TabsTrigger value="quick-payment-types">Quick Pay</TabsTrigger>
@@ -73,6 +75,13 @@ const MasterDataManagement = () => {
           <InsuranceCompaniesTab />
         </TabsContent>
 
+        <TabsContent value="dept-role-mapping" className="mt-6">
+          <DepartmentRoleMappingTab />
+        </TabsContent>
+
+        <TabsContent value="parameter-master" className="mt-6">
+          <RoleAppraisalCriteriaTab />
+        </TabsContent>
 
         <TabsContent value="appraisal-criteria" className="mt-6">
           <AppraisalCriteriaTab />

@@ -73,7 +73,7 @@ const StaffManagement = () => {
     full_name: '',
     email: '',
     phone: '',
-    role: 'nurse',
+    role: '',
     department: '',
     bank_account_number: '',
     ifsc_code: '',
@@ -88,6 +88,8 @@ const StaffManagement = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [rolesMaster, setRolesMaster] = useState<Array<{ id: string; role_code: string; role_name: string }>>([]);
   const [departmentsMaster, setDepartmentsMaster] = useState<Array<{ id: string; department_code: string; department_name: string }>>([]);
+  const [deptRoleMappings, setDeptRoleMappings] = useState<Array<{ department_id: string; role_id: string }>>([]);
+  const [filteredRoles, setFilteredRoles] = useState<Array<{ id: string; role_code: string; role_name: string }>>([]);
 
   useEffect(() => {
     if (userRole === 'admin' || userRole === 'manager' || userRole === 'super_admin' || 
@@ -95,8 +97,32 @@ const StaffManagement = () => {
       fetchStaff();
       fetchRolesMaster();
       fetchDepartmentsMaster();
+      fetchDeptRoleMappings();
     }
   }, [userRole, userDesignation]);
+
+  // Filter roles based on selected department
+  useEffect(() => {
+    if (!formData.department) {
+      setFilteredRoles(rolesMaster);
+      return;
+    }
+    const selectedDept = departmentsMaster.find(d => d.department_code === formData.department);
+    if (!selectedDept) {
+      setFilteredRoles(rolesMaster);
+      return;
+    }
+    const mappedRoleIds = deptRoleMappings
+      .filter(m => m.department_id === selectedDept.id)
+      .map(m => m.role_id);
+    
+    if (mappedRoleIds.length === 0) {
+      // Fallback: show all roles if no mapping exists
+      setFilteredRoles(rolesMaster);
+    } else {
+      setFilteredRoles(rolesMaster.filter(r => mappedRoleIds.includes(r.id)));
+    }
+  }, [formData.department, deptRoleMappings, departmentsMaster, rolesMaster]);
 
   // Real-time email validation with debouncing
   useEffect(() => {
@@ -140,6 +166,17 @@ const StaffManagement = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchDeptRoleMappings = async () => {
+    const { data, error } = await (supabase as any)
+      .from('department_role_mapping')
+      .select('department_id, role_id')
+      .eq('is_active', true);
+    
+    if (!error && data) {
+      setDeptRoleMappings(data);
     }
   };
 
@@ -1218,39 +1255,40 @@ const StaffManagement = () => {
 
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <Label htmlFor="role">Role *</Label>
-                      <Select 
-                        value={formData.role} 
-                        onValueChange={(value) => setFormData({ ...formData, role: value })}
-                        required
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select role" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-background z-50">
-                          {rolesMaster.map((role) => (
-                            <SelectItem key={role.id} value={role.role_code}>
-                              {role.role_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="space-y-2">
                       <Label htmlFor="department">Department *</Label>
                       <Select 
                         value={formData.department} 
-                        onValueChange={(value) => setFormData({ ...formData, department: value })}
+                        onValueChange={(value) => setFormData({ ...formData, department: value, role: '' })}
                         required
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select department" />
+                          <SelectValue placeholder="Select department first" />
                         </SelectTrigger>
                         <SelectContent className="bg-background z-50">
                           {departmentsMaster.map((dept) => (
                             <SelectItem key={dept.id} value={dept.department_code}>
                               {dept.department_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="role">Role *</Label>
+                      <Select 
+                        value={formData.role} 
+                        onValueChange={(value) => setFormData({ ...formData, role: value })}
+                        required
+                        disabled={!formData.department}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder={formData.department ? "Select role" : "Select department first"} />
+                        </SelectTrigger>
+                        <SelectContent className="bg-background z-50">
+                          {filteredRoles.map((role) => (
+                            <SelectItem key={role.id} value={role.role_code}>
+                              {role.role_name}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -1491,8 +1529,8 @@ const StaffManagement = () => {
            </AlertDialogFooter>
          </AlertDialogContent>
        </AlertDialog>
-     </div>
-   );
- };
+    </div>
+  );
+};
 
 export default StaffManagement;
