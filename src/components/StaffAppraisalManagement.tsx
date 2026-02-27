@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ClipboardCheck, AlertTriangle, Calendar, Search, Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { Loader2, ClipboardCheck, AlertTriangle, Calendar, Search, Plus, ChevronDown, ChevronUp, CheckCircle2, XCircle } from "lucide-react";
 import { VendorSearchCombobox } from "@/components/ui/vendor-search-combobox";
 import { formatDateIST, formatDateTimeIST, formatInputDateIST, getCurrentISTDate, formatLongDateIST } from '@/lib/dateUtils';
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +57,23 @@ interface AppraisalCriteria {
   weight: number;
   is_active: boolean;
   display_order: number;
+}
+
+interface RoleCriteria {
+  id: string;
+  role_id: string;
+  criteria_name: string;
+  criteria_code: string;
+  max_score: number;
+  has_yes_no: boolean;
+  display_order: number;
+  is_active: boolean;
+}
+
+interface RoleCriteriaScore {
+  criteria_id: string;
+  yes_no_value: boolean | null;
+  obtained_score: number;
 }
 
 interface AppraisalScoreRow {
@@ -195,6 +212,9 @@ export default function StaffAppraisalManagement() {
   const [nextReviewDate, setNextReviewDate] = useState("");
   const [criteriaList, setCriteriaList] = useState<AppraisalCriteria[]>([]);
   const [criteriaScores, setCriteriaScores] = useState<Record<string, number>>({});
+  const [roleCriteriaList, setRoleCriteriaList] = useState<RoleCriteria[]>([]);
+  const [roleCriteriaScores, setRoleCriteriaScores] = useState<Record<string, RoleCriteriaScore>>({});
+  const [useRoleCriteria, setUseRoleCriteria] = useState(false);
 
   // Warning form state
   const [showWarningForm, setShowWarningForm] = useState(false);
@@ -228,15 +248,36 @@ export default function StaffAppraisalManagement() {
     }
   }, [user, userRole]);
 
-  // Auto-calculate overall rating from criteria scores
+  // Load role-specific criteria when staff is selected
   useEffect(() => {
-    if (!overallRatingOverride && criteriaList.length > 0) {
-      const weightedAvg = calculateWeightedAverage(criteriaScores);
-      if (!isNaN(weightedAvg)) {
-        setOverallRating(getAutoRating(weightedAvg));
+    if (selectedStaffForAppraisal) {
+      const staff = staffList.find(s => s.id === selectedStaffForAppraisal);
+      if (staff?.role) {
+        fetchRoleCriteria(staff.role);
+      }
+    } else {
+      setRoleCriteriaList([]);
+      setRoleCriteriaScores({});
+      setUseRoleCriteria(false);
+    }
+  }, [selectedStaffForAppraisal, staffList]);
+
+  // Auto-calculate overall rating from criteria scores (role-based or legacy)
+  useEffect(() => {
+    if (!overallRatingOverride) {
+      if (useRoleCriteria && roleCriteriaList.length > 0) {
+        const totalMax = roleCriteriaList.reduce((sum, c) => sum + c.max_score, 0);
+        const totalObtained = Object.values(roleCriteriaScores).reduce((sum, s) => sum + s.obtained_score, 0);
+        const percentage = totalMax > 0 ? (totalObtained / totalMax) * 100 : 0;
+        setOverallRating(getAutoRating(percentage));
+      } else if (criteriaList.length > 0) {
+        const weightedAvg = calculateWeightedAverage(criteriaScores);
+        if (!isNaN(weightedAvg)) {
+          setOverallRating(getAutoRating(weightedAvg));
+        }
       }
     }
-  }, [criteriaScores, criteriaList, overallRatingOverride]);
+  }, [criteriaScores, criteriaList, roleCriteriaScores, roleCriteriaList, useRoleCriteria, overallRatingOverride]);
 
   const calculateWeightedAverage = (scores: Record<string, number>): number => {
     let totalWeight = 0;
@@ -281,6 +322,42 @@ export default function StaffAppraisalManagement() {
     setCriteriaList(data || []);
   };
 
+  const fetchRoleCriteria = async (roleCode: string) => {
+    // Find role_id from roles_master by role_code
+    const { data: roleData } = await supabase
+      .from('roles_master')
+      .select('id')
+      .eq('role_code', roleCode)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (!roleData) {
+      setUseRoleCriteria(false);
+      setRoleCriteriaList([]);
+      return;
+    }
+
+    const { data } = await (supabase as any)
+      .from('role_appraisal_criteria')
+      .select('*')
+      .eq('role_id', roleData.id)
+      .eq('is_active', true)
+      .order('display_order');
+
+    if (data && data.length > 0) {
+      setRoleCriteriaList(data);
+      setUseRoleCriteria(true);
+      // Initialize scores
+      const initScores: Record<string, RoleCriteriaScore> = {};
+      data.forEach((c: RoleCriteria) => {
+        initScores[c.id] = { criteria_id: c.id, yes_no_value: null, obtained_score: 0 };
+      });
+      setRoleCriteriaScores(initScores);
+    } else {
+      setUseRoleCriteria(false);
+      setRoleCriteriaList([]);
+    }
+  };
 
   const fetchStaff = async () => {
     const { data, error } = await supabase
@@ -409,18 +486,37 @@ export default function StaffAppraisalManagement() {
 
     // Save dynamic scores
     if (appraisalData?.id) {
-      const scoreInserts = criteriaList.map(c => ({
-        appraisal_id: appraisalData.id,
-        criteria_id: c.id,
-        score_value: criteriaScores[c.id] ?? 0,
-      }));
+      if (useRoleCriteria && roleCriteriaList.length > 0) {
+        // Save new role-based criteria scores
+        const roleScoreInserts = roleCriteriaList.map(c => ({
+          appraisal_id: appraisalData.id,
+          criteria_id: c.id,
+          yes_no_value: roleCriteriaScores[c.id]?.yes_no_value ?? null,
+          obtained_score: roleCriteriaScores[c.id]?.obtained_score ?? 0,
+        }));
 
-      const { error: scoresError } = await (supabase as any)
-        .from("staff_appraisal_scores")
-        .insert(scoreInserts);
+        const { error: roleScoresError } = await (supabase as any)
+          .from("staff_appraisal_criteria_scores")
+          .insert(roleScoreInserts);
 
-      if (scoresError) {
-        console.error("Failed to save scores:", scoresError);
+        if (roleScoresError) {
+          console.error("Failed to save role criteria scores:", roleScoresError);
+        }
+      } else {
+        // Legacy: save to staff_appraisal_scores
+        const scoreInserts = criteriaList.map(c => ({
+          appraisal_id: appraisalData.id,
+          criteria_id: c.id,
+          score_value: criteriaScores[c.id] ?? 0,
+        }));
+
+        const { error: scoresError } = await (supabase as any)
+          .from("staff_appraisal_scores")
+          .insert(scoreInserts);
+
+        if (scoresError) {
+          console.error("Failed to save scores:", scoresError);
+        }
       }
     }
 
@@ -442,6 +538,44 @@ export default function StaffAppraisalManagement() {
     setActionPlan("");
     setNextReviewDate("");
     setCriteriaScores({});
+    setRoleCriteriaList([]);
+    setRoleCriteriaScores({});
+    setUseRoleCriteria(false);
+  };
+
+  const handleRoleCriteriaYesNo = (criteriaId: string, value: boolean) => {
+    const criteria = roleCriteriaList.find(c => c.id === criteriaId);
+    setRoleCriteriaScores(prev => ({
+      ...prev,
+      [criteriaId]: {
+        criteria_id: criteriaId,
+        yes_no_value: value,
+        obtained_score: value ? (criteria?.max_score ?? 0) : 0,
+      }
+    }));
+  };
+
+  const handleRoleCriteriaScore = (criteriaId: string, score: number) => {
+    setRoleCriteriaScores(prev => ({
+      ...prev,
+      [criteriaId]: {
+        ...prev[criteriaId],
+        criteria_id: criteriaId,
+        obtained_score: Math.max(0, score),
+      }
+    }));
+  };
+
+  const handleQuickFillAll = (value: boolean) => {
+    const newScores: Record<string, RoleCriteriaScore> = {};
+    roleCriteriaList.forEach(c => {
+      newScores[c.id] = {
+        criteria_id: c.id,
+        yes_no_value: value,
+        obtained_score: value ? c.max_score : 0,
+      };
+    });
+    setRoleCriteriaScores(newScores);
   };
 
   const handleCriteriaScoreChange = (criteriaId: string, value: number) => {
@@ -626,8 +760,111 @@ export default function StaffAppraisalManagement() {
                     </div>
                   </div>
 
-                  {/* Step 2: Excel-like Rating Grid */}
-                  {criteriaList.length > 0 && (
+                  {/* Step 2: Role-Based Yes/No Criteria Grid */}
+                  {useRoleCriteria && roleCriteriaList.length > 0 && (
+                    <div className="border rounded-lg overflow-hidden">
+                      <div className="bg-muted/50 px-4 py-3 border-b flex items-center justify-between">
+                        <h3 className="font-semibold text-sm uppercase tracking-wide">
+                          Performance Rating Grid — {staffList.find(s => s.id === selectedStaffForAppraisal)?.role}
+                        </h3>
+                        <div className="flex gap-2">
+                          <Button type="button" size="sm" variant="outline" onClick={() => handleQuickFillAll(true)} className="h-7 text-xs">
+                            <CheckCircle2 className="h-3 w-3 mr-1" /> All YES
+                          </Button>
+                          <Button type="button" size="sm" variant="outline" onClick={() => handleQuickFillAll(false)} className="h-7 text-xs">
+                            <XCircle className="h-3 w-3 mr-1" /> All NO
+                          </Button>
+                        </div>
+                      </div>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-12">S.No</TableHead>
+                            <TableHead>Criteria</TableHead>
+                            <TableHead className="w-28 text-center">Max Score (%)</TableHead>
+                            <TableHead className="w-20 text-center">YES</TableHead>
+                            <TableHead className="w-20 text-center">NO</TableHead>
+                            <TableHead className="w-32 text-center">Obtained Score</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {roleCriteriaList.map((criteria, index) => {
+                            const score = roleCriteriaScores[criteria.id];
+                            const yesNo = score?.yes_no_value;
+                            const obtained = score?.obtained_score ?? 0;
+                            return (
+                              <TableRow key={criteria.id}>
+                                <TableCell className="font-medium text-center">{index + 1}</TableCell>
+                                <TableCell>
+                                  <span className="font-medium text-sm">{criteria.criteria_name}</span>
+                                </TableCell>
+                                <TableCell className="text-center font-semibold">{criteria.max_score}%</TableCell>
+                                <TableCell className="text-center">
+                                  {criteria.has_yes_no && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRoleCriteriaYesNo(criteria.id, true)}
+                                      className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors mx-auto ${
+                                        yesNo === true
+                                          ? 'bg-green-500 border-green-500 text-white'
+                                          : 'border-muted-foreground/30 hover:border-green-400'
+                                      }`}
+                                    >
+                                      {yesNo === true && <CheckCircle2 className="h-4 w-4" />}
+                                    </button>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  {criteria.has_yes_no && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRoleCriteriaYesNo(criteria.id, false)}
+                                      className={`w-8 h-8 rounded-full border-2 flex items-center justify-center transition-colors mx-auto ${
+                                        yesNo === false
+                                          ? 'bg-red-500 border-red-500 text-white'
+                                          : 'border-muted-foreground/30 hover:border-red-400'
+                                      }`}
+                                    >
+                                      {yesNo === false && <XCircle className="h-4 w-4" />}
+                                    </button>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-center">
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    max={criteria.max_score}
+                                    value={obtained}
+                                    onChange={(e) => handleRoleCriteriaScore(criteria.id, parseFloat(e.target.value) || 0)}
+                                    className={`w-20 text-center font-bold mx-auto ${getScoreColor((obtained / criteria.max_score) * 100)}`}
+                                  />
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
+                          {/* Total Row */}
+                          <TableRow className="bg-muted/30 font-bold">
+                            <TableCell colSpan={2} className="text-right font-bold">TOTAL SCORE</TableCell>
+                            <TableCell className="text-center font-bold">
+                              {roleCriteriaList.reduce((sum, c) => sum + c.max_score, 0)}%
+                            </TableCell>
+                            <TableCell colSpan={2}></TableCell>
+                            <TableCell className="text-center">
+                              <span className={`text-lg font-bold ${getScoreColor(
+                                (Object.values(roleCriteriaScores).reduce((sum, s) => sum + s.obtained_score, 0) / 
+                                  Math.max(1, roleCriteriaList.reduce((sum, c) => sum + c.max_score, 0))) * 100
+                              )}`}>
+                                {Object.values(roleCriteriaScores).reduce((sum, s) => sum + s.obtained_score, 0)}%
+                              </span>
+                            </TableCell>
+                          </TableRow>
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+
+                  {/* Legacy: Percentage-based Rating Grid (fallback) */}
+                  {!useRoleCriteria && criteriaList.length > 0 && (
                     <div className="border rounded-lg overflow-hidden">
                       <div className="bg-muted/50 px-4 py-3 border-b">
                         <h3 className="font-semibold text-sm uppercase tracking-wide">Performance Rating Grid (%)</h3>
@@ -702,8 +939,20 @@ export default function StaffAppraisalManagement() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
                         <div>
-                          <p className="text-sm text-muted-foreground">Weighted Average</p>
-                          <p className={`text-2xl font-bold ${getScoreColor(weightedAvg)}`}>{weightedAvg.toFixed(1)}%</p>
+                          <p className="text-sm text-muted-foreground">
+                            {useRoleCriteria ? 'Total Obtained' : 'Weighted Average'}
+                          </p>
+                          <p className={`text-2xl font-bold ${getScoreColor(
+                            useRoleCriteria
+                              ? (Object.values(roleCriteriaScores).reduce((sum, s) => sum + s.obtained_score, 0) / 
+                                  Math.max(1, roleCriteriaList.reduce((sum, c) => sum + c.max_score, 0))) * 100
+                              : weightedAvg
+                          )}`}>
+                            {useRoleCriteria
+                              ? `${Object.values(roleCriteriaScores).reduce((sum, s) => sum + s.obtained_score, 0)}%`
+                              : `${weightedAvg.toFixed(1)}%`
+                            }
+                          </p>
                         </div>
                         <div>
                           <p className="text-sm text-muted-foreground">Overall Rating</p>

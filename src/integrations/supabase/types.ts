@@ -505,6 +505,48 @@ export type Database = {
           },
         ]
       }
+      department_role_mapping: {
+        Row: {
+          created_at: string
+          department_id: string
+          id: string
+          is_active: boolean
+          role_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          department_id: string
+          id?: string
+          is_active?: boolean
+          role_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          department_id?: string
+          id?: string
+          is_active?: boolean
+          role_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "department_role_mapping_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments_master"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "department_role_mapping_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles_master"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       departments_master: {
         Row: {
           created_at: string
@@ -1606,6 +1648,53 @@ export type Database = {
           },
         ]
       }
+      role_appraisal_criteria: {
+        Row: {
+          created_at: string
+          criteria_code: string
+          criteria_name: string
+          display_order: number
+          has_yes_no: boolean
+          id: string
+          is_active: boolean
+          max_score: number
+          role_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          criteria_code: string
+          criteria_name: string
+          display_order?: number
+          has_yes_no?: boolean
+          id?: string
+          is_active?: boolean
+          max_score?: number
+          role_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          criteria_code?: string
+          criteria_name?: string
+          display_order?: number
+          has_yes_no?: boolean
+          id?: string
+          is_active?: boolean
+          max_score?: number
+          role_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_appraisal_criteria_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "roles_master"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       roles_master: {
         Row: {
           created_at: string
@@ -1742,6 +1831,48 @@ export type Database = {
             columns: ["staff_category_id"]
             isOneToOne: false
             referencedRelation: "staff_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_appraisal_criteria_scores: {
+        Row: {
+          appraisal_id: string
+          created_at: string
+          criteria_id: string
+          id: string
+          obtained_score: number
+          yes_no_value: boolean | null
+        }
+        Insert: {
+          appraisal_id: string
+          created_at?: string
+          criteria_id: string
+          id?: string
+          obtained_score?: number
+          yes_no_value?: boolean | null
+        }
+        Update: {
+          appraisal_id?: string
+          created_at?: string
+          criteria_id?: string
+          id?: string
+          obtained_score?: number
+          yes_no_value?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_appraisal_criteria_scores_appraisal_id_fkey"
+            columns: ["appraisal_id"]
+            isOneToOne: false
+            referencedRelation: "staff_appraisals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_appraisal_criteria_scores_criteria_id_fkey"
+            columns: ["criteria_id"]
+            isOneToOne: false
+            referencedRelation: "role_appraisal_criteria"
             referencedColumns: ["id"]
           },
         ]
