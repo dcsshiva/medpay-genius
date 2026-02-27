@@ -802,7 +802,8 @@ const DoctorManagement = () => {
         return (
           doctor.profiles?.full_name.toLowerCase().includes(searchLower) ||
           doctor.doctor_code.toLowerCase().includes(searchLower) ||
-          doctor.specialization.toLowerCase().includes(searchLower)
+          doctor.specialization.toLowerCase().includes(searchLower) ||
+          doctor.mobile_number?.toLowerCase().includes(searchLower)
         );
       })
       .sort((a, b) => {
@@ -1175,7 +1176,7 @@ const DoctorManagement = () => {
       <div className="relative">
         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
         <Input
-          placeholder="Search by doctor name, code, or specialization..."
+          placeholder="Search by doctor name, code, specialization, or mobile number..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="pl-10"
@@ -1204,7 +1205,8 @@ const DoctorManagement = () => {
             return (
               doctor.profiles?.full_name.toLowerCase().includes(searchLower) ||
               doctor.doctor_code.toLowerCase().includes(searchLower) ||
-              doctor.specialization.toLowerCase().includes(searchLower)
+              doctor.specialization.toLowerCase().includes(searchLower) ||
+              doctor.mobile_number?.toLowerCase().includes(searchLower)
             );
           })
           .sort((a, b) => {
