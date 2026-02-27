@@ -110,6 +110,7 @@ serve(async (req) => {
           doctor_code: doctorData.doctor_code,
           specialization: doctorData.specialization,
           pan_number: doctorData.pan_number || null,
+          mobile_number: doctorData.mobile_number || null,
           bank_name: doctorData.bank_name,
           bank_account_number: doctorData.bank_account_number,
           ifsc_code: doctorData.ifsc_code,
