@@ -62,6 +62,7 @@ const TaskManagement = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -195,7 +196,7 @@ const TaskManagement = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    if (submitting) return;
     if (userRole !== 'admin' && userRole !== 'manager') {
       toast({
         variant: "destructive",
@@ -214,6 +215,7 @@ const TaskManagement = () => {
       return;
     }
 
+    setSubmitting(true);
     try {
       // Get current user's staff record directly via user_id
       const { data: currentStaff } = await supabase
@@ -250,6 +252,8 @@ const TaskManagement = () => {
         title: "Error",
         description: error.message || "Failed to create task"
       });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -348,12 +352,16 @@ const TaskManagement = () => {
 
   const handleUpdateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTask) return;
-
-    await updateTaskStatus(selectedTask.id, updateFormData.status, updateFormData.notes);
-    setUpdateDialogOpen(false);
-    setSelectedTask(null);
-    setUpdateFormData({ status: '', notes: '' });
+    if (!selectedTask || submitting) return;
+    setSubmitting(true);
+    try {
+      await updateTaskStatus(selectedTask.id, updateFormData.status, updateFormData.notes);
+      setUpdateDialogOpen(false);
+      setSelectedTask(null);
+      setUpdateFormData({ status: '', notes: '' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const openReassignDialog = (taskId: string) => {
@@ -600,8 +608,8 @@ const TaskManagement = () => {
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                     Cancel
                   </Button>
-                  <Button type="submit">
-                    Create Task
+                  <Button type="submit" disabled={submitting}>
+                    {submitting ? 'Creating...' : 'Create Task'}
                   </Button>
                 </div>
                 </form>
@@ -697,8 +705,8 @@ const TaskManagement = () => {
               <Button type="button" variant="outline" onClick={() => setUpdateDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit">
-                Update Task
+              <Button type="submit" disabled={submitting}>
+                {submitting ? 'Updating...' : 'Update Task'}
               </Button>
             </div>
           </form>

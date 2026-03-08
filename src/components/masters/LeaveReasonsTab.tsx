@@ -103,7 +103,7 @@ const LeaveReasonsTab = ({ searchTerm = '' }: LeaveReasonsTabProps) => {
               <div className="space-y-2"><Label htmlFor="reason_code">Reason Code *</Label><Input id="reason_code" value={formData.reason_code} onChange={(e) => setFormData({ ...formData, reason_code: e.target.value.toLowerCase().replace(/\s+/g, '_') })} placeholder="e.g., sick_leave" required /></div>
               <div className="space-y-2"><Label htmlFor="description">Description</Label><Textarea id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Brief description" rows={3} /></div>
             </div>
-            <DialogFooter><Button type="button" variant="outline" onClick={handleDialogClose}>Cancel</Button><Button type="submit">{editingReason ? 'Update' : 'Create'}</Button></DialogFooter>
+            <DialogFooter><Button type="button" variant="outline" onClick={handleDialogClose}>Cancel</Button><Button type="submit" disabled={loading}>{editingReason ? 'Update' : 'Create'}</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>

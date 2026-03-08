@@ -243,7 +243,7 @@ const RolesTab = ({ searchTerm = '' }: RolesTabProps) => {
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={handleDialogClose}>Cancel</Button>
-              <Button type="submit">{editingRole ? 'Update' : 'Create'}</Button>
+              <Button type="submit" disabled={loading}>{editingRole ? 'Update' : 'Create'}</Button>
             </DialogFooter>
           </form>
         </DialogContent>

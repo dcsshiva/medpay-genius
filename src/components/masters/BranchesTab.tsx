@@ -175,7 +175,7 @@ const BranchesTab = ({ searchTerm = '' }: BranchesTabProps) => {
               <div className="space-y-2"><Label htmlFor="contact_email">Contact Email</Label><Input id="contact_email" type="email" value={formData.contact_email} onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })} placeholder="e.g., branch@hospital.com" /></div>
               <div className="space-y-2"><Label htmlFor="description">Description</Label><Textarea id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Brief description" rows={3} /></div>
             </div>
-            <DialogFooter><Button type="button" variant="outline" onClick={handleDialogClose}>Cancel</Button><Button type="submit">{editingBranch ? 'Update' : 'Create'}</Button></DialogFooter>
+            <DialogFooter><Button type="button" variant="outline" onClick={handleDialogClose}>Cancel</Button><Button type="submit" disabled={loading}>{editingBranch ? 'Update' : 'Create'}</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>

@@ -76,6 +76,7 @@ const ComplaintManagement = () => {
   const { toast } = useToast();
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [responseDialog, setResponseDialog] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
@@ -266,7 +267,7 @@ const ComplaintManagement = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    if (submitting) return;
     if (!formData.complaint_title.trim() || !formData.complaint_description.trim()) {
       toast({
         variant: "destructive",
@@ -285,6 +286,7 @@ const ComplaintManagement = () => {
       return;
     }
 
+    setSubmitting(true);
     try {
       // Get current user's staff record
       const staffId = await getStaffId(user);
@@ -321,12 +323,15 @@ const ComplaintManagement = () => {
         title: "Error",
         description: error.message || "Failed to submit complaint"
       });
+    } finally {
+      setSubmitting(false);
     }
   };
 
   const handleAdminResponse = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    if (submitting) return;
+    setSubmitting(true);
     if (!['admin', 'manager'].includes(userRole || '')) {
       toast({
         variant: "destructive",
@@ -387,6 +392,8 @@ const ComplaintManagement = () => {
         title: "Error",
         description: error.message || "Failed to respond to complaint"
       });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -693,8 +700,8 @@ const ComplaintManagement = () => {
                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" className="min-w-[140px]">
-                  Submit Complaint
+                <Button type="submit" className="min-w-[140px]" disabled={submitting}>
+                  {submitting ? 'Submitting...' : 'Submit Complaint'}
                 </Button>
               </div>
             </form>
@@ -1053,8 +1060,8 @@ const ComplaintManagement = () => {
               <Button type="button" variant="outline" onClick={() => setResponseDialog(false)}>
                 Cancel
               </Button>
-              <Button type="submit">
-                Resolve Complaint
+              <Button type="submit" disabled={submitting}>
+                {submitting ? 'Resolving...' : 'Resolve Complaint'}
               </Button>
             </div>
           </form>

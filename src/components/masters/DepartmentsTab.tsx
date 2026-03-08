@@ -166,7 +166,7 @@ const DepartmentsTab = ({ searchTerm = '' }: DepartmentsTabProps) => {
               <div className="space-y-2"><Label htmlFor="department_code">Department Code *</Label><Input id="department_code" value={formData.department_code} onChange={(e) => setFormData({ ...formData, department_code: e.target.value.toLowerCase().replace(/\s+/g, '_') })} placeholder="e.g., emergency" required /></div>
               <div className="space-y-2"><Label htmlFor="description">Description</Label><Textarea id="description" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} placeholder="Brief description" rows={3} /></div>
             </div>
-            <DialogFooter><Button type="button" variant="outline" onClick={handleDialogClose}>Cancel</Button><Button type="submit">{editingDepartment ? 'Update' : 'Create'}</Button></DialogFooter>
+            <DialogFooter><Button type="button" variant="outline" onClick={handleDialogClose}>Cancel</Button><Button type="submit" disabled={loading}>{editingDepartment ? 'Update' : 'Create'}</Button></DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
