@@ -31,7 +31,7 @@ import { formatDateTimeIST } from '@/lib/dateUtils';
 import { useWalkthrough } from '@/hooks/useWalkthrough';
 
 const Settings = () => {
-  const { userRole, userDesignation, signOut } = useAuth();
+  const { user, userRole, userDesignation, userProfile, signOut } = useAuth();
   const { isInstallable, isInstalled, installApp, checkForUpdates, isCheckingForUpdates, isUpdateAvailable, applyUpdate, lastUpdateCheck } = usePWA();
   const versionInfo = useVersionInfo();
   const [isEraseDialogOpen, setIsEraseDialogOpen] = useState(false);
