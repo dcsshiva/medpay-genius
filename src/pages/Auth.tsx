@@ -24,12 +24,10 @@ import { checkSupabaseReachable } from "@/lib/connectivityCheck";
 const Auth: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signInWithOTP, verifyOTP, sendMobileOTP, verifyMobileOTP, emergencySignIn, user } = useAuth();
+  const { signInWithOTP, verifyOTP, sendMobileOTP, verifyMobileOTP, emergencySignIn, user, loading: authLoading } = useAuth();
   const { isInstallable, isInstalled, installApp, checkForUpdates, isCheckingForUpdates, isUpdateAvailable, applyUpdate } = usePWA();
   const versionInfo = useVersionInfo();
   const isMobile = useIsMobile();
-
-  const { loading: authLoading } = useAuth();
   const [formLoading, setFormLoading] = useState(false);
   const [loginMethod, setLoginMethod] = useState<'email' | 'mobile'>('email');
   const [dnsBlocked, setDnsBlocked] = useState(false);
@@ -76,6 +74,7 @@ const Auth: React.FC = () => {
   // Auto-verify Email OTP when all 6 digits are entered
   useEffect(() => {
     if (otpCode.length === 6 && otpSent && !formLoading) {
+      setFormLoading(true);
       handleVerifyOTP().catch((e) => {
         console.error("Auto verify OTP failed", e);
       });
@@ -86,6 +85,7 @@ const Auth: React.FC = () => {
   // Auto-verify Mobile OTP when all 6 digits are entered
   useEffect(() => {
     if (mobileOtpCode.length === 6 && mobileOtpSent && !formLoading) {
+      setFormLoading(true);
       handleVerifyMobileOTP().catch((e) => {
         console.error("Auto verify mobile OTP failed", e);
       });
@@ -96,6 +96,7 @@ const Auth: React.FC = () => {
   // Auto-verify Emergency OTP when all 6 digits are entered
   useEffect(() => {
     if (emergencyOtp.length === 6 && dnsBlocked && !formLoading) {
+      setFormLoading(true);
       handleEmergencyLogin().catch((e) => {
         console.error("Auto verify emergency OTP failed", e);
       });

@@ -3279,6 +3279,19 @@ export type Database = {
         }[]
       }
       get_doctor_auth_email: { Args: { _doctor_code: string }; Returns: string }
+      get_doctor_hub_summaries: {
+        Args: { _filter_doctor_id?: string }
+        Returns: {
+          doctor_code: string
+          full_name: string
+          id: string
+          paid_amount: number
+          paid_count: number
+          total_amount: number
+          unpaid_amount: number
+          unpaid_visits_count: number
+        }[]
+      }
       get_doctor_tds_summary: {
         Args: { _doctor_id?: string; _end_date: string; _start_date: string }
         Returns: {

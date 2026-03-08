@@ -10,6 +10,9 @@ interface SendOTPRequest {
   mobile: string;
 }
 
+// Rate limit: max 5 OTP sends per mobile per hour
+const MAX_SENDS_PER_HOUR = 5;
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -28,6 +31,18 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
+
+    // Rate limiting: count OTPs sent in the last hour
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { count: recentCount, error: countError } = await supabaseClient
+      .from('otp_verifications')
+      .select('id', { count: 'exact', head: true })
+      .eq('mobile_number', mobile)
+      .gte('created_at', oneHourAgo);
+
+    if (!countError && (recentCount || 0) >= MAX_SENDS_PER_HOUR) {
+      throw new Error('Too many OTP requests. Please wait before trying again.');
+    }
 
     // Check if mobile number belongs to a registered user (staff or doctor)
     const { data: staffUser } = await supabaseClient
