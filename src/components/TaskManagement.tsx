@@ -1254,6 +1254,8 @@ const TaskManagement = () => {
                     <p className="text-sm">{task.notes}</p>
                   </div>
                 )}
+
+                <ActivityTimeline tableName="tasks" recordId={task.id} />
               </CardContent>
             </Card>
           );
