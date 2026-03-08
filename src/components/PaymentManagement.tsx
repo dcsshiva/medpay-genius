@@ -3589,8 +3589,8 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                 <Button type="button" variant="outline" onClick={() => setSuspectDialog(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" variant="destructive">
-                  Mark as Suspect
+                <Button type="submit" variant="destructive" disabled={submitting}>
+                  {submitting ? 'Marking...' : 'Mark as Suspect'}
                 </Button>
               </DialogFooter>
             </form>

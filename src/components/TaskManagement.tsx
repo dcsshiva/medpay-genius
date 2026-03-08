@@ -701,8 +701,8 @@ const TaskManagement = () => {
               <Button type="button" variant="outline" onClick={() => setUpdateDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit">
-                Update Task
+              <Button type="submit" disabled={submitting}>
+                {submitting ? 'Updating...' : 'Update Task'}
               </Button>
             </div>
           </form>

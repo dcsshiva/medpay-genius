@@ -1060,8 +1060,8 @@ const ComplaintManagement = () => {
               <Button type="button" variant="outline" onClick={() => setResponseDialog(false)}>
                 Cancel
               </Button>
-              <Button type="submit">
-                Resolve Complaint
+              <Button type="submit" disabled={submitting}>
+                {submitting ? 'Resolving...' : 'Resolve Complaint'}
               </Button>
             </div>
           </form>
