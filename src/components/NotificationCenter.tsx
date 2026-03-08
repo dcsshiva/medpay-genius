@@ -63,11 +63,11 @@ const NotificationItem: React.FC<{
     
     // Navigate based on notification type
     if (onNavigate) {
-      if (notification.type === 'task_assigned') {
+      if (notification.type === 'task_assigned' || notification.type === 'task_status_changed') {
         onNavigate('tasks');
       } else if (notification.type === 'leave_approved' || notification.type === 'leave_rejected') {
         onNavigate('leave-permission');
-      } else if (notification.type === 'complaint_submitted') {
+      } else if (notification.type === 'complaint_submitted' || notification.type === 'complaint_status_changed') {
         onNavigate('complaints');
       } else if (notification.type === 'leave_submitted' || notification.type === 'permission_submitted') {
         onNavigate('leave-approval');
