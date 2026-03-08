@@ -1,48 +1,52 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/lib/auth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import Layout from '@/components/Layout';
-import Dashboard from '@/components/Dashboard';
-import MasterDataManagement from '@/components/MasterDataManagement';
-import DoctorManagement from '@/components/DoctorManagement';
-import VisitManagement from '@/components/VisitManagement';
-import CashPaymentManagement from '@/components/CashPaymentManagement';
-import InsurancePaymentManagement from '@/components/InsurancePaymentManagement';
-import CashPaymentLite from '@/components/CashPaymentLite';
-import InsurancePaymentLite from '@/components/InsurancePaymentLite';
-import PaymentManagement from '@/components/PaymentManagement';
-import StaffManagement from '@/components/StaffManagement';
-import TaskManagement from '@/components/TaskManagement';
-import StaffAppraisalManagement from '@/components/StaffAppraisalManagement';
-import TeamChat from '@/components/TeamChat';
-import ComplaintManagement from '@/components/ComplaintManagement';
-import UserLoginReports from '@/components/UserLoginReports';
-import Settings from '@/components/Settings';
-import VersionManager from '@/components/VersionManager';
-import { WebsiteSettings } from '@/components/WebsiteSettings';
-import UserGuide from '@/pages/UserGuide';
-import { TDSCertificateGenerator } from '@/components/TDSCertificateGenerator';
-import { TDSReportsManagement } from '@/components/TDSReportsManagement';
-import BankAdvicePaymentReport from '@/components/BankAdvicePaymentReport';
-import LeavePermissionManagement from '@/components/leave-permission/LeavePermissionManagement';
-import ApprovalManagement from '@/components/leave-permission/ApprovalManagement';
-import QuickPaymentManagement from '@/components/QuickPaymentManagement';
-import QuickPaymentBankAdviceReport from '@/components/QuickPaymentBankAdviceReport';
-import BankAdviceGeneration from '@/components/BankAdviceGeneration';
-import BankAdviceGenerationBeta from '@/components/BankAdviceGenerationBeta';
-import BankAdviceReport from '@/components/BankAdviceReport';
-import BankAdviceReports from '@/components/BankAdviceReports';
-import DoctorHub from '@/components/DoctorHub';
-import NavigationAnalytics from '@/components/NavigationAnalytics';
-import StaffMobileDashboard from '@/components/StaffMobileDashboard';
-import ChatbotKnowledgeBase from '@/components/ChatbotKnowledgeBase';
-import StaffAttendanceManagement from '@/components/StaffAttendanceManagement';
-import AuditTrailViewer from '@/components/AuditTrailViewer';
-import VendorPaymentReports from '@/components/VendorPaymentReports';
-import StaffSalaryStructure from '@/components/StaffSalaryStructure';
-import StaffPayrollGeneration from '@/components/StaffPayrollGeneration';
+import { LoadingScreen } from '@/components/ui/loading-skeleton';
+
+// Lazy-loaded components
+const Dashboard = lazy(() => import('@/components/Dashboard'));
+const MasterDataManagement = lazy(() => import('@/components/MasterDataManagement'));
+const DoctorManagement = lazy(() => import('@/components/DoctorManagement'));
+const VisitManagement = lazy(() => import('@/components/VisitManagement'));
+const CashPaymentManagement = lazy(() => import('@/components/CashPaymentManagement'));
+const InsurancePaymentManagement = lazy(() => import('@/components/InsurancePaymentManagement'));
+const CashPaymentLite = lazy(() => import('@/components/CashPaymentLite'));
+const InsurancePaymentLite = lazy(() => import('@/components/InsurancePaymentLite'));
+const PaymentManagement = lazy(() => import('@/components/PaymentManagement'));
+const StaffManagement = lazy(() => import('@/components/StaffManagement'));
+const TaskManagement = lazy(() => import('@/components/TaskManagement'));
+const StaffAppraisalManagement = lazy(() => import('@/components/StaffAppraisalManagement'));
+const TeamChat = lazy(() => import('@/components/TeamChat'));
+const ComplaintManagement = lazy(() => import('@/components/ComplaintManagement'));
+const UserLoginReports = lazy(() => import('@/components/UserLoginReports'));
+const Settings = lazy(() => import('@/components/Settings'));
+const VersionManager = lazy(() => import('@/components/VersionManager'));
+const WebsiteSettings = lazy(() => import('@/components/WebsiteSettings').then(m => ({ default: m.WebsiteSettings })));
+const UserGuide = lazy(() => import('@/pages/UserGuide'));
+const TDSCertificateGenerator = lazy(() => import('@/components/TDSCertificateGenerator').then(m => ({ default: m.TDSCertificateGenerator })));
+const TDSReportsManagement = lazy(() => import('@/components/TDSReportsManagement').then(m => ({ default: m.TDSReportsManagement })));
+const BankAdvicePaymentReport = lazy(() => import('@/components/BankAdvicePaymentReport'));
+const LeavePermissionManagement = lazy(() => import('@/components/leave-permission/LeavePermissionManagement'));
+const ApprovalManagement = lazy(() => import('@/components/leave-permission/ApprovalManagement'));
+const QuickPaymentManagement = lazy(() => import('@/components/QuickPaymentManagement'));
+const QuickPaymentBankAdviceReport = lazy(() => import('@/components/QuickPaymentBankAdviceReport'));
+const BankAdviceGeneration = lazy(() => import('@/components/BankAdviceGeneration'));
+const BankAdviceGenerationBeta = lazy(() => import('@/components/BankAdviceGenerationBeta'));
+const BankAdviceReport = lazy(() => import('@/components/BankAdviceReport'));
+const BankAdviceReports = lazy(() => import('@/components/BankAdviceReports'));
+const DoctorHub = lazy(() => import('@/components/DoctorHub'));
+const NavigationAnalytics = lazy(() => import('@/components/NavigationAnalytics'));
+const StaffMobileDashboard = lazy(() => import('@/components/StaffMobileDashboard'));
+const ChatbotKnowledgeBase = lazy(() => import('@/components/ChatbotKnowledgeBase'));
+const StaffAttendanceManagement = lazy(() => import('@/components/StaffAttendanceManagement'));
+const AuditTrailViewer = lazy(() => import('@/components/AuditTrailViewer'));
+const VendorPaymentReports = lazy(() => import('@/components/VendorPaymentReports'));
+const StaffSalaryStructure = lazy(() => import('@/components/StaffSalaryStructure'));
+const StaffPayrollGeneration = lazy(() => import('@/components/StaffPayrollGeneration'));
+
 const Index = () => {
   const { user, loading, userProfile } = useAuth();
   const navigate = useNavigate();
@@ -56,11 +60,9 @@ const Index = () => {
   useEffect(() => {
     if (location.state?.activeTab) {
       setActiveTab(location.state.activeTab);
-      // Clear the state after navigation
       navigate(location.pathname, { replace: true, state: {} });
     }
     
-    // Check for view parameter in URL
     const params = new URLSearchParams(location.search);
     const view = params.get('view');
     
@@ -77,7 +79,6 @@ const Index = () => {
     if (!loading && !user) {
       navigate('/auth');
     } else if (!loading && user) {
-      // Ensure we're on /dashboard when authenticated
       if (window.location.pathname === '/') {
         navigate('/dashboard');
       }
@@ -91,28 +92,22 @@ const Index = () => {
     const role = userProfile.role || userProfile.designation;
     const userType = userProfile.user_type;
     
-    // Only redirect if on generic dashboard
     if (activeTab !== 'dashboard') return;
     
-    // Doctor users -> Doctor Hub
     if (userType === 'doctor' || role === 'doctor') {
       setActiveTab('doctor-hub');
       return;
     }
     
-    // Admin/Manager/Super_admin -> Doctor Hub
     if (role && ['admin', 'manager', 'super_admin'].includes(role)) {
       setActiveTab('doctor-hub');
       return;
     }
     
-    // Staff/Nurse on mobile -> Staff Dashboard
     if (role && ['staff', 'nurse'].includes(role) && isMobile) {
       setActiveTab('staff-dashboard');
       return;
     }
-    
-    // Staff/Nurse on desktop stay on regular Dashboard (no redirect needed)
   }, [userProfile, loading, activeTab, isMobile]);
 
   const handleTabChange = (params: string | { tab: string; subTab?: string; paymentTypeFilter?: 'all' | 'cash' | 'insurance' | 'mixed' }) => {
@@ -143,95 +138,103 @@ const Index = () => {
   }
 
   const renderContent = () => {
-    switch (activeTab) {
-      case 'dashboard':
-        return <Dashboard onTabChange={handleTabChange} />;
-      case 'staff':
-        return <StaffManagement />;
-      case 'masters':
-        return <MasterDataManagement />;
-      case 'doctors':
-        return <DoctorManagement />;
-      case 'visits':
-        return <VisitManagement initialSubTab={activeSubTab} />;
-      case 'cash-payments':
-        return <CashPaymentManagement />;
-      case 'cash-payments-lite':
-        return <CashPaymentLite />;
-      case 'insurance-payments':
-        return <InsurancePaymentManagement />;
-      case 'insurance-payments-lite':
-        return <InsurancePaymentLite />;
-      case 'payments':
-        return <PaymentManagement initialSubTab={activeSubTab} initialPaymentTypeFilter={paymentTypeFilter} />;
-      case 'tasks':
-        return <TaskManagement />;
-      case 'appraisals':
-        return <StaffAppraisalManagement />;
-      case 'complaints':
-        return <ComplaintManagement />;
-      case 'login-reports':
-        return <UserLoginReports />;
-      case 'chat':
-        return <TeamChat />;
-      case 'version':
-        return <VersionManager />;
-      case 'website-settings':
-        return <WebsiteSettings />;
-      case 'user-guide':
-        return <UserGuide />;
-      case 'tds-reports':
-        return <TDSReportsManagement />;
-      case 'bank-advice-payment-report':
-        return <BankAdvicePaymentReport />;
-      case 'quick-payment':
-        return <QuickPaymentManagement />;
-      case 'quick-payment-bank-advice-report':
-        return <QuickPaymentBankAdviceReport />;
-      case 'bank-advice-generation':
-        return <BankAdviceGeneration />;
-      case 'bank-advice-generation-beta':
-        return <BankAdviceGenerationBeta />;
-      case 'bank-advice-history':
-        return <BankAdviceReports />;
-      case 'bank-advice-records':
-        return <BankAdviceReport />;
-      case 'doctor-hub':
-        // Check if user is a doctor
-        const isDoctorUser = userProfile?.user_type === 'doctor' || userProfile?.role === 'doctor';
-        return <DoctorHub filterDoctorId={isDoctorUser ? userProfile?.id : undefined} />;
-      case 'leave-permission':
-        return <LeavePermissionManagement />;
-      case 'leave-approvals':
-        return <ApprovalManagement />;
-      case 'navigation-analytics':
-        return <NavigationAnalytics />;
-      case 'staff-dashboard':
-        return <StaffMobileDashboard onNavigate={handleTabChange} />;
-      case 'ai-knowledge-base':
-        return <ChatbotKnowledgeBase />;
-      case 'attendance':
-        return <StaffAttendanceManagement />;
-      case 'vendor-reports':
-        return <VendorPaymentReports />;
-      case 'audit-trail':
-        return <AuditTrailViewer />;
-      case 'payroll':
-        return (
-          <Tabs defaultValue="payroll" className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="salary">Salary Structure</TabsTrigger>
-              <TabsTrigger value="payroll">Payroll</TabsTrigger>
-            </TabsList>
-            <TabsContent value="salary"><StaffSalaryStructure /></TabsContent>
-            <TabsContent value="payroll"><StaffPayrollGeneration /></TabsContent>
-          </Tabs>
-        );
-      case 'settings':
-        return <Settings />;
-      default:
-        return <Dashboard onTabChange={handleTabChange} />;
-    }
+    const content = (() => {
+      switch (activeTab) {
+        case 'dashboard':
+          return <Dashboard onTabChange={handleTabChange} />;
+        case 'staff':
+          return <StaffManagement />;
+        case 'masters':
+          return <MasterDataManagement />;
+        case 'doctors':
+          return <DoctorManagement />;
+        case 'visits':
+          return <VisitManagement initialSubTab={activeSubTab} />;
+        case 'cash-payments':
+          return <CashPaymentManagement />;
+        case 'cash-payments-lite':
+          return <CashPaymentLite />;
+        case 'insurance-payments':
+          return <InsurancePaymentManagement />;
+        case 'insurance-payments-lite':
+          return <InsurancePaymentLite />;
+        case 'payments':
+          return <PaymentManagement initialSubTab={activeSubTab} initialPaymentTypeFilter={paymentTypeFilter} />;
+        case 'tasks':
+          return <TaskManagement />;
+        case 'appraisals':
+          return <StaffAppraisalManagement />;
+        case 'complaints':
+          return <ComplaintManagement />;
+        case 'login-reports':
+          return <UserLoginReports />;
+        case 'chat':
+          return <TeamChat />;
+        case 'version':
+          return <VersionManager />;
+        case 'website-settings':
+          return <WebsiteSettings />;
+        case 'user-guide':
+          return <UserGuide />;
+        case 'tds-reports':
+          return <TDSReportsManagement />;
+        case 'bank-advice-payment-report':
+          return <BankAdvicePaymentReport />;
+        case 'quick-payment':
+          return <QuickPaymentManagement />;
+        case 'quick-payment-bank-advice-report':
+          return <QuickPaymentBankAdviceReport />;
+        case 'bank-advice-generation':
+          return <BankAdviceGeneration />;
+        case 'bank-advice-generation-beta':
+          return <BankAdviceGenerationBeta />;
+        case 'bank-advice-history':
+          return <BankAdviceReports />;
+        case 'bank-advice-records':
+          return <BankAdviceReport />;
+        case 'doctor-hub': {
+          const isDoctorUser = userProfile?.user_type === 'doctor' || userProfile?.role === 'doctor';
+          return <DoctorHub filterDoctorId={isDoctorUser ? userProfile?.id : undefined} />;
+        }
+        case 'leave-permission':
+          return <LeavePermissionManagement />;
+        case 'leave-approvals':
+          return <ApprovalManagement />;
+        case 'navigation-analytics':
+          return <NavigationAnalytics />;
+        case 'staff-dashboard':
+          return <StaffMobileDashboard onNavigate={handleTabChange} />;
+        case 'ai-knowledge-base':
+          return <ChatbotKnowledgeBase />;
+        case 'attendance':
+          return <StaffAttendanceManagement />;
+        case 'vendor-reports':
+          return <VendorPaymentReports />;
+        case 'audit-trail':
+          return <AuditTrailViewer />;
+        case 'payroll':
+          return (
+            <Tabs defaultValue="payroll" className="space-y-4">
+              <TabsList>
+                <TabsTrigger value="salary">Salary Structure</TabsTrigger>
+                <TabsTrigger value="payroll">Payroll</TabsTrigger>
+              </TabsList>
+              <TabsContent value="salary"><StaffSalaryStructure /></TabsContent>
+              <TabsContent value="payroll"><StaffPayrollGeneration /></TabsContent>
+            </Tabs>
+          );
+        case 'settings':
+          return <Settings />;
+        default:
+          return <Dashboard onTabChange={handleTabChange} />;
+      }
+    })();
+
+    return (
+      <Suspense fallback={<LoadingScreen message="Loading module..." />}>
+        {content}
+      </Suspense>
+    );
   };
 
   return (
