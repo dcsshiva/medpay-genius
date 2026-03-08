@@ -1004,6 +1004,7 @@ const ComplaintManagement = () => {
 
               <ActivityTimeline tableName="complaints" recordId={complaint.id} />
             </CardContent>
+          </Card>
         ))}
       </div>
 
