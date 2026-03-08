@@ -330,7 +330,8 @@ const ComplaintManagement = () => {
 
   const handleAdminResponse = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    if (submitting) return;
+    setSubmitting(true);
     if (!['admin', 'manager'].includes(userRole || '')) {
       toast({
         variant: "destructive",

@@ -215,6 +215,7 @@ const TaskManagement = () => {
       return;
     }
 
+    setSubmitting(true);
     try {
       // Get current user's staff record directly via user_id
       const { data: currentStaff } = await supabase
