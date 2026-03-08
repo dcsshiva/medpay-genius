@@ -700,8 +700,8 @@ const ComplaintManagement = () => {
                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" className="min-w-[140px]">
-                  Submit Complaint
+                <Button type="submit" className="min-w-[140px]" disabled={submitting}>
+                  {submitting ? 'Submitting...' : 'Submit Complaint'}
                 </Button>
               </div>
             </form>
