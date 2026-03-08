@@ -158,7 +158,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                 const isActive = activeTab === item.id;
                 
                 return (
-                  <SidebarMenuItem key={item.id}>
+                  <SidebarMenuItem key={item.id} data-walkthrough={`nav-${item.id}`}>
                     <SidebarMenuButton 
                       isActive={isActive}
                       tooltip={isCollapsed ? item.label : undefined}

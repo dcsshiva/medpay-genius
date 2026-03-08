@@ -278,6 +278,37 @@ const Settings = () => {
         </CardContent>
       </Card>
 
+      {/* Restart Walkthrough */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <RotateCcw className="h-5 w-5" />
+            Interactive Walkthrough
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div>
+              <h4 className="font-medium">Guided Tour</h4>
+              <p className="text-sm text-muted-foreground">
+                Restart the interactive walkthrough to learn about key features
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                restartWalkthrough();
+                toast.success('Walkthrough restarted! Navigate to the main page to begin.');
+              }}
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Restart Tour
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Quick Access Menu Configuration */}
       <QuickAccessConfig />
 

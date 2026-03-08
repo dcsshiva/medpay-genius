@@ -117,7 +117,20 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
           <Footer />
           
           {/* AI Chatbot */}
-          <AIChatbot onTabChange={onTabChange} />
+          <div data-walkthrough="ai-chatbot">
+            <AIChatbot onTabChange={onTabChange} />
+          </div>
+
+          {/* Walkthrough Overlay */}
+          <WalkthroughOverlay
+            isActive={walkthrough.isActive}
+            currentStep={walkthrough.currentStep}
+            currentStepIndex={walkthrough.currentStepIndex}
+            totalSteps={walkthrough.totalSteps}
+            onNext={walkthrough.nextStep}
+            onPrevious={walkthrough.previousStep}
+            onSkip={walkthrough.skipWalkthrough}
+          />
         </div>
       </SidebarProvider>
     </PaymentStatsColorsProvider>
