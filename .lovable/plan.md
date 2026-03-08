@@ -1,64 +1,114 @@
 
-Goal: Fix why Dr. Satishkumar still sees an empty Doctor Hub after login, and make both Email OTP and Mobile OTP reliably load doctor data.
 
-What I verified from your current system:
-1. Dr. Satishkumar exists correctly in `doctors`:
-   - `id`: `75a17c3f-5029-43c5-aed9-d6309faa8a1c`
-   - `user_id`: `fa9ac164-f948-4810-b19c-93bf7e23daaf`
-   - `mobile_number`: `9344603808`
-2. `get_user_complete_profile(user_id)` returns correct doctor table ID for him.
-3. RLS on `doctors/visits/payments/payment_visits` requires `auth.uid()` for doctor reads.
-4. Mobile OTP currently creates a custom `user_sessions` record and mock client session, but does not guarantee a real Supabase Auth session in the direct-session path.
-5. In Email OTP flow, `verifyOTP` now sets `userProfile.id` correctly for doctors, but `createUserSession.original_id` is still being saved as auth user id in that path, which can break fallback custom-session recovery.
+# Application Testing Report & Recommended Modifications
 
-Root cause (combined):
-- Doctor Hub filters by doctor-table id (`filterDoctorId`), but DB reads are also gated by RLS (`auth.uid()`).
-- Mobile OTP direct mode can leave app in “custom session only” state (no Supabase auth context), causing doctor queries to return empty.
-- Email OTP has a remaining inconsistency in `createUserSession.original_id`, which can reintroduce wrong ID after fallback/session recovery.
+After thoroughly reviewing the codebase, here are the issues and improvements I've identified as a tester, organized by severity.
 
-Implementation plan:
+---
 
-1) Fix Email OTP session consistency in `src/lib/auth.tsx`
-- In `verifyOTP`, keep current `setUserProfile.id` logic.
-- Change `createUserSession` payload so `original_id` uses doctor table id when user is doctor:
-  - from: `original_id: data.user.id`
-  - to: doctor-aware value (`doctorTableId` when available).
-- This prevents future fallback custom-session restores from using auth UUID as doctor filter id.
+## Critical Issues (Bugs)
 
-2) Make Mobile OTP establish real Supabase auth whenever possible
-- File: `supabase/functions/verify-otp/index.ts`
-- Enhance response to include `hashed_token` (or equivalent auth bootstrap token) for the matched auth user, so client can call `supabase.auth.verifyOtp(...)` and restore full `auth.uid()` context.
-- Keep current direct custom session token as fallback path, but prefer Supabase-auth bootstrap first.
+### 1. Emergency Login Exposes Hardcoded OTP Codes in Source
+**File:** `src/lib/auth.tsx` (lines 1134-1136)
+**Problem:** Emergency OTP codes (`948693` for admin, `933892` for manager) are computed at runtime via `sha256('948693')` and `sha256('933892')` -- the plain-text values are visible in the source code comments (lines 21-24) and in the function body. Anyone inspecting the JS bundle can extract these codes.
+**Fix:** Move emergency OTP validation to a server-side edge function. The client should send the OTP to the server which validates it and returns a session token. Never include plain-text OTPs or their computation in client-side code.
 
-3) Update mobile verify client logic to prioritize Supabase auth session
-- File: `src/lib/auth.tsx` (`verifyMobileOTP`)
-- If edge function returns `hashed_token`, use the existing legacy branch first:
-  - `supabase.auth.verifyOtp({ token_hash: hashedToken, type: 'magiclink' })`
-  - Then resolve designation/profile and set doctor `userProfile.id` from profile RPC.
-- Only use direct mock-session path when auth bootstrap token is unavailable.
-- This ensures DoctorHub and all RLS-protected doctor data queries work for mobile OTP login too.
+### 2. `signInWithEmail` Doesn't Resolve Doctor Table ID
+**File:** `src/lib/auth.tsx` (lines 596-700)
+**Problem:** The `signInWithEmail` function (password-based) sets `userProfile.id = data.user.id` (auth UUID) without calling `get_user_complete_profile`. If a doctor ever logs in via this path, Doctor Hub will be empty -- same bug that was just fixed for OTP but not applied here.
+**Fix:** Add the same `get_user_complete_profile` RPC call and doctor ID resolution logic used in `verifyOTP`.
 
-4) Add defensive doctor-id normalization during custom-session restore
-- File: `src/lib/auth.tsx` (`loadSession` custom-session fallback block)
-- If restoring a doctor custom session, resolve and enforce doctor-table id before setting `userProfile.id` (use `get_user_complete_profile(sessionData.user_id)` when possible).
-- This prevents stale/legacy `original_id` mismatches from producing empty doctor list.
+### 3. Missing Error Boundary at Route Level
+**File:** `src/App.tsx`
+**Problem:** The try-catch around the JSX return (lines 45-87) only catches synchronous render errors. React render errors in children (like `Index`, `Auth`) won't be caught. The `useAuth must be used within an AuthProvider` error is an example -- it crashes the whole app with a blank screen.
+**Fix:** Add a proper React Error Boundary component wrapping the `<Routes>` block.
 
-5) Validation checklist (must test both login methods)
-- Mobile OTP with Satishkumar:
-  - Login succeeds
-  - Doctor Hub shows “My Payment Summary”
-  - Table shows doctor row (even if amounts are 0, row must appear)
-  - No “No doctors found matching ''”
-- Email OTP with same doctor:
-  - Same expected outcome
-- Refresh browser after login:
-  - Doctor Hub remains populated
-  - No regression after session recovery
-- Optional sanity checks:
-  - Admin/Manager still sees all doctors in Doctor Hub
-  - Staff routing unchanged
+---
 
-Technical notes:
-- This plan keeps authorization server-side with existing RLS/`auth.uid()` model.
-- No role storage changes are introduced.
-- No policy relaxation is needed; we are aligning session establishment and doctor-id mapping to existing secure policies.
+## High Priority (UX/Reliability)
+
+### 4. Session Recovery Doesn't Populate `code` Field
+**File:** `src/lib/auth.tsx` (line 412)
+**Problem:** When restoring a custom session for a doctor, `code` is set to `undefined`. Components relying on `userProfile.code` (e.g., for display or filtering) will show incorrect data after a page refresh.
+**Fix:** Fetch `p.code` from the `get_user_complete_profile` RPC result during session recovery and include it in the profile.
+
+### 5. No Loading State After OTP Auto-Verify
+**File:** `src/pages/Auth.tsx` (lines 77-81)
+**Problem:** When auto-verify fires (6 digits entered), there's no visual loading indicator shown immediately. The user sees a brief unresponsive period before the toast/redirect.
+**Fix:** Set `formLoading = true` at the start of the auto-verify useEffect before calling `handleVerifyOTP`.
+
+### 6. DoctorHub Makes N+1 Queries
+**File:** `src/components/DoctorHub.tsx` (lines 103-176)
+**Problem:** For each doctor, the component fires 3 separate Supabase queries (paid payments, unprocessed visits, pending payment visits). For 50 doctors, that's 150 network requests.
+**Fix:** Create a single database function `get_doctor_summaries(filter_doctor_id)` that returns all summary data in one query.
+
+### 7. Duplicate `useAuth()` Calls in Auth.tsx
+**File:** `src/pages/Auth.tsx` (lines 27, 32)
+**Problem:** `useAuth()` is called twice -- once destructuring login methods, once for `loading`. This creates two subscriptions to the same context unnecessarily.
+**Fix:** Combine into a single `useAuth()` call.
+
+---
+
+## Medium Priority (Security/Robustness)
+
+### 8. Emergency Session Not Invalidated on Reconnection
+**File:** `src/lib/auth.tsx`
+**Problem:** Emergency sessions (localStorage flag `emergency_session`) persist indefinitely. When connectivity is restored, the user remains in a mock session with no real auth context and no RLS access. No automatic upgrade to a real session occurs.
+**Fix:** On `loadSession`, check if `emergency_session` flag exists and if Supabase is now reachable, prompt re-authentication.
+
+### 9. No Rate Limiting on Client-Side OTP Attempts
+**File:** `src/pages/Auth.tsx`
+**Problem:** While the server limits to 3 OTP attempts, the client allows unlimited `sendMobileOTP` calls with only a cooldown timer (which resets on page refresh).
+**Fix:** Add server-side rate limiting on the `send-otp` edge function (e.g., max 5 OTP sends per mobile per hour).
+
+### 10. Mock Session Tokens Are Predictable
+**File:** `src/lib/auth.tsx` (lines 524, 1163)
+**Problem:** Fallback session tokens use `session_${Date.now()}_${Math.random()}` which is predictable and not cryptographically secure.
+**Fix:** Use `crypto.randomUUID()` or `crypto.getRandomValues()` for token generation.
+
+---
+
+## Low Priority (Code Quality/Maintenance)
+
+### 11. Auth.tsx is 1221 Lines
+**Problem:** The auth module handles too many concerns: session management, OTP flows, emergency login, profile resolution, session recovery, username login.
+**Fix:** Split into separate modules: `emailOTP.ts`, `mobileOTP.ts`, `sessionManager.ts`, `emergencyLogin.ts`.
+
+### 12. Index.tsx Uses Large Switch Statement (30+ cases)
+**File:** `src/pages/Index.tsx` (lines 145-234)
+**Problem:** Adding new routes means editing this growing switch statement. All components are eagerly imported (44 imports).
+**Fix:** Use a route config map and `React.lazy()` for code splitting.
+
+### 13. `SessionTimeoutWrapper` is a No-Op
+**File:** `src/components/SessionTimeoutWrapper.tsx`
+**Problem:** The component just renders `{children}` -- session timeout logic is not implemented despite being referenced in architecture docs.
+**Fix:** Either implement session timeout or remove the wrapper to avoid confusion.
+
+### 14. Unused `SimpleApp` Component
+**File:** `src/App.tsx` (lines 19-27)
+**Problem:** `SimpleApp` is defined but never used -- leftover from debugging.
+**Fix:** Remove it.
+
+---
+
+## Summary Table
+
+| # | Issue | Severity | Files |
+|---|-------|----------|-------|
+| 1 | Emergency OTP codes in client source | Critical | `auth.tsx` |
+| 2 | `signInWithEmail` missing doctor ID resolution | Critical | `auth.tsx` |
+| 3 | No React Error Boundary | Critical | `App.tsx` |
+| 4 | Session recovery missing `code` field | High | `auth.tsx` |
+| 5 | No loading state on OTP auto-verify | High | `Auth.tsx` |
+| 6 | DoctorHub N+1 queries | High | `DoctorHub.tsx` |
+| 7 | Duplicate `useAuth()` calls | High | `Auth.tsx` |
+| 8 | Emergency session not auto-invalidated | Medium | `auth.tsx` |
+| 9 | No server-side OTP send rate limiting | Medium | `send-otp` edge fn |
+| 10 | Predictable mock session tokens | Medium | `auth.tsx` |
+| 11 | Auth.tsx too large (1221 lines) | Low | `auth.tsx` |
+| 12 | Eager imports, no code splitting | Low | `Index.tsx` |
+| 13 | SessionTimeoutWrapper is no-op | Low | `SessionTimeoutWrapper.tsx` |
+| 14 | Unused SimpleApp component | Low | `App.tsx` |
+
+All fixes preserve existing database schema and logic. Let me know which ones you'd like to implement first.
+
