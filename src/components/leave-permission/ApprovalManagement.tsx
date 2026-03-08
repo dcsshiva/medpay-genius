@@ -193,7 +193,7 @@ const ApprovalManagement = () => {
                     </TableRow>
                   ) : (
                     filteredApplications.map((app) => (
-                      <TableRow key={app.id}>
+                      <TableRow key={app.id} className="hover:bg-muted/50 transition-colors">
                         <TableCell>
                           <div>
                             <div className="font-medium">{app.applicant.full_name}</div>
