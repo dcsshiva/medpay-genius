@@ -1102,7 +1102,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
         <>
           {isMobile ? (
             <Sheet open={dialogOpen} onOpenChange={setDialogOpen}>
-              <SheetContent side="bottom" className="h-[95vh] flex flex-col p-0">
+              <SheetContent side="bottom" className="h-[95vh] flex flex-col p-0" hasUnsavedChanges={!!(formData.patient_name.trim() || formData.visit_payment.trim() || formData.notes.trim())} onConfirmClose={() => { resetForm(); setDialogOpen(false); }}>
                 <div className="flex-shrink-0 p-4 border-b">
                   <h2 className="text-xl font-bold">
                     {editingVisit ? 'Edit Visit' : 'Record New Visit'}
