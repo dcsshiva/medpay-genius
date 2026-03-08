@@ -242,6 +242,7 @@ const ApprovalManagement = () => {
                               variant="default"
                               size="sm"
                               onClick={() => handleApproveClick(app)}
+                              className="min-h-[36px]"
                             >
                               <CheckCircle className="h-4 w-4 mr-1" />
                               Approve
@@ -250,6 +251,7 @@ const ApprovalManagement = () => {
                               variant="destructive"
                               size="sm"
                               onClick={() => handleRejectClick(app)}
+                              className="min-h-[36px]"
                             >
                               <XCircle className="h-4 w-4 mr-1" />
                               Reject
