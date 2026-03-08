@@ -1,28 +1,27 @@
 
-# Application Testing Report — Implementation Complete
 
-All 14 issues from the testing report have been addressed.
+# Auto-fit Columns in TDS Excel Exports
 
-## Completed Fixes
+## Problem
+Exported Excel files have default column widths, making data hard to read without manual resizing.
 
-### Critical
-1. ✅ Emergency OTP moved to server-side `verify-emergency-otp` edge function — no plain-text codes in client
-2. ✅ `signInWithEmail` now resolves doctor table ID via `get_user_complete_profile` RPC
-3. ✅ React Error Boundary added wrapping Routes in `App.tsx`; unused `SimpleApp` removed
+## Fix
 
-### High Priority
-4. ✅ Session recovery now populates `code` field from profile RPC
-5. ✅ Auto-verify OTP now sets `formLoading = true` immediately
-6. ✅ DoctorHub uses single `get_doctor_hub_summaries` RPC instead of N+1 queries
-7. ✅ Duplicate `useAuth()` calls consolidated in `Auth.tsx`
+**`src/components/TDSReportsManagement.tsx`** — After each `XLSX.utils.json_to_sheet()` call, calculate and set `ws['!cols']` based on max content width per column.
 
-### Medium Priority
-8. ✅ Emergency sessions auto-invalidated when Supabase connectivity is restored
-9. ✅ Server-side rate limiting added to `send-otp` (max 5 per mobile per hour)
-10. ✅ Session tokens now use `crypto.randomUUID()` instead of predictable values
+Add a helper function:
+```typescript
+function autoFitColumns(ws: XLSX.WorkSheet, data: any[]) {
+  const keys = Object.keys(data[0] || {});
+  ws['!cols'] = keys.map(key => {
+    const maxLen = Math.max(
+      key.length,
+      ...data.map(row => String(row[key] ?? '').length)
+    );
+    return { wch: maxLen + 2 };
+  });
+}
+```
 
-### Low Priority
-11. ✅ `auth.tsx` refactored — extracted `resolveProfile.ts`, `sessionManager.ts`, `emergencyLogin.ts` into `src/lib/auth/`
-12. ✅ `Index.tsx` now uses `React.lazy()` + `Suspense` for all 30+ route components
-13. ✅ `SessionTimeoutWrapper` no-op removed from `App.tsx` and deleted
-14. ✅ Unused `SimpleApp` component removed from `App.tsx`
+Apply it in all 3 report generators (quarterly ~line 92, annual ~line 168, custom ~line 228) right after creating the worksheet.
+
