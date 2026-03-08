@@ -1157,76 +1157,91 @@ export default function StaffAppraisalManagement() {
                 <CardDescription>Record disciplinary action</CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSubmitWarning} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Staff Member *</Label>
-                      <Select value={selectedStaffForWarning} onValueChange={setSelectedStaffForWarning}>
-                        <SelectTrigger><SelectValue placeholder="Select staff" /></SelectTrigger>
-                        <SelectContent>
-                          {staffList.map(staff => (
-                            <SelectItem key={staff.id} value={staff.id}>{staff.full_name} ({staff.staff_code})</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                <form onSubmit={handleSubmitWarning} className="space-y-5">
+                  {/* Section: Incident Details */}
+                  <div className="rounded-lg border border-border p-4 space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-border">
+                      <AlertTriangle className="h-4 w-4 text-primary" />
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Incident Details</h3>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Warning Type *</Label>
-                      <Select value={warningType} onValueChange={setWarningType}>
-                        <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
-                        <SelectContent>
-                          {warningTypes.map(type => (
-                            <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Severity *</Label>
-                      <Select value={severity} onValueChange={setSeverity}>
-                        <SelectTrigger><SelectValue placeholder="Select severity" /></SelectTrigger>
-                        <SelectContent>
-                          {severityLevels.map(level => (
-                            <SelectItem key={level.value} value={level.value}>{level.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Incident Date *</Label>
-                      <Input type="date" value={incidentDate} onChange={(e) => setIncidentDate(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Incident Time</Label>
-                      <Input type="time" value={incidentTime} onChange={(e) => setIncidentTime(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Witness Name</Label>
-                      <Input value={witnessName} onChange={(e) => setWitnessName(e.target.value)} placeholder="Optional" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Staff Member *</Label>
+                        <Select value={selectedStaffForWarning} onValueChange={setSelectedStaffForWarning}>
+                          <SelectTrigger className="hover:border-primary/50 transition-colors"><SelectValue placeholder="Select staff" /></SelectTrigger>
+                          <SelectContent>
+                            {staffList.map(staff => (
+                              <SelectItem key={staff.id} value={staff.id}>{staff.full_name} ({staff.staff_code})</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Warning Type *</Label>
+                        <Select value={warningType} onValueChange={setWarningType}>
+                          <SelectTrigger className="hover:border-primary/50 transition-colors"><SelectValue placeholder="Select type" /></SelectTrigger>
+                          <SelectContent>
+                            {warningTypes.map(type => (
+                              <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Severity *</Label>
+                        <Select value={severity} onValueChange={setSeverity}>
+                          <SelectTrigger className="hover:border-primary/50 transition-colors"><SelectValue placeholder="Select severity" /></SelectTrigger>
+                          <SelectContent>
+                            {severityLevels.map(level => (
+                              <SelectItem key={level.value} value={level.value}>{level.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Incident Date *</Label>
+                        <Input type="date" value={incidentDate} onChange={(e) => setIncidentDate(e.target.value)} className="hover:border-primary/50 transition-colors" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Incident Time</Label>
+                        <Input type="time" value={incidentTime} onChange={(e) => setIncidentTime(e.target.value)} className="hover:border-primary/50 transition-colors" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Witness Name</Label>
+                        <Input value={witnessName} onChange={(e) => setWitnessName(e.target.value)} placeholder="Optional" className="hover:border-primary/50 transition-colors" />
+                      </div>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Description *</Label>
-                    <Textarea value={warningDescription} onChange={(e) => setWarningDescription(e.target.value)} placeholder="Detailed description of the incident..." rows={3} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Action Taken</Label>
-                    <Textarea value={actionTaken} onChange={(e) => setActionTaken(e.target.value)} placeholder="What action was taken..." rows={2} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Staff Response</Label>
-                    <Textarea value={staffResponse} onChange={(e) => setStaffResponse(e.target.value)} placeholder="Staff member's response..." rows={2} />
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="followUp" checked={followUpRequired} onCheckedChange={(checked) => setFollowUpRequired(checked as boolean)} />
-                    <Label htmlFor="followUp">Follow-up Required</Label>
-                  </div>
-                  {followUpRequired && (
-                    <div className="space-y-2">
-                      <Label>Follow-up Date</Label>
-                      <Input type="date" value={followUpDate} onChange={(e) => setFollowUpDate(e.target.value)} />
+
+                  {/* Section: Description & Response */}
+                  <div className="rounded-lg border border-border p-4 space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-border">
+                      <FileText className="h-4 w-4 text-primary" />
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Description & Response</h3>
                     </div>
-                  )}
+                    <div className="space-y-2">
+                      <Label>Description *</Label>
+                      <Textarea value={warningDescription} onChange={(e) => setWarningDescription(e.target.value)} placeholder="Detailed description of the incident..." rows={3} className="hover:border-primary/50 transition-colors" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Action Taken</Label>
+                      <Textarea value={actionTaken} onChange={(e) => setActionTaken(e.target.value)} placeholder="What action was taken..." rows={2} className="hover:border-primary/50 transition-colors" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Staff Response</Label>
+                      <Textarea value={staffResponse} onChange={(e) => setStaffResponse(e.target.value)} placeholder="Staff member's response..." rows={2} className="hover:border-primary/50 transition-colors" />
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox id="followUp" checked={followUpRequired} onCheckedChange={(checked) => setFollowUpRequired(checked as boolean)} />
+                      <Label htmlFor="followUp">Follow-up Required</Label>
+                    </div>
+                    {followUpRequired && (
+                      <div className="space-y-2">
+                        <Label>Follow-up Date</Label>
+                        <Input type="date" value={followUpDate} onChange={(e) => setFollowUpDate(e.target.value)} className="hover:border-primary/50 transition-colors" />
+                      </div>
+                    )}
+                  </div>
                   <div className="flex gap-2 justify-end">
                     <Button type="button" variant="outline" onClick={resetWarningForm}>Cancel</Button>
                     <Button type="submit">Issue Warning</Button>
