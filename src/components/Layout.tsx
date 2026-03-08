@@ -16,6 +16,8 @@ import { LogOut } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
 import { getNavigationItems } from '@/lib/navigationItems';
 import AIChatbot from '@/components/AIChatbot';
+import WalkthroughOverlay from '@/components/WalkthroughOverlay';
+import { useWalkthrough } from '@/hooks/useWalkthrough';
 
 interface LayoutProps {
   children: React.ReactNode;
