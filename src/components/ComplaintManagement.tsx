@@ -267,7 +267,7 @@ const ComplaintManagement = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    if (submitting) return;
     if (!formData.complaint_title.trim() || !formData.complaint_description.trim()) {
       toast({
         variant: "destructive",
