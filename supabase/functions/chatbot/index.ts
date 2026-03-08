@@ -37,11 +37,13 @@ WestMed HMS is a comprehensive hospital management system with the following mod
 - **Navigation Analytics**: Track which modules users access most
 
 ### Staff Features
-- **Task Management**: Assign and track tasks for staff members
-- **Staff Appraisals**: Performance appraisal system with ratings
-- **Leave & Permission**: Staff can apply for leave/permission, managers can approve/reject
-- **Complaint Management**: Raise and track complaints
-- **Team Chat**: Internal messaging between staff
+- **Task Management**: Assign and track tasks for staff members. Each task has an Activity Timeline showing all status changes with timestamps and who made them. Verification workflow: staff marks task as complete → admin/manager verifies completion. Overdue tasks are auto-detected and shown with visual indicators. Tasks have priority levels (low/medium/high) and due dates.
+- **Staff Appraisals**: Performance appraisal system with criteria-based scoring (punctuality, work quality, teamwork, communication, professionalism, patient care, etc.). Weighted criteria with manager comments, strengths, areas for improvement, and action plans. Staff can acknowledge and add comments.
+- **Leave & Permission**: Staff can apply for leave (with start/end dates, half-day option, reason selection) or permission (with date, start/end time). Manager/Admin approves or rejects with notes. Full application history with status tracking.
+- **Complaint Management**: Raise and track complaints with category, priority, incident date/time, and detailed description. Activity log shows all status changes with timestamps (raised → taken care → resolved). Admins add action notes and resolution details.
+- **Team Chat**: Real-time internal messaging between staff. Features include: edit/delete own messages (hover for action icons), admin/manager can delete any message (moderation), date separators between message groups, client-side message search, multiline input (Shift+Enter for new line), scroll-to-bottom button with unread count.
+- **Staff Attendance**: Clock in/out with calendar view, attendance reports with present/absent/late tracking.
+- **Staff Payroll**: Monthly payroll generation based on salary structure and attendance. Includes allowances, deductions, and overtime calculations.
 
 ### Administration
 - **Masters**: Manage master data (departments, roles, insurance companies, vendors, etc.)
