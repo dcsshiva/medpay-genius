@@ -1047,33 +1047,40 @@ const ComplaintManagement = () => {
 
       {/* Admin Response Dialog */}
       <Dialog open={responseDialog} onOpenChange={setResponseDialog}>
-        <DialogContent>
+        <DialogContent
+          hasUnsavedChanges={adminResponse.trim() !== ''}
+          onConfirmClose={() => { setAdminResponse(''); setResponseDialog(false); setSelectedComplaint(null); }}
+        >
           <DialogHeader>
             <DialogTitle>Respond to Complaint</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleAdminResponse} className="space-y-4">
             {selectedComplaint && (
-              <div className="space-y-2">
-                <Label>Complaint</Label>
-                <div className="p-3 bg-muted rounded-sm">
-                  <h4 className="font-medium">{selectedComplaint.complaint_title}</h4>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {selectedComplaint.complaint_description}
-                  </p>
-                </div>
+              <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1">
+                <h4 className="font-semibold text-sm">{selectedComplaint.complaint_title}</h4>
+                <p className="text-xs text-muted-foreground">
+                  {selectedComplaint.complaint_description}
+                </p>
               </div>
             )}
             
-            <div className="space-y-2">
-              <Label htmlFor="admin_response">Response *</Label>
-              <Textarea
-                id="admin_response"
-                value={adminResponse}
-                onChange={(e) => setAdminResponse(e.target.value)}
-                placeholder="Provide your response to resolve this complaint..."
-                rows={4}
-                required
-              />
+            <div className="rounded-lg border border-border p-4 space-y-3">
+              <div className="flex items-center gap-2 pb-2 border-b border-border">
+                <FileText className="h-4 w-4 text-primary" />
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Admin Response</h3>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="admin_response">Response *</Label>
+                <Textarea
+                  id="admin_response"
+                  value={adminResponse}
+                  onChange={(e) => setAdminResponse(e.target.value)}
+                  placeholder="Provide your response to resolve this complaint..."
+                  className="hover:border-primary/50 transition-colors"
+                  rows={4}
+                  required
+                />
+              </div>
             </div>
 
             <div className="flex justify-end space-x-2">
