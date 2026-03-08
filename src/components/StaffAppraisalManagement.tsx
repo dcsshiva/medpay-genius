@@ -761,7 +761,8 @@ export default function StaffAppraisalManagement() {
                     </div>
                     <div className="space-y-2">
                       <Label>Next Review Date</Label>
-                      <Input type="date" value={nextReviewDate} onChange={(e) => setNextReviewDate(e.target.value)} />
+                      <Input type="date" value={nextReviewDate} onChange={(e) => setNextReviewDate(e.target.value)} className="hover:border-primary/50 transition-colors" />
+                    </div>
                     </div>
                   </div>
 
