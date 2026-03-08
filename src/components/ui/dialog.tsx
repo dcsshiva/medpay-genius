@@ -66,9 +66,6 @@ const DialogContent = React.forwardRef<
   const handleConfirmDiscard = React.useCallback(() => {
     setShowConfirm(false);
     onConfirmClose?.();
-    // Find and click the close button to trigger Radix's close
-    const closeEvent = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true });
-    document.dispatchEvent(closeEvent);
   }, [onConfirmClose]);
 
   return (
