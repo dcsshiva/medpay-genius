@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -26,7 +26,10 @@ import {
   RefreshCw,
   ClipboardList,
   FileText,
-  MessageSquare
+  MessageSquare,
+  XCircle,
+  ShieldCheck,
+  AlertTriangle
 } from 'lucide-react';
 import { formatDateIST, formatDateTimeIST, toISOStringIST } from '@/lib/dateUtils';
 
@@ -88,6 +91,28 @@ const TaskManagement = () => {
     due_date: ''
   });
 
+  // Status change confirmation dialog state
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{
+    taskId: string;
+    taskTitle: string;
+    targetStatus: string;
+    label: string;
+  } | null>(null);
+  const [confirmNotes, setConfirmNotes] = useState('');
+
+  // Cancel dialog state
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelTaskId, setCancelTaskId] = useState<string | null>(null);
+  const [cancelTaskTitle, setCancelTaskTitle] = useState('');
+  const [cancelReason, setCancelReason] = useState('');
+
+  // Verify completion dialog state
+  const [verifyDialogOpen, setVerifyDialogOpen] = useState(false);
+  const [verifyTaskId, setVerifyTaskId] = useState<string | null>(null);
+  const [verifyTaskTitle, setVerifyTaskTitle] = useState('');
+  const [verifyNotes, setVerifyNotes] = useState('');
+
   // Check for unsaved changes
   const hasUnsavedChanges = formData.task_title.trim() !== '' || 
                            formData.task_description.trim() !== '' || 
@@ -114,6 +139,22 @@ const TaskManagement = () => {
     }
   });
 
+  // Overdue auto-detection
+  const overdueTaskIds = useMemo(() => {
+    const now = new Date();
+    const ids = new Set<string>();
+    tasks.forEach(task => {
+      if (
+        (task.status === 'pending' || task.status === 'in_progress') &&
+        task.due_date &&
+        new Date(task.due_date) < now
+      ) {
+        ids.add(task.id);
+      }
+    });
+    return ids;
+  }, [tasks]);
+
   useEffect(() => {
     fetchTasks();
     if (userRole === 'admin' || userRole === 'manager') {
@@ -125,21 +166,12 @@ const TaskManagement = () => {
     try {
       let data: Task[] = [];
 
-      // For staff users, use RPC function to bypass RLS issues
       if (isStaffRole(userRole)) {
-        console.log('TaskManagement - Staff user:', user);
-        
         const staffId = await getStaffId(user);
-
         if (staffId) {
-          console.log('TaskManagement - About to query tasks for staff ID:', staffId);
           data = await getStaffTasks(staffId);
-          console.log('TaskManagement - Converted tasks:', data);
-        } else {
-          console.log('TaskManagement - No staff ID found, cannot fetch tasks');
         }
       } else {
-        // For admin/manager users, use regular query
         const { data: queryData, error } = await supabase
           .from('tasks')
           .select(`
@@ -221,7 +253,6 @@ const TaskManagement = () => {
 
     setSubmitting(true);
     try {
-      // Get current user's staff record directly via user_id
       const { data: currentStaff } = await supabase
         .from('staff')
         .select('id')
@@ -264,13 +295,12 @@ const TaskManagement = () => {
   const isRegisteringCompletionRef = useRef(false);
   const [registeringTaskId, setRegisteringTaskId] = useState<string | null>(null);
 
-  const registerCompletion = async (taskId: string) => {
+  const registerCompletion = async (taskId: string, notes?: string) => {
     if (isRegisteringCompletionRef.current) return;
     isRegisteringCompletionRef.current = true;
     setRegisteringTaskId(taskId);
 
     try {
-      // Fresh DB check to prevent race conditions
       const { data: freshTask } = await supabase
         .from('tasks')
         .select('actual_completed_at')
@@ -278,24 +308,29 @@ const TaskManagement = () => {
         .maybeSingle();
 
       if (freshTask?.actual_completed_at) {
-        toast({ title: "Already Registered", description: "Completion was already registered." });
+        toast({ title: "Already Verified", description: "Completion was already verified." });
         fetchTasks();
         return;
       }
 
+      const updateData: any = { 
+        actual_completed_at: toISOStringIST(), 
+        updated_at: toISOStringIST() 
+      };
+      if (notes?.trim()) {
+        updateData.notes = notes.trim();
+      }
+
       const { error } = await supabase
         .from('tasks')
-        .update({ 
-          actual_completed_at: toISOStringIST(), 
-          updated_at: toISOStringIST() 
-        })
+        .update(updateData)
         .eq('id', taskId);
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: "Actual completion time registered successfully"
+        description: "Task completion verified successfully"
       });
 
       fetchTasks();
@@ -303,7 +338,7 @@ const TaskManagement = () => {
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to register completion time"
+        description: error.message || "Failed to verify completion"
       });
     } finally {
       isRegisteringCompletionRef.current = false;
@@ -315,9 +350,12 @@ const TaskManagement = () => {
     try {
       const updateData: any = { 
         status: newStatus,
-        notes: notes || null,
         updated_at: toISOStringIST()
       };
+
+      if (notes?.trim()) {
+        updateData.notes = notes.trim();
+      }
 
       if (newStatus === 'completed') {
         updateData.completed_at = toISOStringIST();
@@ -342,6 +380,68 @@ const TaskManagement = () => {
         title: "Error",
         description: error.message || "Failed to update task"
       });
+    }
+  };
+
+  // Confirmation dialog handlers
+  const openConfirmDialog = (taskId: string, taskTitle: string, targetStatus: string, label: string) => {
+    setConfirmAction({ taskId, taskTitle, targetStatus, label });
+    setConfirmNotes('');
+    setConfirmDialogOpen(true);
+  };
+
+  const handleConfirmStatusChange = async () => {
+    if (!confirmAction || submitting) return;
+    setSubmitting(true);
+    try {
+      await updateTaskStatus(confirmAction.taskId, confirmAction.targetStatus, confirmNotes);
+      setConfirmDialogOpen(false);
+      setConfirmAction(null);
+      setConfirmNotes('');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Cancel dialog handlers
+  const openCancelDialog = (taskId: string, taskTitle: string) => {
+    setCancelTaskId(taskId);
+    setCancelTaskTitle(taskTitle);
+    setCancelReason('');
+    setCancelDialogOpen(true);
+  };
+
+  const handleCancelTask = async () => {
+    if (!cancelTaskId || !cancelReason.trim() || submitting) return;
+    setSubmitting(true);
+    try {
+      await updateTaskStatus(cancelTaskId, 'cancelled', cancelReason);
+      setCancelDialogOpen(false);
+      setCancelTaskId(null);
+      setCancelReason('');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Verify completion dialog handlers
+  const openVerifyDialog = (taskId: string, taskTitle: string) => {
+    setVerifyTaskId(taskId);
+    setVerifyTaskTitle(taskTitle);
+    setVerifyNotes('');
+    setVerifyDialogOpen(true);
+  };
+
+  const handleVerifyCompletion = async () => {
+    if (!verifyTaskId || submitting) return;
+    setSubmitting(true);
+    try {
+      await registerCompletion(verifyTaskId, verifyNotes);
+      setVerifyDialogOpen(false);
+      setVerifyTaskId(null);
+      setVerifyNotes('');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -444,11 +544,15 @@ const TaskManagement = () => {
       case 'completed': return <CheckCircle className="h-4 w-4" />;
       case 'in_progress': return <Clock className="h-4 w-4" />;
       case 'overdue': return <AlertCircle className="h-4 w-4" />;
+      case 'cancelled': return <XCircle className="h-4 w-4" />;
       default: return <Clock className="h-4 w-4" />;
     }
   };
 
   const filteredTasks = tasks.filter(task => {
+    if (statusFilter === 'overdue') {
+      return overdueTaskIds.has(task.id);
+    }
     const statusMatch = statusFilter === 'all' || task.status === statusFilter;
     const priorityMatch = priorityFilter === 'all' || task.priority === priorityFilter;
     return statusMatch && priorityMatch;
@@ -457,10 +561,15 @@ const TaskManagement = () => {
   const statusOrder: Record<string, number> = {
     in_progress: 0,
     pending: 1,
-    completed: 2
+    completed: 2,
+    cancelled: 3
   };
 
   const sortedTasks = [...filteredTasks].sort((a, b) => {
+    // Overdue tasks first
+    const aOverdue = overdueTaskIds.has(a.id) ? -1 : 0;
+    const bOverdue = overdueTaskIds.has(b.id) ? -1 : 0;
+    if (aOverdue !== bOverdue) return aOverdue - bOverdue;
     return (statusOrder[a.status] ?? 1) - (statusOrder[b.status] ?? 1);
   });
 
@@ -751,8 +860,119 @@ const TaskManagement = () => {
         </DialogContent>
       </Dialog>
 
+      {/* Confirm Status Change Dialog */}
+      <Dialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-primary" />
+              Confirm: {confirmAction?.label}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <p className="text-sm font-semibold">{confirmAction?.taskTitle}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Status will change to: <span className="font-medium text-foreground">{confirmAction?.targetStatus?.replace('_', ' ')}</span>
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Notes (optional)</Label>
+              <Textarea
+                value={confirmNotes}
+                onChange={(e) => setConfirmNotes(e.target.value)}
+                placeholder="Add notes for this status change..."
+                className="hover:border-primary/50 transition-colors"
+                rows={3}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setConfirmDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleConfirmStatusChange} disabled={submitting}>
+                {submitting ? 'Processing...' : `Confirm ${confirmAction?.label}`}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cancel Task Dialog */}
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <XCircle className="h-5 w-5" />
+              Cancel Task
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+              <p className="text-sm font-semibold">{cancelTaskTitle}</p>
+              <p className="text-xs text-muted-foreground mt-1">This action cannot be undone.</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Cancellation Reason *</Label>
+              <Textarea
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder="Provide a reason for cancelling this task..."
+                className="hover:border-primary/50 transition-colors"
+                rows={3}
+                required
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setCancelDialogOpen(false)}>Keep Task</Button>
+              <Button 
+                variant="destructive" 
+                onClick={handleCancelTask} 
+                disabled={!cancelReason.trim() || submitting}
+              >
+                {submitting ? 'Cancelling...' : 'Cancel Task'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Verify Completion Dialog */}
+      <Dialog open={verifyDialogOpen} onOpenChange={setVerifyDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ShieldCheck className="h-5 w-5 text-success" />
+              Verify Task Completion
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <p className="text-sm font-semibold">{verifyTaskTitle}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Confirming this will stamp the actual completion time and mark the task as verified.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Verification Notes (optional)</Label>
+              <Textarea
+                value={verifyNotes}
+                onChange={(e) => setVerifyNotes(e.target.value)}
+                placeholder="Add verification notes..."
+                className="hover:border-primary/50 transition-colors"
+                rows={3}
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setVerifyDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleVerifyCompletion} disabled={submitting}>
+                {submitting ? 'Verifying...' : 'Verify Completion'}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 md:gap-6">
         <Card
           className={`cursor-pointer transition-all hover:shadow-md ${statusFilter === 'pending' ? 'ring-2 ring-primary border-primary' : ''}`}
           onClick={() => setStatusFilter(prev => prev === 'pending' ? 'all' : 'pending')}
@@ -804,10 +1024,25 @@ const TaskManagement = () => {
         >
           <CardContent className="p-6">
             <div className="flex items-center">
-              <AlertCircle className="h-8 w-8 text-destructive" />
+              <AlertTriangle className="h-8 w-8 text-destructive" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-muted-foreground">Overdue</p>
-                <p className="text-2xl font-bold">{tasks.filter(t => t.status === 'overdue').length}</p>
+                <p className="text-2xl font-bold">{overdueTaskIds.size}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card
+          className={`cursor-pointer transition-all hover:shadow-md ${statusFilter === 'cancelled' ? 'ring-2 ring-muted-foreground border-muted-foreground' : ''}`}
+          onClick={() => setStatusFilter(prev => prev === 'cancelled' ? 'all' : 'cancelled')}
+        >
+          <CardContent className="p-6">
+            <div className="flex items-center">
+              <XCircle className="h-8 w-8 text-muted-foreground" />
+              <div className="ml-4">
+                <p className="text-sm font-medium text-muted-foreground">Cancelled</p>
+                <p className="text-2xl font-bold">{tasks.filter(t => t.status === 'cancelled').length}</p>
               </div>
             </div>
           </CardContent>
@@ -851,143 +1086,175 @@ const TaskManagement = () => {
 
       {/* Tasks List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {sortedTasks.map((task) => (
-          <Card key={task.id}>
-            <CardHeader className="pb-3">
-              <div className="flex justify-between items-start">
-                <CardTitle className="text-lg line-clamp-2">{task.task_title}</CardTitle>
-                <Badge variant={getPriorityColor(task.priority)}>
-                  {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {task.task_description && (
-                <p className="text-sm text-muted-foreground line-clamp-3">
-                  {task.task_description}
-                </p>
-              )}
-              
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm">
-                    {task.assigned_to_staff.full_name} ({task.assigned_to_staff.staff_code})
-                  </span>
-                </div>
-                
-                {task.due_date && (
-                  <div className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm">
-                      Due: {formatDateTimeIST(task.due_date)}
-                    </span>
-                  </div>
-                )}
-                
-                <div className="flex items-center justify-between">
-                  <Badge variant={getStatusColor(task.status)} className="flex items-center gap-1">
-                    {getStatusIcon(task.status)}
-                    {task.status.replace('_', ' ').charAt(0).toUpperCase() + task.status.replace('_', ' ').slice(1)}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground">
-                    {formatDateIST(task.created_at).split(',')[0]}
-                  </span>
-                </div>
-
-                {task.updated_at && (
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">
-                      Last Updated: {formatDateTimeIST(task.updated_at)}
-                    </span>
-                  </div>
-                )}
-
-                {task.actual_completed_at && (
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-3 w-3 text-success" />
-                    <span className="text-xs text-success font-medium">
-                      Finished at: {formatDateTimeIST(task.actual_completed_at)}
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-2 flex-wrap">
-                {task.status !== 'cancelled' && (
-                  <>
-                    {userRole === 'admin' || userRole === 'manager' ? (
-                      <>
-                        {task.status === 'pending' && (
-                          <Button 
-                            size="sm" 
-                            onClick={() => updateTaskStatus(task.id, 'in_progress')}
-                          >
-                            Start Task
-                          </Button>
-                        )}
-                        {task.status === 'in_progress' && (
-                          <Button 
-                            size="sm" 
-                            onClick={() => updateTaskStatus(task.id, 'completed')}
-                          >
-                            Complete
-                          </Button>
-                        )}
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => openReassignDialog(task.id)}
-                          className="gap-1"
-                        >
-                          <RefreshCw className="h-3 w-3" />
-                          Re-assign
-                        </Button>
-                      </>
-                    ) : (
-                      (() => {
-                        const staffAlreadyUpdated = isStaffRole(userRole) && task.status === 'completed' && task.updated_at;
-                        return staffAlreadyUpdated ? (
-                          <Button size="sm" disabled>
-                            Updated
-                          </Button>
-                        ) : task.status !== 'completed' ? (
-                          <Button 
-                            size="sm" 
-                            onClick={() => handleUpdateTask(task)}
-                          >
-                            Update Task
-                          </Button>
-                        ) : null;
-                      })()
+        {sortedTasks.map((task) => {
+          const isOverdue = overdueTaskIds.has(task.id);
+          const isAwaitingVerification = task.status === 'completed' && !task.actual_completed_at;
+          
+          return (
+            <Card 
+              key={task.id} 
+              className={`transition-all ${isOverdue ? 'border-destructive/60 bg-destructive/5' : ''} ${isAwaitingVerification ? 'border-warning/60 bg-warning/5' : ''}`}
+            >
+              <CardHeader className="pb-3">
+                <div className="flex justify-between items-start">
+                  <CardTitle className="text-lg line-clamp-2">{task.task_title}</CardTitle>
+                  <div className="flex gap-1 flex-shrink-0">
+                    {isOverdue && (
+                      <Badge variant="destructive" className="text-[10px] px-1.5 py-0">
+                        OVERDUE
+                      </Badge>
                     )}
-                  </>
-                )}
-
-                {!task.actual_completed_at && task.status === 'completed' && (
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => registerCompletion(task.id)}
-                    disabled={registeringTaskId === task.id}
-                    className="gap-1"
-                  >
-                    <Timer className="h-4 w-4" />
-                    {registeringTaskId === task.id ? 'Registering...' : 'Register Completion'}
-                  </Button>
-                )}
-              </div>
-
-              {task.notes && (
-                <div className="mt-2 p-2 bg-muted rounded-sm">
-                  <p className="text-xs text-muted-foreground">Notes:</p>
-                  <p className="text-sm">{task.notes}</p>
+                    {isAwaitingVerification && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-warning text-warning">
+                        AWAITING VERIFICATION
+                      </Badge>
+                    )}
+                    <Badge variant={getPriorityColor(task.priority)}>
+                      {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
+                    </Badge>
+                  </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-        ))}
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {task.task_description && (
+                  <p className="text-sm text-muted-foreground line-clamp-3">
+                    {task.task_description}
+                  </p>
+                )}
+                
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <User className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">
+                      {task.assigned_to_staff.full_name} ({task.assigned_to_staff.staff_code})
+                    </span>
+                  </div>
+                  
+                  {task.due_date && (
+                    <div className={`flex items-center gap-2 ${isOverdue ? 'text-destructive font-medium' : ''}`}>
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">
+                        Due: {formatDateTimeIST(task.due_date)}
+                      </span>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center justify-between">
+                    <Badge variant={getStatusColor(task.status)} className="flex items-center gap-1">
+                      {getStatusIcon(task.status)}
+                      {task.status.replace('_', ' ').charAt(0).toUpperCase() + task.status.replace('_', ' ').slice(1)}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {formatDateIST(task.created_at).split(',')[0]}
+                    </span>
+                  </div>
+
+                  {task.updated_at && (
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">
+                        Last Updated: {formatDateTimeIST(task.updated_at)}
+                      </span>
+                    </div>
+                  )}
+
+                  {task.actual_completed_at && (
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="h-3 w-3 text-success" />
+                      <span className="text-xs text-success font-medium">
+                        Verified at: {formatDateTimeIST(task.actual_completed_at)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2 flex-wrap">
+                  {task.status !== 'cancelled' && (
+                    <>
+                      {userRole === 'admin' || userRole === 'manager' ? (
+                        <>
+                          {task.status === 'pending' && (
+                            <Button 
+                              size="sm" 
+                              onClick={() => openConfirmDialog(task.id, task.task_title, 'in_progress', 'Start Task')}
+                            >
+                              Start Task
+                            </Button>
+                          )}
+                          {task.status === 'in_progress' && (
+                            <Button 
+                              size="sm" 
+                              onClick={() => openConfirmDialog(task.id, task.task_title, 'completed', 'Complete')}
+                            >
+                              Complete
+                            </Button>
+                          )}
+                          {(task.status === 'pending' || task.status === 'in_progress') && (
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => openCancelDialog(task.id, task.task_title)}
+                              className="gap-1 text-destructive hover:text-destructive"
+                            >
+                              <XCircle className="h-3 w-3" />
+                              Cancel
+                            </Button>
+                          )}
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => openReassignDialog(task.id)}
+                            className="gap-1"
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                            Re-assign
+                          </Button>
+                        </>
+                      ) : (
+                        (() => {
+                          const staffAlreadyUpdated = isStaffRole(userRole) && task.status === 'completed' && task.updated_at;
+                          return staffAlreadyUpdated ? (
+                            <Button size="sm" disabled>
+                              Updated
+                            </Button>
+                          ) : task.status !== 'completed' ? (
+                            <Button 
+                              size="sm" 
+                              onClick={() => handleUpdateTask(task)}
+                            >
+                              Update Task
+                            </Button>
+                          ) : null;
+                        })()
+                      )}
+                    </>
+                  )}
+
+                  {/* Verify Completion - only for admin/manager on completed tasks without actual_completed_at */}
+                  {isAwaitingVerification && (userRole === 'admin' || userRole === 'manager') && (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => openVerifyDialog(task.id, task.task_title)}
+                      disabled={registeringTaskId === task.id}
+                      className="gap-1 border-success text-success hover:bg-success/10"
+                    >
+                      <ShieldCheck className="h-4 w-4" />
+                      {registeringTaskId === task.id ? 'Verifying...' : 'Verify Completion'}
+                    </Button>
+                  )}
+                </div>
+
+                {task.notes && (
+                  <div className="mt-2 p-2 bg-muted rounded-sm">
+                    <p className="text-xs text-muted-foreground">Notes:</p>
+                    <p className="text-sm">{task.notes}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
       {filteredTasks.length === 0 && (
