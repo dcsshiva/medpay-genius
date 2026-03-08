@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { getStaffId, isStaffRole, getStaffTasks } from '@/lib/staffUtils';
 import ReportGeneration from '@/components/ReportGeneration';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Plus, 
   Clock, 
@@ -22,7 +23,10 @@ import {
   Calendar,
   Filter,
   Timer,
-  RefreshCw
+  RefreshCw,
+  ClipboardList,
+  FileText,
+  MessageSquare
 } from 'lucide-react';
 import { formatDateIST, formatDateTimeIST, toISOStringIST } from '@/lib/dateUtils';
 
