@@ -336,6 +336,68 @@ export default function UserGuide() {
             </Card>
           )}
 
+          {activeRole === "manager" && (
+            <>
+              <Card id="task-mgmt" className="mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ClipboardList className="h-5 w-5" />
+                    Task Management
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-muted-foreground">Create and assign tasks to staff with priority levels, due dates, and detailed descriptions.</p>
+                  <Accordion type="single" collapsible>
+                    <AccordionItem value="task-create">
+                      <AccordionTrigger>Creating & Assigning Tasks</AccordionTrigger>
+                      <AccordionContent className="space-y-2 text-sm">
+                        <ol className="list-decimal ml-6 space-y-1">
+                          <li>Go to Task Management from the sidebar</li>
+                          <li>Click "Create Task" and fill in title, description, priority (low/medium/high), and due date</li>
+                          <li>Assign to a staff member from the dropdown</li>
+                          <li>Example: Assign "Update patient records for Ward B" to {sampleNames.staff[0]}, due Friday, high priority</li>
+                        </ol>
+                      </AccordionContent>
+                    </AccordionItem>
+                    <AccordionItem value="task-verify">
+                      <AccordionTrigger>Verification Workflow</AccordionTrigger>
+                      <AccordionContent className="space-y-2 text-sm">
+                        <p>When staff marks a task as complete, it moves to "Awaiting Verification".</p>
+                        <ol className="list-decimal ml-6 space-y-1">
+                          <li>Review the completed task details and any notes added by staff</li>
+                          <li>Check the Activity Timeline to see all status changes with timestamps</li>
+                          <li>Mark as "Verified" to confirm completion, or reopen if needed</li>
+                        </ol>
+                      </AccordionContent>
+                    </AccordionItem>
+                    <AccordionItem value="task-timeline">
+                      <AccordionTrigger>Activity Timeline</AccordionTrigger>
+                      <AccordionContent className="text-sm">
+                        Every task card has an expandable "Activity Log" showing all status changes with who made them and when. This provides a complete audit trail.
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                </CardContent>
+              </Card>
+
+              <Card id="payment-approval" className="mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    Payment Approval
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-muted-foreground">Review and approve doctor payments through the multi-stage workflow.</p>
+                  <div className="bg-muted p-3 rounded-md text-sm space-y-1">
+                    <p><strong>Workflow:</strong> Create payment period → Review visits → Manager approves → Admin approves → Bank advice generated</p>
+                    <p><strong>Example:</strong> Create Apr 1-15 period for Dr. {sampleNames.doctors[0].replace('Dr. ', '')} with 45 visits totalling Rs.22,500</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          )}
+
           {activeRole === "doctor" && (
             <Card id="visit-recording" className="mb-6">
               <CardHeader>
@@ -376,6 +438,126 @@ export default function UserGuide() {
               </CardContent>
             </Card>
           )}
+
+          {activeRole === "staff" && (
+            <>
+              <Card id="tasks" className="mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <ClipboardList className="h-5 w-5" />
+                    My Tasks
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-muted-foreground">View and update tasks assigned to you by managers.</p>
+                  <Accordion type="single" collapsible>
+                    <AccordionItem value="task-update">
+                      <AccordionTrigger>Updating Task Status</AccordionTrigger>
+                      <AccordionContent className="space-y-2 text-sm">
+                        <ol className="list-decimal ml-6 space-y-1">
+                          <li>Open Task Management from sidebar or dashboard cards</li>
+                          <li>View your pending, in-progress, and completed tasks</li>
+                          <li>Update status: Pending → In Progress → Completed</li>
+                          <li>Add notes to describe your progress or findings</li>
+                          <li>Once marked complete, a manager/admin will verify</li>
+                        </ol>
+                      </AccordionContent>
+                    </AccordionItem>
+                    <AccordionItem value="task-activity">
+                      <AccordionTrigger>Activity Timeline</AccordionTrigger>
+                      <AccordionContent className="text-sm">
+                        Each task card has an expandable "Activity Log" that shows every status change — who changed it and when. Useful for tracking history.
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                </CardContent>
+              </Card>
+
+              <Card id="complaints" className="mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5" />
+                    Complaints
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-muted-foreground">Raise and track complaints with full activity history.</p>
+                  <div className="bg-muted p-3 rounded-md text-sm space-y-1">
+                    <p><strong>How to file:</strong> Go to Complaints → New Complaint → Fill category, description, priority, incident date</p>
+                    <p><strong>Example:</strong> "AC not working in OPD" under Maintenance category, high priority</p>
+                    <p><strong>Tracking:</strong> Each complaint shows an activity log with all status changes (raised → taken care → resolved)</p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card id="chat" className="mb-6">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5" />
+                    Team Chat
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-muted-foreground">Real-time messaging with your team.</p>
+                  <ul className="list-disc ml-6 text-sm text-muted-foreground space-y-1">
+                    <li>Send messages, use Shift+Enter for new lines</li>
+                    <li>Hover on your messages to edit or delete them</li>
+                    <li>Use the search bar to find old messages</li>
+                    <li>Scroll-to-bottom button shows unread count</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </>
+          )}
+
+          {/* Common Features Section */}
+          <Card id="common-features" className="mb-6">
+            <CardHeader>
+              <CardTitle>Common Features</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Accordion type="single" collapsible>
+                <AccordionItem value="notifications">
+                  <AccordionTrigger>Notification Center</AccordionTrigger>
+                  <AccordionContent className="text-sm space-y-2">
+                    <p>Click the bell icon in the header to view notifications. You'll be auto-notified when:</p>
+                    <ul className="list-disc ml-6 space-y-1 text-muted-foreground">
+                      <li>Task status changes (assigned, completed, verified)</li>
+                      <li>Complaint status updates</li>
+                      <li>Payment approvals or rejections</li>
+                      <li>Leave/permission decisions</li>
+                    </ul>
+                    <p className="text-muted-foreground">Configure which notifications you receive in Settings → Notification Preferences.</p>
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="ai-chatbot">
+                  <AccordionTrigger>AI Assistant (Chatbot)</AccordionTrigger>
+                  <AccordionContent className="text-sm space-y-2">
+                    <p>Click the floating chat icon (bottom-right) for instant help.</p>
+                    <ul className="list-disc ml-6 space-y-1 text-muted-foreground">
+                      <li>Ask any question about the system (e.g., "How do I generate bank advice?")</li>
+                      <li>Supports Tamil voice input — click the microphone icon</li>
+                      <li>Clickable links in responses navigate you directly to the relevant page</li>
+                      <li>Rate responses with thumbs up/down to improve accuracy</li>
+                    </ul>
+                  </AccordionContent>
+                </AccordionItem>
+                <AccordionItem value="team-chat-common">
+                  <AccordionTrigger>Team Chat Features</AccordionTrigger>
+                  <AccordionContent className="text-sm space-y-2">
+                    <ul className="list-disc ml-6 space-y-1 text-muted-foreground">
+                      <li>Real-time messaging with all team members</li>
+                      <li>Edit/delete your own messages (hover to see actions)</li>
+                      <li>Date separators for easy navigation</li>
+                      <li>Search messages using the search bar</li>
+                      <li>Multiline input with Shift+Enter</li>
+                      <li>Admins/Managers can delete any message for moderation</li>
+                    </ul>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </CardContent>
+          </Card>
 
           {/* FAQ Section */}
           <Card id="faq" className="mb-6">
