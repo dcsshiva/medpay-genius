@@ -1,28 +1,52 @@
 
-# Application Testing Report — Implementation Complete
 
-All 14 issues from the testing report have been addressed.
+## Status of All 14 Modifications
 
-## Completed Fixes
+Most items from the testing report have **already been implemented** in previous iterations. Here's the complete status:
 
-### Critical
-1. ✅ Emergency OTP moved to server-side `verify-emergency-otp` edge function — no plain-text codes in client
-2. ✅ `signInWithEmail` now resolves doctor table ID via `get_user_complete_profile` RPC
-3. ✅ React Error Boundary added wrapping Routes in `App.tsx`; unused `SimpleApp` removed
+### Already Done (no changes needed)
+| # | Issue | Status |
+|---|-------|--------|
+| 1 | Emergency OTP server-side | Done — `verify-emergency-otp` edge function exists, client calls it via `supabase.functions.invoke` |
+| 2 | `signInWithEmail` doctor ID resolution | Done — uses `resolveFullProfile()` + `get_user_complete_profile` RPC (line 578) |
+| 3 | Error Boundary wrapping Routes | Done — `ErrorBoundary` wraps both outer app and inner `<Routes>` in `App.tsx` |
+| 4 | Session recovery `code` field | Done — `loadSession` calls `resolveFullProfile` for doctors, sets `code` (line 360-373) |
+| 5 | Loading state on OTP auto-verify | Done — `setFormLoading(true)` before `handleVerifyOTP()` (Auth.tsx line 77) |
+| 6 | DoctorHub N+1 queries | Done — uses `get_doctor_hub_summaries` RPC (DoctorHub.tsx line 109) |
+| 7 | Duplicate `useAuth()` calls | Done — single `useAuth()` call in Auth.tsx (line 27) |
+| 8 | Emergency session auto-invalidation | Done — `loadSession` checks `emergency_session` flag + `checkSupabaseReachable` (line 232-241) |
+| 9 | Server-side OTP rate limiting | Done — `send-otp` has `MAX_SENDS_PER_HOUR = 5` (line 14) |
+| 10 | Predictable session tokens | Done — uses `crypto.randomUUID()` (line 36-37) |
+| 14 | Unused SimpleApp | Done — removed from `App.tsx` |
 
-### High Priority
-4. ✅ Session recovery now populates `code` field from profile RPC
-5. ✅ Auto-verify OTP now sets `formLoading = true` immediately
-6. ✅ DoctorHub uses single `get_doctor_hub_summaries` RPC instead of N+1 queries
-7. ✅ Duplicate `useAuth()` calls consolidated in `Auth.tsx`
+### Remaining Items (3)
+| # | Issue | Severity | Action |
+|---|-------|----------|--------|
+| 11 | `auth.tsx` is 1141 lines | Low | Refactor into modules: `sessionManager.ts`, `emergencyLogin.ts`, `mobileOTP.ts` |
+| 12 | Index.tsx eager imports, no code splitting | Low | Use `React.lazy()` + route config map for 30+ components |
+| 13 | `SessionTimeoutWrapper` is a no-op | Low | Either implement timeout or remove wrapper |
 
-### Medium Priority
-8. ✅ Emergency sessions auto-invalidated when Supabase connectivity is restored
-9. ✅ Server-side rate limiting added to `send-otp` (max 5 per mobile per hour)
-10. ✅ Session tokens now use `crypto.randomUUID()` instead of predictable values
+### Proposed Changes for Remaining 3 Items
 
-### Low Priority
-11. ✅ `auth.tsx` refactored — extracted `resolveFullProfile` helper, removed dead code (SHA-256 utils, hardcoded hashes)
-12. ⏭ Index.tsx lazy loading — deferred (low priority, requires testing all 30+ routes)
-13. ✅ `SessionTimeoutWrapper` kept as-is (session timeout intentionally disabled per policy)
-14. ✅ Unused `SimpleApp` component removed from `App.tsx`
+#### Issue #13: Remove no-op SessionTimeoutWrapper
+- **File**: `src/components/SessionTimeoutWrapper.tsx` — delete or inline
+- **File**: `src/App.tsx` — remove `<SessionTimeoutWrapper>` wrapper, render children directly
+- Simplest fix, no risk
+
+#### Issue #11: Split auth.tsx into modules
+Extract from `src/lib/auth.tsx` into:
+- `src/lib/auth/sessionManager.ts` — `createUserSession`, `getActiveSession`, `invalidateSession`, `hardResetAuthState`
+- `src/lib/auth/emergencyLogin.ts` — `emergencySignIn` function
+- `src/lib/auth/resolveProfile.ts` — `resolveFullProfile`, `fetchDesignation`
+- `src/lib/auth/index.tsx` — `AuthProvider`, `useAuth`, `AuthContext` (imports from above)
+
+Re-export everything from `src/lib/auth.tsx` (kept as barrel) so no import changes needed across the app.
+
+#### Issue #12: Lazy-load Index.tsx routes
+- Replace 30+ eager imports in `src/pages/Index.tsx` with `React.lazy()` + `Suspense`
+- Convert the switch statement to a route config map: `Record<string, () => Promise<{ default: React.ComponentType }>>`
+- Add a loading skeleton fallback
+
+### Summary
+11 of 14 items are already implemented. The 3 remaining are all Low priority code quality improvements. They carry some risk of regressions (especially #11 and #12) and would benefit from thorough testing after implementation.
+
