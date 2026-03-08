@@ -28,6 +28,7 @@ import NotificationPreferences from './NotificationPreferences';
 import { usePWA } from '@/hooks/usePWA';
 import { useVersionInfo } from '@/hooks/useVersionInfo';
 import { formatDateTimeIST } from '@/lib/dateUtils';
+import { useWalkthrough } from '@/hooks/useWalkthrough';
 
 const Settings = () => {
   const { userRole, userDesignation, signOut } = useAuth();
