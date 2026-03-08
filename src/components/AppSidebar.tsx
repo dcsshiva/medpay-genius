@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { 
   Wallet, 
   Clock,
@@ -61,7 +61,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
     onTabChange(item.id);
   };
 
-  const fetchStats = async () => {
+  const fetchStats = useCallback(async () => {
     if (!(userRole === 'manager' || userRole === 'admin' || userDesignation === 'super_admin' || userDesignation === 'admin' || userDesignation === 'manager')) return;
     
     try {
@@ -84,20 +84,19 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
     } catch (error) {
       console.error('Error fetching stats:', error);
     }
-  };
+  }, [userRole, userDesignation]);
 
   useEffect(() => {
     fetchStats();
-    // Refresh stats every 30 seconds
     const interval = setInterval(fetchStats, 30000);
     return () => clearInterval(interval);
-  }, [userRole]);
+  }, [fetchStats]);
 
-  const allNavigationItems = getNavigationItems({
+  const allNavigationItems = useMemo(() => getNavigationItems({
     userRole,
     userDesignation,
     userProfile
-  });
+  }), [userRole, userDesignation, userProfile?.id]);
   // Filter by admin-configured visibility
   const navigationItems = allNavigationItems.filter(item => isItemVisible(item.id));
   const quickAccessItems = useQuickAccessItems(allNavigationItems);
