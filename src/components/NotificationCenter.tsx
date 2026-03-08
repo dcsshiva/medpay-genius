@@ -33,6 +33,7 @@ const NotificationItem: React.FC<{
   const getIcon = () => {
     switch (notification.type) {
       case 'task_assigned':
+      case 'task_status_changed':
         return <ClipboardList className="h-4 w-4 text-primary" />;
       case 'leave_approved':
       case 'leave':
@@ -40,6 +41,7 @@ const NotificationItem: React.FC<{
       case 'leave_rejected':
         return <X className="h-4 w-4 text-destructive" />;
       case 'complaint_submitted':
+      case 'complaint_status_changed':
         return <AlertTriangle className="h-4 w-4 text-orange-500" />;
       case 'leave_submitted':
         return <CalendarCheck className="h-4 w-4 text-blue-500" />;
@@ -61,11 +63,11 @@ const NotificationItem: React.FC<{
     
     // Navigate based on notification type
     if (onNavigate) {
-      if (notification.type === 'task_assigned') {
+      if (notification.type === 'task_assigned' || notification.type === 'task_status_changed') {
         onNavigate('tasks');
       } else if (notification.type === 'leave_approved' || notification.type === 'leave_rejected') {
         onNavigate('leave-permission');
-      } else if (notification.type === 'complaint_submitted') {
+      } else if (notification.type === 'complaint_submitted' || notification.type === 'complaint_status_changed') {
         onNavigate('complaints');
       } else if (notification.type === 'leave_submitted' || notification.type === 'permission_submitted') {
         onNavigate('leave-approval');

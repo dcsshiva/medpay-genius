@@ -1,47 +1,28 @@
 
+# Application Testing Report — Implementation Complete
 
-# Timeline/Activity Log + Status Change Notifications
+All 14 issues from the testing report have been addressed.
 
-## Approach
+## Completed Fixes
 
-### 1. Activity Timeline — Use Existing `audit_logs` Table
+### Critical
+1. ✅ Emergency OTP moved to server-side `verify-emergency-otp` edge function — no plain-text codes in client
+2. ✅ `signInWithEmail` now resolves doctor table ID via `get_user_complete_profile` RPC
+3. ✅ React Error Boundary added wrapping Routes in `App.tsx`; unused `SimpleApp` removed
 
-The `audit_logs` table already captures all INSERT/UPDATE/DELETE via triggers on tasks and complaints. No new tables needed.
+### High Priority
+4. ✅ Session recovery now populates `code` field from profile RPC
+5. ✅ Auto-verify OTP now sets `formLoading = true` immediately
+6. ✅ DoctorHub uses single `get_doctor_hub_summaries` RPC instead of N+1 queries
+7. ✅ Duplicate `useAuth()` calls consolidated in `Auth.tsx`
 
-**Query pattern**: `SELECT * FROM audit_logs WHERE table_name = 'tasks' AND record_id = :taskId ORDER BY changed_at DESC`
+### Medium Priority
+8. ✅ Emergency sessions auto-invalidated when Supabase connectivity is restored
+9. ✅ Server-side rate limiting added to `send-otp` (max 5 per mobile per hour)
+10. ✅ Session tokens now use `crypto.randomUUID()` instead of predictable values
 
-Each log entry has `old_values` and `new_values` as JSONB — we can diff the `status` field to show status transitions, and use `changed_by` to resolve who made the change.
-
-### 2. Timeline UI Component
-
-Create a reusable `ActivityTimeline` component that:
-- Fetches audit logs for a given `table_name` + `record_id`
-- Parses old/new JSONB to extract meaningful changes (status, notes, assigned_to, etc.)
-- Renders a vertical timeline with dots, timestamps, and actor names
-- Shown in a collapsible section on each task/complaint card (expandable via "View Activity" button)
-- Resolves `changed_by` (user UUID) to staff name via a lookup
-
-### 3. Database: Notification Triggers for Status Changes
-
-**Task status change trigger** (UPDATE on `tasks` where `OLD.status != NEW.status`):
-- Notifies the assigned staff member when their task status changes
-- Type: `task_status_changed`
-
-**Complaint status change trigger** (UPDATE on `complaints` where `OLD.status != NEW.status`):
-- Notifies the complaint raiser when status changes
-- Type: `complaint_status_changed`
-
-### 4. NotificationCenter Updates
-
-Add routing for new notification types (`task_status_changed` → tasks tab, `complaint_status_changed` → complaints tab) and icons.
-
-## Files Changed
-
-| File | Change |
-|------|--------|
-| New: `src/components/ActivityTimeline.tsx` | Reusable timeline component querying audit_logs |
-| `src/components/TaskManagement.tsx` | Add "View Activity" toggle on each task card rendering ActivityTimeline |
-| `src/components/ComplaintManagement.tsx` | Add "View Activity" toggle on each complaint card rendering ActivityTimeline |
-| `src/components/NotificationCenter.tsx` | Add icons/routing for task_status_changed, complaint_status_changed |
-| DB migration | Create notify_task_status_change() and notify_complaint_status_change() triggers |
-
+### Low Priority
+11. ✅ `auth.tsx` refactored — extracted `resolveProfile.ts`, `sessionManager.ts`, `emergencyLogin.ts` into `src/lib/auth/`
+12. ✅ `Index.tsx` now uses `React.lazy()` + `Suspense` for all 30+ route components
+13. ✅ `SessionTimeoutWrapper` no-op removed from `App.tsx` and deleted
+14. ✅ Unused `SimpleApp` component removed from `App.tsx`

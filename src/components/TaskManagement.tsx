@@ -14,6 +14,7 @@ import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { getStaffId, isStaffRole, getStaffTasks } from '@/lib/staffUtils';
 import ReportGeneration from '@/components/ReportGeneration';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import ActivityTimeline from '@/components/ActivityTimeline';
 import { 
   Plus, 
   Clock, 
@@ -1253,6 +1254,8 @@ const TaskManagement = () => {
                     <p className="text-sm">{task.notes}</p>
                   </div>
                 )}
+
+                <ActivityTimeline tableName="tasks" recordId={task.id} />
               </CardContent>
             </Card>
           );
