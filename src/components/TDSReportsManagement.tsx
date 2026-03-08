@@ -307,6 +307,7 @@ export function TDSReportsManagement() {
 
       // Create workbook
       const ws = XLSX.utils.json_to_sheet(excelData);
+      autoFitColumns(ws, excelData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Custom Report');
 
