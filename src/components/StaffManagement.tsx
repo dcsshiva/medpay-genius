@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Users, UserCheck, UserX, Search, Download, Upload, Loader2, Eye, EyeOff, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Edit, Users, UserCheck, UserX, Search, Download, Upload, Loader2, Eye, EyeOff, ChevronUp, ChevronDown, IdCard, Phone, Landmark, ShieldCheck } from 'lucide-react';
 import { formatDateIST } from '@/lib/dateUtils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
