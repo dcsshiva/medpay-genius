@@ -26,7 +26,8 @@ import {
   Clock,
   CheckCircle,
   Smartphone,
-  LogIn
+  LogIn,
+  Settings
 } from "lucide-react";
 import { jsPDF } from "jspdf";
 import { downloadFile } from "@/lib/fileDownload";

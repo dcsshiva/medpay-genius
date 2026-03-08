@@ -45,13 +45,20 @@ WestMed HMS is a comprehensive hospital management system with the following mod
 - **Staff Attendance**: Clock in/out with calendar view, attendance reports with present/absent/late tracking.
 - **Staff Payroll**: Monthly payroll generation based on salary structure and attendance. Includes allowances, deductions, and overtime calculations.
 
+### Notifications
+- **Notification Center**: Real-time in-app notifications via bell icon in the header with unread count badge
+- Users are auto-notified when: task status changes, complaint status updates, payment approvals/rejections, leave/permission decisions, attendance alerts
+- **Notification Preferences**: Users can configure which notification types they receive in Settings (payment_status, attendance, leave_status, task_deadline, complaint_update toggles)
+
 ### Administration
-- **Masters**: Manage master data (departments, roles, insurance companies, vendors, etc.)
-- **Settings**: System settings and user preferences
-- **Version Management**: Track application version history
-- **Website Settings**: Configure website appearance
-- **User Guide**: Built-in help documentation
-- **AI Knowledge Base**: Admin-managed Q&A pairs for the chatbot
+- **Masters**: Manage master data (departments, roles, insurance companies, vendors, visit reasons, leave/permission reasons, complaint categories, appraisal criteria, branches, quick payment types, department-role mappings)
+- **Settings**: System settings, user preferences, notification preferences, password change
+- **Version Management**: Track application version history with release notes
+- **Website Settings**: Configure website appearance (hospital name, logo, banner, contact info, operating hours)
+- **User Guide**: Built-in help documentation with role-specific content, downloadable PDF, and FAQ
+- **AI Knowledge Base**: Admin-managed Q&A pairs for the chatbot with category tagging and usage tracking
+- **User Access Management**: Granular approval permissions per staff member (cash/insurance payment approvals)
+- **Audit Trail**: Complete audit log of all data changes with old/new values, timestamps, and actor identification
 
 ### User Roles
 - **Super Admin**: Full access to everything including settings and version management
