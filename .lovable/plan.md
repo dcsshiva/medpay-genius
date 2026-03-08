@@ -1,74 +1,28 @@
 
+# Application Testing Report — Implementation Complete
 
-# Unsaved Changes Confirmation Dialog
+All 14 issues from the testing report have been addressed.
 
-## Approach
+## Completed Fixes
 
-Rather than modifying every individual form component (28+ files use dialogs), the fix goes into the **base UI components** (`dialog.tsx` and `sheet.tsx`). This ensures every dialog/sheet across the entire app automatically gets the behavior.
+### Critical
+1. ✅ Emergency OTP moved to server-side `verify-emergency-otp` edge function — no plain-text codes in client
+2. ✅ `signInWithEmail` now resolves doctor table ID via `get_user_complete_profile` RPC
+3. ✅ React Error Boundary added wrapping Routes in `App.tsx`; unused `SimpleApp` removed
 
-## How It Works
+### High Priority
+4. ✅ Session recovery now populates `code` field from profile RPC
+5. ✅ Auto-verify OTP now sets `formLoading = true` immediately
+6. ✅ DoctorHub uses single `get_doctor_hub_summaries` RPC instead of N+1 queries
+7. ✅ Duplicate `useAuth()` calls consolidated in `Auth.tsx`
 
-1. **Intercept close attempts** in `DialogContent` and `SheetContent` using Radix's `onInteractOutside`, `onPointerDownOutside`, and `onEscapeKeyDown` handlers.
-2. **New optional prop** `hasUnsavedChanges?: boolean` on `DialogContent` and `SheetContent`.
-3. When `hasUnsavedChanges` is true and user tries to close (overlay click, X button, Escape key):
-   - Prevent default close
-   - Show an `AlertDialog` confirmation: "You have unsaved changes. Are you sure you want to discard them?"
-   - "Discard" closes the form; "Keep Editing" returns to the form
-4. When `hasUnsavedChanges` is false or undefined, default close behavior works as normal.
+### Medium Priority
+8. ✅ Emergency sessions auto-invalidated when Supabase connectivity is restored
+9. ✅ Server-side rate limiting added to `send-otp` (max 5 per mobile per hour)
+10. ✅ Session tokens now use `crypto.randomUUID()` instead of predictable values
 
-## Files Changed
-
-| File | Change |
-|------|--------|
-| `src/components/ui/dialog.tsx` | Add `hasUnsavedChanges` prop to `DialogContent`. Intercept close events, render inner `AlertDialog` confirmation. Override X button click. |
-| `src/components/ui/sheet.tsx` | Same pattern for `SheetContent`. |
-| `src/components/DoctorManagement.tsx` | Pass `hasUnsavedChanges` prop based on whether any form field is non-empty. |
-| `src/components/StaffManagement.tsx` | Same — check if form has data filled. |
-| `src/components/VisitManagement.tsx` | Same — check if form has data filled. |
-
-## Implementation Detail
-
-**In `dialog.tsx`** — wrap `DialogContent` with unsaved changes logic:
-
-```tsx
-interface DialogContentProps extends React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> {
-  hasUnsavedChanges?: boolean;
-}
-
-const DialogContent = React.forwardRef<...>(({ hasUnsavedChanges, className, children, ...props }, ref) => {
-  const [showConfirm, setShowConfirm] = React.useState(false);
-
-  const handleInterceptClose = (e: Event) => {
-    if (hasUnsavedChanges) {
-      e.preventDefault();
-      setShowConfirm(true);
-    }
-  };
-
-  return (
-    <DialogPortal>
-      <DialogOverlay />
-      <DialogPrimitive.Content
-        onInteractOutside={handleInterceptClose}
-        onEscapeKeyDown={handleInterceptClose}
-        ...
-      >
-        {children}
-        {/* Custom X button that checks unsaved changes */}
-        {/* AlertDialog for confirmation */}
-      </DialogPrimitive.Content>
-    </DialogPortal>
-  );
-});
-```
-
-**In each form component** — compute `hasUnsavedChanges` by checking if any field differs from initial/empty state, then pass it:
-
-```tsx
-const hasUnsavedChanges = Object.values(formData).some(v => v !== '' && v !== true);
-
-<DialogContent hasUnsavedChanges={hasUnsavedChanges}>
-```
-
-Same pattern applied to `SheetContent` for mobile forms. The `AlertDialog` confirmation uses the existing `alert-dialog` UI component already in the project.
-
+### Low Priority
+11. ✅ `auth.tsx` refactored — extracted `resolveProfile.ts`, `sessionManager.ts`, `emergencyLogin.ts` into `src/lib/auth/`
+12. ✅ `Index.tsx` now uses `React.lazy()` + `Suspense` for all 30+ route components
+13. ✅ `SessionTimeoutWrapper` no-op removed from `App.tsx` and deleted
+14. ✅ Unused `SimpleApp` component removed from `App.tsx`

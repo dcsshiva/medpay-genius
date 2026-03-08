@@ -1088,7 +1088,7 @@ const StaffManagement = () => {
                 Add Staff Member
               </Button>
             </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] grid grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
+          <DialogContent className="max-w-2xl max-h-[90vh] grid grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden" hasUnsavedChanges={Object.values(formData).some(v => typeof v === 'string' && v.trim() !== '')} onConfirmClose={() => { resetForm(); setDialogOpen(false); }}>
             <DialogHeader className="flex-shrink-0">
               <DialogTitle>{editingStaff ? 'Update Staff Member' : 'Add New Staff Member'}</DialogTitle>
               <DialogDescription>
