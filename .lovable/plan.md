@@ -1,28 +1,16 @@
 
-# Application Testing Report — Implementation Complete
 
-All 14 issues from the testing report have been addressed.
+# Update TDS Report Filenames
 
-## Completed Fixes
+Change all TDS report download filenames in `src/components/TDSReportsManagement.tsx` to include "WestMed_" prefix and current date+time suffix.
 
-### Critical
-1. ✅ Emergency OTP moved to server-side `verify-emergency-otp` edge function — no plain-text codes in client
-2. ✅ `signInWithEmail` now resolves doctor table ID via `get_user_complete_profile` RPC
-3. ✅ React Error Boundary added wrapping Routes in `App.tsx`; unused `SimpleApp` removed
+**Format:** `WestMed_TDS_{Type}_Report_{params}_{YYYYMMDD}_{HHmmss}.xlsx`
 
-### High Priority
-4. ✅ Session recovery now populates `code` field from profile RPC
-5. ✅ Auto-verify OTP now sets `formLoading = true` immediately
-6. ✅ DoctorHub uses single `get_doctor_hub_summaries` RPC instead of N+1 queries
-7. ✅ Duplicate `useAuth()` calls consolidated in `Auth.tsx`
+### Changes in `TDSReportsManagement.tsx`
 
-### Medium Priority
-8. ✅ Emergency sessions auto-invalidated when Supabase connectivity is restored
-9. ✅ Server-side rate limiting added to `send-otp` (max 5 per mobile per hour)
-10. ✅ Session tokens now use `crypto.randomUUID()` instead of predictable values
+1. **Quarterly** (line ~91): `WestMed_TDS_Quarterly_Report_2025-26_Q1_20260308_143022.xlsx`
+2. **Annual** (line ~172): `WestMed_TDS_Annual_Report_2025-26_20260308_143022.xlsx`
+3. **Custom** (line ~232): `WestMed_TDS_Custom_Report_2026-01-01_to_2026-03-08_20260308_143022.xlsx`
 
-### Low Priority
-11. ✅ `auth.tsx` refactored — extracted `resolveProfile.ts`, `sessionManager.ts`, `emergencyLogin.ts` into `src/lib/auth/`
-12. ✅ `Index.tsx` now uses `React.lazy()` + `Suspense` for all 30+ route components
-13. ✅ `SessionTimeoutWrapper` no-op removed from `App.tsx` and deleted
-14. ✅ Unused `SimpleApp` component removed from `App.tsx`
+Use `format(new Date(), 'yyyyMMdd_HHmmss')` from date-fns for the timestamp suffix.
+
