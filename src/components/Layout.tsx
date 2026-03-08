@@ -28,6 +28,13 @@ interface LayoutProps {
 const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => {
   const { user, userRole, userDesignation, userProfile, signOut } = useAuth();
 
+  const walkthrough = useWalkthrough({
+    userId: user?.id,
+    userRole,
+    userDesignation,
+    userType: userProfile?.user_type,
+  });
+
   const navigationItems = getNavigationItems({
     userRole,
     userDesignation,
