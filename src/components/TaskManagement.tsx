@@ -525,98 +525,118 @@ const TaskManagement = () => {
                   Create Task
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+              <DialogContent 
+                className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
+                hasUnsavedChanges={hasUnsavedChanges}
+                onConfirmClose={() => { resetForm(); setDialogOpen(false); }}
+              >
                 <DialogHeader>
                   <DialogTitle>Create New Task</DialogTitle>
                 </DialogHeader>
-                <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="task_title">Task Title *</Label>
-                  <Input
-                    id="task_title"
-                    value={formData.task_title}
-                    onChange={(e) => setFormData({ ...formData, task_title: e.target.value })}
-                    placeholder="Enter task title"
-                    required
-                  />
-                </div>
+                <ScrollArea className="flex-1 min-h-0 px-1">
+                  <form onSubmit={handleSubmit} className="space-y-5 pr-3">
+                    {/* Section: Task Details */}
+                    <div className="rounded-lg border border-border p-4 space-y-3">
+                      <div className="flex items-center gap-2 pb-2 border-b border-border">
+                        <ClipboardList className="h-4 w-4 text-primary" />
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Task Details</h3>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="task_title">Task Title *</Label>
+                        <Input
+                          id="task_title"
+                          value={formData.task_title}
+                          onChange={(e) => setFormData({ ...formData, task_title: e.target.value })}
+                          placeholder="Enter task title"
+                          className="hover:border-primary/50 transition-colors"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="task_description">Task Description</Label>
+                        <Textarea
+                          id="task_description"
+                          value={formData.task_description}
+                          onChange={(e) => setFormData({ ...formData, task_description: e.target.value })}
+                          placeholder="Describe the task details..."
+                          className="hover:border-primary/50 transition-colors"
+                          rows={3}
+                        />
+                      </div>
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="task_description">Task Description</Label>
-                  <Textarea
-                    id="task_description"
-                    value={formData.task_description}
-                    onChange={(e) => setFormData({ ...formData, task_description: e.target.value })}
-                    placeholder="Describe the task details..."
-                    rows={3}
-                  />
-                </div>
+                    {/* Section: Assignment */}
+                    <div className="rounded-lg border border-border p-4 space-y-3">
+                      <div className="flex items-center gap-2 pb-2 border-b border-border">
+                        <User className="h-4 w-4 text-primary" />
+                        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Assignment</h3>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="assigned_to">Assign To *</Label>
+                        <Select 
+                          value={formData.assigned_to} 
+                          onValueChange={(value) => setFormData({ ...formData, assigned_to: value })}
+                          required
+                        >
+                          <SelectTrigger className="hover:border-primary/50 transition-colors">
+                            <SelectValue placeholder="Select staff member" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {staff.length === 0 ? (
+                              <SelectItem value="no-staff" disabled>
+                                No active staff available
+                              </SelectItem>
+                            ) : (
+                              staff.map((member) => (
+                                <SelectItem key={member.id} value={member.id}>
+                                  {member.full_name} ({member.staff_code}) - {member.role}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="priority">Priority</Label>
+                          <Select 
+                            value={formData.priority} 
+                            onValueChange={(value) => setFormData({ ...formData, priority: value })}
+                          >
+                            <SelectTrigger className="hover:border-primary/50 transition-colors">
+                              <SelectValue placeholder="Select priority" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="low">Low</SelectItem>
+                              <SelectItem value="medium">Medium</SelectItem>
+                              <SelectItem value="high">High</SelectItem>
+                              <SelectItem value="urgent">Urgent</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="due_date">Due Date</Label>
+                          <Input
+                            id="due_date"
+                            type="datetime-local"
+                            value={formData.due_date}
+                            onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                            className="hover:border-primary/50 transition-colors"
+                          />
+                        </div>
+                      </div>
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="assigned_to">Assign To *</Label>
-                  <Select 
-                    value={formData.assigned_to} 
-                    onValueChange={(value) => setFormData({ ...formData, assigned_to: value })}
-                    required
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select staff member" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {staff.length === 0 ? (
-                        <SelectItem value="no-staff" disabled>
-                          No active staff available
-                        </SelectItem>
-                      ) : (
-                        staff.map((member) => (
-                          <SelectItem key={member.id} value={member.id}>
-                            {member.full_name} ({member.staff_code}) - {member.role}
-                          </SelectItem>
-                        ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="priority">Priority</Label>
-                    <Select 
-                      value={formData.priority} 
-                      onValueChange={(value) => setFormData({ ...formData, priority: value })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select priority" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="urgent">Urgent</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="due_date">Due Date</Label>
-                    <Input
-                      id="due_date"
-                      type="datetime-local"
-                      value={formData.due_date}
-                      onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-2">
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button type="submit" disabled={submitting}>
-                    {submitting ? 'Creating...' : 'Create Task'}
-                  </Button>
-                </div>
-                </form>
+                    <div className="flex justify-end space-x-2 sticky bottom-0 bg-background py-2">
+                      <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                        Cancel
+                      </Button>
+                      <Button type="submit" disabled={submitting}>
+                        {submitting ? 'Creating...' : 'Create Task'}
+                      </Button>
+                    </div>
+                  </form>
+                </ScrollArea>
               </DialogContent>
             </Dialog>
           </div>
