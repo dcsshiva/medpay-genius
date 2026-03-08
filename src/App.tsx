@@ -40,18 +40,16 @@ const App = () => {
             <OfflineIndicator />
             <PWAInstallPrompt />
             <BrowserRouter>
-              <SessionTimeoutWrapper>
-                <ErrorBoundary>
-                  <Routes>
-                    <Route path="/" element={<Auth />} />
-                    <Route path="/dashboard" element={<Index />} />
-                    <Route path="/auth" element={<Auth />} />
-                    <Route path="/install" element={<Install />} />
-                    <Route path="/help-guide" element={<PublicUserGuide />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                </ErrorBoundary>
-              </SessionTimeoutWrapper>
+              <ErrorBoundary>
+                <Routes>
+                  <Route path="/" element={<Auth />} />
+                  <Route path="/dashboard" element={<Index />} />
+                  <Route path="/auth" element={<Auth />} />
+                  <Route path="/install" element={<Install />} />
+                  <Route path="/help-guide" element={<PublicUserGuide />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </ErrorBoundary>
             </BrowserRouter>
           </TooltipProvider>
         </AuthProvider>
