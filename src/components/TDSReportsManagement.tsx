@@ -102,7 +102,8 @@ export function TDSReportsManagement() {
       }
 
       // Download
-      XLSX.writeFile(wb, `TDS_Quarterly_Report_${quarterFY}_${quarter}.xlsx`);
+      const timestamp = format(new Date(), 'yyyyMMdd_HHmmss');
+      XLSX.writeFile(wb, `WestMed_TDS_Quarterly_Report_${quarterFY}_${quarter}_${timestamp}.xlsx`);
 
       toast({
         title: 'Report Generated',
@@ -213,7 +214,8 @@ export function TDSReportsManagement() {
       XLSX.utils.book_append_sheet(wb, ws, `Annual ${annualFY}`);
 
       // Download
-      XLSX.writeFile(wb, `TDS_Annual_Report_${annualFY}.xlsx`);
+      const timestamp = format(new Date(), 'yyyyMMdd_HHmmss');
+      XLSX.writeFile(wb, `WestMed_TDS_Annual_Report_${annualFY}_${timestamp}.xlsx`);
 
       toast({
         title: 'Report Generated',
@@ -295,7 +297,8 @@ export function TDSReportsManagement() {
       XLSX.utils.book_append_sheet(wb, ws, 'Custom Report');
 
       // Download
-      const filename = `TDS_Custom_Report_${customStartDate}_to_${customEndDate}.xlsx`;
+      const timestamp = format(new Date(), 'yyyyMMdd_HHmmss');
+      const filename = `WestMed_TDS_Custom_Report_${customStartDate}_to_${customEndDate}_${timestamp}.xlsx`;
       XLSX.writeFile(wb, filename);
 
       toast({
