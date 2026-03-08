@@ -417,21 +417,7 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
           Generate Report
         </Button>
       </DialogTrigger>
-      <DialogContent 
-        className="max-w-4xl max-h-[80vh] overflow-y-auto"
-        onPointerDownOutside={(e) => {
-          const target = e.target as HTMLElement;
-          if (target.closest('.dialog-content-inner')) {
-            e.preventDefault();
-          }
-        }}
-        onInteractOutside={(e) => {
-          const target = e.target as HTMLElement;
-          if (target.closest('input, button, .dialog-content-inner')) {
-            e.preventDefault();
-          }
-        }}
-      >
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center">
             <FileText className="h-5 w-5 mr-2" />
