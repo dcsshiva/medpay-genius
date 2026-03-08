@@ -18,7 +18,7 @@ export const createUserSession = async (sessionData: {
   const timeoutDuration = ['admin', 'manager'].includes(sessionData.role) ? 300 : 180;
 
   // Use server-side validated session creation to prevent role escalation
-  const { data, error } = await supabase.rpc('create_validated_session', {
+  const { data, error } = await (supabase.rpc as any)('create_validated_session', {
     _user_id: sessionData.user_id,
     _user_type: sessionData.user_type,
     _original_id: sessionData.original_id,
