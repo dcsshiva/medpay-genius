@@ -25,7 +25,9 @@ import {
   ClockIcon,
   FileText,
   Tag,
-  Users
+  Users,
+  ArrowRight,
+  Lock
 } from 'lucide-react';
 import { formatDateIST, formatDateTimeIST, toISOStringIST } from '@/lib/dateUtils';
 
@@ -82,11 +84,8 @@ const ComplaintManagement = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [responseDialog, setResponseDialog] = useState(false);
-  const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [adminResponse, setAdminResponse] = useState('');
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
   const [complaintCategories, setComplaintCategories] = useState<Array<{
     id: string;
@@ -104,6 +103,17 @@ const ComplaintManagement = () => {
     submitted_to: ''
   });
 
+  // Status change dialog state
+  const [statusChangeDialogOpen, setStatusChangeDialogOpen] = useState(false);
+  const [statusChangeTarget, setStatusChangeTarget] = useState<{
+    complaintId: string;
+    complaintTitle: string;
+    currentStatus: string;
+    newStatus: string;
+    label: string;
+  } | null>(null);
+  const [statusChangeNotes, setStatusChangeNotes] = useState('');
+
   useEffect(() => {
     fetchComplaints();
     fetchActiveStaff();
@@ -117,13 +127,12 @@ const ComplaintManagement = () => {
       .on(
         'postgres_changes',
         {
-          event: '*', // Listen to INSERT, UPDATE, DELETE
+          event: '*',
           schema: 'public',
           table: 'complaints'
         },
-        (payload) => {
-          console.log('Complaint change detected:', payload);
-          fetchComplaints(); // Re-fetch to get latest data with all relations
+        () => {
+          fetchComplaints();
         }
       )
       .subscribe();
@@ -140,13 +149,12 @@ const ComplaintManagement = () => {
       .on(
         'postgres_changes',
         {
-          event: '*', // Listen to INSERT, UPDATE, DELETE
+          event: '*',
           schema: 'public',
           table: 'staff'
         },
-        (payload) => {
-          console.log('Staff change detected:', payload);
-          fetchActiveStaff(); // Re-fetch staff list when changes occur
+        () => {
+          fetchActiveStaff();
         }
       )
       .subscribe();
@@ -167,8 +175,7 @@ const ComplaintManagement = () => {
           schema: 'public',
           table: 'complaint_categories'
         },
-        (payload) => {
-          console.log('Complaint category change detected:', payload);
+        () => {
           fetchComplaintCategories();
         }
       )
@@ -292,7 +299,6 @@ const ComplaintManagement = () => {
 
     setSubmitting(true);
     try {
-      // Get current user's staff record
       const staffId = await getStaffId(user);
       if (!staffId) throw new Error('Staff record not found');
 
@@ -332,76 +338,22 @@ const ComplaintManagement = () => {
     }
   };
 
-  const handleAdminResponse = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (submitting) return;
-    setSubmitting(true);
-    if (!['admin', 'manager'].includes(userRole || '')) {
-      toast({
-        variant: "destructive",
-        title: "Access Denied",
-        description: "Only admins and managers can respond to complaints"
-      });
-      return;
-    }
-
-    if (!selectedComplaint || !adminResponse.trim()) {
-      toast({
-        variant: "destructive",
-        title: "Validation Error",
-        description: "Response is required"
-      });
-      return;
-    }
-
-    try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('user_id', user!.id)
-        .maybeSingle();
-
-      if (!profile) throw new Error('Profile not found');
-
-      const { data: currentStaff } = await supabase
-        .from('staff')
-        .select('id')
-        .eq('id', profile.id)
-        .single();
-
-      const { error } = await supabase
-        .from('complaints')
-        .update({
-          status: 'resolved',
-          admin_response: adminResponse.trim(),
-          resolved_by: currentStaff?.id || null,
-          resolved_at: toISOStringIST()
-        })
-        .eq('id', selectedComplaint.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Complaint resolved successfully"
-      });
-
-      setResponseDialog(false);
-      setSelectedComplaint(null);
-      setAdminResponse('');
-      fetchComplaints();
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message || "Failed to respond to complaint"
-      });
-    } finally {
-      setSubmitting(false);
-    }
+  // Open status change dialog (replaces direct status updates)
+  const openStatusChangeDialog = (
+    complaintId: string, 
+    complaintTitle: string, 
+    currentStatus: string, 
+    newStatus: string, 
+    label: string
+  ) => {
+    setStatusChangeTarget({ complaintId, complaintTitle, currentStatus, newStatus, label });
+    setStatusChangeNotes('');
+    setStatusChangeDialogOpen(true);
   };
 
-  const updateComplaintStatus = async (complaintId: string, newStatus: string, actionNotes?: string) => {
+  const handleStatusChangeConfirm = async () => {
+    if (!statusChangeTarget || !statusChangeNotes.trim() || submitting) return;
+    
     if (!['admin', 'manager'].includes(userRole || '')) {
       toast({
         variant: "destructive",
@@ -411,6 +363,7 @@ const ComplaintManagement = () => {
       return;
     }
 
+    setSubmitting(true);
     try {
       const { data: profile } = await supabase
         .from('profiles')
@@ -426,29 +379,39 @@ const ComplaintManagement = () => {
         .eq('id', profile.id)
         .single();
 
-      const updateData: any = { status: newStatus as any };
+      const updateData: any = { 
+        status: statusChangeTarget.newStatus as any,
+        action_notes: statusChangeNotes.trim()
+      };
       
-      // If marking as taken, in_progress, or solved, record who took action
-      if (['taken', 'in_progress', 'solved'].includes(newStatus)) {
+      // Record who handled it
+      if (['taken', 'in_progress', 'solved', 'in_review'].includes(statusChangeTarget.newStatus)) {
         updateData.taken_care_by = currentStaff?.id;
         updateData.taken_care_at = toISOStringIST();
-        if (actionNotes) {
-          updateData.action_notes = actionNotes;
-        }
+      }
+
+      // For closed status, also set resolved fields
+      if (statusChangeTarget.newStatus === 'closed') {
+        updateData.resolved_by = currentStaff?.id;
+        updateData.resolved_at = toISOStringIST();
+        updateData.admin_response = statusChangeNotes.trim();
       }
 
       const { error } = await supabase
         .from('complaints')
         .update(updateData)
-        .eq('id', complaintId);
+        .eq('id', statusChangeTarget.complaintId);
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: `Complaint status updated to ${newStatus.replace('_', ' ')}`
+        description: `Complaint ${statusChangeTarget.label.toLowerCase()} successfully`
       });
 
+      setStatusChangeDialogOpen(false);
+      setStatusChangeTarget(null);
+      setStatusChangeNotes('');
       fetchComplaints();
     } catch (error: any) {
       toast({
@@ -456,6 +419,8 @@ const ComplaintManagement = () => {
         title: "Error",
         description: error.message || "Failed to update complaint status"
       });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -503,8 +468,21 @@ const ComplaintManagement = () => {
       case 'taken': return <User className="h-4 w-4" />;
       case 'in_review': return <Clock className="h-4 w-4" />;
       case 'open': return <AlertTriangle className="h-4 w-4" />;
-      case 'closed': return <CheckCircle className="h-4 w-4" />;
+      case 'closed': return <Lock className="h-4 w-4" />;
       default: return <MessageCircle className="h-4 w-4" />;
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'open': return 'Open';
+      case 'taken': return 'Action Taken';
+      case 'in_review': return 'Under Review';
+      case 'in_progress': return 'In Progress';
+      case 'solved': return 'Solved';
+      case 'resolved': return 'Resolved';
+      case 'closed': return 'Closed';
+      default: return status.replace('_', ' ');
     }
   };
 
@@ -729,75 +707,87 @@ const ComplaintManagement = () => {
         </Dialog>
       </div>
 
-      {/* Stats Cards - Action Status Segregation */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
         <Card className={`border-orange-200 bg-orange-50 cursor-pointer transition-all hover:shadow-md ${statusFilter === 'open' ? 'ring-2 ring-orange-400' : ''}`} onClick={() => setStatusFilter(prev => prev === 'open' ? 'all' : 'open')}>
-          <CardContent className="p-6">
+          <CardContent className="p-4">
             <div className="flex items-center">
-              <AlertTriangle className="h-8 w-8 text-orange-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-orange-700">Open</p>
-                <p className="text-2xl font-bold text-orange-800">{complaints.filter(c => c.status === 'open').length}</p>
+              <AlertTriangle className="h-7 w-7 text-orange-600" />
+              <div className="ml-3">
+                <p className="text-xs font-medium text-orange-700">Open</p>
+                <p className="text-xl font-bold text-orange-800">{complaints.filter(c => c.status === 'open').length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
         <Card className={`border-blue-200 bg-blue-50 cursor-pointer transition-all hover:shadow-md ${statusFilter === 'taken' ? 'ring-2 ring-blue-400' : ''}`} onClick={() => setStatusFilter(prev => prev === 'taken' ? 'all' : 'taken')}>
-          <CardContent className="p-6">
+          <CardContent className="p-4">
             <div className="flex items-center">
-              <User className="h-8 w-8 text-blue-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-blue-700">Action Taken</p>
-                <p className="text-2xl font-bold text-blue-800">{complaints.filter(c => c.status === 'taken').length}</p>
+              <User className="h-7 w-7 text-blue-600" />
+              <div className="ml-3">
+                <p className="text-xs font-medium text-blue-700">Action Taken</p>
+                <p className="text-xl font-bold text-blue-800">{complaints.filter(c => c.status === 'taken').length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
         <Card className={`border-yellow-200 bg-yellow-50 cursor-pointer transition-all hover:shadow-md ${statusFilter === 'in_progress' ? 'ring-2 ring-yellow-400' : ''}`} onClick={() => setStatusFilter(prev => prev === 'in_progress' ? 'all' : 'in_progress')}>
-          <CardContent className="p-6">
+          <CardContent className="p-4">
             <div className="flex items-center">
-              <Clock className="h-8 w-8 text-yellow-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-yellow-700">In Progress</p>
-                <p className="text-2xl font-bold text-yellow-800">{complaints.filter(c => c.status === 'in_progress').length}</p>
+              <Clock className="h-7 w-7 text-yellow-600" />
+              <div className="ml-3">
+                <p className="text-xs font-medium text-yellow-700">In Progress</p>
+                <p className="text-xl font-bold text-yellow-800">{complaints.filter(c => c.status === 'in_progress').length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
         <Card className={`border-green-200 bg-green-50 cursor-pointer transition-all hover:shadow-md ${statusFilter === 'solved' ? 'ring-2 ring-green-400' : ''}`} onClick={() => setStatusFilter(prev => prev === 'solved' ? 'all' : 'solved')}>
-          <CardContent className="p-6">
+          <CardContent className="p-4">
             <div className="flex items-center">
-              <CheckCircle className="h-8 w-8 text-green-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-green-700">Solved</p>
-                <p className="text-2xl font-bold text-green-800">{complaints.filter(c => c.status === 'solved').length}</p>
+              <CheckCircle className="h-7 w-7 text-green-600" />
+              <div className="ml-3">
+                <p className="text-xs font-medium text-green-700">Solved</p>
+                <p className="text-xl font-bold text-green-800">{complaints.filter(c => c.status === 'solved').length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        
-        <Card className={`border-emerald-200 bg-emerald-50 cursor-pointer transition-all hover:shadow-md ${statusFilter === 'resolved' ? 'ring-2 ring-emerald-400' : ''}`} onClick={() => setStatusFilter(prev => prev === 'resolved' ? 'all' : 'resolved')}>
-          <CardContent className="p-6">
+
+        <Card className={`border-emerald-200 bg-emerald-50 cursor-pointer transition-all hover:shadow-md ${statusFilter === 'closed' ? 'ring-2 ring-emerald-400' : ''}`} onClick={() => setStatusFilter(prev => prev === 'closed' ? 'all' : 'closed')}>
+          <CardContent className="p-4">
             <div className="flex items-center">
-              <CheckCircle className="h-8 w-8 text-emerald-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-emerald-700">Resolved</p>
-                <p className="text-2xl font-bold text-emerald-800">{complaints.filter(c => c.status === 'resolved').length}</p>
+              <Lock className="h-7 w-7 text-emerald-600" />
+              <div className="ml-3">
+                <p className="text-xs font-medium text-emerald-700">Closed</p>
+                <p className="text-xl font-bold text-emerald-800">{complaints.filter(c => c.status === 'closed').length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
         <Card className={`border-gray-200 bg-gray-50 cursor-pointer transition-all hover:shadow-md ${statusFilter === 'in_review' ? 'ring-2 ring-gray-400' : ''}`} onClick={() => setStatusFilter(prev => prev === 'in_review' ? 'all' : 'in_review')}>
-          <CardContent className="p-6">
+          <CardContent className="p-4">
             <div className="flex items-center">
-              <MessageCircle className="h-8 w-8 text-gray-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-700">Under Review</p>
-                <p className="text-2xl font-bold text-gray-800">{complaints.filter(c => c.status === 'in_review').length}</p>
+              <MessageCircle className="h-7 w-7 text-gray-600" />
+              <div className="ml-3">
+                <p className="text-xs font-medium text-gray-700">Under Review</p>
+                <p className="text-xl font-bold text-gray-800">{complaints.filter(c => c.status === 'in_review').length}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className={`border-purple-200 bg-purple-50 cursor-pointer transition-all hover:shadow-md ${statusFilter === 'resolved' ? 'ring-2 ring-purple-400' : ''}`} onClick={() => setStatusFilter(prev => prev === 'resolved' ? 'all' : 'resolved')}>
+          <CardContent className="p-4">
+            <div className="flex items-center">
+              <CheckCircle className="h-7 w-7 text-purple-600" />
+              <div className="ml-3">
+                <p className="text-xs font-medium text-purple-700">Resolved</p>
+                <p className="text-xl font-bold text-purple-800">{complaints.filter(c => c.status === 'resolved').length}</p>
               </div>
             </div>
           </CardContent>
@@ -805,7 +795,7 @@ const ComplaintManagement = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4 items-center">
+      <div className="flex gap-4 items-center flex-wrap">
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4" />
           <span className="text-sm font-medium">Filters:</span>
@@ -846,8 +836,8 @@ const ComplaintManagement = () => {
             <SelectItem value="in_review">⚫ Under Review</SelectItem>
             <SelectItem value="in_progress">🟡 In Progress</SelectItem>
             <SelectItem value="solved">🟢 Solved</SelectItem>
-            <SelectItem value="resolved">🟢 Resolved</SelectItem>
-            <SelectItem value="closed">⚪ Closed</SelectItem>
+            <SelectItem value="closed">🔒 Closed</SelectItem>
+            <SelectItem value="resolved">🟣 Resolved</SelectItem>
           </SelectContent>
         </Select>
         
@@ -869,7 +859,7 @@ const ComplaintManagement = () => {
       {/* Complaints List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredComplaints.map((complaint) => (
-          <Card key={complaint.id}>
+          <Card key={complaint.id} className={`transition-all ${complaint.status === 'closed' ? 'opacity-75' : ''}`}>
             <CardHeader className="pb-3">
               <div className="flex justify-between items-start">
                 <CardTitle className="text-lg line-clamp-2">{complaint.complaint_title}</CardTitle>
@@ -923,7 +913,7 @@ const ComplaintManagement = () => {
                 <div className="flex items-center justify-between">
                   <Badge variant={getStatusColor(complaint.status)} className="flex items-center gap-1">
                     {getStatusIcon(complaint.status)}
-                    {complaint.status.replace('_', ' ').charAt(0).toUpperCase() + complaint.status.replace('_', ' ').slice(1)}
+                    {getStatusLabel(complaint.status)}
                   </Badge>
                 </div>
               </div>
@@ -958,63 +948,54 @@ const ComplaintManagement = () => {
                 </div>
               )}
 
+              {/* Admin/Manager Actions - All go through status change dialog with required notes */}
               {(userRole === 'admin' || userRole === 'manager') && (
                 <div className="flex flex-wrap gap-2">
                   {complaint.status === 'open' && (
                     <>
                       <Button 
                         size="sm" 
-                        onClick={() => updateComplaintStatus(complaint.id, 'taken')}
+                        onClick={() => openStatusChangeDialog(complaint.id, complaint.complaint_title, complaint.status, 'taken', 'Take Action')}
                       >
                         Take Action
                       </Button>
                       <Button 
                         size="sm" 
                         variant="outline"
-                        onClick={() => updateComplaintStatus(complaint.id, 'in_review')}
+                        onClick={() => openStatusChangeDialog(complaint.id, complaint.complaint_title, complaint.status, 'in_review', 'Start Review')}
                       >
                         Review
                       </Button>
                     </>
                   )}
                   
-                  {complaint.status === 'taken' && (
-                    <>
-                      <Button 
-                        size="sm" 
-                        onClick={() => updateComplaintStatus(complaint.id, 'in_progress')}
-                      >
-                        Start Progress
-                      </Button>
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        onClick={() => updateComplaintStatus(complaint.id, 'solved')}
-                      >
-                        Mark Solved
-                      </Button>
-                    </>
-                  )}
-                  
-                  {complaint.status === 'in_progress' && (
+                  {(complaint.status === 'taken' || complaint.status === 'in_review') && (
                     <Button 
                       size="sm" 
-                      onClick={() => updateComplaintStatus(complaint.id, 'solved')}
+                      onClick={() => openStatusChangeDialog(complaint.id, complaint.complaint_title, complaint.status, 'in_progress', 'Start Progress')}
+                    >
+                      Start Progress
+                    </Button>
+                  )}
+                  
+                  {(complaint.status === 'in_progress' || complaint.status === 'taken') && (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      onClick={() => openStatusChangeDialog(complaint.id, complaint.complaint_title, complaint.status, 'solved', 'Mark as Solved')}
                     >
                       Mark Solved
                     </Button>
                   )}
-                  
-                  {(complaint.status === 'open' || complaint.status === 'in_review') && (
+
+                  {complaint.status === 'solved' && (
                     <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => {
-                        setSelectedComplaint(complaint);
-                        setResponseDialog(true);
-                      }}
+                      size="sm"
+                      onClick={() => openStatusChangeDialog(complaint.id, complaint.complaint_title, complaint.status, 'closed', 'Close Complaint')}
+                      className="gap-1"
                     >
-                      Respond & Resolve
+                      <Lock className="h-3 w-3" />
+                      Close Complaint
                     </Button>
                   )}
                 </div>
@@ -1045,53 +1026,56 @@ const ComplaintManagement = () => {
         </Card>
       )}
 
-      {/* Admin Response Dialog */}
-      <Dialog open={responseDialog} onOpenChange={setResponseDialog}>
-        <DialogContent
-          hasUnsavedChanges={adminResponse.trim() !== ''}
-          onConfirmClose={() => { setAdminResponse(''); setResponseDialog(false); setSelectedComplaint(null); }}
-        >
+      {/* Status Change Dialog — all transitions require notes */}
+      <Dialog open={statusChangeDialogOpen} onOpenChange={setStatusChangeDialogOpen}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Respond to Complaint</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              {statusChangeTarget?.label}
+            </DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleAdminResponse} className="space-y-4">
-            {selectedComplaint && (
-              <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1">
-                <h4 className="font-semibold text-sm">{selectedComplaint.complaint_title}</h4>
-                <p className="text-xs text-muted-foreground">
-                  {selectedComplaint.complaint_description}
-                </p>
-              </div>
-            )}
-            
-            <div className="rounded-lg border border-border p-4 space-y-3">
-              <div className="flex items-center gap-2 pb-2 border-b border-border">
-                <FileText className="h-4 w-4 text-primary" />
-                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Admin Response</h3>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="admin_response">Response *</Label>
-                <Textarea
-                  id="admin_response"
-                  value={adminResponse}
-                  onChange={(e) => setAdminResponse(e.target.value)}
-                  placeholder="Provide your response to resolve this complaint..."
-                  className="hover:border-primary/50 transition-colors"
-                  rows={4}
-                  required
-                />
+          <div className="space-y-4">
+            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+              <p className="text-sm font-semibold">{statusChangeTarget?.complaintTitle}</p>
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Badge variant={getStatusColor(statusChangeTarget?.currentStatus || '')} className="text-[10px]">
+                  {getStatusLabel(statusChangeTarget?.currentStatus || '')}
+                </Badge>
+                <ArrowRight className="h-3 w-3" />
+                <Badge variant={getStatusColor(statusChangeTarget?.newStatus || '')} className="text-[10px]">
+                  {getStatusLabel(statusChangeTarget?.newStatus || '')}
+                </Badge>
               </div>
             </div>
-
-            <div className="flex justify-end space-x-2">
-              <Button type="button" variant="outline" onClick={() => setResponseDialog(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting ? 'Resolving...' : 'Resolve Complaint'}
+            <div className="space-y-2">
+              <Label>Action Notes *</Label>
+              <Textarea
+                value={statusChangeNotes}
+                onChange={(e) => setStatusChangeNotes(e.target.value)}
+                placeholder={
+                  statusChangeTarget?.newStatus === 'closed' 
+                    ? "Provide closing/verification notes..." 
+                    : "Describe the action being taken..."
+                }
+                className="hover:border-primary/50 transition-colors"
+                rows={4}
+                required
+              />
+              <p className="text-xs text-muted-foreground">
+                Notes are required for all status changes to maintain an audit trail.
+              </p>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setStatusChangeDialogOpen(false)}>Cancel</Button>
+              <Button 
+                onClick={handleStatusChangeConfirm} 
+                disabled={!statusChangeNotes.trim() || submitting}
+              >
+                {submitting ? 'Processing...' : `Confirm ${statusChangeTarget?.label}`}
               </Button>
             </div>
-          </form>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
