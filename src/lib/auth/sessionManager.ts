@@ -1,5 +1,4 @@
 import { supabase } from '@/integrations/supabase/client';
-import { toISOStringIST } from '@/lib/dateUtils';
 
 // Session storage functions - all data stored in Supabase
 export const createUserSession = async (sessionData: {
