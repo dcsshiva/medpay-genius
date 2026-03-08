@@ -24,12 +24,10 @@ import { checkSupabaseReachable } from "@/lib/connectivityCheck";
 const Auth: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signInWithOTP, verifyOTP, sendMobileOTP, verifyMobileOTP, emergencySignIn, user } = useAuth();
+  const { signInWithOTP, verifyOTP, sendMobileOTP, verifyMobileOTP, emergencySignIn, user, loading: authLoading } = useAuth();
   const { isInstallable, isInstalled, installApp, checkForUpdates, isCheckingForUpdates, isUpdateAvailable, applyUpdate } = usePWA();
   const versionInfo = useVersionInfo();
   const isMobile = useIsMobile();
-
-  const { loading: authLoading } = useAuth();
   const [formLoading, setFormLoading] = useState(false);
   const [loginMethod, setLoginMethod] = useState<'email' | 'mobile'>('email');
   const [dnsBlocked, setDnsBlocked] = useState(false);
