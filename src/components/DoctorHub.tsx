@@ -104,78 +104,26 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
     try {
       setLoading(true);
 
-      // Build query with optional doctor filter
-      let query = supabase
-        .from('doctors')
-        .select('id, doctor_code, full_name');
+      // Use single RPC call instead of N+1 queries
+      const { data: summaries, error } = await supabase
+        .rpc('get_doctor_hub_summaries', {
+          _filter_doctor_id: filterDoctorId || null
+        });
 
-      // If filterDoctorId is provided, fetch that specific doctor regardless of active status
-      if (filterDoctorId) {
-        query = query.eq('id', filterDoctorId);
-      } else {
-        query = query.eq('is_active', true);
-      }
+      if (error) throw error;
 
-      const { data: doctorsData, error: doctorsError } = await query.order('doctor_code');
-
-      if (doctorsError) throw doctorsError;
-
-      // For each doctor, calculate paid and unpaid amounts
-      const summaries: DoctorSummary[] = await Promise.all(
-        (doctorsData || []).map(async (doctor) => {
-          // Paid: bank_advice_generated = true (all time)
-          const { data: paidPayments } = await supabase
-            .from('payments')
-            .select('net_amount')
-            .eq('doctor_id', doctor.id)
-            .eq('bank_advice_generated', true);
-
-          const paid_amount = (paidPayments || []).reduce((sum, p) => sum + Number(p.net_amount || 0), 0);
-          const paid_count = paidPayments?.length || 0;
-
-          // Unpaid: unprocessed visits + visits in payments where bank_advice_generated=false
-          const { data: unprocessedVisits } = await supabase
-            .from('visits')
-            .select('id, visit_payment')
-            .eq('doctor_id', doctor.id)
-            .eq('is_processed', false);
-
-          // Also get visits linked to payments that haven't had bank advice generated
-          const { data: pendingPaymentVisits } = await supabase
-            .from('payment_visits')
-            .select(`
-              visit_id,
-              visits!inner (id, visit_payment),
-              payments!inner (id, bank_advice_generated, doctor_id)
-            `)
-            .eq('payments.bank_advice_generated', false)
-            .eq('payments.doctor_id', doctor.id);
-
-          // Filter to only this doctor's pending payment visits and deduplicate
-          const unprocessedIds = new Set((unprocessedVisits || []).map(v => v.id));
-          const pendingVisitsForDoctor = (pendingPaymentVisits || []).filter((pv: any) => {
-            return pv.visits && !unprocessedIds.has(pv.visits.id);
-          });
-
-          const unprocessedAmount = (unprocessedVisits || []).reduce((sum, v) => sum + Number(v.visit_payment || 0), 0);
-          const pendingPaymentAmount = pendingVisitsForDoctor.reduce((sum: number, pv: any) => sum + Number(pv.visits?.visit_payment || 0), 0);
-          const unpaid_amount = unprocessedAmount + pendingPaymentAmount;
-          const unpaid_visits_count = (unprocessedVisits?.length || 0) + pendingVisitsForDoctor.length;
-
-          return {
-            id: doctor.id,
-            doctor_code: doctor.doctor_code,
-            full_name: doctor.full_name || 'Doctor',
-            paid_amount,
-            unpaid_amount,
-            total_amount: paid_amount + unpaid_amount,
-            paid_count,
-            unpaid_visits_count,
-          };
-        })
+      setDoctors(
+        (summaries || []).map((s: any) => ({
+          id: s.id,
+          doctor_code: s.doctor_code,
+          full_name: s.full_name || 'Doctor',
+          paid_amount: Number(s.paid_amount || 0),
+          unpaid_amount: Number(s.unpaid_amount || 0),
+          total_amount: Number(s.total_amount || 0),
+          paid_count: Number(s.paid_count || 0),
+          unpaid_visits_count: Number(s.unpaid_visits_count || 0),
+        }))
       );
-
-      setDoctors(summaries);
     } catch (error: any) {
       console.error('Error fetching doctor summaries:', error);
       toast({
