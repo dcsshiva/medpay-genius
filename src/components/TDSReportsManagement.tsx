@@ -18,6 +18,18 @@ import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { TDSCertificateGenerator } from './TDSCertificateGenerator';
 
+function autoFitColumns(ws: XLSX.WorkSheet, data: any[]) {
+  if (!data.length) return;
+  const keys = Object.keys(data[0]);
+  ws['!cols'] = keys.map(key => {
+    const maxLen = Math.max(
+      key.length,
+      ...data.map(row => String(row[key] ?? '').length)
+    );
+    return { wch: maxLen + 2 };
+  });
+}
+
 export function TDSReportsManagement() {
   const { toast } = useToast();
   
