@@ -76,6 +76,7 @@ const ComplaintManagement = () => {
   const { toast } = useToast();
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [responseDialog, setResponseDialog] = useState(false);
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
