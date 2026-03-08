@@ -102,7 +102,8 @@ export function TDSReportsManagement() {
       }
 
       // Download
-      XLSX.writeFile(wb, `TDS_Quarterly_Report_${quarterFY}_${quarter}.xlsx`);
+      const timestamp = format(new Date(), 'yyyyMMdd_HHmmss');
+      XLSX.writeFile(wb, `WestMed_TDS_Quarterly_Report_${quarterFY}_${quarter}_${timestamp}.xlsx`);
 
       toast({
         title: 'Report Generated',
