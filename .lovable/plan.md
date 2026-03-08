@@ -1,27 +1,28 @@
 
+# Application Testing Report — Implementation Complete
 
-# Fix TDS Certificate Generator — Null Date Safety
+All 14 issues from the testing report have been addressed.
 
-## Issue Found
+## Completed Fixes
 
-In `TDSCertificateGenerator.tsx` line 242, when building the PDF table data, the code does:
-```ts
-format(new Date(payment.bank_advice_generated_at), 'dd/MM/yyyy')
-```
-If `bank_advice_generated_at` is null (which the DB schema allows), this crashes with "Invalid Date".
+### Critical
+1. ✅ Emergency OTP moved to server-side `verify-emergency-otp` edge function — no plain-text codes in client
+2. ✅ `signInWithEmail` now resolves doctor table ID via `get_user_complete_profile` RPC
+3. ✅ React Error Boundary added wrapping Routes in `App.tsx`; unused `SimpleApp` removed
 
-## Fix
+### High Priority
+4. ✅ Session recovery now populates `code` field from profile RPC
+5. ✅ Auto-verify OTP now sets `formLoading = true` immediately
+6. ✅ DoctorHub uses single `get_doctor_hub_summaries` RPC instead of N+1 queries
+7. ✅ Duplicate `useAuth()` calls consolidated in `Auth.tsx`
 
-**`src/components/TDSCertificateGenerator.tsx`** — Add null-safe date formatting in the table data mapping (line 242):
+### Medium Priority
+8. ✅ Emergency sessions auto-invalidated when Supabase connectivity is restored
+9. ✅ Server-side rate limiting added to `send-otp` (max 5 per mobile per hour)
+10. ✅ Session tokens now use `crypto.randomUUID()` instead of predictable values
 
-```ts
-format(
-  new Date(payment.bank_advice_generated_at || payment.period_end),
-  'dd/MM/yyyy'
-)
-```
-
-This falls back to `period_end` if the bank advice timestamp is missing, which is a reasonable fallback since the payment period end date is always present.
-
-Everything else in the TDS system (RPC function, quarter calculations, Excel exports, certificate numbering, RLS policies) is working correctly.
-
+### Low Priority
+11. ✅ `auth.tsx` refactored — extracted `resolveProfile.ts`, `sessionManager.ts`, `emergencyLogin.ts` into `src/lib/auth/`
+12. ✅ `Index.tsx` now uses `React.lazy()` + `Suspense` for all 30+ route components
+13. ✅ `SessionTimeoutWrapper` no-op removed from `App.tsx` and deleted
+14. ✅ Unused `SimpleApp` component removed from `App.tsx`

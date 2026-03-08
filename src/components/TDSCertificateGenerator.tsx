@@ -239,7 +239,7 @@ export function TDSCertificateGenerator() {
       // Payment Details Table
       const tableData = payments.map((payment, index) => [
         index + 1,
-        format(new Date(payment.bank_advice_generated_at), 'dd/MM/yyyy'),
+        format(new Date(payment.bank_advice_generated_at || payment.period_end), 'dd/MM/yyyy'),
         `${format(new Date(payment.period_start), 'dd/MM/yy')} - ${format(new Date(payment.period_end), 'dd/MM/yy')}`,
         formatCurrency(payment.gross_amount || 0),
         formatCurrency(payment.tds_amount || 0),
