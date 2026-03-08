@@ -989,23 +989,27 @@ export default function StaffAppraisalManagement() {
                   </div>
 
                   {/* Step 4: Comments */}
-                  <div className="space-y-4 border-t pt-4">
+                  <div className="rounded-lg border border-border p-4 space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-border">
+                      <MessageSquare className="h-4 w-4 text-primary" />
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Comments & Action Plan</h3>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Strengths</Label>
-                        <Textarea value={strengths} onChange={(e) => setStrengths(e.target.value)} placeholder="List key strengths..." rows={3} />
+                        <Textarea value={strengths} onChange={(e) => setStrengths(e.target.value)} placeholder="List key strengths..." rows={3} className="hover:border-primary/50 transition-colors" />
                       </div>
                       <div className="space-y-2">
                         <Label>Areas for Improvement</Label>
-                        <Textarea value={areasForImprovement} onChange={(e) => setAreasForImprovement(e.target.value)} placeholder="List areas needing improvement..." rows={3} />
+                        <Textarea value={areasForImprovement} onChange={(e) => setAreasForImprovement(e.target.value)} placeholder="List areas needing improvement..." rows={3} className="hover:border-primary/50 transition-colors" />
                       </div>
                       <div className="space-y-2">
                         <Label>Manager Comments</Label>
-                        <Textarea value={managerComments} onChange={(e) => setManagerComments(e.target.value)} placeholder="Additional comments..." rows={3} />
+                        <Textarea value={managerComments} onChange={(e) => setManagerComments(e.target.value)} placeholder="Additional comments..." rows={3} className="hover:border-primary/50 transition-colors" />
                       </div>
                       <div className="space-y-2">
                         <Label>Action Plan</Label>
-                        <Textarea value={actionPlan} onChange={(e) => setActionPlan(e.target.value)} placeholder="Development action plan..." rows={3} />
+                        <Textarea value={actionPlan} onChange={(e) => setActionPlan(e.target.value)} placeholder="Development action plan..." rows={3} className="hover:border-primary/50 transition-colors" />
                       </div>
                     </div>
                   </div>
