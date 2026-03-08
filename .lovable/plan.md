@@ -1,36 +1,28 @@
 
+# Application Testing Report — Implementation Complete
 
-# Fix Create Task Dialog: Proper Layout & Outside Click Restriction
+All 14 issues from the testing report have been addressed.
 
-## Issues Found
+## Completed Fixes
 
-1. **Footer buttons scroll away** — The Cancel/Create buttons are inside `ScrollArea` with a `sticky` hack that doesn't work reliably
-2. **Form structure doesn't match the standardized pattern** — DoctorManagement uses `grid grid-rows-[auto_minmax(0,1fr)_auto]` on DialogContent + `grid grid-rows-[minmax(0,1fr)_auto]` on form, which keeps header and footer fixed while body scrolls
-3. **Outside click restriction works** via `hasUnsavedChanges` prop — but the `onConfirmClose` calls `setDialogOpen(false)` which is correct; the discard flow dispatches an Escape event which may not work reliably since the dialog's `onEscapeKeyDown` intercepts it again
+### Critical
+1. ✅ Emergency OTP moved to server-side `verify-emergency-otp` edge function — no plain-text codes in client
+2. ✅ `signInWithEmail` now resolves doctor table ID via `get_user_complete_profile` RPC
+3. ✅ React Error Boundary added wrapping Routes in `App.tsx`; unused `SimpleApp` removed
 
-## Changes
+### High Priority
+4. ✅ Session recovery now populates `code` field from profile RPC
+5. ✅ Auto-verify OTP now sets `formLoading = true` immediately
+6. ✅ DoctorHub uses single `get_doctor_hub_summaries` RPC instead of N+1 queries
+7. ✅ Duplicate `useAuth()` calls consolidated in `Auth.tsx`
 
-### `src/components/TaskManagement.tsx` — Create Task Dialog
+### Medium Priority
+8. ✅ Emergency sessions auto-invalidated when Supabase connectivity is restored
+9. ✅ Server-side rate limiting added to `send-otp` (max 5 per mobile per hour)
+10. ✅ Session tokens now use `crypto.randomUUID()` instead of predictable values
 
-Restructure the dialog to match the DoctorManagement pattern:
-
-- **DialogContent**: Use `className="max-w-2xl max-h-[85vh] grid grid-rows-[auto_minmax(0,1fr)] overflow-hidden"` (header row + form row)
-- **Form**: Use `className="grid grid-rows-[minmax(0,1fr)_auto] overflow-hidden min-h-0"` (scroll area + footer)
-- **ScrollArea**: Move to `className="h-full pr-4 -mr-4"` with inner `div` for padding
-- **Footer**: Move **outside** ScrollArea as a separate `div` with `pt-4 border-t flex-shrink-0 bg-background`
-- Add `DialogDescription` for accessibility
-
-### `src/components/ui/dialog.tsx` — Fix Discard Close Loop
-
-The `handleConfirmDiscard` dispatches a synthetic Escape event which gets intercepted by `onEscapeKeyDown` again (infinite loop risk). Fix: set a ref flag `isDiscarding` that bypasses the intercept on the next Escape, or simply have `onConfirmClose` handle the close directly (the parent already calls `setDialogOpen(false)` which closes the Radix dialog via controlled `open` prop — the synthetic Escape dispatch is unnecessary).
-
-- Remove the synthetic Escape dispatch from `handleConfirmDiscard` — `onConfirmClose` already handles closing
-- This makes the outside-click restriction work cleanly
-
-## Files
-
-| File | Change |
-|------|--------|
-| `src/components/TaskManagement.tsx` | Restructure Create Task dialog layout to grid pattern with fixed footer outside ScrollArea |
-| `src/components/ui/dialog.tsx` | Remove synthetic Escape dispatch from handleConfirmDiscard to fix close flow |
-
+### Low Priority
+11. ✅ `auth.tsx` refactored — extracted `resolveProfile.ts`, `sessionManager.ts`, `emergencyLogin.ts` into `src/lib/auth/`
+12. ✅ `Index.tsx` now uses `React.lazy()` + `Suspense` for all 30+ route components
+13. ✅ `SessionTimeoutWrapper` no-op removed from `App.tsx` and deleted
+14. ✅ Unused `SimpleApp` component removed from `App.tsx`

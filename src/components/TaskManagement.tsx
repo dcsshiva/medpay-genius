@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
@@ -634,118 +634,120 @@ const TaskManagement = () => {
                   Create Task
                 </Button>
               </DialogTrigger>
-              <DialogContent 
-                className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
+               <DialogContent 
+                className="max-w-2xl max-h-[85vh] grid grid-rows-[auto_minmax(0,1fr)] overflow-hidden"
                 hasUnsavedChanges={hasUnsavedChanges}
                 onConfirmClose={() => { resetForm(); setDialogOpen(false); }}
               >
                 <DialogHeader>
                   <DialogTitle>Create New Task</DialogTitle>
+                  <DialogDescription>Fill in the details below to create and assign a new task.</DialogDescription>
                 </DialogHeader>
-                <ScrollArea className="flex-1 min-h-0 px-1">
-                  <form onSubmit={handleSubmit} className="space-y-5 pr-3">
-                    {/* Section: Task Details */}
-                    <div className="rounded-lg border border-border p-4 space-y-3">
-                      <div className="flex items-center gap-2 pb-2 border-b border-border">
-                        <ClipboardList className="h-4 w-4 text-primary" />
-                        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Task Details</h3>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="task_title">Task Title *</Label>
-                        <Input
-                          id="task_title"
-                          value={formData.task_title}
-                          onChange={(e) => setFormData({ ...formData, task_title: e.target.value })}
-                          placeholder="Enter task title"
-                          className="hover:border-primary/50 transition-colors"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="task_description">Task Description</Label>
-                        <Textarea
-                          id="task_description"
-                          value={formData.task_description}
-                          onChange={(e) => setFormData({ ...formData, task_description: e.target.value })}
-                          placeholder="Describe the task details..."
-                          className="hover:border-primary/50 transition-colors"
-                          rows={3}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Section: Assignment */}
-                    <div className="rounded-lg border border-border p-4 space-y-3">
-                      <div className="flex items-center gap-2 pb-2 border-b border-border">
-                        <User className="h-4 w-4 text-primary" />
-                        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Assignment</h3>
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="assigned_to">Assign To *</Label>
-                        <Select 
-                          value={formData.assigned_to} 
-                          onValueChange={(value) => setFormData({ ...formData, assigned_to: value })}
-                          required
-                        >
-                          <SelectTrigger className="hover:border-primary/50 transition-colors">
-                            <SelectValue placeholder="Select staff member" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {staff.length === 0 ? (
-                              <SelectItem value="no-staff" disabled>
-                                No active staff available
-                              </SelectItem>
-                            ) : (
-                              staff.map((member) => (
-                                <SelectItem key={member.id} value={member.id}>
-                                  {member.full_name} ({member.staff_code}) - {member.role}
-                                </SelectItem>
-                              ))
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="priority">Priority</Label>
-                          <Select 
-                            value={formData.priority} 
-                            onValueChange={(value) => setFormData({ ...formData, priority: value })}
-                          >
-                            <SelectTrigger className="hover:border-primary/50 transition-colors">
-                              <SelectValue placeholder="Select priority" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="low">Low</SelectItem>
-                              <SelectItem value="medium">Medium</SelectItem>
-                              <SelectItem value="high">High</SelectItem>
-                              <SelectItem value="urgent">Urgent</SelectItem>
-                            </SelectContent>
-                          </Select>
+                <form onSubmit={handleSubmit} className="grid grid-rows-[minmax(0,1fr)_auto] overflow-hidden min-h-0">
+                  <ScrollArea className="h-full pr-4 -mr-4">
+                    <div className="space-y-5 px-1 py-1">
+                      {/* Section: Task Details */}
+                      <div className="rounded-lg border border-border p-4 space-y-3">
+                        <div className="flex items-center gap-2 pb-2 border-b border-border">
+                          <ClipboardList className="h-4 w-4 text-primary" />
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Task Details</h3>
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="due_date">Due Date</Label>
+                          <Label htmlFor="task_title">Task Title *</Label>
                           <Input
-                            id="due_date"
-                            type="datetime-local"
-                            value={formData.due_date}
-                            onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                            id="task_title"
+                            value={formData.task_title}
+                            onChange={(e) => setFormData({ ...formData, task_title: e.target.value })}
+                            placeholder="Enter task title"
                             className="hover:border-primary/50 transition-colors"
+                            required
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="task_description">Task Description</Label>
+                          <Textarea
+                            id="task_description"
+                            value={formData.task_description}
+                            onChange={(e) => setFormData({ ...formData, task_description: e.target.value })}
+                            placeholder="Describe the task details..."
+                            className="hover:border-primary/50 transition-colors"
+                            rows={3}
                           />
                         </div>
                       </div>
-                    </div>
 
-                    <div className="flex justify-end space-x-2 sticky bottom-0 bg-background py-2">
-                      <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                        Cancel
-                      </Button>
-                      <Button type="submit" disabled={submitting}>
-                        {submitting ? 'Creating...' : 'Create Task'}
-                      </Button>
+                      {/* Section: Assignment */}
+                      <div className="rounded-lg border border-border p-4 space-y-3">
+                        <div className="flex items-center gap-2 pb-2 border-b border-border">
+                          <User className="h-4 w-4 text-primary" />
+                          <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Assignment</h3>
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="assigned_to">Assign To *</Label>
+                          <Select 
+                            value={formData.assigned_to} 
+                            onValueChange={(value) => setFormData({ ...formData, assigned_to: value })}
+                            required
+                          >
+                            <SelectTrigger className="hover:border-primary/50 transition-colors">
+                              <SelectValue placeholder="Select staff member" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {staff.length === 0 ? (
+                                <SelectItem value="no-staff" disabled>
+                                  No active staff available
+                                </SelectItem>
+                              ) : (
+                                staff.map((member) => (
+                                  <SelectItem key={member.id} value={member.id}>
+                                    {member.full_name} ({member.staff_code}) - {member.role}
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="priority">Priority</Label>
+                            <Select 
+                              value={formData.priority} 
+                              onValueChange={(value) => setFormData({ ...formData, priority: value })}
+                            >
+                              <SelectTrigger className="hover:border-primary/50 transition-colors">
+                                <SelectValue placeholder="Select priority" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="low">Low</SelectItem>
+                                <SelectItem value="medium">Medium</SelectItem>
+                                <SelectItem value="high">High</SelectItem>
+                                <SelectItem value="urgent">Urgent</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="due_date">Due Date</Label>
+                            <Input
+                              id="due_date"
+                              type="datetime-local"
+                              value={formData.due_date}
+                              onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
+                              className="hover:border-primary/50 transition-colors"
+                            />
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </form>
-                </ScrollArea>
+                  </ScrollArea>
+                  <div className="flex justify-end space-x-2 pt-4 border-t border-border flex-shrink-0 bg-background">
+                    <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit" disabled={submitting}>
+                      {submitting ? 'Creating...' : 'Create Task'}
+                    </Button>
+                  </div>
+                </form>
               </DialogContent>
             </Dialog>
           </div>
