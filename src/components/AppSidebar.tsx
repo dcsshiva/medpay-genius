@@ -103,7 +103,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const isCollapsed = !open;
 
   return (
-    <Sidebar className="border-r">
+    <Sidebar className="border-r" data-walkthrough="sidebar-nav">
       <SidebarHeader className="border-b p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -158,7 +158,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                 const isActive = activeTab === item.id;
                 
                 return (
-                  <SidebarMenuItem key={item.id}>
+                  <SidebarMenuItem key={item.id} data-walkthrough={`nav-${item.id}`}>
                     <SidebarMenuButton 
                       isActive={isActive}
                       tooltip={isCollapsed ? item.label : undefined}

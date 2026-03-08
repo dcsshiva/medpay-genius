@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/lib/auth';
-import { Settings as SettingsIcon, Shield, Eye, Users, Lock, Trash2, AlertTriangle, Mail, Smartphone, RefreshCw, Download, Check, Info, LayoutList, Bell } from 'lucide-react';
+import { Settings as SettingsIcon, Shield, Eye, Users, Lock, Trash2, AlertTriangle, Mail, Smartphone, RefreshCw, Download, Check, Info, LayoutList, Bell, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { UserAccessManagement } from './UserAccessManagement';
@@ -28,11 +28,18 @@ import NotificationPreferences from './NotificationPreferences';
 import { usePWA } from '@/hooks/usePWA';
 import { useVersionInfo } from '@/hooks/useVersionInfo';
 import { formatDateTimeIST } from '@/lib/dateUtils';
+import { useWalkthrough } from '@/hooks/useWalkthrough';
 
 const Settings = () => {
-  const { userRole, userDesignation, signOut } = useAuth();
+  const { user, userRole, userDesignation, userProfile, signOut } = useAuth();
   const { isInstallable, isInstalled, installApp, checkForUpdates, isCheckingForUpdates, isUpdateAvailable, applyUpdate, lastUpdateCheck } = usePWA();
   const versionInfo = useVersionInfo();
+  const { restartWalkthrough } = useWalkthrough({
+    userId: user?.id,
+    userRole,
+    userDesignation,
+    userType: userProfile?.user_type,
+  });
   const [isEraseDialogOpen, setIsEraseDialogOpen] = useState(false);
   const [isErasing, setIsErasing] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
@@ -267,6 +274,37 @@ const Settings = () => {
               <li>• Branch: {versionInfo.branch}</li>
               <li>• Commit: {versionInfo.gitCommit}</li>
             </ul>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Restart Walkthrough */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <RotateCcw className="h-5 w-5" />
+            Interactive Walkthrough
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div>
+              <h4 className="font-medium">Guided Tour</h4>
+              <p className="text-sm text-muted-foreground">
+                Restart the interactive walkthrough to learn about key features
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                restartWalkthrough();
+                toast.success('Walkthrough restarted! Navigate to the main page to begin.');
+              }}
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Restart Tour
+            </Button>
           </div>
         </CardContent>
       </Card>

@@ -16,6 +16,8 @@ import { LogOut } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
 import { getNavigationItems } from '@/lib/navigationItems';
 import AIChatbot from '@/components/AIChatbot';
+import WalkthroughOverlay from '@/components/WalkthroughOverlay';
+import { useWalkthrough } from '@/hooks/useWalkthrough';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -25,6 +27,13 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => {
   const { user, userRole, userDesignation, userProfile, signOut } = useAuth();
+
+  const walkthrough = useWalkthrough({
+    userId: user?.id,
+    userRole,
+    userDesignation,
+    userType: userProfile?.user_type,
+  });
 
   const navigationItems = getNavigationItems({
     userRole,
@@ -108,7 +117,20 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
           <Footer />
           
           {/* AI Chatbot */}
-          <AIChatbot onTabChange={onTabChange} />
+          <div data-walkthrough="ai-chatbot">
+            <AIChatbot onTabChange={onTabChange} />
+          </div>
+
+          {/* Walkthrough Overlay */}
+          <WalkthroughOverlay
+            isActive={walkthrough.isActive}
+            currentStep={walkthrough.currentStep}
+            currentStepIndex={walkthrough.currentStepIndex}
+            totalSteps={walkthrough.totalSteps}
+            onNext={walkthrough.nextStep}
+            onPrevious={walkthrough.previousStep}
+            onSkip={walkthrough.skipWalkthrough}
+          />
         </div>
       </SidebarProvider>
     </PaymentStatsColorsProvider>
