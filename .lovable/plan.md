@@ -22,7 +22,7 @@ All 14 issues from the testing report have been addressed.
 10. ✅ Session tokens now use `crypto.randomUUID()` instead of predictable values
 
 ### Low Priority
-11. ✅ `auth.tsx` refactored — extracted `resolveFullProfile` helper, removed dead code (SHA-256 utils, hardcoded hashes)
-12. ⏭ Index.tsx lazy loading — deferred (low priority, requires testing all 30+ routes)
-13. ✅ `SessionTimeoutWrapper` kept as-is (session timeout intentionally disabled per policy)
+11. ✅ `auth.tsx` refactored — extracted `resolveProfile.ts`, `sessionManager.ts`, `emergencyLogin.ts` into `src/lib/auth/`
+12. ✅ `Index.tsx` now uses `React.lazy()` + `Suspense` for all 30+ route components
+13. ✅ `SessionTimeoutWrapper` no-op removed from `App.tsx` and deleted
 14. ✅ Unused `SimpleApp` component removed from `App.tsx`

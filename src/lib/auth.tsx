@@ -1,8 +1,16 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { toISOStringIST } from '@/lib/dateUtils';
 import { checkSupabaseReachable } from '@/lib/connectivityCheck';
+import {
+  createUserSession,
+  getActiveSession,
+  invalidateSession,
+  hardResetAuthState,
+  isFetchError,
+} from '@/lib/auth/sessionManager';
+import { fetchDesignation, resolveFullProfile } from '@/lib/auth/resolveProfile';
+import { performEmergencySignIn } from '@/lib/auth/emergencyLogin';
 
 interface AuthContextType {
   user: User | null;
@@ -24,111 +32,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Session storage functions - all data stored in Supabase
-const createUserSession = async (sessionData: {
-  user_type: string;
-  original_id: string;
-  user_id: string;
-  username: string;
-  full_name: string;
-  role: string;
-}) => {
-  const sessionToken = crypto.randomUUID();
-  const refreshToken = crypto.randomUUID();
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-  
-  // Set timeout duration based on role
-  const timeoutDuration = ['admin', 'manager'].includes(sessionData.role) ? 300 : 180;
-
-  const { data, error } = await supabase
-    .from('user_sessions')
-    .insert({
-      user_id: sessionData.user_id,
-      user_type: sessionData.user_type,
-      original_id: sessionData.original_id,
-      session_token: sessionToken,
-      refresh_token: refreshToken,
-      username: sessionData.username,
-      full_name: sessionData.full_name,
-      role: sessionData.role,
-      expires_at: expiresAt.toISOString(),
-      idle_timeout_seconds: timeoutDuration,
-      last_activity_at: toISOStringIST(),
-      is_active: true
-    })
-    .select()
-    .single();
-
-  if (error) throw error;
-  
-  window.localStorage.setItem('supabase_session_token', sessionToken);
-  return data;
-};
-
-const getActiveSession = async () => {
-  const sessionToken = window.localStorage.getItem('supabase_session_token');
-  if (!sessionToken) return null;
-
-  const { data, error } = await supabase
-    .rpc('get_session_by_token', { _token: sessionToken });
-
-  if (error || !data || (Array.isArray(data) && data.length === 0)) {
-    window.localStorage.removeItem('supabase_session_token');
-    return null;
-  }
-
-  return Array.isArray(data) ? data[0] : data;
-};
-
-const invalidateSession = async (sessionToken?: string) => {
-  const token = sessionToken || window.localStorage.getItem('supabase_session_token');
-  if (!token) return;
-
-  await supabase.rpc('invalidate_session_by_token', { _token: token });
-  window.localStorage.removeItem('supabase_session_token');
-};
-
-// Comprehensive auth state cleanup
-const hardResetAuthState = async () => {
-  if (typeof window === 'undefined') return;
-
-  const clearSupabaseKeys = (storage: Storage) => {
-    const keysToRemove = Object.keys(storage).filter(
-      (key) => key.startsWith('sb-') || key.includes('supabase')
-    );
-    keysToRemove.forEach((key) => storage.removeItem(key));
-  };
-
-  clearSupabaseKeys(window.localStorage);
-  clearSupabaseKeys(window.sessionStorage);
-  window.localStorage.removeItem('supabase_session_token');
-  window.localStorage.removeItem('emergency_session');
-
-  try {
-    await supabase.auth.signOut({ scope: 'local' });
-  } catch (_) {}
-
-  if ('serviceWorker' in navigator) {
-    try {
-      const registrations = await navigator.serviceWorker.getRegistrations();
-      await Promise.all(registrations.map((r) => r.unregister()));
-    } catch (_) {}
-  }
-
-  if ('caches' in window) {
-    try {
-      const cacheNames = await caches.keys();
-      await Promise.all(cacheNames.map((name) => caches.delete(name)));
-    } catch (_) {}
-  }
-};
-
-const isFetchError = (err: any): boolean => {
-  if (!err) return false;
-  const msg = err?.message || err?.error_description || String(err);
-  return /failed to fetch|networkerror|network request failed|load failed/i.test(msg);
-};
-
 export const repairAuthState = async () => {
   await hardResetAuthState();
   window.location.reload();
@@ -141,36 +44,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<any | null>(null);
   const [userDesignation, setUserDesignation] = useState<'super_admin' | 'admin' | 'manager' | 'supervisor' | 'doctor' | 'staff' | null>(null);
-
-  const fetchDesignation = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('user_designations')
-        .select('designation')
-        .eq('user_id', userId)
-        .single();
-      
-      if (!error && data) {
-        return data.designation;
-      }
-    } catch (error) {
-      console.error('Error fetching designation:', error);
-    }
-    return null;
-  };
-
-  // Helper to resolve full profile including doctor table ID and code
-  const resolveFullProfile = async (userId: string) => {
-    try {
-      const { data: profileData } = await supabase.rpc('get_user_complete_profile', { _user_id: userId });
-      if (profileData && typeof profileData === 'object' && !('error' in profileData)) {
-        return profileData as any;
-      }
-    } catch (err) {
-      console.error('Failed to fetch complete profile:', err);
-    }
-    return null;
-  };
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, supaSession) => {
@@ -463,7 +336,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               email: `${username}@westmed.local`,
               app_metadata: {},
               aud: 'authenticated',
-              created_at: toISOStringIST(),
+              created_at: new Date().toISOString(),
               user_metadata: {
                 full_name: loginResult.full_name || username,
                 role: loginResult.role || 'staff',
@@ -546,7 +419,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Fix #2: signInWithEmail now resolves doctor table ID via get_user_complete_profile
   const signInWithEmail = async (email: string, password: string) => {
     try {
       await invalidateSession();
@@ -574,7 +446,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUserRole(designation.designation);
           setUserDesignation(designation.designation);
 
-          // Resolve full profile (including doctor table ID + code)
           const p = await resolveFullProfile(data.user.id);
           const userType = p?.designation === 'doctor' ? 'doctor' : 'staff';
           const resolvedId = (userType === 'doctor' && p?.id) ? p.id : data.user.id;
@@ -1046,67 +917,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Fix #1: Emergency login now calls server-side edge function
   const emergencySignIn = async (email: string, role: 'admin' | 'manager', otp: string): Promise<{ error: any }> => {
-    try {
-      const { data, error } = await supabase.functions.invoke('verify-emergency-otp', {
-        body: { otp, role }
-      });
+    const result = await performEmergencySignIn(email, role, otp);
+    if (result.error) return { error: result.error };
 
-      if (error) {
-        // If edge function is unreachable, the emergency login cannot work
-        return { error: { message: 'Emergency service unreachable. Please try again later.' } };
-      }
+    setUser(result.mockUser!);
+    setSession(result.mockSession!);
+    setUserRole(role);
+    setUserDesignation(role as any);
+    setUserProfile(result.profile);
 
-      if (!data?.success) {
-        return { error: { message: data?.error || 'Invalid emergency access code.' } };
-      }
-
-      // Build a local-only mock session
-      const mockId = `emergency_${role}_${Date.now()}`;
-      const mockUser = {
-        id: mockId,
-        email: email,
-        app_metadata: {},
-        aud: 'authenticated',
-        created_at: new Date().toISOString(),
-        user_metadata: {
-          full_name: email.split('@')[0],
-          role: role,
-          user_type: 'staff',
-          emergency_session: true,
-        }
-      } as User;
-
-      const expAt = Date.now() + 8 * 60 * 60 * 1000; // 8 hours
-      const mockSession = {
-        user: mockUser,
-        access_token: data.session_token || crypto.randomUUID(),
-        refresh_token: '',
-        expires_in: Math.floor((expAt - Date.now()) / 1000),
-        expires_at: Math.floor(expAt / 1000),
-        token_type: 'bearer'
-      } as Session;
-
-      window.localStorage.setItem('emergency_session', 'true');
-
-      setUser(mockUser);
-      setSession(mockSession);
-      setUserRole(role);
-      setUserDesignation(role as any);
-      setUserProfile({
-        role: role,
-        full_name: email.split('@')[0],
-        id: mockId,
-        user_type: 'staff',
-        emergency_session: true,
-      });
-
-      return { error: null };
-    } catch (error: any) {
-      console.error('Emergency sign-in error:', error);
-      return { error: { message: 'Emergency login failed. Please try again.' } };
-    }
+    return { error: null };
   };
 
   return (
