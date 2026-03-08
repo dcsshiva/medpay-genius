@@ -707,8 +707,13 @@ export default function StaffAppraisalManagement() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmitAppraisal} className="space-y-6">
-                  {/* Step 1: Staff Selection */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Section: Staff & Period */}
+                  <div className="rounded-lg border border-border p-4 space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-border">
+                      <User className="h-4 w-4 text-primary" />
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Staff & Period</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label>Staff Member *</Label>
                       <VendorSearchCombobox
