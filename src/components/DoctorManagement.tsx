@@ -967,7 +967,7 @@ const DoctorManagement = () => {
                   Add Doctor
                 </Button>
               </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[85vh] grid grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
+            <DialogContent className="max-w-2xl max-h-[85vh] grid grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden" hasUnsavedChanges={Object.entries(formData).some(([key, value]) => key !== 'is_active' && value !== '' && value !== true)} onConfirmClose={() => { resetForm(); setDialogOpen(false); }}>
               <DialogHeader className="flex-shrink-0">
                 <DialogTitle className="text-xl font-bold">
                   {editingDoctor ? 'Edit Doctor' : 'Add New Doctor'}

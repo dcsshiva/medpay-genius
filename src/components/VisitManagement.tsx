@@ -1292,7 +1292,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
             </Sheet>
           ) : (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogContent className="max-w-2xl max-h-[85vh] grid grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
+              <DialogContent className="max-w-2xl max-h-[85vh] grid grid-rows-[auto_minmax(0,1fr)] overflow-hidden" hasUnsavedChanges={!!(formData.patient_name.trim() || formData.visit_payment.trim() || formData.notes.trim())} onConfirmClose={() => { resetForm(); setDialogOpen(false); }}>
                 <DialogHeader className="flex-shrink-0">
                   <DialogTitle className="text-2xl font-bold">
                     {editingVisit ? 'Edit Visit' : 'Record New Visit'}
