@@ -297,7 +297,8 @@ export function TDSReportsManagement() {
       XLSX.utils.book_append_sheet(wb, ws, 'Custom Report');
 
       // Download
-      const filename = `TDS_Custom_Report_${customStartDate}_to_${customEndDate}.xlsx`;
+      const timestamp = format(new Date(), 'yyyyMMdd_HHmmss');
+      const filename = `WestMed_TDS_Custom_Report_${customStartDate}_to_${customEndDate}_${timestamp}.xlsx`;
       XLSX.writeFile(wb, filename);
 
       toast({
