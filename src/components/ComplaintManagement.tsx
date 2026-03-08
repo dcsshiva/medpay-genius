@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getStaffId } from '@/lib/staffUtils';
 import ReportGeneration from '@/components/ReportGeneration';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Plus, 
   MessageCircle, 
@@ -21,7 +22,10 @@ import {
   User,
   Filter,
   Calendar,
-  ClockIcon
+  ClockIcon,
+  FileText,
+  Tag,
+  Users
 } from 'lucide-react';
 import { formatDateIST, formatDateTimeIST, toISOStringIST } from '@/lib/dateUtils';
 
