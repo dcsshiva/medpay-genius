@@ -196,7 +196,7 @@ const TaskManagement = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
+    if (submitting) return;
     if (userRole !== 'admin' && userRole !== 'manager') {
       toast({
         variant: "destructive",
