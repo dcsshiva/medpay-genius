@@ -214,7 +214,8 @@ export function TDSReportsManagement() {
       XLSX.utils.book_append_sheet(wb, ws, `Annual ${annualFY}`);
 
       // Download
-      XLSX.writeFile(wb, `TDS_Annual_Report_${annualFY}.xlsx`);
+      const timestamp = format(new Date(), 'yyyyMMdd_HHmmss');
+      XLSX.writeFile(wb, `WestMed_TDS_Annual_Report_${annualFY}_${timestamp}.xlsx`);
 
       toast({
         title: 'Report Generated',
