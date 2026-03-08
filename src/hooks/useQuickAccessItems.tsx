@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { NavigationItem } from '@/lib/navigationItems';
 import { useAuth } from '@/lib/auth';
@@ -11,6 +11,17 @@ export const useQuickAccessItems = (navigationItems: NavigationItem[]): Navigati
   const [quickItems, setQuickItems] = useState<NavigationItem[]>([]);
   const lastFetchRef = useRef<number>(0);
 
+  // Stabilize navigationItems reference using id-based comparison
+  const navItemsKey = useMemo(
+    () => navigationItems.map(item => item.id).join(','),
+    [navigationItems]
+  );
+  const stableNavItemsRef = useRef(navigationItems);
+  if (stableNavItemsRef.current.map(i => i.id).join(',') !== navItemsKey) {
+    stableNavItemsRef.current = navigationItems;
+  }
+  const stableNavItems = stableNavItemsRef.current;
+
   const isEligibleRole = 
     userRole === 'admin' || 
     userRole === 'manager' || 
@@ -18,25 +29,30 @@ export const useQuickAccessItems = (navigationItems: NavigationItem[]): Navigati
     userDesignation === 'admin' || 
     userDesignation === 'manager';
 
+  const manualItemsKey = useMemo(
+    () => JSON.stringify(config?.manual_items || []),
+    [config?.manual_items]
+  );
+
   // Build manual items from config
   const buildManualItems = useCallback(() => {
     if (!config?.manual_items || config.manual_items.length === 0) return [];
     
-    const navByLabel = new Map(navigationItems.map(item => [item.label, item]));
+    const navByLabel = new Map(stableNavItems.map(item => [item.label, item]));
     const result: NavigationItem[] = [];
     
     for (const label of config.manual_items) {
-      const navItem = navByLabel.get(label);
+      const navItem = navByLabel.get(label as string);
       if (navItem) {
         result.push(navItem);
       }
     }
     
     return result;
-  }, [config?.manual_items, navigationItems]);
+  }, [manualItemsKey, navItemsKey]);
 
   const fetchAnalyticsItems = useCallback(async (bypassCache = false) => {
-    if (!isEligibleRole || navigationItems.length === 0) return;
+    if (!isEligibleRole || stableNavItems.length === 0) return;
 
     const now = Date.now();
     if (!bypassCache && now - lastFetchRef.current < 5 * 60 * 1000 && quickItems.length > 0) {
@@ -65,7 +81,7 @@ export const useQuickAccessItems = (navigationItems: NavigationItem[]): Navigati
           return a[0].localeCompare(b[0]);
         });
 
-      const navByLabel = new Map(navigationItems.map(item => [item.label, item]));
+      const navByLabel = new Map(stableNavItems.map(item => [item.label, item]));
 
       const result: NavigationItem[] = [];
       for (const [navName] of ranked) {
@@ -81,11 +97,11 @@ export const useQuickAccessItems = (navigationItems: NavigationItem[]): Navigati
     } catch {
       // Silently fail
     }
-  }, [isEligibleRole, navigationItems]);
+  }, [isEligibleRole, navItemsKey]);
 
   // Handle mode changes
   useEffect(() => {
-    if (!isEligibleRole || navigationItems.length === 0) {
+    if (!isEligibleRole || stableNavItems.length === 0) {
       setQuickItems([]);
       return;
     }
@@ -116,7 +132,7 @@ export const useQuickAccessItems = (navigationItems: NavigationItem[]): Navigati
       clearInterval(interval);
       supabase.removeChannel(channel);
     };
-  }, [isEligibleRole, navigationItems, config?.mode, fetchAnalyticsItems, buildManualItems]);
+  }, [isEligibleRole, navItemsKey, config?.mode, fetchAnalyticsItems, buildManualItems]);
 
   return quickItems;
 };
