@@ -1302,68 +1302,83 @@ export default function StaffAppraisalManagement() {
                 <CardDescription>Log staff member's daily activities</CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSubmitActivity} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Staff Member *</Label>
-                      <Select value={selectedStaffForActivity} onValueChange={setSelectedStaffForActivity}>
-                        <SelectTrigger><SelectValue placeholder="Select staff" /></SelectTrigger>
-                        <SelectContent>
-                          {staffList.map(staff => (
-                            <SelectItem key={staff.id} value={staff.id}>{staff.full_name} ({staff.staff_code})</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                <form onSubmit={handleSubmitActivity} className="space-y-5">
+                  {/* Section: Attendance */}
+                  <div className="rounded-lg border border-border p-4 space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-border">
+                      <Calendar className="h-4 w-4 text-primary" />
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Attendance</h3>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Date *</Label>
-                      <Input type="date" value={activityDate} onChange={(e) => setActivityDate(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Attendance Status *</Label>
-                      <Select value={attendanceStatus} onValueChange={setAttendanceStatus}>
-                        <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
-                        <SelectContent>
-                          {attendanceStatuses.map(status => (
-                            <SelectItem key={status.value} value={status.value}>{status.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Patients Handled</Label>
-                      <Input type="number" value={patientsHandled} onChange={(e) => setPatientsHandled(e.target.value)} placeholder="Number of patients" min="0" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Shift Start Time</Label>
-                      <Input type="time" value={shiftStartTime} onChange={(e) => setShiftStartTime(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Shift End Time</Label>
-                      <Input type="time" value={shiftEndTime} onChange={(e) => setShiftEndTime(e.target.value)} />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <Label>Tasks Completed</Label>
-                      <Button type="button" size="sm" variant="outline" onClick={addTask}><Plus className="h-3 w-3 mr-1" />Add Task</Button>
-                    </div>
-                    {tasksCompleted.map((task, index) => (
-                      <div key={index} className="flex gap-2">
-                        <Input value={task} onChange={(e) => updateTask(index, e.target.value)} placeholder={`Task ${index + 1}`} />
-                        {tasksCompleted.length > 1 && (
-                          <Button type="button" size="sm" variant="outline" onClick={() => removeTask(index)}>Remove</Button>
-                        )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Staff Member *</Label>
+                        <Select value={selectedStaffForActivity} onValueChange={setSelectedStaffForActivity}>
+                          <SelectTrigger className="hover:border-primary/50 transition-colors"><SelectValue placeholder="Select staff" /></SelectTrigger>
+                          <SelectContent>
+                            {staffList.map(staff => (
+                              <SelectItem key={staff.id} value={staff.id}>{staff.full_name} ({staff.staff_code})</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                    ))}
+                      <div className="space-y-2">
+                        <Label>Date *</Label>
+                        <Input type="date" value={activityDate} onChange={(e) => setActivityDate(e.target.value)} className="hover:border-primary/50 transition-colors" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Attendance Status *</Label>
+                        <Select value={attendanceStatus} onValueChange={setAttendanceStatus}>
+                          <SelectTrigger className="hover:border-primary/50 transition-colors"><SelectValue placeholder="Select status" /></SelectTrigger>
+                          <SelectContent>
+                            {attendanceStatuses.map(status => (
+                              <SelectItem key={status.value} value={status.value}>{status.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Patients Handled</Label>
+                        <Input type="number" value={patientsHandled} onChange={(e) => setPatientsHandled(e.target.value)} placeholder="Number of patients" min="0" className="hover:border-primary/50 transition-colors" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Shift Start Time</Label>
+                        <Input type="time" value={shiftStartTime} onChange={(e) => setShiftStartTime(e.target.value)} className="hover:border-primary/50 transition-colors" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Shift End Time</Label>
+                        <Input type="time" value={shiftEndTime} onChange={(e) => setShiftEndTime(e.target.value)} className="hover:border-primary/50 transition-colors" />
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Special Notes</Label>
-                    <Textarea value={specialNotes} onChange={(e) => setSpecialNotes(e.target.value)} placeholder="Any special notes about the day..." rows={2} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Supervisor Notes</Label>
-                    <Textarea value={supervisorNotes} onChange={(e) => setSupervisorNotes(e.target.value)} placeholder="Supervisor's observations..." rows={2} />
+
+                  {/* Section: Work Details */}
+                  <div className="rounded-lg border border-border p-4 space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-border">
+                      <ClipboardList className="h-4 w-4 text-primary" />
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Work Details</h3>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <Label>Tasks Completed</Label>
+                        <Button type="button" size="sm" variant="outline" onClick={addTask}><Plus className="h-3 w-3 mr-1" />Add Task</Button>
+                      </div>
+                      {tasksCompleted.map((task, index) => (
+                        <div key={index} className="flex gap-2">
+                          <Input value={task} onChange={(e) => updateTask(index, e.target.value)} placeholder={`Task ${index + 1}`} className="hover:border-primary/50 transition-colors" />
+                          {tasksCompleted.length > 1 && (
+                            <Button type="button" size="sm" variant="outline" onClick={() => removeTask(index)}>Remove</Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Special Notes</Label>
+                      <Textarea value={specialNotes} onChange={(e) => setSpecialNotes(e.target.value)} placeholder="Any special notes about the day..." rows={2} className="hover:border-primary/50 transition-colors" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Supervisor Notes</Label>
+                      <Textarea value={supervisorNotes} onChange={(e) => setSupervisorNotes(e.target.value)} placeholder="Supervisor's observations..." rows={2} className="hover:border-primary/50 transition-colors" />
+                    </div>
                   </div>
                   <div className="flex gap-2 justify-end">
                     <Button type="button" variant="outline" onClick={resetActivityForm}>Cancel</Button>
