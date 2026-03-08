@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Users, Stethoscope, Search, Download, Upload, Loader2, Eye, EyeOff, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Edit, Users, Stethoscope, Search, Download, Upload, Loader2, Eye, EyeOff, ChevronUp, ChevronDown, User, KeyRound, Landmark } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
   generateDoctorTemplate, 
