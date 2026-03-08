@@ -251,6 +251,8 @@ const TaskManagement = () => {
         title: "Error",
         description: error.message || "Failed to create task"
       });
+    } finally {
+      setSubmitting(false);
     }
   };
 

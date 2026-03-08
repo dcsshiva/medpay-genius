@@ -390,6 +390,8 @@ const ComplaintManagement = () => {
         title: "Error",
         description: error.message || "Failed to respond to complaint"
       });
+    } finally {
+      setSubmitting(false);
     }
   };
 
