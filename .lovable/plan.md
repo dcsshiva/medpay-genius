@@ -1,28 +1,57 @@
 
-# Application Testing Report — Implementation Complete
 
-All 14 issues from the testing report have been addressed.
+# Enhance Team Chat Management
 
-## Completed Fixes
+## Current State
+- Basic chat with send/receive and real-time updates
+- No edit/delete own messages, no date separators, no search, no multiline input, no message moderation
+- DB supports: update own messages (RLS exists), but no DELETE policy
+- Messages table: content, sender_id, sender_name, sender_role, is_edited, created_at, updated_at
 
-### Critical
-1. ✅ Emergency OTP moved to server-side `verify-emergency-otp` edge function — no plain-text codes in client
-2. ✅ `signInWithEmail` now resolves doctor table ID via `get_user_complete_profile` RPC
-3. ✅ React Error Boundary added wrapping Routes in `App.tsx`; unused `SimpleApp` removed
+## Plan
 
-### High Priority
-4. ✅ Session recovery now populates `code` field from profile RPC
-5. ✅ Auto-verify OTP now sets `formLoading = true` immediately
-6. ✅ DoctorHub uses single `get_doctor_hub_summaries` RPC instead of N+1 queries
-7. ✅ Duplicate `useAuth()` calls consolidated in `Auth.tsx`
+### 1. Database: Add DELETE policy for own messages + admin moderation
+- Add RLS policy: users can delete their own messages (`sender_id = auth.uid()`)
+- Add RLS policy: admins/managers can delete any message (moderation)
 
-### Medium Priority
-8. ✅ Emergency sessions auto-invalidated when Supabase connectivity is restored
-9. ✅ Server-side rate limiting added to `send-otp` (max 5 per mobile per hour)
-10. ✅ Session tokens now use `crypto.randomUUID()` instead of predictable values
+### 2. UI Enhancements (TeamChat.tsx)
 
-### Low Priority
-11. ✅ `auth.tsx` refactored — extracted `resolveProfile.ts`, `sessionManager.ts`, `emergencyLogin.ts` into `src/lib/auth/`
-12. ✅ `Index.tsx` now uses `React.lazy()` + `Suspense` for all 30+ route components
-13. ✅ `SessionTimeoutWrapper` no-op removed from `App.tsx` and deleted
-14. ✅ Unused `SimpleApp` component removed from `App.tsx`
+**Message input upgrade:**
+- Replace `Input` with `Textarea` (auto-resizing, max 4 lines) for multiline messages
+- Shift+Enter for newline, Enter to send (already handled)
+
+**Edit own messages:**
+- Hover/long-press on own message shows Edit icon
+- Inline edit mode: replace message bubble with textarea + Save/Cancel buttons
+- Updates DB with `is_edited = true`, shows "(edited)" label (already rendered)
+
+**Delete own messages:**
+- Hover on own message shows Trash icon
+- Confirmation dialog before delete
+- Admin/Manager can delete any message (moderation)
+
+**Date separators:**
+- Group messages by date, insert "Today", "Yesterday", or formatted date dividers between groups
+
+**Message search:**
+- Add a search icon in the header that toggles a search bar
+- Client-side filter on loaded messages (already loads 100)
+
+**Online presence indicator:**
+- Show count of unique senders from last 5 minutes in the header badge
+
+**Scroll-to-bottom button:**
+- Show a floating "scroll to bottom" button when user scrolls up, with unread count badge
+
+### 3. Real-time: Subscribe to DELETE events
+- Add `postgres_changes` listener for `DELETE` event on messages table to remove deleted messages from state
+
+## Files Changed
+
+| File | Change |
+|------|--------|
+| DB migration | Add DELETE RLS policies for messages table |
+| `src/components/TeamChat.tsx` | Full enhancement: edit/delete, date separators, search, multiline input, scroll-to-bottom, moderation |
+
+All existing logic (send, real-time INSERT/UPDATE, role colors, name resolution) preserved.
+
