@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
@@ -1291,13 +1292,13 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
             </Sheet>
           ) : (
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+              <DialogContent className="max-w-2xl max-h-[85vh] grid grid-rows-[auto_minmax(0,1fr)] overflow-hidden">
                 <DialogHeader className="flex-shrink-0">
                   <DialogTitle className="text-2xl font-bold">
                     {editingVisit ? 'Edit Visit' : 'Record New Visit'}
                   </DialogTitle>
                 </DialogHeader>
-                <div className="flex-1 overflow-y-auto px-1">
+                <ScrollArea className="h-full pr-4 -mr-4">
                   <form onSubmit={handleSubmit} className="space-y-3">
                     {/* Doctor & Patient Section */}
                     {(userRole === 'admin' || userRole === 'manager') && (
@@ -1472,7 +1473,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                       </div>
                     </div>
                   </form>
-                </div>
+                </ScrollArea>
               </DialogContent>
             </Dialog>
           )}
