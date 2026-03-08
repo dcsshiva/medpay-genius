@@ -967,203 +967,241 @@ const DoctorManagement = () => {
                   Add Doctor
                 </Button>
               </DialogTrigger>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>
+            <DialogContent className="max-w-2xl max-h-[85vh] grid grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden">
+              <DialogHeader className="flex-shrink-0">
+                <DialogTitle className="text-xl font-bold">
                   {editingDoctor ? 'Edit Doctor' : 'Add New Doctor'}
                 </DialogTitle>
                 <DialogDescription>
                   {editingDoctor ? 'Update doctor information and settings.' : 'Create a new doctor account with login credentials.'}
                 </DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="full_name">Doctor Name</Label>
-                  <Input
-                    id="full_name"
-                    value={formData.full_name}
-                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                    placeholder="Dr. Ravi Kumar"
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="doctor_code">Doctor Code</Label>
-                  <Input
-                    id="doctor_code"
-                    value={formData.doctor_code}
-                    onChange={(e) => setFormData({ ...formData, doctor_code: e.target.value })}
-                    placeholder="DOC001"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="specialization">Specialization</Label>
-                  <Input
-                    id="specialization"
-                    value={formData.specialization}
-                    onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
-                    placeholder="Cardiology"
-                    required
-                  />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="pan_number">PAN Number</Label>
-                  <Input
-                    id="pan_number"
-                    value={formData.pan_number}
-                    onChange={(e) => setFormData({ ...formData, pan_number: e.target.value.toUpperCase() })}
-                    placeholder="ABCDE1234F"
-                    maxLength={10}
-                    pattern="[A-Z]{5}[0-9]{4}[A-Z]"
-                    title="Enter valid PAN format: 5 letters, 4 digits, 1 letter (e.g., ABCDE1234F)"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Format: 5 letters + 4 digits + 1 letter (e.g., ABCDE1234F)
-                  </p>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email {!editingDoctor && '*'}</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="ravi.kumar@hospital.com"
-                    required={!editingDoctor}
-                    className={`hover:border-primary/50 focus-visible:border-primary transition-colors ${emailError ? 'border-destructive' : ''}`}
-                  />
-                  {emailError && (
-                    <p className="text-sm text-destructive flex items-center gap-1 mt-1">
-                      <span className="text-xs">⚠️</span>
-                      {emailError}
-                    </p>
-                  )}
-                  {editingDoctor && !emailError && (
-                    <p className="text-xs text-muted-foreground">
-                      Update email address if needed
-                    </p>
-                  )}
-                </div>
+              <form onSubmit={handleSubmit} className="grid grid-rows-[minmax(0,1fr)_auto] overflow-hidden min-h-0">
+                <ScrollArea className="h-full pr-4 -mr-4">
+                  <div className="space-y-4 pb-4 pr-4">
+                    {/* Personal Information Section */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2">
+                        <User className="h-4 w-4 text-primary" />
+                        <span className="uppercase tracking-wide">Personal Information</span>
+                      </div>
+                      <div className="space-y-3 pl-6">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="full_name">Doctor Name *</Label>
+                            <Input
+                              id="full_name"
+                              value={formData.full_name}
+                              onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                              placeholder="Dr. Ravi Kumar"
+                              required
+                              className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="doctor_code">Doctor Code *</Label>
+                            <Input
+                              id="doctor_code"
+                              value={formData.doctor_code}
+                              onChange={(e) => setFormData({ ...formData, doctor_code: e.target.value })}
+                              placeholder="DOC001"
+                              required
+                              className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="specialization">Specialization *</Label>
+                            <Input
+                              id="specialization"
+                              value={formData.specialization}
+                              onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
+                              placeholder="Cardiology"
+                              required
+                              className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="pan_number">PAN Number</Label>
+                            <Input
+                              id="pan_number"
+                              value={formData.pan_number}
+                              onChange={(e) => setFormData({ ...formData, pan_number: e.target.value.toUpperCase() })}
+                              placeholder="ABCDE1234F"
+                              maxLength={10}
+                              pattern="[A-Z]{5}[0-9]{4}[A-Z]"
+                              title="Enter valid PAN format: 5 letters, 4 digits, 1 letter (e.g., ABCDE1234F)"
+                              className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Format: 5 letters + 4 digits + 1 letter
+                            </p>
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="is_active">Status</Label>
+                          <Select 
+                            value={formData.is_active.toString()} 
+                            onValueChange={(value) => setFormData({ ...formData, is_active: value === 'true' })}
+                          >
+                            <SelectTrigger className="hover:border-primary/50 transition-colors">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="true">Active</SelectItem>
+                              <SelectItem value="false">Inactive</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="mobile_number">Mobile Number (for OTP Login)</Label>
-                  <Input
-                    id="mobile_number"
-                    type="tel"
-                    value={formData.mobile_number}
-                    onChange={(e) => setFormData({ ...formData, mobile_number: formatMobileNumber(e.target.value) })}
-                    placeholder="9876543210"
-                    maxLength={10}
-                    className={mobileError ? 'border-destructive' : ''}
-                  />
-                  {mobileError && (
-                    <p className="text-sm text-destructive flex items-center gap-1 mt-1">
-                      <span className="text-xs">⚠️</span>
-                      {mobileError}
-                    </p>
-                  )}
-                  <p className="text-xs text-muted-foreground">
-                    10-digit mobile number used for OTP-based login
-                  </p>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password {!editingDoctor && '*'}</Label>
-                  <Input
-                    id="password"
-                    type="password"
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    placeholder={editingDoctor ? "Leave blank to keep current password" : "Minimum 6 characters"}
-                    required={!editingDoctor}
-                  />
-                  {editingDoctor && (
-                    <p className="text-xs text-muted-foreground">
-                      Leave blank to keep current password
-                    </p>
-                  )}
-                </div>
-                
-                {/* Bank Details Section */}
-                <div className="space-y-4 border-t pt-4">
-                  <h3 className="text-lg font-medium text-foreground">Bank Details</h3>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="account_holder_name">Account Holder Name</Label>
-                    <Input
-                      id="account_holder_name"
-                      value={formData.account_holder_name}
-                      onChange={(e) => setFormData({ ...formData, account_holder_name: e.target.value })}
-                      placeholder="Dr. Ravi Kumar"
-                    />
+                    {/* Account & Login Section */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2">
+                        <KeyRound className="h-4 w-4 text-primary" />
+                        <span className="uppercase tracking-wide">Account & Login</span>
+                      </div>
+                      <div className="space-y-3 pl-6">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="email">Email {!editingDoctor && '*'}</Label>
+                            <Input
+                              id="email"
+                              type="email"
+                              value={formData.email}
+                              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                              placeholder="ravi.kumar@hospital.com"
+                              required={!editingDoctor}
+                              className={`hover:border-primary/50 focus-visible:border-primary transition-colors ${emailError ? 'border-destructive' : ''}`}
+                            />
+                            {emailError && (
+                              <p className="text-sm text-destructive flex items-center gap-1 mt-1">
+                                <span className="text-xs">⚠️</span>
+                                {emailError}
+                              </p>
+                            )}
+                            {editingDoctor && !emailError && (
+                              <p className="text-xs text-muted-foreground">
+                                Update email address if needed
+                              </p>
+                            )}
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="mobile_number">Mobile Number</Label>
+                            <Input
+                              id="mobile_number"
+                              type="tel"
+                              value={formData.mobile_number}
+                              onChange={(e) => setFormData({ ...formData, mobile_number: formatMobileNumber(e.target.value) })}
+                              placeholder="9876543210"
+                              maxLength={10}
+                              className={`hover:border-primary/50 focus-visible:border-primary transition-colors ${mobileError ? 'border-destructive' : ''}`}
+                            />
+                            {mobileError && (
+                              <p className="text-sm text-destructive flex items-center gap-1 mt-1">
+                                <span className="text-xs">⚠️</span>
+                                {mobileError}
+                              </p>
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                              10-digit number for OTP login
+                            </p>
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="password">Password {!editingDoctor && '*'}</Label>
+                          <Input
+                            id="password"
+                            type="password"
+                            value={formData.password}
+                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                            placeholder={editingDoctor ? "Leave blank to keep current password" : "Minimum 6 characters"}
+                            required={!editingDoctor}
+                            className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                          />
+                          {editingDoctor && (
+                            <p className="text-xs text-muted-foreground">
+                              Leave blank to keep current password
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bank Details Section */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2">
+                        <Landmark className="h-4 w-4 text-primary" />
+                        <span className="uppercase tracking-wide">Bank Details</span>
+                      </div>
+                      <div className="space-y-3 pl-6">
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="account_holder_name">Account Holder Name</Label>
+                            <Input
+                              id="account_holder_name"
+                              value={formData.account_holder_name}
+                              onChange={(e) => setFormData({ ...formData, account_holder_name: e.target.value })}
+                              placeholder="Dr. Ravi Kumar"
+                              className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="bank_account_number">Account Number</Label>
+                            <Input
+                              id="bank_account_number"
+                              value={formData.bank_account_number}
+                              onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value })}
+                              placeholder="12345678901234"
+                              className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="bank_name">Bank Name</Label>
+                            <Input
+                              id="bank_name"
+                              value={formData.bank_name}
+                              onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
+                              placeholder="State Bank of India"
+                              className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <Label htmlFor="branch_name">Branch Name</Label>
+                            <Input
+                              id="branch_name"
+                              value={formData.branch_name}
+                              onChange={(e) => setFormData({ ...formData, branch_name: e.target.value })}
+                              placeholder="Chennai Main Branch"
+                              className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="ifsc_code">IFSC Code</Label>
+                          <Input
+                            id="ifsc_code"
+                            value={formData.ifsc_code}
+                            onChange={(e) => setFormData({ ...formData, ifsc_code: e.target.value })}
+                            placeholder="SBIN0001234"
+                            className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                          />
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="bank_account_number">Bank Account Number</Label>
-                    <Input
-                      id="bank_account_number"
-                      value={formData.bank_account_number}
-                      onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value })}
-                      placeholder="12345678901234"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="bank_name">Bank Name</Label>
-                    <Input
-                      id="bank_name"
-                      value={formData.bank_name}
-                      onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
-                      placeholder="State Bank of India"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="branch_name">Branch Name</Label>
-                    <Input
-                      id="branch_name"
-                      value={formData.branch_name}
-                      onChange={(e) => setFormData({ ...formData, branch_name: e.target.value })}
-                      placeholder="Chennai Main Branch"
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="ifsc_code">IFSC Code</Label>
-                    <Input
-                      id="ifsc_code"
-                      value={formData.ifsc_code}
-                      onChange={(e) => setFormData({ ...formData, ifsc_code: e.target.value })}
-                      placeholder="SBIN0001234"
-                    />
-                  </div>
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="is_active">Status</Label>
-                  <Select 
-                    value={formData.is_active.toString()} 
-                    onValueChange={(value) => setFormData({ ...formData, is_active: value === 'true' })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="true">Active</SelectItem>
-                      <SelectItem value="false">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex justify-end space-x-2">
+                </ScrollArea>
+
+                <div className="flex justify-end space-x-2 pt-4 border-t flex-shrink-0 bg-background">
                   <Button type="button" variant="outline" onClick={handleDialogClose}>
                     Cancel
                   </Button>
-                   <Button type="submit" disabled={submitting || !!emailError}>
-                    {submitting ? (editingDoctor ? 'Updating...' : 'Creating...') : (editingDoctor ? 'Update' : 'Create')}
+                  <Button type="submit" disabled={submitting || !!emailError}>
+                    {submitting ? (editingDoctor ? 'Updating...' : 'Creating...') : (editingDoctor ? 'Update Doctor' : 'Create Doctor')}
                   </Button>
                 </div>
               </form>

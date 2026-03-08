@@ -1097,202 +1097,224 @@ const StaffManagement = () => {
             </DialogHeader>
             <form onSubmit={handleSubmit} className="grid grid-rows-[minmax(0,1fr)_auto] overflow-hidden min-h-0">
               <ScrollArea className="h-full pr-4 -mr-4">
-                <div className="space-y-3 pb-4 pr-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="staff_code">Staff Code (Optional)</Label>
-                      <Input
-                        id="staff_code"
-                        value={formData.staff_code}
-                        onChange={(e) => setFormData({ ...formData, staff_code: e.target.value })}
-                        placeholder="Auto-generated if empty"
-                        className="hover:border-primary/50 focus-visible:border-primary transition-colors"
-                      />
+                <div className="space-y-4 pb-4 pr-4">
+                  {/* Staff Identity Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2">
+                      <IdCard className="h-4 w-4 text-primary" />
+                      <span className="uppercase tracking-wide">Staff Identity</span>
                     </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="username">Username *</Label>
-                      <Input
-                        id="username"
-                        value={formData.username}
-                        onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                        placeholder="anand.kumar"
-                        required
-                        className="hover:border-primary/50 focus-visible:border-primary transition-colors"
-                      />
+                    <div className="space-y-3 pl-6">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="staff_code">Staff Code (Optional)</Label>
+                          <Input
+                            id="staff_code"
+                            value={formData.staff_code}
+                            onChange={(e) => setFormData({ ...formData, staff_code: e.target.value })}
+                            placeholder="Auto-generated if empty"
+                            className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="username">Username *</Label>
+                          <Input
+                            id="username"
+                            value={formData.username}
+                            onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                            placeholder="anand.kumar"
+                            required
+                            className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="full_name">Full Name *</Label>
+                          <Input
+                            id="full_name"
+                            value={formData.full_name}
+                            onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                            placeholder="Anand Kumar"
+                            required
+                            className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="password">Password {!editingStaff && '*'}</Label>
+                          <Input
+                            id="password"
+                            type="password"
+                            value={formData.password}
+                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                            placeholder={editingStaff ? "Leave blank to keep current" : "Minimum 6 characters"}
+                            required={!editingStaff}
+                            className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                          />
+                          {editingStaff && (
+                            <p className="text-xs text-muted-foreground">
+                              Leave blank to keep current password
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="password">Password {!editingStaff && '*'}</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        placeholder={editingStaff ? "Leave blank to keep current password" : "Minimum 6 characters"}
-                        required={!editingStaff}
-                        className="hover:border-primary/50 focus-visible:border-primary transition-colors"
-                      />
-                      {editingStaff && (
-                        <p className="text-xs text-muted-foreground">
-                          Leave blank to keep current password
-                        </p>
-                      )}
+                  {/* Contact Information Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2">
+                      <Phone className="h-4 w-4 text-primary" />
+                      <span className="uppercase tracking-wide">Contact Information</span>
                     </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="full_name">Full Name *</Label>
-                      <Input
-                        id="full_name"
-                        value={formData.full_name}
-                        onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                        placeholder="Anand Kumar"
-                        required
-                        className="hover:border-primary/50 focus-visible:border-primary transition-colors"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        placeholder="anand.kumar@hospital.com"
-                        className={`hover:border-primary/50 focus-visible:border-primary transition-colors ${emailError ? 'border-destructive' : ''}`}
-                      />
-                      {emailError && (
-                        <p className="text-sm text-destructive flex items-center gap-1 mt-1">
-                          <span className="text-xs">⚠️</span>
-                          {emailError}
-                        </p>
-                      )}
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">Phone</Label>
-                      <Input
-                        id="phone"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        placeholder="+91 98765 43210"
-                        className="hover:border-primary/50 focus-visible:border-primary transition-colors"
-                      />
+                    <div className="space-y-3 pl-6">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="email">Email</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            value={formData.email}
+                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                            placeholder="anand.kumar@hospital.com"
+                            className={`hover:border-primary/50 focus-visible:border-primary transition-colors ${emailError ? 'border-destructive' : ''}`}
+                          />
+                          {emailError && (
+                            <p className="text-sm text-destructive flex items-center gap-1 mt-1">
+                              <span className="text-xs">⚠️</span>
+                              {emailError}
+                            </p>
+                          )}
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="phone">Phone</Label>
+                          <Input
+                            id="phone"
+                            value={formData.phone}
+                            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                            placeholder="+91 98765 43210"
+                            className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                   {/* Bank Details Section */}
-                  <div className="space-y-3 border-t pt-3 mt-1">
-                    <h3 className="text-sm font-semibold text-foreground">Bank Details (Required for Payments)</h3>
-                    
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-2">
-                        <Label htmlFor="account_holder_name">Account Holder Name</Label>
-                        <Input
-                          id="account_holder_name"
-                          value={formData.account_holder_name}
-                          onChange={(e) => setFormData({ ...formData, account_holder_name: e.target.value })}
-                          placeholder="As per bank records"
-                          className="hover:border-primary/50 focus-visible:border-primary transition-colors"
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="bank_account_number">Account Number *</Label>
-                        <Input
-                          id="bank_account_number"
-                          value={formData.bank_account_number}
-                          onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value.replace(/\D/g, '') })}
-                          placeholder="1234567890123456"
-                          maxLength={20}
-                          className="hover:border-primary/50 focus-visible:border-primary transition-colors"
-                        />
-                      </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2">
+                      <Landmark className="h-4 w-4 text-primary" />
+                      <span className="uppercase tracking-wide">Bank Details</span>
                     </div>
-
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-2">
-                        <Label htmlFor="ifsc_code">IFSC Code *</Label>
+                    <div className="space-y-3 pl-6">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="account_holder_name">Account Holder Name</Label>
+                          <Input
+                            id="account_holder_name"
+                            value={formData.account_holder_name}
+                            onChange={(e) => setFormData({ ...formData, account_holder_name: e.target.value })}
+                            placeholder="As per bank records"
+                            className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="bank_account_number">Account Number *</Label>
+                          <Input
+                            id="bank_account_number"
+                            value={formData.bank_account_number}
+                            onChange={(e) => setFormData({ ...formData, bank_account_number: e.target.value.replace(/\D/g, '') })}
+                            placeholder="1234567890123456"
+                            maxLength={20}
+                            className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="ifsc_code">IFSC Code *</Label>
+                          <Input
+                            id="ifsc_code"
+                            value={formData.ifsc_code}
+                            onChange={(e) => setFormData({ ...formData, ifsc_code: e.target.value.toUpperCase() })}
+                            placeholder="SBIN0001234"
+                            maxLength={11}
+                            className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                          />
+                          <p className="text-xs text-muted-foreground">11-character code (e.g., SBIN0001234)</p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="bank_name">Bank Name</Label>
+                          <Input
+                            id="bank_name"
+                            value={formData.bank_name}
+                            onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
+                            placeholder="State Bank of India"
+                            className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label htmlFor="branch_name">Branch Name</Label>
                         <Input
-                          id="ifsc_code"
-                          value={formData.ifsc_code}
-                          onChange={(e) => setFormData({ ...formData, ifsc_code: e.target.value.toUpperCase() })}
-                          placeholder="SBIN0001234"
-                          maxLength={11}
+                          id="branch_name"
+                          value={formData.branch_name}
+                          onChange={(e) => setFormData({ ...formData, branch_name: e.target.value })}
+                          placeholder="Main Branch"
                           className="hover:border-primary/50 focus-visible:border-primary transition-colors"
                         />
-                        <p className="text-xs text-muted-foreground">11-character code (e.g., SBIN0001234)</p>
                       </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="bank_name">Bank Name</Label>
-                        <Input
-                          id="bank_name"
-                          value={formData.bank_name}
-                          onChange={(e) => setFormData({ ...formData, bank_name: e.target.value })}
-                          placeholder="State Bank of India"
-                          className="hover:border-primary/50 focus-visible:border-primary transition-colors"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="branch_name">Branch Name</Label>
-                      <Input
-                        id="branch_name"
-                        value={formData.branch_name}
-                        onChange={(e) => setFormData({ ...formData, branch_name: e.target.value })}
-                        placeholder="Main Branch"
-                        className="hover:border-primary/50 focus-visible:border-primary transition-colors"
-                      />
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-2">
-                      <Label htmlFor="department">Department *</Label>
-                      <Select 
-                        value={formData.department} 
-                        onValueChange={(value) => setFormData({ ...formData, department: value, role: '' })}
-                        required
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select department first" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-background z-50">
-                          {departmentsMaster.map((dept) => (
-                            <SelectItem key={dept.id} value={dept.department_code}>
-                              {dept.department_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                  {/* Role Assignment Section */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-foreground border-b pb-2">
+                      <ShieldCheck className="h-4 w-4 text-primary" />
+                      <span className="uppercase tracking-wide">Role Assignment</span>
                     </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="role">Role *</Label>
-                      <Select 
-                        value={formData.role} 
-                        onValueChange={(value) => setFormData({ ...formData, role: value })}
-                        required
-                        disabled={!formData.department}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder={formData.department ? "Select role" : "Select department first"} />
-                        </SelectTrigger>
-                        <SelectContent className="bg-background z-50">
-                          {filteredRoles.map((role) => (
-                            <SelectItem key={role.id} value={role.role_code}>
-                              {role.role_name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                    <div className="space-y-3 pl-6">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="department">Department *</Label>
+                          <Select 
+                            value={formData.department} 
+                            onValueChange={(value) => setFormData({ ...formData, department: value, role: '' })}
+                            required
+                          >
+                            <SelectTrigger className="hover:border-primary/50 transition-colors">
+                              <SelectValue placeholder="Select department first" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-background z-50">
+                              {departmentsMaster.map((dept) => (
+                                <SelectItem key={dept.id} value={dept.department_code}>
+                                  {dept.department_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="role">Role *</Label>
+                          <Select 
+                            value={formData.role} 
+                            onValueChange={(value) => setFormData({ ...formData, role: value })}
+                            required
+                            disabled={!formData.department}
+                          >
+                            <SelectTrigger className="hover:border-primary/50 transition-colors">
+                              <SelectValue placeholder={formData.department ? "Select role" : "Select department first"} />
+                            </SelectTrigger>
+                            <SelectContent className="bg-background z-50">
+                              {filteredRoles.map((role) => (
+                                <SelectItem key={role.id} value={role.role_code}>
+                                  {role.role_name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

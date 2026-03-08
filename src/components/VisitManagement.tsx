@@ -1473,7 +1473,7 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
                       </div>
                     </div>
                   </form>
-                </div>
+                </ScrollArea>
               </DialogContent>
             </Dialog>
           )}
