@@ -1,5 +1,4 @@
 import { supabase } from '@/integrations/supabase/client';
-import { toISOStringIST } from '@/lib/dateUtils';
 
 // Session storage functions - all data stored in Supabase
 export const createUserSession = async (sessionData: {
@@ -17,29 +16,27 @@ export const createUserSession = async (sessionData: {
   // Set timeout duration based on role
   const timeoutDuration = ['admin', 'manager'].includes(sessionData.role) ? 300 : 180;
 
-  const { data, error } = await supabase
-    .from('user_sessions')
-    .insert({
-      user_id: sessionData.user_id,
-      user_type: sessionData.user_type,
-      original_id: sessionData.original_id,
-      session_token: sessionToken,
-      refresh_token: refreshToken,
-      username: sessionData.username,
-      full_name: sessionData.full_name,
-      role: sessionData.role,
-      expires_at: expiresAt.toISOString(),
-      idle_timeout_seconds: timeoutDuration,
-      last_activity_at: toISOStringIST(),
-      is_active: true
-    })
-    .select()
-    .single();
+  // Use server-side validated session creation to prevent role escalation
+  const { data, error } = await (supabase.rpc as any)('create_validated_session', {
+    _user_id: sessionData.user_id,
+    _user_type: sessionData.user_type,
+    _original_id: sessionData.original_id,
+    _session_token: sessionToken,
+    _refresh_token: refreshToken,
+    _username: sessionData.username,
+    _full_name: sessionData.full_name,
+    _role: sessionData.role, // Will be validated server-side against user_designations
+    _expires_at: expiresAt.toISOString(),
+    _idle_timeout_seconds: timeoutDuration,
+  });
 
   if (error) throw error;
   
   window.localStorage.setItem('supabase_session_token', sessionToken);
-  return data;
+  
+  // Fetch the created session to return full data
+  const session = await getActiveSession();
+  return session;
 };
 
 export const getActiveSession = async () => {
