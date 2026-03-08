@@ -288,14 +288,21 @@ const PublicUserGuide: React.FC = () => {
       const overviewText = sanitize(`WestMed Hospital Management System is a comprehensive healthcare administration platform designed for efficient hospital operations. The system manages patient visits, doctor payments, staff activities, and financial workflows including TDS calculations and bank transfers.
 
 Key capabilities include:
-- Secure OTP-based authentication
-- Role-based access control
-- Patient visit recording and tracking
-- Multi-stage payment approval workflows
-- Bank advice generation (GEFU format)
-- Comprehensive reporting and exports
-- Leave and permission management
-- Team communication tools`);
+- Secure OTP-based authentication (email, mobile, username/password)
+- Role-based access control (Admin, Manager, Doctor, Staff)
+- Patient visit recording and tracking with auto-generated visit codes
+- Multi-stage payment approval workflows (cash and insurance)
+- Bank advice generation (GEFU format for NEFT/RTGS/IMPS)
+- Task management with activity timeline and verification workflow
+- Team chat with edit/delete, search, and moderation
+- Complaint management with activity logs
+- Leave and permission management with approval workflow
+- Staff appraisals with criteria-based scoring
+- Real-time in-app notifications
+- AI chatbot assistant with Tamil voice input
+- Comprehensive reporting and Excel exports
+- TDS certificate generation
+- Staff attendance, payroll, and salary structure management`);
       
       yPos = addWrappedText(overviewText, margin, yPos, pageWidth - (margin * 2), 5);
 
