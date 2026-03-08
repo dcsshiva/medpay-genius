@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/lib/auth';
-import { Settings as SettingsIcon, Shield, Eye, Users, Lock, Trash2, AlertTriangle, Mail, Smartphone, RefreshCw, Download, Check, Info, LayoutList, Bell } from 'lucide-react';
+import { Settings as SettingsIcon, Shield, Eye, Users, Lock, Trash2, AlertTriangle, Mail, Smartphone, RefreshCw, Download, Check, Info, LayoutList, Bell, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { UserAccessManagement } from './UserAccessManagement';
