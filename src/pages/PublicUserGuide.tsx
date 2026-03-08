@@ -79,28 +79,28 @@ const PublicUserGuide: React.FC = () => {
       icon: Shield,
       color: "text-red-600",
       bgColor: "bg-red-50",
-      description: "Full system access. Manages users, approves payments, generates bank advice, and configures system settings."
+      description: "Full system access. Manages users, approves payments, generates bank advice, configures system settings, moderates team chat, verifies completed tasks, and manages AI chatbot knowledge base."
     },
     {
       role: "Manager",
       icon: UserCheck,
       color: "text-blue-600",
       bgColor: "bg-blue-50",
-      description: "Manages staff and doctors. Reviews and approves payments. Creates payment periods and generates reports."
+      description: "Manages staff and doctors. Creates & assigns tasks with verification workflow. Reviews and approves payments. Approves leave/permission requests. Moderates team chat. Generates reports and bank advice."
     },
     {
       role: "Doctor",
       icon: Stethoscope,
       color: "text-green-600",
       bgColor: "bg-green-50",
-      description: "Records patient visits. Views payment history and approved payments. Updates personal profile and bank details."
+      description: "Records patient visits with cash/insurance/card/UPI payments. Views Doctor Hub dashboard with payment summaries, visit history, and TDS certificates. Updates profile and bank details."
     },
     {
       role: "Staff",
       icon: ClipboardList,
       color: "text-purple-600",
       bgColor: "bg-purple-50",
-      description: "Performs assigned tasks. Applies for leave/permission. Views announcements and team communications."
+      description: "Views and updates assigned tasks with activity timeline. Applies for leave/permission. Files complaints with status tracking. Uses team chat (edit/delete own messages). Receives real-time notifications."
     }
   ];
 
@@ -108,32 +108,87 @@ const PublicUserGuide: React.FC = () => {
     {
       title: "Visit Management",
       icon: Calendar,
-      description: "Record and track patient visits with payment details. Supports cash, insurance, and card payments. Auto-generates visit codes per financial year."
+      description: "Record and track patient visits with payment details. Supports cash, insurance, card, and UPI payments. Auto-generates visit codes per financial year. Example: Dr. Kumar records a visit for Ramesh Babu — Rs.500, cash, regular checkup."
     },
     {
-      title: "Payment Management",
+      title: "Cash & Insurance Payments",
       icon: CreditCard,
-      description: "Create payment periods, track visit-based payments, and manage partial payments. Separate approval workflows for cash and insurance payments."
+      description: "Create payment periods from visits with multi-stage approval (Manager → Admin). Separate workflows for cash and insurance. Supports partial payments and part-release. Example: Manager creates Apr 1-15 period, reviews 45 visits totalling Rs.22,500."
     },
     {
-      title: "Bank Advice Generation",
+      title: "Bank Advice Generation (Beta)",
       icon: FileText,
-      description: "Generate GEFU format bank transfer files for approved payments. Supports NEFT, RTGS, and IMPS. Includes TDS calculations and reconciliation tracking."
+      description: "Generate GEFU format bank transfer files for approved payments. Supports NEFT, RTGS, and IMPS modes. Includes TDS calculations, reconciliation tracking with proof upload. Example: Select approved payments → Generate NEFT file → Download for bank upload."
     },
     {
-      title: "Reports & Exports",
-      icon: FileDown,
-      description: "Generate doctor payment history, TDS reports, and visit summaries. Export to Excel with detailed breakdowns and financial year filtering."
+      title: "Quick Payment",
+      icon: CreditCard,
+      description: "Fast vendor and miscellaneous payments with TDS. Includes bulk staff payment option. Auto-fills bank details from vendor master. Example: Pay vendor ABC Supplies Rs.15,000 for medical equipment with 10% TDS."
+    },
+    {
+      title: "Doctor Hub",
+      icon: Stethoscope,
+      description: "Centralized doctor dashboard showing payment summaries, recent visits, pending amounts, and profile information. Quick access to visit history and payment breakdown by period."
     },
     {
       title: "Task Management",
       icon: ClipboardList,
-      description: "Managers can assign tasks to staff with priorities and due dates. Staff can track task progress and mark completion."
+      description: "Managers assign tasks with priority (low/medium/high), due dates, and notes. Activity timeline shows all status changes with timestamps and who made them. Verification workflow: staff marks complete → admin/manager verifies. Overdue tasks auto-detected. Example: Assign 'Update patient records' to nurse, due Friday, high priority."
     },
     {
-      title: "Team Communication",
+      title: "Team Chat",
       icon: MessageSquare,
-      description: "Real-time team chat for internal communication. Role-based visibility with message history and notifications."
+      description: "Real-time internal messaging with role-based visibility. Edit/delete your own messages (hover for actions). Admins can moderate (delete any message). Features: date separators, message search, multiline input (Shift+Enter), scroll-to-bottom with unread count. Example: Send a message, edit a typo, search old conversations."
+    },
+    {
+      title: "Complaint Management",
+      icon: ClipboardList,
+      description: "Staff can raise complaints with category, priority, and incident details. Activity log shows all status changes with timestamps. Workflow: raised → taken care → resolved. Example: Receptionist raises 'AC not working in OPD' → Manager resolves."
+    },
+    {
+      title: "Leave & Permission",
+      icon: Calendar,
+      description: "Staff apply for leave (with start/end dates, half-day option) or permission (with time slot). Manager/Admin approves or rejects with notes. Application history with status tracking. Example: Apply for 2-day casual leave → Manager approves."
+    },
+    {
+      title: "Staff Appraisals",
+      icon: Users,
+      description: "Performance rating system with criteria-based scoring (punctuality, work quality, teamwork, etc.). Weighted criteria with manager comments, strengths, and improvement areas. Staff can acknowledge and comment."
+    },
+    {
+      title: "TDS Reports & Certificates",
+      icon: FileText,
+      description: "Generate TDS certificates per doctor for any financial year quarter. Detailed reports with gross amount, TDS deducted, and net payment breakdown. Downloadable as PDF."
+    },
+    {
+      title: "Reports & Exports",
+      icon: FileDown,
+      description: "Doctor payment history, login reports, navigation analytics, bank advice payment reports — all exportable to Excel. Filter by date range, doctor, financial year. Vendor payment reports for quick payments."
+    },
+    {
+      title: "Notifications",
+      icon: MessageSquare,
+      description: "Real-time in-app notifications via bell icon with unread count. Auto-notified when task status changes, complaints are updated, payments are approved/rejected, or leave requests are processed. Configurable notification preferences in Settings."
+    },
+    {
+      title: "AI Assistant",
+      icon: MessageSquare,
+      description: "Floating chatbot for instant help on any module. Supports Tamil voice input. Clickable navigation links in responses take you directly to the relevant page. Admin-managed knowledge base for custom Q&A."
+    },
+    {
+      title: "Staff Management",
+      icon: Users,
+      description: "Add/edit staff with role assignment. Excel bulk import with template download. Manage salary structures, attendance, and payroll generation. Staff categories and department mapping."
+    },
+    {
+      title: "Doctor Management",
+      icon: Stethoscope,
+      description: "Manage doctor profiles with specialization, bank details (account number, IFSC, branch), PAN, and mobile number. Activate/deactivate doctors. Link to payment history."
+    },
+    {
+      title: "Masters Configuration",
+      icon: Settings,
+      description: "Configure system master data: departments, roles, insurance companies, vendors, visit reasons, leave/permission reasons, complaint categories, appraisal criteria, branches, and quick payment types."
     }
   ];
 
