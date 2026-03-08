@@ -286,6 +286,7 @@ const ComplaintManagement = () => {
       return;
     }
 
+    setSubmitting(true);
     try {
       // Get current user's staff record
       const staffId = await getStaffId(user);
