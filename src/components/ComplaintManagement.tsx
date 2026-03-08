@@ -322,6 +322,8 @@ const ComplaintManagement = () => {
         title: "Error",
         description: error.message || "Failed to submit complaint"
       });
+    } finally {
+      setSubmitting(false);
     }
   };
 
