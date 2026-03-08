@@ -3241,7 +3241,51 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      website_settings_public: {
+        Row: {
+          banner_url: string | null
+          created_at: string | null
+          hero_headline: string | null
+          hero_tagline: string | null
+          hospital_name: string | null
+          id: string | null
+          is_active: boolean | null
+          location: string | null
+          logo_url: string | null
+          operating_hours: string | null
+          phone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          banner_url?: string | null
+          created_at?: string | null
+          hero_headline?: string | null
+          hero_tagline?: string | null
+          hospital_name?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          location?: string | null
+          logo_url?: string | null
+          operating_hours?: string | null
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          banner_url?: string | null
+          created_at?: string | null
+          hero_headline?: string | null
+          hero_tagline?: string | null
+          hospital_name?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          location?: string | null
+          logo_url?: string | null
+          operating_hours?: string | null
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       cleanup_expired_otps: { Args: never; Returns: number }
