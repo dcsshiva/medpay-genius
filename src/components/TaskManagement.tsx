@@ -650,20 +650,26 @@ const TaskManagement = () => {
             <DialogTitle>Re-assign Task</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Assign To *</Label>
-              <Select value={reassignStaffId} onValueChange={setReassignStaffId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select staff member" />
-                </SelectTrigger>
-                <SelectContent>
-                  {staff.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>
-                      {member.full_name} ({member.staff_code}) - {member.role}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="rounded-lg border border-border p-4 space-y-3">
+              <div className="flex items-center gap-2 pb-2 border-b border-border">
+                <User className="h-4 w-4 text-primary" />
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">New Assignment</h3>
+              </div>
+              <div className="space-y-2">
+                <Label>Assign To *</Label>
+                <Select value={reassignStaffId} onValueChange={setReassignStaffId}>
+                  <SelectTrigger className="hover:border-primary/50 transition-colors">
+                    <SelectValue placeholder="Select staff member" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {staff.map((member) => (
+                      <SelectItem key={member.id} value={member.id}>
+                        {member.full_name} ({member.staff_code}) - {member.role}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setReassignDialogOpen(false)}>Cancel</Button>
@@ -682,47 +688,55 @@ const TaskManagement = () => {
             <DialogTitle>Update Task</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleUpdateSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label>Task: {selectedTask?.task_title}</Label>
-              <p className="text-sm text-muted-foreground">{selectedTask?.task_description}</p>
+            <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1">
+              <p className="text-sm font-semibold">{selectedTask?.task_title}</p>
+              {selectedTask?.task_description && (
+                <p className="text-xs text-muted-foreground">{selectedTask.task_description}</p>
+              )}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="status">Status *</Label>
-              <Select 
-                value={updateFormData.status} 
-                onValueChange={(value) => setUpdateFormData({ ...updateFormData, status: value })}
-                required
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {isStaffRole(userRole) ? (
-                    <>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                    </>
-                  ) : (
-                    <>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="in_progress">In Progress</SelectItem>
-                      <SelectItem value="completed">Completed</SelectItem>
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes</Label>
-              <Textarea
-                id="notes"
-                value={updateFormData.notes}
-                onChange={(e) => setUpdateFormData({ ...updateFormData, notes: e.target.value })}
-                placeholder="Add any notes about this task..."
-                rows={3}
-              />
+            <div className="rounded-lg border border-border p-4 space-y-3">
+              <div className="flex items-center gap-2 pb-2 border-b border-border">
+                <FileText className="h-4 w-4 text-primary" />
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Update Status</h3>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="status">Status *</Label>
+                <Select 
+                  value={updateFormData.status} 
+                  onValueChange={(value) => setUpdateFormData({ ...updateFormData, status: value })}
+                  required
+                >
+                  <SelectTrigger className="hover:border-primary/50 transition-colors">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {isStaffRole(userRole) ? (
+                      <>
+                        <SelectItem value="in_progress">In Progress</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                      </>
+                    ) : (
+                      <>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="in_progress">In Progress</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                      </>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="notes">Notes</Label>
+                <Textarea
+                  id="notes"
+                  value={updateFormData.notes}
+                  onChange={(e) => setUpdateFormData({ ...updateFormData, notes: e.target.value })}
+                  placeholder="Add any notes about this task..."
+                  className="hover:border-primary/50 transition-colors"
+                  rows={3}
+                />
+              </div>
             </div>
 
             <div className="flex justify-end gap-2">
