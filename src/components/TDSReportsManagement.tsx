@@ -18,6 +18,18 @@ import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { TDSCertificateGenerator } from './TDSCertificateGenerator';
 
+function autoFitColumns(ws: XLSX.WorkSheet, data: any[]) {
+  if (!data.length) return;
+  const keys = Object.keys(data[0]);
+  ws['!cols'] = keys.map(key => {
+    const maxLen = Math.max(
+      key.length,
+      ...data.map(row => String(row[key] ?? '').length)
+    );
+    return { wch: maxLen + 2 };
+  });
+}
+
 export function TDSReportsManagement() {
   const { toast } = useToast();
   
@@ -90,6 +102,7 @@ export function TDSReportsManagement() {
 
       // Create workbook
       const ws = XLSX.utils.json_to_sheet(excelData);
+      autoFitColumns(ws, excelData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, `${quarter} Report`);
 
@@ -210,6 +223,7 @@ export function TDSReportsManagement() {
 
       // Create workbook
       const ws = XLSX.utils.json_to_sheet(excelData);
+      autoFitColumns(ws, excelData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, `Annual ${annualFY}`);
 
@@ -293,6 +307,7 @@ export function TDSReportsManagement() {
 
       // Create workbook
       const ws = XLSX.utils.json_to_sheet(excelData);
+      autoFitColumns(ws, excelData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Custom Report');
 
