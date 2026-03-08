@@ -352,12 +352,16 @@ const TaskManagement = () => {
 
   const handleUpdateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedTask) return;
-
-    await updateTaskStatus(selectedTask.id, updateFormData.status, updateFormData.notes);
-    setUpdateDialogOpen(false);
-    setSelectedTask(null);
-    setUpdateFormData({ status: '', notes: '' });
+    if (!selectedTask || submitting) return;
+    setSubmitting(true);
+    try {
+      await updateTaskStatus(selectedTask.id, updateFormData.status, updateFormData.notes);
+      setUpdateDialogOpen(false);
+      setSelectedTask(null);
+      setUpdateFormData({ status: '', notes: '' });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const openReassignDialog = (taskId: string) => {
