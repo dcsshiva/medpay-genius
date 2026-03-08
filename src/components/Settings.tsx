@@ -34,6 +34,12 @@ const Settings = () => {
   const { user, userRole, userDesignation, userProfile, signOut } = useAuth();
   const { isInstallable, isInstalled, installApp, checkForUpdates, isCheckingForUpdates, isUpdateAvailable, applyUpdate, lastUpdateCheck } = usePWA();
   const versionInfo = useVersionInfo();
+  const { restartWalkthrough } = useWalkthrough({
+    userId: user?.id,
+    userRole,
+    userDesignation,
+    userType: userProfile?.user_type,
+  });
   const [isEraseDialogOpen, setIsEraseDialogOpen] = useState(false);
   const [isErasing, setIsErasing] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
