@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ClipboardCheck, AlertTriangle, Calendar, Search, Plus, ChevronDown, ChevronUp, CheckCircle2, XCircle } from "lucide-react";
+import { Loader2, ClipboardCheck, AlertTriangle, Calendar, Search, Plus, ChevronDown, ChevronUp, CheckCircle2, XCircle, User, FileText, MessageSquare, ClipboardList } from "lucide-react";
 import { VendorSearchCombobox } from "@/components/ui/vendor-search-combobox";
 import { formatDateIST, formatDateTimeIST, formatInputDateIST, getCurrentISTDate, formatLongDateIST } from '@/lib/dateUtils';
 import { Badge } from "@/components/ui/badge";
@@ -707,8 +707,13 @@ export default function StaffAppraisalManagement() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmitAppraisal} className="space-y-6">
-                  {/* Step 1: Staff Selection */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Section: Staff & Period */}
+                  <div className="rounded-lg border border-border p-4 space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-border">
+                      <User className="h-4 w-4 text-primary" />
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Staff & Period</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label>Staff Member *</Label>
                       <VendorSearchCombobox
@@ -756,7 +761,8 @@ export default function StaffAppraisalManagement() {
                     </div>
                     <div className="space-y-2">
                       <Label>Next Review Date</Label>
-                      <Input type="date" value={nextReviewDate} onChange={(e) => setNextReviewDate(e.target.value)} />
+                      <Input type="date" value={nextReviewDate} onChange={(e) => setNextReviewDate(e.target.value)} className="hover:border-primary/50 transition-colors" />
+                    </div>
                     </div>
                   </div>
 
@@ -983,23 +989,27 @@ export default function StaffAppraisalManagement() {
                   </div>
 
                   {/* Step 4: Comments */}
-                  <div className="space-y-4 border-t pt-4">
+                  <div className="rounded-lg border border-border p-4 space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-border">
+                      <MessageSquare className="h-4 w-4 text-primary" />
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Comments & Action Plan</h3>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Strengths</Label>
-                        <Textarea value={strengths} onChange={(e) => setStrengths(e.target.value)} placeholder="List key strengths..." rows={3} />
+                        <Textarea value={strengths} onChange={(e) => setStrengths(e.target.value)} placeholder="List key strengths..." rows={3} className="hover:border-primary/50 transition-colors" />
                       </div>
                       <div className="space-y-2">
                         <Label>Areas for Improvement</Label>
-                        <Textarea value={areasForImprovement} onChange={(e) => setAreasForImprovement(e.target.value)} placeholder="List areas needing improvement..." rows={3} />
+                        <Textarea value={areasForImprovement} onChange={(e) => setAreasForImprovement(e.target.value)} placeholder="List areas needing improvement..." rows={3} className="hover:border-primary/50 transition-colors" />
                       </div>
                       <div className="space-y-2">
                         <Label>Manager Comments</Label>
-                        <Textarea value={managerComments} onChange={(e) => setManagerComments(e.target.value)} placeholder="Additional comments..." rows={3} />
+                        <Textarea value={managerComments} onChange={(e) => setManagerComments(e.target.value)} placeholder="Additional comments..." rows={3} className="hover:border-primary/50 transition-colors" />
                       </div>
                       <div className="space-y-2">
                         <Label>Action Plan</Label>
-                        <Textarea value={actionPlan} onChange={(e) => setActionPlan(e.target.value)} placeholder="Development action plan..." rows={3} />
+                        <Textarea value={actionPlan} onChange={(e) => setActionPlan(e.target.value)} placeholder="Development action plan..." rows={3} className="hover:border-primary/50 transition-colors" />
                       </div>
                     </div>
                   </div>
@@ -1147,76 +1157,91 @@ export default function StaffAppraisalManagement() {
                 <CardDescription>Record disciplinary action</CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSubmitWarning} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Staff Member *</Label>
-                      <Select value={selectedStaffForWarning} onValueChange={setSelectedStaffForWarning}>
-                        <SelectTrigger><SelectValue placeholder="Select staff" /></SelectTrigger>
-                        <SelectContent>
-                          {staffList.map(staff => (
-                            <SelectItem key={staff.id} value={staff.id}>{staff.full_name} ({staff.staff_code})</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                <form onSubmit={handleSubmitWarning} className="space-y-5">
+                  {/* Section: Incident Details */}
+                  <div className="rounded-lg border border-border p-4 space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-border">
+                      <AlertTriangle className="h-4 w-4 text-primary" />
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Incident Details</h3>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Warning Type *</Label>
-                      <Select value={warningType} onValueChange={setWarningType}>
-                        <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
-                        <SelectContent>
-                          {warningTypes.map(type => (
-                            <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Severity *</Label>
-                      <Select value={severity} onValueChange={setSeverity}>
-                        <SelectTrigger><SelectValue placeholder="Select severity" /></SelectTrigger>
-                        <SelectContent>
-                          {severityLevels.map(level => (
-                            <SelectItem key={level.value} value={level.value}>{level.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Incident Date *</Label>
-                      <Input type="date" value={incidentDate} onChange={(e) => setIncidentDate(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Incident Time</Label>
-                      <Input type="time" value={incidentTime} onChange={(e) => setIncidentTime(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Witness Name</Label>
-                      <Input value={witnessName} onChange={(e) => setWitnessName(e.target.value)} placeholder="Optional" />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Staff Member *</Label>
+                        <Select value={selectedStaffForWarning} onValueChange={setSelectedStaffForWarning}>
+                          <SelectTrigger className="hover:border-primary/50 transition-colors"><SelectValue placeholder="Select staff" /></SelectTrigger>
+                          <SelectContent>
+                            {staffList.map(staff => (
+                              <SelectItem key={staff.id} value={staff.id}>{staff.full_name} ({staff.staff_code})</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Warning Type *</Label>
+                        <Select value={warningType} onValueChange={setWarningType}>
+                          <SelectTrigger className="hover:border-primary/50 transition-colors"><SelectValue placeholder="Select type" /></SelectTrigger>
+                          <SelectContent>
+                            {warningTypes.map(type => (
+                              <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Severity *</Label>
+                        <Select value={severity} onValueChange={setSeverity}>
+                          <SelectTrigger className="hover:border-primary/50 transition-colors"><SelectValue placeholder="Select severity" /></SelectTrigger>
+                          <SelectContent>
+                            {severityLevels.map(level => (
+                              <SelectItem key={level.value} value={level.value}>{level.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Incident Date *</Label>
+                        <Input type="date" value={incidentDate} onChange={(e) => setIncidentDate(e.target.value)} className="hover:border-primary/50 transition-colors" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Incident Time</Label>
+                        <Input type="time" value={incidentTime} onChange={(e) => setIncidentTime(e.target.value)} className="hover:border-primary/50 transition-colors" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Witness Name</Label>
+                        <Input value={witnessName} onChange={(e) => setWitnessName(e.target.value)} placeholder="Optional" className="hover:border-primary/50 transition-colors" />
+                      </div>
                     </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Description *</Label>
-                    <Textarea value={warningDescription} onChange={(e) => setWarningDescription(e.target.value)} placeholder="Detailed description of the incident..." rows={3} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Action Taken</Label>
-                    <Textarea value={actionTaken} onChange={(e) => setActionTaken(e.target.value)} placeholder="What action was taken..." rows={2} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Staff Response</Label>
-                    <Textarea value={staffResponse} onChange={(e) => setStaffResponse(e.target.value)} placeholder="Staff member's response..." rows={2} />
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox id="followUp" checked={followUpRequired} onCheckedChange={(checked) => setFollowUpRequired(checked as boolean)} />
-                    <Label htmlFor="followUp">Follow-up Required</Label>
-                  </div>
-                  {followUpRequired && (
-                    <div className="space-y-2">
-                      <Label>Follow-up Date</Label>
-                      <Input type="date" value={followUpDate} onChange={(e) => setFollowUpDate(e.target.value)} />
+
+                  {/* Section: Description & Response */}
+                  <div className="rounded-lg border border-border p-4 space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-border">
+                      <FileText className="h-4 w-4 text-primary" />
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Description & Response</h3>
                     </div>
-                  )}
+                    <div className="space-y-2">
+                      <Label>Description *</Label>
+                      <Textarea value={warningDescription} onChange={(e) => setWarningDescription(e.target.value)} placeholder="Detailed description of the incident..." rows={3} className="hover:border-primary/50 transition-colors" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Action Taken</Label>
+                      <Textarea value={actionTaken} onChange={(e) => setActionTaken(e.target.value)} placeholder="What action was taken..." rows={2} className="hover:border-primary/50 transition-colors" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Staff Response</Label>
+                      <Textarea value={staffResponse} onChange={(e) => setStaffResponse(e.target.value)} placeholder="Staff member's response..." rows={2} className="hover:border-primary/50 transition-colors" />
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox id="followUp" checked={followUpRequired} onCheckedChange={(checked) => setFollowUpRequired(checked as boolean)} />
+                      <Label htmlFor="followUp">Follow-up Required</Label>
+                    </div>
+                    {followUpRequired && (
+                      <div className="space-y-2">
+                        <Label>Follow-up Date</Label>
+                        <Input type="date" value={followUpDate} onChange={(e) => setFollowUpDate(e.target.value)} className="hover:border-primary/50 transition-colors" />
+                      </div>
+                    )}
+                  </div>
                   <div className="flex gap-2 justify-end">
                     <Button type="button" variant="outline" onClick={resetWarningForm}>Cancel</Button>
                     <Button type="submit">Issue Warning</Button>
@@ -1277,68 +1302,83 @@ export default function StaffAppraisalManagement() {
                 <CardDescription>Log staff member's daily activities</CardDescription>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSubmitActivity} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Staff Member *</Label>
-                      <Select value={selectedStaffForActivity} onValueChange={setSelectedStaffForActivity}>
-                        <SelectTrigger><SelectValue placeholder="Select staff" /></SelectTrigger>
-                        <SelectContent>
-                          {staffList.map(staff => (
-                            <SelectItem key={staff.id} value={staff.id}>{staff.full_name} ({staff.staff_code})</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                <form onSubmit={handleSubmitActivity} className="space-y-5">
+                  {/* Section: Attendance */}
+                  <div className="rounded-lg border border-border p-4 space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-border">
+                      <Calendar className="h-4 w-4 text-primary" />
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Attendance</h3>
                     </div>
-                    <div className="space-y-2">
-                      <Label>Date *</Label>
-                      <Input type="date" value={activityDate} onChange={(e) => setActivityDate(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Attendance Status *</Label>
-                      <Select value={attendanceStatus} onValueChange={setAttendanceStatus}>
-                        <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
-                        <SelectContent>
-                          {attendanceStatuses.map(status => (
-                            <SelectItem key={status.value} value={status.value}>{status.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Patients Handled</Label>
-                      <Input type="number" value={patientsHandled} onChange={(e) => setPatientsHandled(e.target.value)} placeholder="Number of patients" min="0" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Shift Start Time</Label>
-                      <Input type="time" value={shiftStartTime} onChange={(e) => setShiftStartTime(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Shift End Time</Label>
-                      <Input type="time" value={shiftEndTime} onChange={(e) => setShiftEndTime(e.target.value)} />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center">
-                      <Label>Tasks Completed</Label>
-                      <Button type="button" size="sm" variant="outline" onClick={addTask}><Plus className="h-3 w-3 mr-1" />Add Task</Button>
-                    </div>
-                    {tasksCompleted.map((task, index) => (
-                      <div key={index} className="flex gap-2">
-                        <Input value={task} onChange={(e) => updateTask(index, e.target.value)} placeholder={`Task ${index + 1}`} />
-                        {tasksCompleted.length > 1 && (
-                          <Button type="button" size="sm" variant="outline" onClick={() => removeTask(index)}>Remove</Button>
-                        )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Staff Member *</Label>
+                        <Select value={selectedStaffForActivity} onValueChange={setSelectedStaffForActivity}>
+                          <SelectTrigger className="hover:border-primary/50 transition-colors"><SelectValue placeholder="Select staff" /></SelectTrigger>
+                          <SelectContent>
+                            {staffList.map(staff => (
+                              <SelectItem key={staff.id} value={staff.id}>{staff.full_name} ({staff.staff_code})</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </div>
-                    ))}
+                      <div className="space-y-2">
+                        <Label>Date *</Label>
+                        <Input type="date" value={activityDate} onChange={(e) => setActivityDate(e.target.value)} className="hover:border-primary/50 transition-colors" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Attendance Status *</Label>
+                        <Select value={attendanceStatus} onValueChange={setAttendanceStatus}>
+                          <SelectTrigger className="hover:border-primary/50 transition-colors"><SelectValue placeholder="Select status" /></SelectTrigger>
+                          <SelectContent>
+                            {attendanceStatuses.map(status => (
+                              <SelectItem key={status.value} value={status.value}>{status.label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Patients Handled</Label>
+                        <Input type="number" value={patientsHandled} onChange={(e) => setPatientsHandled(e.target.value)} placeholder="Number of patients" min="0" className="hover:border-primary/50 transition-colors" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Shift Start Time</Label>
+                        <Input type="time" value={shiftStartTime} onChange={(e) => setShiftStartTime(e.target.value)} className="hover:border-primary/50 transition-colors" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Shift End Time</Label>
+                        <Input type="time" value={shiftEndTime} onChange={(e) => setShiftEndTime(e.target.value)} className="hover:border-primary/50 transition-colors" />
+                      </div>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label>Special Notes</Label>
-                    <Textarea value={specialNotes} onChange={(e) => setSpecialNotes(e.target.value)} placeholder="Any special notes about the day..." rows={2} />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Supervisor Notes</Label>
-                    <Textarea value={supervisorNotes} onChange={(e) => setSupervisorNotes(e.target.value)} placeholder="Supervisor's observations..." rows={2} />
+
+                  {/* Section: Work Details */}
+                  <div className="rounded-lg border border-border p-4 space-y-4">
+                    <div className="flex items-center gap-2 pb-2 border-b border-border">
+                      <ClipboardList className="h-4 w-4 text-primary" />
+                      <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Work Details</h3>
+                    </div>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center">
+                        <Label>Tasks Completed</Label>
+                        <Button type="button" size="sm" variant="outline" onClick={addTask}><Plus className="h-3 w-3 mr-1" />Add Task</Button>
+                      </div>
+                      {tasksCompleted.map((task, index) => (
+                        <div key={index} className="flex gap-2">
+                          <Input value={task} onChange={(e) => updateTask(index, e.target.value)} placeholder={`Task ${index + 1}`} className="hover:border-primary/50 transition-colors" />
+                          {tasksCompleted.length > 1 && (
+                            <Button type="button" size="sm" variant="outline" onClick={() => removeTask(index)}>Remove</Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Special Notes</Label>
+                      <Textarea value={specialNotes} onChange={(e) => setSpecialNotes(e.target.value)} placeholder="Any special notes about the day..." rows={2} className="hover:border-primary/50 transition-colors" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Supervisor Notes</Label>
+                      <Textarea value={supervisorNotes} onChange={(e) => setSupervisorNotes(e.target.value)} placeholder="Supervisor's observations..." rows={2} className="hover:border-primary/50 transition-colors" />
+                    </div>
                   </div>
                   <div className="flex gap-2 justify-end">
                     <Button type="button" variant="outline" onClick={resetActivityForm}>Cancel</Button>

@@ -193,7 +193,7 @@ const ApprovalManagement = () => {
                     </TableRow>
                   ) : (
                     filteredApplications.map((app) => (
-                      <TableRow key={app.id}>
+                      <TableRow key={app.id} className="hover:bg-muted/50 transition-colors">
                         <TableCell>
                           <div>
                             <div className="font-medium">{app.applicant.full_name}</div>
@@ -242,6 +242,7 @@ const ApprovalManagement = () => {
                               variant="default"
                               size="sm"
                               onClick={() => handleApproveClick(app)}
+                              className="min-h-[36px]"
                             >
                               <CheckCircle className="h-4 w-4 mr-1" />
                               Approve
@@ -250,6 +251,7 @@ const ApprovalManagement = () => {
                               variant="destructive"
                               size="sm"
                               onClick={() => handleRejectClick(app)}
+                              className="min-h-[36px]"
                             >
                               <XCircle className="h-4 w-4 mr-1" />
                               Reject

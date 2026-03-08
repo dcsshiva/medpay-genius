@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getStaffId } from '@/lib/staffUtils';
 import ReportGeneration from '@/components/ReportGeneration';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { 
   Plus, 
   MessageCircle, 
@@ -21,7 +22,10 @@ import {
   User,
   Filter,
   Calendar,
-  ClockIcon
+  ClockIcon,
+  FileText,
+  Tag,
+  Users
 } from 'lucide-react';
 import { formatDateIST, formatDateTimeIST, toISOStringIST } from '@/lib/dateUtils';
 
@@ -551,160 +555,176 @@ const ComplaintManagement = () => {
               Submit Complaint
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent 
+            className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
+            hasUnsavedChanges={formData.complaint_title.trim() !== '' || formData.complaint_description.trim() !== '' || formData.submitted_to !== ''}
+            onConfirmClose={() => { resetForm(); setDialogOpen(false); }}
+          >
             <DialogHeader>
               <DialogTitle>Submit New Complaint</DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-5">
-              {/* Section: What Happened */}
-              <div className="rounded-lg border border-border p-4 space-y-3">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">What Happened</h3>
-                <div className="space-y-2">
-                  <Label htmlFor="complaint_title">Complaint Title *</Label>
-                  <Input
-                    id="complaint_title"
-                    value={formData.complaint_title}
-                    onChange={(e) => setFormData({ ...formData, complaint_title: e.target.value })}
-                    placeholder="Brief description of the issue"
-                    className="min-h-[44px]"
-                    required
-                  />
+            <ScrollArea className="flex-1 min-h-0 px-1">
+              <form onSubmit={handleSubmit} className="space-y-5 pr-3">
+                {/* Section: What Happened */}
+                <div className="rounded-lg border border-border p-4 space-y-3">
+                  <div className="flex items-center gap-2 pb-2 border-b border-border">
+                    <MessageCircle className="h-4 w-4 text-primary" />
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">What Happened</h3>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="complaint_title">Complaint Title *</Label>
+                    <Input
+                      id="complaint_title"
+                      value={formData.complaint_title}
+                      onChange={(e) => setFormData({ ...formData, complaint_title: e.target.value })}
+                      placeholder="Brief description of the issue"
+                      className="min-h-[44px] hover:border-primary/50 transition-colors"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="complaint_description">Detailed Description *</Label>
+                    <Textarea
+                      id="complaint_description"
+                      value={formData.complaint_description}
+                      onChange={(e) => setFormData({ ...formData, complaint_description: e.target.value })}
+                      placeholder="Provide detailed information about your complaint..."
+                      className="hover:border-primary/50 transition-colors"
+                      rows={3}
+                      required
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="complaint_description">Detailed Description *</Label>
-                  <Textarea
-                    id="complaint_description"
-                    value={formData.complaint_description}
-                    onChange={(e) => setFormData({ ...formData, complaint_description: e.target.value })}
-                    placeholder="Provide detailed information about your complaint..."
-                    rows={3}
-                    required
-                  />
-                </div>
-              </div>
 
-              {/* Section: Who and When */}
-              <div className="rounded-lg border border-border p-4 space-y-3">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Who & When</h3>
-                <div className="space-y-2">
-                  <Label htmlFor="submitted_to">Submit To <span className="text-destructive">*</span></Label>
-                  <Select 
-                    value={formData.submitted_to || undefined} 
-                    onValueChange={(value) => setFormData({ ...formData, submitted_to: value || '' })}
-                  >
-                    <SelectTrigger className="min-h-[44px]">
-                      <SelectValue placeholder="Select admin/manager to submit to" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {staffList
-                        .filter(s => ['admin', 'manager'].includes(s.role))
-                        .map((staff) => (
+                {/* Section: Who and When */}
+                <div className="rounded-lg border border-border p-4 space-y-3">
+                  <div className="flex items-center gap-2 pb-2 border-b border-border">
+                    <Users className="h-4 w-4 text-primary" />
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Who & When</h3>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="submitted_to">Submit To <span className="text-destructive">*</span></Label>
+                    <Select 
+                      value={formData.submitted_to || undefined} 
+                      onValueChange={(value) => setFormData({ ...formData, submitted_to: value || '' })}
+                    >
+                      <SelectTrigger className="min-h-[44px] hover:border-primary/50 transition-colors">
+                        <SelectValue placeholder="Select admin/manager to submit to" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {staffList
+                          .filter(s => ['admin', 'manager'].includes(s.role))
+                          .map((staff) => (
+                            <SelectItem key={staff.id} value={staff.id}>
+                              {staff.full_name} ({staff.staff_code}) - {staff.role}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="complaint_against">Complaint Against (Optional)</Label>
+                    <Select 
+                      value={formData.complaint_against || undefined} 
+                      onValueChange={(value) => setFormData({ ...formData, complaint_against: value || '' })}
+                    >
+                      <SelectTrigger className="min-h-[44px] hover:border-primary/50 transition-colors">
+                        <SelectValue placeholder="Select staff member (if applicable)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {staffList.map((staff) => (
                           <SelectItem key={staff.id} value={staff.id}>
                             {staff.full_name} ({staff.staff_code}) - {staff.role}
                           </SelectItem>
                         ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="complaint_against">Complaint Against (Optional)</Label>
-                  <Select 
-                    value={formData.complaint_against || undefined} 
-                    onValueChange={(value) => setFormData({ ...formData, complaint_against: value || '' })}
-                  >
-                    <SelectTrigger className="min-h-[44px]">
-                      <SelectValue placeholder="Select staff member (if applicable)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {staffList.map((staff) => (
-                        <SelectItem key={staff.id} value={staff.id}>
-                          {staff.full_name} ({staff.staff_code}) - {staff.role}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="incident_date" className="flex items-center gap-1.5">
-                      <Calendar className="h-3.5 w-3.5" />
-                      Incident Date (Optional)
-                    </Label>
-                    <Input
-                      id="incident_date"
-                      type="date"
-                      value={formData.incident_date}
-                      onChange={(e) => setFormData({ ...formData, incident_date: e.target.value })}
-                      className="min-h-[44px]"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="incident_time" className="flex items-center gap-1.5">
-                      <ClockIcon className="h-3.5 w-3.5" />
-                      Incident Time (Optional)
-                    </Label>
-                    <Input
-                      id="incident_time"
-                      type="time"
-                      value={formData.incident_time}
-                      onChange={(e) => setFormData({ ...formData, incident_time: e.target.value })}
-                      className="min-h-[44px]"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Section: Classification */}
-              <div className="rounded-lg border border-border p-4 space-y-3">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Classification</h3>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="category">Category</Label>
-                    <Select 
-                      value={formData.category} 
-                      onValueChange={(value) => setFormData({ ...formData, category: value })}
-                    >
-                      <SelectTrigger className="min-h-[44px]">
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {complaintCategories.map((category) => (
-                          <SelectItem key={category.id} value={category.category_code}>
-                            {category.category_name}
-                          </SelectItem>
-                        ))}
                       </SelectContent>
                     </Select>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="priority">Priority</Label>
-                    <Select 
-                      value={formData.priority} 
-                      onValueChange={(value) => setFormData({ ...formData, priority: value })}
-                    >
-                      <SelectTrigger className="min-h-[44px]">
-                        <SelectValue placeholder="Select priority" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="urgent">Urgent</SelectItem>
-                      </SelectContent>
-                    </Select>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="incident_date" className="flex items-center gap-1.5">
+                        <Calendar className="h-3.5 w-3.5" />
+                        Incident Date (Optional)
+                      </Label>
+                      <Input
+                        id="incident_date"
+                        type="date"
+                        value={formData.incident_date}
+                        onChange={(e) => setFormData({ ...formData, incident_date: e.target.value })}
+                        className="min-h-[44px] hover:border-primary/50 transition-colors"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="incident_time" className="flex items-center gap-1.5">
+                        <ClockIcon className="h-3.5 w-3.5" />
+                        Incident Time (Optional)
+                      </Label>
+                      <Input
+                        id="incident_time"
+                        type="time"
+                        value={formData.incident_time}
+                        onChange={(e) => setFormData({ ...formData, incident_time: e.target.value })}
+                        className="min-h-[44px] hover:border-primary/50 transition-colors"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="flex justify-end space-x-2 pt-2 sticky bottom-0 bg-background pb-1">
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button type="submit" className="min-w-[140px]" disabled={submitting}>
-                  {submitting ? 'Submitting...' : 'Submit Complaint'}
-                </Button>
-              </div>
-            </form>
+                {/* Section: Classification */}
+                <div className="rounded-lg border border-border p-4 space-y-3">
+                  <div className="flex items-center gap-2 pb-2 border-b border-border">
+                    <Tag className="h-4 w-4 text-primary" />
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Classification</h3>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="category">Category</Label>
+                      <Select 
+                        value={formData.category} 
+                        onValueChange={(value) => setFormData({ ...formData, category: value })}
+                      >
+                        <SelectTrigger className="min-h-[44px] hover:border-primary/50 transition-colors">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {complaintCategories.map((category) => (
+                            <SelectItem key={category.id} value={category.category_code}>
+                              {category.category_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="priority">Priority</Label>
+                      <Select 
+                        value={formData.priority} 
+                        onValueChange={(value) => setFormData({ ...formData, priority: value })}
+                      >
+                        <SelectTrigger className="min-h-[44px] hover:border-primary/50 transition-colors">
+                          <SelectValue placeholder="Select priority" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">Low</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="urgent">Urgent</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-2 pt-2 sticky bottom-0 bg-background pb-1">
+                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" className="min-w-[140px]" disabled={submitting}>
+                    {submitting ? 'Submitting...' : 'Submit Complaint'}
+                  </Button>
+                </div>
+              </form>
+            </ScrollArea>
           </DialogContent>
         </Dialog>
       </div>
@@ -1027,33 +1047,40 @@ const ComplaintManagement = () => {
 
       {/* Admin Response Dialog */}
       <Dialog open={responseDialog} onOpenChange={setResponseDialog}>
-        <DialogContent>
+        <DialogContent
+          hasUnsavedChanges={adminResponse.trim() !== ''}
+          onConfirmClose={() => { setAdminResponse(''); setResponseDialog(false); setSelectedComplaint(null); }}
+        >
           <DialogHeader>
             <DialogTitle>Respond to Complaint</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleAdminResponse} className="space-y-4">
             {selectedComplaint && (
-              <div className="space-y-2">
-                <Label>Complaint</Label>
-                <div className="p-3 bg-muted rounded-sm">
-                  <h4 className="font-medium">{selectedComplaint.complaint_title}</h4>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {selectedComplaint.complaint_description}
-                  </p>
-                </div>
+              <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-1">
+                <h4 className="font-semibold text-sm">{selectedComplaint.complaint_title}</h4>
+                <p className="text-xs text-muted-foreground">
+                  {selectedComplaint.complaint_description}
+                </p>
               </div>
             )}
             
-            <div className="space-y-2">
-              <Label htmlFor="admin_response">Response *</Label>
-              <Textarea
-                id="admin_response"
-                value={adminResponse}
-                onChange={(e) => setAdminResponse(e.target.value)}
-                placeholder="Provide your response to resolve this complaint..."
-                rows={4}
-                required
-              />
+            <div className="rounded-lg border border-border p-4 space-y-3">
+              <div className="flex items-center gap-2 pb-2 border-b border-border">
+                <FileText className="h-4 w-4 text-primary" />
+                <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Admin Response</h3>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="admin_response">Response *</Label>
+                <Textarea
+                  id="admin_response"
+                  value={adminResponse}
+                  onChange={(e) => setAdminResponse(e.target.value)}
+                  placeholder="Provide your response to resolve this complaint..."
+                  className="hover:border-primary/50 transition-colors"
+                  rows={4}
+                  required
+                />
+              </div>
             </div>
 
             <div className="flex justify-end space-x-2">
