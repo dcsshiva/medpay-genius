@@ -963,7 +963,7 @@ const DoctorManagement = () => {
                 { label: 'PAN Number', key: 'PAN Number' },
                 { label: 'Status', key: 'Status' },
               ];
-              const data = filteredDoctors.map(d => ({
+              const data = doctors.map(d => ({
                 'Doctor Code': d.doctor_code,
                 'Full Name': d.profiles?.full_name || 'N/A',
                 'Specialization': d.specialization,

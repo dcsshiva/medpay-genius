@@ -1091,7 +1091,7 @@ const StaffManagement = () => {
                 { label: 'Department', key: 'Department' },
                 { label: 'Status', key: 'Status' },
               ];
-              const data = filteredStaff.map(m => ({
+              const data = staff.map(m => ({
                 'Staff Code': m.staff_code,
                 'Full Name': m.full_name,
                 'Role': m.role,
