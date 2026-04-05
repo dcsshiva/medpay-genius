@@ -116,7 +116,7 @@ const AuditTrailViewer: React.FC = () => {
       'Changed Fields': l.action === 'UPDATE' ? getChangedFields(l.old_values, l.new_values).join(', ') : '-',
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 20 }, { wch: 25 }, { wch: 10 }, { wch: 38 }, { wch: 38 }, { wch: 40 }];
+    autoFitColumns(ws, rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Audit Trail');
     XLSX.writeFile(wb, `audit_trail_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);

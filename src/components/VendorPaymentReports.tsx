@@ -148,7 +148,7 @@ const VendorPaymentReports: React.FC = () => {
       'Cheque': s.chequeCount,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 12 }, { wch: 30 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 8 }, { wch: 8 }, { wch: 8 }];
+    autoFitColumns(ws, rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Vendor Payments');
     XLSX.writeFile(wb, `vendor_payment_report_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);

@@ -233,6 +233,7 @@ const StaffPayrollGeneration: React.FC = () => {
       'Status': p.status,
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
+    autoFitColumns(ws, rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Payroll');
     XLSX.writeFile(wb, `Payroll_${payrollMonth}.xlsx`);

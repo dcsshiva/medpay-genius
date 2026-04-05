@@ -174,7 +174,7 @@ const StaffAttendanceReports: React.FC = () => {
     }));
 
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 12 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 12 }];
+    autoFitColumns(ws, rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Attendance Report');
     XLSX.writeFile(wb, `attendance_report_${MONTHS[Number(selectedMonth)]}_${selectedYear}.xlsx`);

@@ -351,6 +351,7 @@ export const StaffPaymentHistoryTab = () => {
     }));
 
     const ws = XLSX.utils.json_to_sheet(exportData);
+    autoFitColumns(ws, exportData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Staff Payments');
     XLSX.writeFile(wb, `staff-payments-${new Date().toISOString().split('T')[0]}.xlsx`);
