@@ -450,6 +450,18 @@ export function TDSReportsManagement() {
                   </>
                 )}
               </Button>
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  const { startDate, endDate } = getQuarterDateRange(quarterFY, quarter);
+                  fetchAndPrintTDS(format(startDate, 'yyyy-MM-dd'), format(endDate, 'yyyy-MM-dd'), `TDS Quarterly Report - ${quarterFY} ${quarter}`);
+                }} 
+                disabled={loading || !quarterFY || !quarter}
+                className="w-full"
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                Print Quarterly Report
+              </Button>
             </TabsContent>
 
             <TabsContent value="annual" className="space-y-4 mt-4">
@@ -483,6 +495,19 @@ export function TDSReportsManagement() {
                     Generate Annual Report
                   </>
                 )}
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  const startDate = annualFY.split('-')[0] + '-04-01';
+                  const endDate = '20' + annualFY.split('-')[1] + '-03-31';
+                  fetchAndPrintTDS(startDate, endDate, `TDS Annual Report - ${annualFY}`);
+                }} 
+                disabled={loading || !annualFY}
+                className="w-full"
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                Print Annual Report
               </Button>
             </TabsContent>
 
@@ -523,6 +548,15 @@ export function TDSReportsManagement() {
                     Generate Custom Report
                   </>
                 )}
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => fetchAndPrintTDS(customStartDate, customEndDate, `TDS Custom Report - ${customStartDate} to ${customEndDate}`)} 
+                disabled={loading || !customStartDate || !customEndDate}
+                className="w-full"
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                Print Custom Report
               </Button>
             </TabsContent>
 
