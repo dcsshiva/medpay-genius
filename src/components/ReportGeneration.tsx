@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { FileText, Download, FileSpreadsheet, CheckCircle2, Circle, Search, Calendar, User, X } from 'lucide-react';
+import { FileText, Download, FileSpreadsheet, CheckCircle2, Circle, Search, Calendar, User, X, Printer } from 'lucide-react';
+import { printReport } from '@/lib/printUtils';
 import { formatFileTimestampIST, formatFullDateTimeIST, formatInputDateIST } from '@/lib/dateUtils';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -588,6 +589,21 @@ const ReportGeneration: React.FC<ReportGenerationProps> = ({
             >
               <FileSpreadsheet className="h-4 w-4 mr-2" />
               Export to Excel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const selectedData = getSelectedData();
+                if (selectedData.length === 0) return;
+                const printCols = columns.map(c => ({ label: c.label, key: c.label }));
+                const printData = formatDataForExport(selectedData);
+                const netTotals = calculateNetTotals(selectedData);
+                printReport({ title, columns: printCols, data: [...printData, netTotals] });
+              }}
+              disabled={selectedRecords.size === 0}
+            >
+              <Printer className="h-4 w-4 mr-2" />
+              Print Report
             </Button>
             <Button
               onClick={exportToPDF}

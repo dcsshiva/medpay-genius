@@ -12,7 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Users, UserCheck, UserX, Search, Download, Upload, Loader2, Eye, EyeOff, ChevronUp, ChevronDown, IdCard, Phone, Landmark, ShieldCheck } from 'lucide-react';
+import { Plus, Edit, Users, UserCheck, UserX, Search, Download, Upload, Loader2, Eye, EyeOff, ChevronUp, ChevronDown, IdCard, Phone, Landmark, ShieldCheck, Printer } from 'lucide-react';
+import { printReport, autoFitColumns } from '@/lib/printUtils';
 import { formatDateIST } from '@/lib/dateUtils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
@@ -1079,6 +1080,30 @@ const StaffManagement = () => {
           >
             <Download className="h-4 w-4 mr-2" />
             Export Staff
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              const cols = [
+                { label: 'Staff Code', key: 'Staff Code' },
+                { label: 'Full Name', key: 'Full Name' },
+                { label: 'Role', key: 'Role' },
+                { label: 'Department', key: 'Department' },
+                { label: 'Status', key: 'Status' },
+              ];
+              const data = filteredStaff.map(m => ({
+                'Staff Code': m.staff_code,
+                'Full Name': m.full_name,
+                'Role': m.role,
+                'Department': m.department || '-',
+                'Status': m.is_active ? 'Active' : 'Inactive',
+              }));
+              printReport({ title: 'Staff List', columns: cols, data });
+            }}
+            disabled={staff.length === 0}
+          >
+            <Printer className="h-4 w-4 mr-2" />
+            Print
           </Button>
         
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
