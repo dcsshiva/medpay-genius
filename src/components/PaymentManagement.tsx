@@ -31,7 +31,8 @@ import {
   Building2,
   IndianRupee,
   Activity,
-  Target
+  Target,
+  Printer
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { printReport } from '@/lib/printUtils';

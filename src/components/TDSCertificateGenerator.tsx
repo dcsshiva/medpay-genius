@@ -13,7 +13,8 @@ import {
   getQuarterDateRange,
   generateCertificateNumber 
 } from '@/lib/tdsUtils';
-import { FileText, Download, Loader2 } from 'lucide-react';
+import { FileText, Download, Loader2, Printer } from 'lucide-react';
+import { printReport } from '@/lib/printUtils';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { format } from 'date-fns';
