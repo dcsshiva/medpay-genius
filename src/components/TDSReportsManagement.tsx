@@ -41,6 +41,54 @@ export function TDSReportsManagement() {
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
+  const fetchAndPrintTDS = async (startDate: string, endDate: string, reportTitle: string) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('get_comprehensive_tds_summary', {
+        _start_date: startDate,
+        _end_date: endDate
+      });
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast({ title: 'No Data', description: 'No TDS data found for the selected period' });
+        return;
+      }
+      const cols = [
+        { label: 'Type', key: 'Beneficiary Type' },
+        { label: 'Code', key: 'Code' },
+        { label: 'Name', key: 'Name' },
+        { label: 'Payments', key: 'Total Payments' },
+        { label: 'Gross Amount', key: 'Gross Amount' },
+        { label: 'TDS @ 10%', key: 'TDS @ 10%' },
+        { label: 'Net Amount', key: 'Net Amount' },
+      ];
+      const printData = data.map((row: any) => ({
+        'Beneficiary Type': row.beneficiary_type,
+        'Code': row.beneficiary_code,
+        'Name': row.beneficiary_name,
+        'Total Payments': row.total_payments,
+        'Gross Amount': formatCurrency(parseFloat(row.total_gross_amount || 0)),
+        'TDS @ 10%': formatCurrency(parseFloat(row.total_tds_amount || 0)),
+        'Net Amount': formatCurrency(parseFloat(row.total_net_amount || 0)),
+      }));
+      const totalGross = data.reduce((s: number, d: any) => s + parseFloat(d.total_gross_amount || 0), 0);
+      const totalTds = data.reduce((s: number, d: any) => s + parseFloat(d.total_tds_amount || 0), 0);
+      const totalNet = data.reduce((s: number, d: any) => s + parseFloat(d.total_net_amount || 0), 0);
+      printData.push({
+        'Beneficiary Type': 'TOTAL', 'Code': '', 'Name': '',
+        'Total Payments': data.reduce((s: number, d: any) => s + parseInt(d.total_payments || 0), 0),
+        'Gross Amount': formatCurrency(totalGross),
+        'TDS @ 10%': formatCurrency(totalTds),
+        'Net Amount': formatCurrency(totalNet),
+      });
+      printReport({ title: reportTitle, columns: cols, data: printData });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to generate print report' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const generateQuarterlyReport = async () => {
     if (!quarterFY || !quarter) {
       toast({
