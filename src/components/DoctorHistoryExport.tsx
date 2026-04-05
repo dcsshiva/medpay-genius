@@ -6,7 +6,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Download, FileSpreadsheet, FileText } from 'lucide-react';
+import { Download, FileSpreadsheet, FileText, Printer } from 'lucide-react';
+import { printReport } from '@/lib/printUtils';
 import { useToast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateIST, formatFileTimestampIST, formatFullDateTimeIST } from '@/lib/dateUtils';
@@ -351,6 +352,24 @@ const DoctorHistoryExport: React.FC<DoctorHistoryExportProps> = ({
         <DropdownMenuItem onClick={exportToPDF}>
           <FileText className="h-4 w-4 mr-2" />
           Export to PDF
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={async () => {
+          const allVisitsData = await fetchAllVisitDetailsForExport();
+          const cols = [
+            { label: 'Type', key: 'type' },
+            { label: 'Period', key: 'period' },
+            { label: 'Visit Code', key: 'visit_code' },
+            { label: 'Patient', key: 'patient' },
+            { label: 'Visit Amount', key: 'visit_amount' },
+            { label: 'Gross', key: 'gross_amount' },
+            { label: 'TDS', key: 'tds' },
+            { label: 'Net', key: 'net_amount' },
+          ];
+          const data = preparePaymentData(allVisitsData);
+          printReport({ title: `Doctor History - ${doctorName}`, columns: cols, data, subtitle: `Code: ${doctorCode}` });
+        }}>
+          <Printer className="h-4 w-4 mr-2" />
+          Print Report
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

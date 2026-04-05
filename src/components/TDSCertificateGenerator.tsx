@@ -13,7 +13,8 @@ import {
   getQuarterDateRange,
   generateCertificateNumber 
 } from '@/lib/tdsUtils';
-import { FileText, Download, Loader2 } from 'lucide-react';
+import { FileText, Download, Loader2, Printer } from 'lucide-react';
+import { printReport } from '@/lib/printUtils';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { format } from 'date-fns';
@@ -447,6 +448,34 @@ export function TDSCertificateGenerator() {
                     Generate & Download Certificate
                   </>
                 )}
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  const cols = [
+                    { label: '#', key: 'num' },
+                    { label: 'Payment Date', key: 'date' },
+                    { label: 'Period', key: 'period' },
+                    { label: 'Gross Amount', key: 'gross' },
+                    { label: 'TDS @ 10%', key: 'tds' },
+                    { label: 'Net Amount', key: 'net' },
+                  ];
+                  const data = payments.map((p, i) => ({
+                    num: i + 1,
+                    date: format(new Date(p.bank_advice_generated_at || p.period_end), 'dd/MM/yyyy'),
+                    period: `${format(new Date(p.period_start), 'dd/MM/yy')} - ${format(new Date(p.period_end), 'dd/MM/yy')}`,
+                    gross: formatCurrency(p.gross_amount || 0),
+                    tds: formatCurrency(p.tds_amount || 0),
+                    net: formatCurrency(p.net_amount || 0),
+                  }));
+                  const doctor = doctors.find(d => d.id === selectedDoctor);
+                  printReport({ title: 'TDS Certificate', columns: cols, data, subtitle: doctor ? `${doctor.full_name} (${doctor.doctor_code}) | ${selectedFY} - ${selectedQuarter}` : '' });
+                }}
+                disabled={payments.length === 0}
+                className="w-full"
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                Print Certificate Details
               </Button>
             </div>
           )}

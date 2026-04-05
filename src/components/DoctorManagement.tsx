@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Edit, Users, Stethoscope, Search, Download, Upload, Loader2, Eye, EyeOff, ChevronUp, ChevronDown, User, KeyRound, Landmark } from 'lucide-react';
+import { Plus, Edit, Users, Stethoscope, Search, Download, Upload, Loader2, Eye, EyeOff, ChevronUp, ChevronDown, User, KeyRound, Landmark, Printer } from 'lucide-react';
+import { printReport, autoFitColumns } from '@/lib/printUtils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
@@ -951,6 +952,30 @@ const DoctorManagement = () => {
           >
             <Download className="h-4 w-4 mr-2" />
             Export Doctors
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              const cols = [
+                { label: 'Doctor Code', key: 'Doctor Code' },
+                { label: 'Full Name', key: 'Full Name' },
+                { label: 'Specialization', key: 'Specialization' },
+                { label: 'PAN Number', key: 'PAN Number' },
+                { label: 'Status', key: 'Status' },
+              ];
+              const data = doctors.map(d => ({
+                'Doctor Code': d.doctor_code,
+                'Full Name': d.profiles?.full_name || 'N/A',
+                'Specialization': d.specialization,
+                'PAN Number': d.pan_number || '-',
+                'Status': d.is_active ? 'Active' : 'Inactive',
+              }));
+              printReport({ title: 'Doctor List', columns: cols, data });
+            }}
+            disabled={doctors.length === 0}
+          >
+            <Printer className="h-4 w-4 mr-2" />
+            Print
           </Button>
         
           {(userRole === 'admin' || userRole === 'manager') && (

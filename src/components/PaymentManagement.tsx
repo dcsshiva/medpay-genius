@@ -31,9 +31,11 @@ import {
   Building2,
   IndianRupee,
   Activity,
-  Target
+  Target,
+  Printer
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { printReport } from '@/lib/printUtils';
 import { format } from 'date-fns';
 import { formatDateIST, formatDateTimeIST, toISOStringIST, formatReportDateIST, formatFileTimestampIST } from '@/lib/dateUtils';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -3827,6 +3829,30 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
             <DialogFooter>
               <Button variant="outline" onClick={() => setShowBankAdviceReviewDialog(false)}>
                 Cancel
+              </Button>
+              <Button variant="outline" onClick={() => {
+                const cols = [
+                  { label: '#', key: 'seq' },
+                  { label: 'Doctor', key: 'doctor' },
+                  { label: 'Account', key: 'account' },
+                  { label: 'IFSC', key: 'ifsc' },
+                  { label: 'Gross', key: 'gross' },
+                  { label: 'TDS', key: 'tds' },
+                  { label: 'Net', key: 'net' },
+                ];
+                const data = selectedPaymentsForReview.map((p, i) => ({
+                  seq: i + 1,
+                  doctor: p.doctors?.full_name || '',
+                  account: p.doctors?.bank_account_number || '',
+                  ifsc: p.doctors?.ifsc_code || '-',
+                  gross: formatCurrency(parseFloat(p.paid_amount || 0)),
+                  tds: formatCurrency(parseFloat(p.paid_amount || 0) * 0.10),
+                  net: formatCurrency(parseFloat(p.paid_amount || 0) * 0.90),
+                }));
+                printReport({ title: 'Bank Advice Review', columns: cols, data });
+              }}>
+                <Printer className="h-4 w-4 mr-2" />
+                Print
               </Button>
               <Button onClick={generateBankAdviceTextFile}>
                 <Download className="h-4 w-4 mr-2" />

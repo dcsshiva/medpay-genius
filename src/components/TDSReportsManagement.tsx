@@ -13,7 +13,8 @@ import {
   getQuarterOptions, 
   getQuarterDateRange 
 } from '@/lib/tdsUtils';
-import { FileSpreadsheet, Loader2, TrendingUp } from 'lucide-react';
+import { FileSpreadsheet, Loader2, TrendingUp, Printer } from 'lucide-react';
+import { printReport } from '@/lib/printUtils';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { TDSCertificateGenerator } from './TDSCertificateGenerator';
@@ -39,6 +40,54 @@ export function TDSReportsManagement() {
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
   const [loading, setLoading] = useState(false);
+
+  const fetchAndPrintTDS = async (startDate: string, endDate: string, reportTitle: string) => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('get_comprehensive_tds_summary', {
+        _start_date: startDate,
+        _end_date: endDate
+      });
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        toast({ title: 'No Data', description: 'No TDS data found for the selected period' });
+        return;
+      }
+      const cols = [
+        { label: 'Type', key: 'Beneficiary Type' },
+        { label: 'Code', key: 'Code' },
+        { label: 'Name', key: 'Name' },
+        { label: 'Payments', key: 'Total Payments' },
+        { label: 'Gross Amount', key: 'Gross Amount' },
+        { label: 'TDS @ 10%', key: 'TDS @ 10%' },
+        { label: 'Net Amount', key: 'Net Amount' },
+      ];
+      const printData = data.map((row: any) => ({
+        'Beneficiary Type': row.beneficiary_type,
+        'Code': row.beneficiary_code,
+        'Name': row.beneficiary_name,
+        'Total Payments': row.total_payments,
+        'Gross Amount': formatCurrency(parseFloat(row.total_gross_amount || 0)),
+        'TDS @ 10%': formatCurrency(parseFloat(row.total_tds_amount || 0)),
+        'Net Amount': formatCurrency(parseFloat(row.total_net_amount || 0)),
+      }));
+      const totalGross = data.reduce((s: number, d: any) => s + parseFloat(d.total_gross_amount || 0), 0);
+      const totalTds = data.reduce((s: number, d: any) => s + parseFloat(d.total_tds_amount || 0), 0);
+      const totalNet = data.reduce((s: number, d: any) => s + parseFloat(d.total_net_amount || 0), 0);
+      printData.push({
+        'Beneficiary Type': 'TOTAL', 'Code': '', 'Name': '',
+        'Total Payments': data.reduce((s: number, d: any) => s + parseInt(d.total_payments || 0), 0),
+        'Gross Amount': formatCurrency(totalGross),
+        'TDS @ 10%': formatCurrency(totalTds),
+        'Net Amount': formatCurrency(totalNet),
+      });
+      printReport({ title: reportTitle, columns: cols, data: printData });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to generate print report' });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const generateQuarterlyReport = async () => {
     if (!quarterFY || !quarter) {
@@ -401,6 +450,18 @@ export function TDSReportsManagement() {
                   </>
                 )}
               </Button>
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  const { startDate, endDate } = getQuarterDateRange(quarterFY, quarter);
+                  fetchAndPrintTDS(format(startDate, 'yyyy-MM-dd'), format(endDate, 'yyyy-MM-dd'), `TDS Quarterly Report - ${quarterFY} ${quarter}`);
+                }} 
+                disabled={loading || !quarterFY || !quarter}
+                className="w-full"
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                Print Quarterly Report
+              </Button>
             </TabsContent>
 
             <TabsContent value="annual" className="space-y-4 mt-4">
@@ -434,6 +495,19 @@ export function TDSReportsManagement() {
                     Generate Annual Report
                   </>
                 )}
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  const startDate = annualFY.split('-')[0] + '-04-01';
+                  const endDate = '20' + annualFY.split('-')[1] + '-03-31';
+                  fetchAndPrintTDS(startDate, endDate, `TDS Annual Report - ${annualFY}`);
+                }} 
+                disabled={loading || !annualFY}
+                className="w-full"
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                Print Annual Report
               </Button>
             </TabsContent>
 
@@ -474,6 +548,15 @@ export function TDSReportsManagement() {
                     Generate Custom Report
                   </>
                 )}
+              </Button>
+              <Button 
+                variant="outline"
+                onClick={() => fetchAndPrintTDS(customStartDate, customEndDate, `TDS Custom Report - ${customStartDate} to ${customEndDate}`)} 
+                disabled={loading || !customStartDate || !customEndDate}
+                className="w-full"
+              >
+                <Printer className="mr-2 h-4 w-4" />
+                Print Custom Report
               </Button>
             </TabsContent>
 

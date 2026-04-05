@@ -13,7 +13,8 @@ import { useAuth } from '@/lib/auth';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Calendar, Users, Stethoscope, Search, Edit, Trash2, CheckCircle, Clock, TrendingUp, Activity, FileText, X, Download, Upload, DollarSign } from 'lucide-react';
+import { Plus, Calendar, Users, Stethoscope, Search, Edit, Trash2, CheckCircle, Clock, TrendingUp, Activity, FileText, X, Download, Upload, DollarSign, Printer } from 'lucide-react';
+import { printReport } from '@/lib/printUtils';
 import { DoctorSearchCombobox } from '@/components/ui/doctor-search-combobox';
 import * as XLSX from 'xlsx';
 import { parseExcelFile, generatePatientId, analyzeVisitImport, ImportResults } from '@/lib/excelImportUtils';
@@ -1076,6 +1077,36 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
               >
                 <Download className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
                 {isMobile ? "Export" : "Export Visits"}
+              </Button>
+              <Button
+                variant="outline"
+                size={isMobile ? "sm" : "default"}
+                onClick={() => {
+                  const cols = [
+                    { label: 'Visit Code', key: 'Visit Code' },
+                    { label: 'Date', key: 'Date' },
+                    { label: 'Doctor', key: 'Doctor' },
+                    { label: 'Patient', key: 'Patient' },
+                    { label: 'Type', key: 'Type' },
+                    { label: 'Amount', key: 'Amount' },
+                    { label: 'Status', key: 'Status' },
+                  ];
+                  const data = visits.map(v => ({
+                    'Visit Code': v.visit_code || '-',
+                    'Date': formatDateIST(v.visit_date),
+                    'Doctor': v.doctors?.profiles?.full_name || '-',
+                    'Patient': v.patient_name,
+                    'Type': v.payment_type === 'cash' ? 'Cash' : 'Insurance',
+                    'Amount': v.visit_payment?.toFixed(0) || '0',
+                    'Status': v.is_processed ? 'Processed' : 'Pending',
+                  }));
+                  printReport({ title: 'Visit Report', columns: cols, data });
+                }}
+                disabled={visits.length === 0}
+                className="text-xs md:text-sm"
+              >
+                <Printer className="h-3 w-3 md:h-4 md:w-4 mr-1 md:mr-2" />
+                {isMobile ? "Print" : "Print Report"}
               </Button>
             </>
           )}

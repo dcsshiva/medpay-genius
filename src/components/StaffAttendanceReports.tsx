@@ -5,7 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
-import { Download, Loader2, BarChart3, Users, Clock, AlertTriangle } from 'lucide-react';
+import { Download, Loader2, BarChart3, Users, Clock, AlertTriangle, Printer } from 'lucide-react';
+import { printReport, autoFitColumns } from '@/lib/printUtils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import * as XLSX from 'xlsx';
 import { format, startOfMonth, endOfMonth, getDaysInMonth, getDay } from 'date-fns';
@@ -173,7 +174,7 @@ const StaffAttendanceReports: React.FC = () => {
     }));
 
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 12 }, { wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 8 }, { wch: 8 }, { wch: 8 }, { wch: 10 }, { wch: 8 }, { wch: 12 }];
+    autoFitColumns(ws, rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Attendance Report');
     XLSX.writeFile(wb, `attendance_report_${MONTHS[Number(selectedMonth)]}_${selectedYear}.xlsx`);
@@ -198,6 +199,31 @@ const StaffAttendanceReports: React.FC = () => {
         </Select>
         <Button variant="outline" size="sm" onClick={exportToExcel} disabled={loading}>
           <Download className="h-4 w-4 mr-1" /> Export Excel
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => {
+          const cols = [
+            { label: 'Staff Code', key: 'Staff Code' },
+            { label: 'Name', key: 'Name' },
+            { label: 'Role', key: 'Role' },
+            { label: 'Present', key: 'Present' },
+            { label: 'Absent', key: 'Absent' },
+            { label: 'Late', key: 'Late' },
+            { label: 'Leave', key: 'Leave' },
+            { label: 'Total Hours', key: 'Total Hours' },
+          ];
+          const data = staffSummaries.map(s => ({
+            'Staff Code': s.staff_code,
+            'Name': s.full_name,
+            'Role': s.role,
+            'Present': s.present,
+            'Absent': s.absent,
+            'Late': s.late,
+            'Leave': s.leave,
+            'Total Hours': s.totalHours,
+          }));
+          printReport({ title: `Attendance Report - ${MONTHS[Number(selectedMonth)]} ${selectedYear}`, columns: cols, data });
+        }} disabled={loading}>
+          <Printer className="h-4 w-4 mr-1" /> Print
         </Button>
       </div>
 

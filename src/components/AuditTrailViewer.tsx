@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Download, Loader2, History, Search, Eye } from 'lucide-react';
+import { Download, Loader2, History, Search, Eye, Printer } from 'lucide-react';
+import { printReport, autoFitColumns } from '@/lib/printUtils';
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
 
@@ -115,7 +116,7 @@ const AuditTrailViewer: React.FC = () => {
       'Changed Fields': l.action === 'UPDATE' ? getChangedFields(l.old_values, l.new_values).join(', ') : '-',
     }));
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 20 }, { wch: 25 }, { wch: 10 }, { wch: 38 }, { wch: 38 }, { wch: 40 }];
+    autoFitColumns(ws, rows);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Audit Trail');
     XLSX.writeFile(wb, `audit_trail_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
@@ -131,9 +132,30 @@ const AuditTrailViewer: React.FC = () => {
               <History className="h-5 w-5" />
               Audit Trail
             </CardTitle>
-            <Button variant="outline" size="sm" onClick={exportToExcel} disabled={loading}>
-              <Download className="h-4 w-4 mr-1" /> Export
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={exportToExcel} disabled={loading}>
+                <Download className="h-4 w-4 mr-1" /> Export
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => {
+                const cols = [
+                  { label: 'Date/Time', key: 'Date/Time' },
+                  { label: 'Table', key: 'Table' },
+                  { label: 'Action', key: 'Action' },
+                  { label: 'Record ID', key: 'Record ID' },
+                  { label: 'Changed By', key: 'Changed By' },
+                ];
+                const data = filteredLogs.map(l => ({
+                  'Date/Time': format(new Date(l.changed_at), 'dd/MM/yyyy HH:mm:ss'),
+                  'Table': l.table_name,
+                  'Action': l.action,
+                  'Record ID': l.record_id,
+                  'Changed By': l.changed_by || 'System',
+                }));
+                printReport({ title: 'Audit Trail', columns: cols, data });
+              }} disabled={loading}>
+                <Printer className="h-4 w-4 mr-1" /> Print
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
