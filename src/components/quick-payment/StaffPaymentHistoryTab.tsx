@@ -20,7 +20,8 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Download, FileText, MoreVertical, RefreshCw, Eye } from 'lucide-react';
+import { Download, FileText, MoreVertical, RefreshCw, Eye, Printer } from 'lucide-react';
+import { printReport, autoFitColumns } from '@/lib/printUtils';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateTimeIST } from '@/lib/dateUtils';
 import * as XLSX from 'xlsx';
@@ -426,6 +427,26 @@ export const StaffPaymentHistoryTab = () => {
         <Button onClick={handleExportToExcel} variant="outline">
           <Download className="mr-2 h-4 w-4" />
           Export to Excel
+        </Button>
+        <Button onClick={() => {
+          const cols = [
+            { label: 'Date', key: 'Date' },
+            { label: 'Staff', key: 'Staff' },
+            { label: 'Amount', key: 'Amount' },
+            { label: 'Bank', key: 'Bank' },
+            { label: 'Status', key: 'Status' },
+          ];
+          const data = filteredPayments.map(p => ({
+            'Date': p.payment_date,
+            'Staff': p.staff?.full_name || '',
+            'Amount': formatCurrency(p.amount),
+            'Bank': p.bank_name || '-',
+            'Status': p.bank_advice_generated ? 'Generated' : 'Pending',
+          }));
+          printReport({ title: 'Staff Payment History', columns: cols, data });
+        }} variant="outline">
+          <Printer className="mr-2 h-4 w-4" />
+          Print
         </Button>
       </div>
 

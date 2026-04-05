@@ -13,7 +13,8 @@ import {
   getQuarterOptions, 
   getQuarterDateRange 
 } from '@/lib/tdsUtils';
-import { FileSpreadsheet, Loader2, TrendingUp } from 'lucide-react';
+import { FileSpreadsheet, Loader2, TrendingUp, Printer } from 'lucide-react';
+import { printReport } from '@/lib/printUtils';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import { TDSCertificateGenerator } from './TDSCertificateGenerator';
