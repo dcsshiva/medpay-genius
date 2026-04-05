@@ -11,7 +11,8 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
-import { Calculator, Download, CheckCircle, Search } from 'lucide-react';
+import { Calculator, Download, CheckCircle, Search, Printer } from 'lucide-react';
+import { printReport, autoFitColumns } from '@/lib/printUtils';
 import { formatCurrency } from '@/lib/currency';
 import * as XLSX from 'xlsx';
 
@@ -274,6 +275,25 @@ const StaffPayrollGeneration: React.FC = () => {
         {payrolls.length > 0 && (
           <>
             <Button variant="outline" onClick={exportToExcel}><Download className="h-4 w-4 mr-1" /> Export</Button>
+            <Button variant="outline" onClick={() => {
+              const cols = [
+                { label: 'Staff Code', key: 'Staff Code' },
+                { label: 'Name', key: 'Name' },
+                { label: 'Gross', key: 'Gross' },
+                { label: 'Deductions', key: 'Deductions' },
+                { label: 'Net Salary', key: 'Net Salary' },
+                { label: 'Status', key: 'Status' },
+              ];
+              const data = filteredPayrolls.map(p => ({
+                'Staff Code': p.staff?.staff_code || '',
+                'Name': p.staff?.full_name || '',
+                'Gross': formatCurrency(p.gross_salary),
+                'Deductions': formatCurrency(p.total_deductions),
+                'Net Salary': formatCurrency(p.net_salary),
+                'Status': p.status,
+              }));
+              printReport({ title: `Payroll - ${payrollMonth}`, columns: cols, data });
+            }}><Printer className="h-4 w-4 mr-1" /> Print</Button>
             <Button variant="outline" onClick={() => bulkUpdateStatus('approved')}>Approve All Drafts</Button>
             <Button variant="outline" onClick={() => bulkUpdateStatus('paid')}>Mark All Paid</Button>
           </>

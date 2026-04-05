@@ -8,7 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Download, Loader2, DollarSign, Users, FileText, ArrowLeft } from 'lucide-react';
+import { Download, Loader2, DollarSign, Users, FileText, ArrowLeft, Printer } from 'lucide-react';
+import { printReport, autoFitColumns } from '@/lib/printUtils';
 import { format } from 'date-fns';
 import * as XLSX from 'xlsx';
 import { formatCurrency } from '@/lib/currency';
@@ -163,9 +164,32 @@ const VendorPaymentReports: React.FC = () => {
               <FileText className="h-5 w-5" />
               Vendor Payment Reports
             </CardTitle>
-            <Button variant="outline" size="sm" onClick={exportToExcel} disabled={loading}>
-              <Download className="h-4 w-4 mr-1" /> Export
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={exportToExcel} disabled={loading}>
+                <Download className="h-4 w-4 mr-1" /> Export
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => {
+                const cols = [
+                  { label: 'Vendor Code', key: 'Vendor Code' },
+                  { label: 'Vendor Name', key: 'Vendor Name' },
+                  { label: 'Total Gross', key: 'Total Gross' },
+                  { label: 'Total TDS', key: 'Total TDS' },
+                  { label: 'Total Net', key: 'Total Net' },
+                  { label: 'Payments', key: 'Payments' },
+                ];
+                const data = summaries.map(s => ({
+                  'Vendor Code': s.vendor_code,
+                  'Vendor Name': s.vendor_name,
+                  'Total Gross': formatCurrency(s.totalGross),
+                  'Total TDS': formatCurrency(s.totalTds),
+                  'Total Net': formatCurrency(s.totalNet),
+                  'Payments': s.paymentCount,
+                }));
+                printReport({ title: 'Vendor Payment Report', columns: cols, data });
+              }} disabled={loading}>
+                <Printer className="h-4 w-4 mr-1" /> Print
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
