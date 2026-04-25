@@ -521,12 +521,12 @@ const StaffManagement = () => {
             headers: getSessionAuthHeaders()
           });
           if (retry.error || !retry.data?.success) {
-            throw new Error(handleCreateUserError(retry.error, retry.data, retryEmail));
+            throw new Error(await handleCreateUserError(retry.error, retry.data, retryEmail));
           }
           createdUser = retry.data.user;
         } else {
           // For user-provided emails or other errors, show clear message
-          const errorMessage = handleCreateUserError(createUserError, result, formData.email);
+          const errorMessage = await handleCreateUserError(createUserError, result, formData.email);
           throw new Error(errorMessage);
         }
       } else {
