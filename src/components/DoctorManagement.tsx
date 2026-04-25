@@ -431,7 +431,7 @@ const DoctorManagement = () => {
         console.log('Create user response:', result, createUserError);
 
         if (createUserError || !result?.success) {
-          const errorMessage = handleCreateUserError(createUserError, result, emailToUse);
+          const errorMessage = await handleCreateUserError(createUserError, result, emailToUse);
           throw new Error(errorMessage);
         }
 
