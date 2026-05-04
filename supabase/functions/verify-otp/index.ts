@@ -107,7 +107,7 @@ serve(async (req) => {
     }) => {
       const sessionToken = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const refreshToken = `refresh_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      const expiresAt = new Date('2099-12-31T23:59:59.000Z');
       const timeoutDuration = ['admin', 'manager'].includes(userData.role) ? 300 : 180;
 
       const { error: insertError } = await supabaseClient
