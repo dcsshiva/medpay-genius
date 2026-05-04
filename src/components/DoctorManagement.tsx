@@ -357,7 +357,7 @@ const DoctorManagement = () => {
 
           // Check both error object AND response data for errors
           if (credUpdateError || (credUpdateData && credUpdateData.error)) {
-            const errorMsg = credUpdateError?.message || credUpdateData?.error || 'Unknown error';
+            const errorMsg = await handleCreateUserError(credUpdateError, credUpdateData);
             console.error('Failed to update credentials:', errorMsg);
             toast({
               variant: "destructive",
