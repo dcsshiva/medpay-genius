@@ -22,6 +22,6 @@ export const getSessionAuthHeaders = () => {
   }
   
   return {
-    Authorization: `Bearer ${sessionToken}`
+    'X-Session-Token': sessionToken
   };
 };
