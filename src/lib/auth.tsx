@@ -346,7 +346,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               }
             } as User;
 
-            const expAt = Date.now() + 24 * 60 * 60 * 1000;
+            const expAt = new Date('2099-12-31T23:59:59.000Z').getTime();
             const fallbackSession = {
               user: fallbackUser,
               access_token: crypto.randomUUID(),
