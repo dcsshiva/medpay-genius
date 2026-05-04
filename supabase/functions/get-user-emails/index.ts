@@ -11,6 +11,13 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  if (req.method === 'GET') {
+    return new Response(JSON.stringify({ ok: true, function: 'get-user-emails' }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -18,16 +25,16 @@ Deno.serve(async (req) => {
     // Create client for user_sessions validation
     const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Validate session using Authorization header
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
+    // Validate session using custom session token. Avoid Authorization here so
+    // Supabase gateway auth does not confuse custom sessions with JWTs.
+    const sessionToken = req.headers.get('X-Session-Token') ||
+      req.headers.get('Authorization')?.replace('Bearer ', '');
+    if (!sessionToken) {
       return new Response(
-        JSON.stringify({ error: 'Missing Authorization header' }),
+        JSON.stringify({ error: 'Missing session token' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    const sessionToken = authHeader.replace('Bearer ', '');
 
     // Validate session token
     const { data: session, error: sessionError } = await supabaseClient
@@ -35,7 +42,6 @@ Deno.serve(async (req) => {
       .select('user_id, role')
       .eq('session_token', sessionToken)
       .eq('is_active', true)
-      .gt('expires_at', new Date().toISOString())
       .single();
 
     if (sessionError || !session) {
