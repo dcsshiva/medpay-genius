@@ -11,7 +11,7 @@ export const createUserSession = async (sessionData: {
 }) => {
   const sessionToken = crypto.randomUUID();
   const refreshToken = crypto.randomUUID();
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+  const expiresAt = new Date('2099-12-31T23:59:59.000Z'); // Sessions stay valid until explicit logout
   
   // Set timeout duration based on role
   const timeoutDuration = ['admin', 'manager'].includes(sessionData.role) ? 300 : 180;

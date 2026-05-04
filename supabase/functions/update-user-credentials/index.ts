@@ -4,7 +4,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
+  'Access-Control-Allow-Headers': 'authorization, x-session-token, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 serve(async (req) => {
@@ -12,19 +12,23 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  if (req.method === 'GET') {
+    return new Response(JSON.stringify({ ok: true, function: 'update-user-credentials' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Missing authorization header');
+    const sessionToken = req.headers.get('X-Session-Token') ||
+      req.headers.get('Authorization')?.replace('Bearer ', '');
+    if (!sessionToken) {
+      throw new Error('Missing session token');
     }
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
-
-    // Extract session token from Authorization header
-    const sessionToken = authHeader.replace('Bearer ', '');
 
     // Validate session using custom user_sessions table
     const { data: session, error: sessionError } = await supabaseClient
@@ -37,9 +41,10 @@ serve(async (req) => {
       throw new Error('Invalid session token');
     }
 
-    // Check if session is active and not expired
-    if (!session.is_active || new Date(session.expires_at) < new Date()) {
-      throw new Error('Session expired or inactive');
+    // Check if session is active. Expiry is intentionally ignored because
+    // WestMed sessions are configured to stay valid indefinitely until logout.
+    if (!session.is_active) {
+      throw new Error('Session inactive. Please log out and log in again.');
     }
 
     // Check if user has admin or manager role
