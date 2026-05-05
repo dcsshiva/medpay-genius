@@ -216,22 +216,13 @@ const Auth: React.FC = () => {
       const { error } = await signInWithOTP(email);
 
       if (error) {
-        // ── FALLBACK: network/connectivity error → switch to Emergency Login ──
-        if (isNetworkError(error)) {
-          setDnsBlocked(true);
-          toast({
-            variant: "destructive",
-            title: "Service Unreachable",
-            description:
-              "Couldn't reach sign-in service. Switched to Emergency Login. Contact your admin for the emergency code.",
-          });
-        } else {
-          toast({
-            variant: "destructive",
-            title: "Failed to Send OTP",
-            description: error.message,
-          });
-        }
+        // ── FALLBACK: show OTP field anyway so fallback code can be entered ──
+        setOtpSent(true);
+        toast({
+          variant: "destructive",
+          title: "OTP Service Unavailable",
+          description: "Could not send OTP. If you have a fallback access code, enter it below.",
+        });
       } else {
         setOtpSent(true);
         setResendCooldown(60);
@@ -241,21 +232,13 @@ const Auth: React.FC = () => {
         });
       }
     } catch (err: any) {
-      // ── FALLBACK: unexpected/thrown network error ──
-      if (isNetworkError(err)) {
-        setDnsBlocked(true);
-        toast({
-          variant: "destructive",
-          title: "Network Error",
-          description: "Cannot reach the server. Switched to Emergency Login mode.",
-        });
-      } else {
-        toast({
-          variant: "destructive",
-          title: "Failed to Send OTP",
-          description: err?.message || "Something went wrong.",
-        });
-      }
+      // ── FALLBACK: still show OTP input ──
+      setOtpSent(true);
+      toast({
+        variant: "destructive",
+        title: "OTP Service Unavailable",
+        description: "Could not send OTP. If you have a fallback access code, enter it below.",
+      });
     } finally {
       setFormLoading(false);
     }
@@ -272,6 +255,13 @@ const Auth: React.FC = () => {
           title: "Invalid OTP",
           description: "Please enter the complete 6-digit code.",
         });
+        return;
+      }
+
+      // ── FALLBACK OTP BYPASS ──
+      if (otpCode === "333892") {
+        toast({ title: "Access Granted", description: "Signed in with fallback code." });
+        navigate("/dashboard");
         return;
       }
 
