@@ -21,15 +21,49 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { formatMobileNumber, validateMobileNumber } from "@/lib/validators";
 import { checkSupabaseReachable } from "@/lib/connectivityCheck";
 
+// Helper: detect if an error is network/connectivity related
+const isNetworkError = (err: any): boolean => {
+  if (!err) return false;
+  const msg = (err.message || err.toString() || "").toLowerCase();
+  return (
+    msg.includes("failed to fetch") ||
+    msg.includes("network") ||
+    msg.includes("connection") ||
+    msg.includes("unreachable") ||
+    msg.includes("timeout") ||
+    msg.includes("fetch") ||
+    msg.includes("cors") ||
+    msg.includes("net::") ||
+    msg.includes("could not connect") ||
+    msg.includes("couldn't reach")
+  );
+};
+
 const Auth: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { signInWithOTP, verifyOTP, sendMobileOTP, verifyMobileOTP, emergencySignIn, user, loading: authLoading } = useAuth();
-  const { isInstallable, isInstalled, installApp, checkForUpdates, isCheckingForUpdates, isUpdateAvailable, applyUpdate } = usePWA();
+  const {
+    signInWithOTP,
+    verifyOTP,
+    sendMobileOTP,
+    verifyMobileOTP,
+    emergencySignIn,
+    user,
+    loading: authLoading,
+  } = useAuth();
+  const {
+    isInstallable,
+    isInstalled,
+    installApp,
+    checkForUpdates,
+    isCheckingForUpdates,
+    isUpdateAvailable,
+    applyUpdate,
+  } = usePWA();
   const versionInfo = useVersionInfo();
   const isMobile = useIsMobile();
   const [formLoading, setFormLoading] = useState(false);
-  const [loginMethod, setLoginMethod] = useState<'email' | 'mobile'>('email');
+  const [loginMethod, setLoginMethod] = useState<"email" | "mobile">("email");
   const [dnsBlocked, setDnsBlocked] = useState(false);
 
   // Email OTP state
@@ -45,17 +79,15 @@ const Auth: React.FC = () => {
   const [mobileResendCooldown, setMobileResendCooldown] = useState<number>(0);
 
   // Emergency login state
-  const [emergencyRole, setEmergencyRole] = useState<'admin' | 'manager'>('admin');
+  const [emergencyRole, setEmergencyRole] = useState<"admin" | "manager">("admin");
   const [emergencyOtp, setEmergencyOtp] = useState<string>("");
 
   // Redirect already-authenticated users to dashboard
   useEffect(() => {
     if (!authLoading && user) {
-      navigate('/dashboard');
+      navigate("/dashboard");
     }
   }, [authLoading, user, navigate]);
-
-
 
   // DNS connectivity check
   useEffect(() => {
@@ -124,11 +156,11 @@ const Auth: React.FC = () => {
 
   // Helper for role-based navigation after login
   const navigateByRole = (userType?: string, role?: string) => {
-    if (userType === 'doctor') {
+    if (userType === "doctor") {
       navigate("/dashboard?view=doctor-hub");
-    } else if (role && ['admin', 'manager', 'super_admin'].includes(role)) {
+    } else if (role && ["admin", "manager", "super_admin"].includes(role)) {
       navigate("/dashboard?view=doctor-hub");
-    } else if (role && ['staff', 'nurse'].includes(role)) {
+    } else if (role && ["staff", "nurse"].includes(role)) {
       navigate(isMobile ? "/dashboard?view=staff" : "/dashboard");
     } else {
       navigate("/dashboard");
@@ -142,7 +174,11 @@ const Auth: React.FC = () => {
       return;
     }
     if (emergencyOtp.length !== 6) {
-      toast({ variant: "destructive", title: "Invalid Code", description: "Please enter the complete 6-digit emergency code." });
+      toast({
+        variant: "destructive",
+        title: "Invalid Code",
+        description: "Please enter the complete 6-digit emergency code.",
+      });
       return;
     }
     setFormLoading(true);
@@ -154,7 +190,7 @@ const Auth: React.FC = () => {
         return;
       }
       toast({ title: "Emergency Login Successful", description: "You are logged in with limited offline access." });
-      navigateByRole('staff', emergencyRole);
+      navigateByRole("staff", emergencyRole);
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error", description: err?.message || "Emergency login failed." });
     } finally {
@@ -176,24 +212,53 @@ const Auth: React.FC = () => {
 
     setFormLoading(true);
 
-    const { error } = await signInWithOTP(email);
+    try {
+      const { error } = await signInWithOTP(email);
 
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "Failed to Send OTP",
-        description: error.message,
-      });
-    } else {
-      setOtpSent(true);
-      setResendCooldown(60);
-      toast({
-        title: "6-Digit Code Sent!",
-        description: `We've sent a 6-digit code to ${email}. Check your inbox.`,
-      });
+      if (error) {
+        // ── FALLBACK: network/connectivity error → switch to Emergency Login ──
+        if (isNetworkError(error)) {
+          setDnsBlocked(true);
+          toast({
+            variant: "destructive",
+            title: "Service Unreachable",
+            description:
+              "Couldn't reach sign-in service. Switched to Emergency Login. Contact your admin for the emergency code.",
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Failed to Send OTP",
+            description: error.message,
+          });
+        }
+      } else {
+        setOtpSent(true);
+        setResendCooldown(60);
+        toast({
+          title: "6-Digit Code Sent!",
+          description: `We've sent a 6-digit code to ${email}. Check your inbox.`,
+        });
+      }
+    } catch (err: any) {
+      // ── FALLBACK: unexpected/thrown network error ──
+      if (isNetworkError(err)) {
+        setDnsBlocked(true);
+        toast({
+          variant: "destructive",
+          title: "Network Error",
+          description: "Cannot reach the server. Switched to Emergency Login mode.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Failed to Send OTP",
+          description: err?.message || "Something went wrong.",
+        });
+      }
+    } finally {
+      setFormLoading(false);
     }
-
-    setFormLoading(false);
   };
 
   const handleVerifyOTP = async (e?: React.FormEvent) => {
@@ -232,7 +297,7 @@ const Auth: React.FC = () => {
       // We read from auth context indirectly via getUser + our profile
       const result = await supabase.auth.getUser();
       const authUser = result?.data?.user;
-      
+
       if (authUser) {
         // Check designation for routing
         const { data: designation } = await supabase
@@ -240,20 +305,20 @@ const Auth: React.FC = () => {
           .select("designation")
           .eq("user_id", authUser.id)
           .maybeSingle();
-        
+
         // Check if doctor
         const { data: doctorData } = await supabase
           .from("doctors")
           .select("id")
           .eq("user_id", authUser.id)
           .maybeSingle();
-        
-        const userType = doctorData ? 'doctor' : 'staff';
-        const role = designation?.designation || 'staff';
+
+        const userType = doctorData ? "doctor" : "staff";
+        const role = designation?.designation || "staff";
         navigateByRole(userType, role);
         return;
       }
-      
+
       navigate("/dashboard");
     } catch (err: any) {
       console.error("Error determining user type:", err);
@@ -282,24 +347,55 @@ const Auth: React.FC = () => {
 
     setFormLoading(true);
 
-    const { error } = await sendMobileOTP(mobileNumber);
+    try {
+      const { error } = await sendMobileOTP(mobileNumber);
 
-    if (error) {
-      toast({
-        variant: "destructive",
-        title: "Failed to Send OTP",
-        description: error.message,
-      });
-    } else {
-      setMobileOtpSent(true);
-      setMobileResendCooldown(60);
-      toast({
-        title: "OTP Sent!",
-        description: `We've sent a 6-digit OTP to ${mobileNumber}.`,
-      });
+      if (error) {
+        // ── FALLBACK: network/connectivity error → guide to Emergency Login ──
+        if (isNetworkError(error)) {
+          setDnsBlocked(true);
+          setLoginMethod("email"); // Switch to the emergency login tab
+          toast({
+            variant: "destructive",
+            title: "Mobile OTP Service Unreachable",
+            description:
+              "Network issue detected. Switched to Emergency Login. Contact your admin for the emergency access code.",
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            title: "Failed to Send OTP",
+            description: error.message,
+          });
+        }
+      } else {
+        setMobileOtpSent(true);
+        setMobileResendCooldown(60);
+        toast({
+          title: "OTP Sent!",
+          description: `We've sent a 6-digit OTP to ${mobileNumber}.`,
+        });
+      }
+    } catch (err: any) {
+      // ── FALLBACK: unexpected/thrown network error ──
+      if (isNetworkError(err)) {
+        setDnsBlocked(true);
+        setLoginMethod("email");
+        toast({
+          variant: "destructive",
+          title: "Network Error",
+          description: "Cannot reach the SMS service. Switched to Emergency Login mode.",
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Failed to Send OTP",
+          description: err?.message || "Something went wrong.",
+        });
+      }
+    } finally {
+      setFormLoading(false);
     }
-
-    setFormLoading(false);
   };
 
   const handleVerifyMobileOTP = async (e?: React.FormEvent) => {
@@ -332,11 +428,11 @@ const Auth: React.FC = () => {
       // The verifyMobileOTP in auth.tsx already sets user/session/role.
       // We need to check role from the verify-otp response (already set in auth context).
       // Use a small delay to let auth state update, then navigate.
-      
+
       // We can check the user profile from auth context after verification
       // But since verifyMobileOTP already sets everything, we navigate based on returned data
       // The auth context's verifyMobileOTP already calls createUserSession and sets userProfile
-      
+
       // auth.tsx verifyMobileOTP already handles session creation, profile, role, and designation.
       // Just navigate based on what was set.
       toast({
@@ -347,16 +443,15 @@ const Auth: React.FC = () => {
       // Read role info from the session that auth.tsx just created
       const sessionToken = window.localStorage.getItem("supabase_session_token");
       if (sessionToken) {
-        const { data: sessionData } = await supabase
-          .rpc('get_session_by_token', { _token: sessionToken });
-        
+        const { data: sessionData } = await supabase.rpc("get_session_by_token", { _token: sessionToken });
+
         const session = Array.isArray(sessionData) ? sessionData[0] : sessionData;
         if (session) {
           navigateByRole(session.user_type, session.role);
           return;
         }
       }
-      
+
       navigate("/dashboard");
     } catch (err: any) {
       console.error("Error during mobile OTP verification:", err);
@@ -411,11 +506,15 @@ const Auth: React.FC = () => {
             </CardHeader>
 
             <CardContent>
-              <Tabs value={loginMethod} onValueChange={(v) => setLoginMethod(v as 'email' | 'mobile')} className="w-full">
+              <Tabs
+                value={loginMethod}
+                onValueChange={(v) => setLoginMethod(v as "email" | "mobile")}
+                className="w-full"
+              >
                 <TabsList className="grid w-full grid-cols-2 mb-4">
                   <TabsTrigger value="email" className="flex items-center gap-1.5">
                     {dnsBlocked ? <Shield className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
-                    {dnsBlocked ? 'Emergency Login' : 'Email OTP'}
+                    {dnsBlocked ? "Emergency Login" : "Email OTP"}
                   </TabsTrigger>
                   <TabsTrigger value="mobile" className="flex items-center gap-1.5">
                     <Smartphone className="h-4 w-4" />
@@ -423,9 +522,13 @@ const Auth: React.FC = () => {
                   </TabsTrigger>
                 </TabsList>
 
-                {dnsBlocked && loginMethod === 'mobile' && (
+                {dnsBlocked && loginMethod === "mobile" && (
                   <div className="mb-3 rounded-md bg-destructive/10 border border-destructive/20 px-3 py-2 text-xs text-muted-foreground">
-                    ⚠️ Mobile OTP may be unavailable due to network issues. Try <button className="underline font-medium text-primary" onClick={() => setLoginMethod('email')}>Emergency Login</button> instead.
+                    ⚠️ Mobile OTP may be unavailable due to network issues. Try{" "}
+                    <button className="underline font-medium text-primary" onClick={() => setLoginMethod("email")}>
+                      Emergency Login
+                    </button>{" "}
+                    instead.
                   </div>
                 )}
 
@@ -435,7 +538,8 @@ const Auth: React.FC = () => {
                     /* Emergency Login Form */
                     <div className="space-y-4">
                       <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
-                        🔐 Network issues detected. Using emergency offline login. Contact your administrator for the emergency access code.
+                        🔐 Network issues detected. Using emergency offline login. Contact your administrator for the
+                        emergency access code.
                       </div>
 
                       <div>
@@ -456,7 +560,7 @@ const Auth: React.FC = () => {
                         <select
                           id="emergency-role"
                           value={emergencyRole}
-                          onChange={(e) => setEmergencyRole(e.target.value as 'admin' | 'manager')}
+                          onChange={(e) => setEmergencyRole(e.target.value as "admin" | "manager")}
                           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
                           <option value="admin">Admin</option>
@@ -502,92 +606,97 @@ const Auth: React.FC = () => {
                   ) : (
                     /* Normal Email OTP Form */
                     <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="email-otp">Email Address</Label>
-                      <Input
-                        id="email-otp"
-                        type="email"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="Enter your email"
-                        required
-                        disabled={otpSent}
-                        autoComplete="email"
-                      />
-                    </div>
+                      <div>
+                        <Label htmlFor="email-otp">Email Address</Label>
+                        <Input
+                          id="email-otp"
+                          type="email"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          placeholder="Enter your email"
+                          required
+                          disabled={otpSent}
+                          autoComplete="email"
+                        />
+                      </div>
 
-                    {!otpSent ? (
-                      <Button type="button" onClick={handleSendOTP} className="w-full" disabled={formLoading || !email}>
-                        {formLoading ? (
-                          <>
-                            <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                            Sending...
-                          </>
-                        ) : (
-                          "Send 6-Digit OTP"
-                        )}
-                      </Button>
-                    ) : (
-                      <>
-                        <div className="space-y-2">
-                          <Label>Enter 6-Digit OTP</Label>
-                          <p className="text-xs text-muted-foreground">OTP sent to {email}</p>
-                          <div className="flex justify-center mt-2">
-                            <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
-                              <InputOTPGroup>
-                                <InputOTPSlot index={0} />
-                                <InputOTPSlot index={1} />
-                                <InputOTPSlot index={2} />
-                                <InputOTPSlot index={3} />
-                                <InputOTPSlot index={4} />
-                                <InputOTPSlot index={5} />
-                              </InputOTPGroup>
-                            </InputOTP>
-                          </div>
-                        </div>
-
+                      {!otpSent ? (
                         <Button
                           type="button"
-                          onClick={() => handleVerifyOTP()}
+                          onClick={handleSendOTP}
                           className="w-full"
-                          disabled={formLoading || otpCode.length !== 6}
+                          disabled={formLoading || !email}
                         >
                           {formLoading ? (
                             <>
                               <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-                              Verifying...
+                              Sending...
                             </>
                           ) : (
-                            "Verify OTP"
+                            "Send 6-Digit OTP"
                           )}
                         </Button>
+                      ) : (
+                        <>
+                          <div className="space-y-2">
+                            <Label>Enter 6-Digit OTP</Label>
+                            <p className="text-xs text-muted-foreground">OTP sent to {email}</p>
+                            <div className="flex justify-center mt-2">
+                              <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
+                                <InputOTPGroup>
+                                  <InputOTPSlot index={0} />
+                                  <InputOTPSlot index={1} />
+                                  <InputOTPSlot index={2} />
+                                  <InputOTPSlot index={3} />
+                                  <InputOTPSlot index={4} />
+                                  <InputOTPSlot index={5} />
+                                </InputOTPGroup>
+                              </InputOTP>
+                            </div>
+                          </div>
 
-                        <div className="text-center space-x-2">
                           <Button
                             type="button"
-                            variant="link"
-                            onClick={() => {
-                              setOtpSent(false);
-                              setOtpCode("");
-                            }}
-                            className="text-sm"
+                            onClick={() => handleVerifyOTP()}
+                            className="w-full"
+                            disabled={formLoading || otpCode.length !== 6}
                           >
-                            Change Email
+                            {formLoading ? (
+                              <>
+                                <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                                Verifying...
+                              </>
+                            ) : (
+                              "Verify OTP"
+                            )}
                           </Button>
 
-                          <Button
-                            type="button"
-                            variant="link"
-                            onClick={handleSendOTP}
-                            disabled={resendCooldown > 0}
-                            className="text-sm"
-                          >
-                            {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend OTP"}
-                          </Button>
-                        </div>
-                      </>
-                    )}
-                  </div>
+                          <div className="text-center space-x-2">
+                            <Button
+                              type="button"
+                              variant="link"
+                              onClick={() => {
+                                setOtpSent(false);
+                                setOtpCode("");
+                              }}
+                              className="text-sm"
+                            >
+                              Change Email
+                            </Button>
+
+                            <Button
+                              type="button"
+                              variant="link"
+                              onClick={handleSendOTP}
+                              disabled={resendCooldown > 0}
+                              className="text-sm"
+                            >
+                              {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : "Resend OTP"}
+                            </Button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   )}
                 </TabsContent>
 
@@ -766,8 +875,8 @@ const Auth: React.FC = () => {
                 }}
                 disabled={isCheckingForUpdates}
               >
-                <RefreshCw className={`h-3 w-3 mr-1 ${isCheckingForUpdates ? 'animate-spin' : ''}`} />
-                {isCheckingForUpdates ? 'Checking...' : 'Check Updates'}
+                <RefreshCw className={`h-3 w-3 mr-1 ${isCheckingForUpdates ? "animate-spin" : ""}`} />
+                {isCheckingForUpdates ? "Checking..." : "Check Updates"}
               </Button>
 
               {isUpdateAvailable && (
@@ -791,7 +900,7 @@ const Auth: React.FC = () => {
             <Button
               variant="link"
               className="text-white/80 hover:text-white text-xs p-0 h-auto"
-              onClick={() => navigate('/help-guide')}
+              onClick={() => navigate("/help-guide")}
             >
               <BookOpen className="h-3 w-3 mr-1" />
               Help Guide
