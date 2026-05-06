@@ -9,7 +9,7 @@ import { useAuth, repairAuthState } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { usePWA } from "@/hooks/usePWA";
 import { useVersionInfo } from "@/hooks/useVersionInfo";
-import { Mail, Download, RefreshCw, Check, Smartphone, BookOpen, ShieldAlert, Shield } from "lucide-react";
+import { Mail, Download, RefreshCw, Check, Smartphone, BookOpen, ShieldAlert, Shield, KeyRound, Eye, EyeOff } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,6 +48,8 @@ const Auth: React.FC = () => {
     sendMobileOTP,
     verifyMobileOTP,
     emergencySignIn,
+    signInWithUsername,
+    signInWithEmail,
     user,
     loading: authLoading,
   } = useAuth();
@@ -63,7 +65,11 @@ const Auth: React.FC = () => {
   const versionInfo = useVersionInfo();
   const isMobile = useIsMobile();
   const [formLoading, setFormLoading] = useState(false);
-  const [loginMethod, setLoginMethod] = useState<"email" | "mobile">("email");
+  const [loginMethod, setLoginMethod] = useState<"email" | "mobile" | "password">("email");
+  // Username/Password state
+  const [pwIdentifier, setPwIdentifier] = useState<string>("");
+  const [pwPassword, setPwPassword] = useState<string>("");
+  const [pwShow, setPwShow] = useState<boolean>(false);
   const [dnsBlocked, setDnsBlocked] = useState(false);
 
   // Email OTP state
@@ -461,6 +467,31 @@ const Auth: React.FC = () => {
     }
   };
 
+  // ========== USERNAME/PASSWORD HANDLER ==========
+  const handlePasswordSignIn = async (e?: React.FormEvent) => {
+    if (e && typeof e.preventDefault === "function") e.preventDefault();
+    if (!pwIdentifier || !pwPassword) {
+      toast({ variant: "destructive", title: "Missing Credentials", description: "Enter username/email and password." });
+      return;
+    }
+    setFormLoading(true);
+    try {
+      const isEmail = pwIdentifier.includes("@");
+      const { error } = isEmail
+        ? await signInWithEmail(pwIdentifier.trim(), pwPassword)
+        : await signInWithUsername(pwIdentifier.trim(), pwPassword);
+      if (error) {
+        toast({ variant: "destructive", title: "Sign-in Failed", description: error.message || "Invalid credentials" });
+        return;
+      }
+      toast({ title: "Signed In", description: "Welcome back!" });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err?.message || "Sign-in failed." });
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
   // While auth is loading, show a loading spinner instead of the login form
   if (authLoading) {
     return (
@@ -504,17 +535,21 @@ const Auth: React.FC = () => {
             <CardContent>
               <Tabs
                 value={loginMethod}
-                onValueChange={(v) => setLoginMethod(v as "email" | "mobile")}
+                onValueChange={(v) => setLoginMethod(v as "email" | "mobile" | "password")}
                 className="w-full"
               >
-                <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsList className="grid w-full grid-cols-3 mb-4">
                   <TabsTrigger value="email" className="flex items-center gap-1.5">
                     {dnsBlocked ? <Shield className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
-                    {dnsBlocked ? "Emergency Login" : "Email OTP"}
+                    {dnsBlocked ? "Emergency" : "Email OTP"}
                   </TabsTrigger>
                   <TabsTrigger value="mobile" className="flex items-center gap-1.5">
                     <Smartphone className="h-4 w-4" />
                     Mobile OTP
+                  </TabsTrigger>
+                  <TabsTrigger value="password" className="flex items-center gap-1.5">
+                    <KeyRound className="h-4 w-4" />
+                    Password
                   </TabsTrigger>
                 </TabsList>
 
@@ -791,6 +826,65 @@ const Auth: React.FC = () => {
                       </>
                     )}
                   </div>
+                </TabsContent>
+
+                {/* Username / Password Tab */}
+                <TabsContent value="password">
+                  <form className="space-y-4" onSubmit={handlePasswordSignIn}>
+                    <div>
+                      <Label htmlFor="pw-identifier">Username or Email</Label>
+                      <Input
+                        id="pw-identifier"
+                        type="text"
+                        value={pwIdentifier}
+                        onChange={(e) => setPwIdentifier(e.target.value)}
+                        placeholder="Enter username or email"
+                        required
+                        autoComplete="username"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="pw-password">Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="pw-password"
+                          type={pwShow ? "text" : "password"}
+                          value={pwPassword}
+                          onChange={(e) => setPwPassword(e.target.value)}
+                          placeholder="Enter password"
+                          required
+                          autoComplete="current-password"
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPwShow((s) => !s)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          tabIndex={-1}
+                          aria-label={pwShow ? "Hide password" : "Show password"}
+                        >
+                          {pwShow ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={formLoading || !pwIdentifier || !pwPassword}
+                    >
+                      {formLoading ? (
+                        <>
+                          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                          Signing in...
+                        </>
+                      ) : (
+                        <>
+                          <KeyRound className="h-4 w-4 mr-2" />
+                          Sign In
+                        </>
+                      )}
+                    </Button>
+                  </form>
                 </TabsContent>
               </Tabs>
             </CardContent>
