@@ -467,6 +467,31 @@ const Auth: React.FC = () => {
     }
   };
 
+  // ========== USERNAME/PASSWORD HANDLER ==========
+  const handlePasswordSignIn = async (e?: React.FormEvent) => {
+    if (e && typeof e.preventDefault === "function") e.preventDefault();
+    if (!pwIdentifier || !pwPassword) {
+      toast({ variant: "destructive", title: "Missing Credentials", description: "Enter username/email and password." });
+      return;
+    }
+    setFormLoading(true);
+    try {
+      const isEmail = pwIdentifier.includes("@");
+      const { error } = isEmail
+        ? await signInWithEmail(pwIdentifier.trim(), pwPassword)
+        : await signInWithUsername(pwIdentifier.trim(), pwPassword);
+      if (error) {
+        toast({ variant: "destructive", title: "Sign-in Failed", description: error.message || "Invalid credentials" });
+        return;
+      }
+      toast({ title: "Signed In", description: "Welcome back!" });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Error", description: err?.message || "Sign-in failed." });
+    } finally {
+      setFormLoading(false);
+    }
+  };
+
   // While auth is loading, show a loading spinner instead of the login form
   if (authLoading) {
     return (
