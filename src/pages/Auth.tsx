@@ -9,7 +9,7 @@ import { useAuth, repairAuthState } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { usePWA } from "@/hooks/usePWA";
 import { useVersionInfo } from "@/hooks/useVersionInfo";
-import { Mail, Download, RefreshCw, Check, Smartphone, BookOpen, ShieldAlert, Shield } from "lucide-react";
+import { Mail, Download, RefreshCw, Check, Smartphone, BookOpen, ShieldAlert, Shield, KeyRound, Eye, EyeOff } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
@@ -48,6 +48,8 @@ const Auth: React.FC = () => {
     sendMobileOTP,
     verifyMobileOTP,
     emergencySignIn,
+    signInWithUsername,
+    signInWithEmail,
     user,
     loading: authLoading,
   } = useAuth();
@@ -63,7 +65,11 @@ const Auth: React.FC = () => {
   const versionInfo = useVersionInfo();
   const isMobile = useIsMobile();
   const [formLoading, setFormLoading] = useState(false);
-  const [loginMethod, setLoginMethod] = useState<"email" | "mobile">("email");
+  const [loginMethod, setLoginMethod] = useState<"email" | "mobile" | "password">("email");
+  // Username/Password state
+  const [pwIdentifier, setPwIdentifier] = useState<string>("");
+  const [pwPassword, setPwPassword] = useState<string>("");
+  const [pwShow, setPwShow] = useState<boolean>(false);
   const [dnsBlocked, setDnsBlocked] = useState(false);
 
   // Email OTP state
