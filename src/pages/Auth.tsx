@@ -827,6 +827,65 @@ const Auth: React.FC = () => {
                     )}
                   </div>
                 </TabsContent>
+
+                {/* Username / Password Tab */}
+                <TabsContent value="password">
+                  <form className="space-y-4" onSubmit={handlePasswordSignIn}>
+                    <div>
+                      <Label htmlFor="pw-identifier">Username or Email</Label>
+                      <Input
+                        id="pw-identifier"
+                        type="text"
+                        value={pwIdentifier}
+                        onChange={(e) => setPwIdentifier(e.target.value)}
+                        placeholder="Enter username or email"
+                        required
+                        autoComplete="username"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="pw-password">Password</Label>
+                      <div className="relative">
+                        <Input
+                          id="pw-password"
+                          type={pwShow ? "text" : "password"}
+                          value={pwPassword}
+                          onChange={(e) => setPwPassword(e.target.value)}
+                          placeholder="Enter password"
+                          required
+                          autoComplete="current-password"
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setPwShow((s) => !s)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                          tabIndex={-1}
+                          aria-label={pwShow ? "Hide password" : "Show password"}
+                        >
+                          {pwShow ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </button>
+                      </div>
+                    </div>
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={formLoading || !pwIdentifier || !pwPassword}
+                    >
+                      {formLoading ? (
+                        <>
+                          <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                          Signing in...
+                        </>
+                      ) : (
+                        <>
+                          <KeyRound className="h-4 w-4 mr-2" />
+                          Sign In
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                </TabsContent>
               </Tabs>
             </CardContent>
           </Card>
