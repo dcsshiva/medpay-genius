@@ -535,17 +535,21 @@ const Auth: React.FC = () => {
             <CardContent>
               <Tabs
                 value={loginMethod}
-                onValueChange={(v) => setLoginMethod(v as "email" | "mobile")}
+                onValueChange={(v) => setLoginMethod(v as "email" | "mobile" | "password")}
                 className="w-full"
               >
-                <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsList className="grid w-full grid-cols-3 mb-4">
                   <TabsTrigger value="email" className="flex items-center gap-1.5">
                     {dnsBlocked ? <Shield className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
-                    {dnsBlocked ? "Emergency Login" : "Email OTP"}
+                    {dnsBlocked ? "Emergency" : "Email OTP"}
                   </TabsTrigger>
                   <TabsTrigger value="mobile" className="flex items-center gap-1.5">
                     <Smartphone className="h-4 w-4" />
                     Mobile OTP
+                  </TabsTrigger>
+                  <TabsTrigger value="password" className="flex items-center gap-1.5">
+                    <KeyRound className="h-4 w-4" />
+                    Password
                   </TabsTrigger>
                 </TabsList>
 
