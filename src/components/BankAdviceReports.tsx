@@ -1319,8 +1319,26 @@ const BankAdviceReports = () => {
                               <p>Regenerate</p>
                             </TooltipContent>
                           </Tooltip>
+
+                          {/* Revert Button (admin only, not reconciled) */}
+                          {userRole === 'admin' && record.reconciliation_status === 'pending' && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9 hover:bg-amber-50 hover:text-amber-600"
+                                  onClick={() => openRevertDialog(record)}
+                                >
+                                  <Undo2 className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Revert to Approval</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
                           
-                          {/* View Details Button */}
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
