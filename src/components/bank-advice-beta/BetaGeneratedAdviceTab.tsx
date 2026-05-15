@@ -52,10 +52,12 @@ export const BetaGeneratedAdviceTab: React.FC = () => {
         supabase
           .from('bank_advice_history')
           .select('*')
+          .eq('is_reverted', false)
           .order('created_at', { ascending: false }),
         supabase
           .from('quick_payment_bank_advice_history')
           .select('*')
+          .eq('is_reverted', false)
           .order('created_at', { ascending: false }),
       ]);
 
