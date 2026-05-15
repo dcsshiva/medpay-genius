@@ -1453,7 +1453,10 @@ const BankAdviceReports = () => {
                               Revert to Approval
                             </DropdownMenuItem>
                           )}
-                          
+
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setSelectedRecord(record);
                               setDetailsDialog(true);
                               fetchPaymentDetails(record);
                             }}
