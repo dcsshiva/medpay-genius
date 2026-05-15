@@ -3,9 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Download, RefreshCw, Eye, FileText, Calendar } from 'lucide-react';
+import { useAuth } from '@/lib/auth';
+import { Download, RefreshCw, Eye, FileText, Calendar, Undo2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateTimeIST } from '@/lib/dateUtils';
 
@@ -34,11 +41,40 @@ interface BankDetailsComparison {
 
 export const BetaGeneratedAdviceTab: React.FC = () => {
   const { toast } = useToast();
+  const { userRole } = useAuth();
   const [records, setRecords] = useState<GeneratedAdvice[]>([]);
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState<string | null>(null);
   const [comparisonDialog, setComparisonDialog] = useState(false);
   const [comparison, setComparison] = useState<BankDetailsComparison[]>([]);
+  const [revertTarget, setRevertTarget] = useState<GeneratedAdvice | null>(null);
+  const [revertReason, setRevertReason] = useState('');
+  const [reverting, setReverting] = useState(false);
+
+  const handleRevert = async () => {
+    if (!revertTarget) return;
+    if (revertReason.trim().length < 5) {
+      toast({ title: 'Reason required', description: 'Min 5 characters.', variant: 'destructive' });
+      return;
+    }
+    setReverting(true);
+    try {
+      const { error } = await supabase.rpc('revert_bank_advice', {
+        p_history_id: revertTarget.id,
+        p_source: revertTarget.payment_source,
+        p_reason: revertReason.trim(),
+      });
+      if (error) throw error;
+      toast({ title: 'Reverted', description: `${revertTarget.filename} sent back for re-generation.` });
+      setRevertTarget(null);
+      setRevertReason('');
+      fetchGeneratedAdvice();
+    } catch (err: any) {
+      toast({ title: 'Revert failed', description: err?.message || 'Error', variant: 'destructive' });
+    } finally {
+      setReverting(false);
+    }
+  };
 
   useEffect(() => {
     fetchGeneratedAdvice();
@@ -52,10 +88,12 @@ export const BetaGeneratedAdviceTab: React.FC = () => {
         supabase
           .from('bank_advice_history')
           .select('*')
+          .eq('is_reverted', false)
           .order('created_at', { ascending: false }),
         supabase
           .from('quick_payment_bank_advice_history')
           .select('*')
+          .eq('is_reverted', false)
           .order('created_at', { ascending: false }),
       ]);
 
@@ -303,6 +341,18 @@ export const BetaGeneratedAdviceTab: React.FC = () => {
                           <RefreshCw className={`h-4 w-4 mr-2 ${regenerating === record.id ? 'animate-spin' : ''}`} />
                           Regenerate
                         </Button>
+
+                        {userRole === 'admin' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => { setRevertTarget(record); setRevertReason(''); }}
+                            className="text-amber-700 hover:text-amber-800 hover:bg-amber-50"
+                          >
+                            <Undo2 className="h-4 w-4 mr-2" />
+                            Revert
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -353,6 +403,44 @@ export const BetaGeneratedAdviceTab: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!revertTarget} onOpenChange={(o) => !reverting && !o && setRevertTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Undo2 className="h-5 w-5 text-amber-600" /> Revert Bank Advice
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  Mark <strong>{revertTarget?.filename}</strong> as reverted and free its{' '}
+                  <strong>{revertTarget?.payment_count}</strong> payment(s) for re-generation?
+                </p>
+                <div>
+                  <Label htmlFor="beta-revert-reason">Reason (min 5 chars)</Label>
+                  <Textarea
+                    id="beta-revert-reason"
+                    value={revertReason}
+                    onChange={(e) => setRevertReason(e.target.value)}
+                    rows={3}
+                    placeholder="Why is this advice being reverted?"
+                  />
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reverting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleRevert(); }}
+              disabled={reverting || revertReason.trim().length < 5}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {reverting ? 'Reverting...' : 'Revert'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

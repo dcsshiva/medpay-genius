@@ -41,8 +41,19 @@ import {
   XCircle,
   AlertCircle,
   MoreVertical,
-  Edit
+  Edit,
+  Undo2
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { formatDateTimeIST, formatDateIST } from '@/lib/dateUtils';
 import { formatCurrency } from '@/lib/currency';
 import { Textarea } from '@/components/ui/textarea';
@@ -100,6 +111,10 @@ const BankAdviceReports = () => {
   const [userProfileId, setUserProfileId] = useState<string | null>(null);
   const [paymentDetails, setPaymentDetails] = useState<any[]>([]);
   const [loadingPaymentDetails, setLoadingPaymentDetails] = useState(false);
+  const [revertDialog, setRevertDialog] = useState(false);
+  const [revertTarget, setRevertTarget] = useState<BankAdviceHistory | null>(null);
+  const [revertReason, setRevertReason] = useState('');
+  const [reverting, setReverting] = useState(false);
 
   // Fetch user's profile ID
   useEffect(() => {
@@ -152,6 +167,7 @@ const BankAdviceReports = () => {
       let doctorQuery = supabase
         .from('bank_advice_history')
         .select('*')
+        .eq('is_reverted', false)
         .order('created_at', { ascending: false });
 
       // Apply date filters
@@ -166,6 +182,7 @@ const BankAdviceReports = () => {
       let quickQuery = supabase
         .from('quick_payment_bank_advice_history')
         .select('*')
+        .eq('is_reverted', false)
         .order('created_at', { ascending: false });
 
       // Apply same date filters
@@ -180,6 +197,7 @@ const BankAdviceReports = () => {
       let staffQuery = supabase
         .from('staff_payment_bank_advice_history')
         .select('*')
+        .eq('is_reverted', false)
         .order('created_at', { ascending: false });
 
       // Apply same date filters
@@ -580,6 +598,50 @@ const BankAdviceReports = () => {
         title: "View Failed",
         description: "Failed to view reconciliation proof"
       });
+    }
+  };
+
+  const openRevertDialog = (record: BankAdviceHistory) => {
+    setRevertTarget(record);
+    setRevertReason('');
+    setRevertDialog(true);
+  };
+
+  const handleRevertConfirm = async () => {
+    if (!revertTarget) return;
+    if (revertReason.trim().length < 5) {
+      toast({
+        variant: 'destructive',
+        title: 'Reason required',
+        description: 'Please provide a reason of at least 5 characters.',
+      });
+      return;
+    }
+    setReverting(true);
+    try {
+      const { data, error } = await supabase.rpc('revert_bank_advice', {
+        p_history_id: revertTarget.id,
+        p_source: revertTarget.payment_source,
+        p_reason: revertReason.trim(),
+      });
+      if (error) throw error;
+      toast({
+        title: 'Bank advice reverted',
+        description: `${revertTarget.filename} sent back. Payments are available for re-generation.`,
+      });
+      setRevertDialog(false);
+      setRevertTarget(null);
+      setRevertReason('');
+      fetchBankAdviceHistory();
+    } catch (err: any) {
+      console.error('Revert error:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Revert failed',
+        description: err?.message || 'Could not revert bank advice.',
+      });
+    } finally {
+      setReverting(false);
     }
   };
 
@@ -1257,8 +1319,26 @@ const BankAdviceReports = () => {
                               <p>Regenerate</p>
                             </TooltipContent>
                           </Tooltip>
+
+                          {/* Revert Button (admin only, not reconciled) */}
+                          {userRole === 'admin' && record.reconciliation_status === 'pending' && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-9 w-9 hover:bg-amber-50 hover:text-amber-600"
+                                  onClick={() => openRevertDialog(record)}
+                                >
+                                  <Undo2 className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Revert to Approval</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
                           
-                          {/* View Details Button */}
                           <Tooltip>
                             <TooltipTrigger asChild>
                               <Button
@@ -1363,7 +1443,17 @@ const BankAdviceReports = () => {
                             <RefreshCw className="h-4 w-4 mr-2" />
                             Regenerate
                           </DropdownMenuItem>
-                          
+
+                          {userRole === 'admin' && record.reconciliation_status === 'pending' && (
+                            <DropdownMenuItem
+                              onClick={() => openRevertDialog(record)}
+                              className="cursor-pointer text-amber-600"
+                            >
+                              <Undo2 className="h-4 w-4 mr-2" />
+                              Revert to Approval
+                            </DropdownMenuItem>
+                          )}
+
                           <DropdownMenuItem
                             onClick={() => {
                               setSelectedRecord(record);
@@ -1720,6 +1810,57 @@ const BankAdviceReports = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Revert Confirmation Dialog */}
+      <AlertDialog open={revertDialog} onOpenChange={(open) => !reverting && setRevertDialog(open)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Undo2 className="h-5 w-5 text-amber-600" />
+              Revert Bank Advice
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  This will mark <strong>{revertTarget?.filename}</strong> as reverted and make
+                  its <strong>{revertTarget?.payment_count}</strong> payment(s) available again
+                  for bank advice generation.
+                </p>
+                <p className="text-amber-700 text-sm">
+                  Use this only if the bank advice was generated by mistake. The action is
+                  audited and cannot be undone.
+                </p>
+                <div>
+                  <Label htmlFor="revert-reason" className="text-foreground">
+                    Reason (required, min 5 chars)
+                  </Label>
+                  <Textarea
+                    id="revert-reason"
+                    value={revertReason}
+                    onChange={(e) => setRevertReason(e.target.value)}
+                    placeholder="Explain why this advice is being reverted..."
+                    className="mt-1"
+                    rows={3}
+                  />
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reverting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleRevertConfirm();
+              }}
+              disabled={reverting || revertReason.trim().length < 5}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {reverting ? 'Reverting...' : 'Revert to Approval'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
