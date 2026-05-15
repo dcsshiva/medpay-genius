@@ -111,6 +111,10 @@ const BankAdviceReports = () => {
   const [userProfileId, setUserProfileId] = useState<string | null>(null);
   const [paymentDetails, setPaymentDetails] = useState<any[]>([]);
   const [loadingPaymentDetails, setLoadingPaymentDetails] = useState(false);
+  const [revertDialog, setRevertDialog] = useState(false);
+  const [revertTarget, setRevertTarget] = useState<BankAdviceHistory | null>(null);
+  const [revertReason, setRevertReason] = useState('');
+  const [reverting, setReverting] = useState(false);
 
   // Fetch user's profile ID
   useEffect(() => {
