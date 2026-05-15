@@ -197,6 +197,7 @@ const BankAdviceReports = () => {
       let staffQuery = supabase
         .from('staff_payment_bank_advice_history')
         .select('*')
+        .eq('is_reverted', false)
         .order('created_at', { ascending: false });
 
       // Apply same date filters
