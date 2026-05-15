@@ -41,8 +41,19 @@ import {
   XCircle,
   AlertCircle,
   MoreVertical,
-  Edit
+  Edit,
+  Undo2
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { formatDateTimeIST, formatDateIST } from '@/lib/dateUtils';
 import { formatCurrency } from '@/lib/currency';
 import { Textarea } from '@/components/ui/textarea';
