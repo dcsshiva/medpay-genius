@@ -341,6 +341,18 @@ export const BetaGeneratedAdviceTab: React.FC = () => {
                           <RefreshCw className={`h-4 w-4 mr-2 ${regenerating === record.id ? 'animate-spin' : ''}`} />
                           Regenerate
                         </Button>
+
+                        {userRole === 'admin' && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => { setRevertTarget(record); setRevertReason(''); }}
+                            className="text-amber-700 hover:text-amber-800 hover:bg-amber-50"
+                          >
+                            <Undo2 className="h-4 w-4 mr-2" />
+                            Revert
+                          </Button>
+                        )}
                       </div>
                     </div>
                   </div>
