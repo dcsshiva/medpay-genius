@@ -403,6 +403,44 @@ export const BetaGeneratedAdviceTab: React.FC = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!revertTarget} onOpenChange={(o) => !reverting && !o && setRevertTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Undo2 className="h-5 w-5 text-amber-600" /> Revert Bank Advice
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>
+                  Mark <strong>{revertTarget?.filename}</strong> as reverted and free its{' '}
+                  <strong>{revertTarget?.payment_count}</strong> payment(s) for re-generation?
+                </p>
+                <div>
+                  <Label htmlFor="beta-revert-reason">Reason (min 5 chars)</Label>
+                  <Textarea
+                    id="beta-revert-reason"
+                    value={revertReason}
+                    onChange={(e) => setRevertReason(e.target.value)}
+                    rows={3}
+                    placeholder="Why is this advice being reverted?"
+                  />
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={reverting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => { e.preventDefault(); handleRevert(); }}
+              disabled={reverting || revertReason.trim().length < 5}
+              className="bg-amber-600 hover:bg-amber-700"
+            >
+              {reverting ? 'Reverting...' : 'Revert'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
