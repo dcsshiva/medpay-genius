@@ -167,6 +167,7 @@ const BankAdviceReports = () => {
       let doctorQuery = supabase
         .from('bank_advice_history')
         .select('*')
+        .eq('is_reverted', false)
         .order('created_at', { ascending: false });
 
       // Apply date filters
