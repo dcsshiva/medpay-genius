@@ -601,6 +601,50 @@ const BankAdviceReports = () => {
     }
   };
 
+  const openRevertDialog = (record: BankAdviceHistory) => {
+    setRevertTarget(record);
+    setRevertReason('');
+    setRevertDialog(true);
+  };
+
+  const handleRevertConfirm = async () => {
+    if (!revertTarget) return;
+    if (revertReason.trim().length < 5) {
+      toast({
+        variant: 'destructive',
+        title: 'Reason required',
+        description: 'Please provide a reason of at least 5 characters.',
+      });
+      return;
+    }
+    setReverting(true);
+    try {
+      const { data, error } = await supabase.rpc('revert_bank_advice', {
+        p_history_id: revertTarget.id,
+        p_source: revertTarget.payment_source,
+        p_reason: revertReason.trim(),
+      });
+      if (error) throw error;
+      toast({
+        title: 'Bank advice reverted',
+        description: `${revertTarget.filename} sent back. Payments are available for re-generation.`,
+      });
+      setRevertDialog(false);
+      setRevertTarget(null);
+      setRevertReason('');
+      fetchBankAdviceHistory();
+    } catch (err: any) {
+      console.error('Revert error:', err);
+      toast({
+        variant: 'destructive',
+        title: 'Revert failed',
+        description: err?.message || 'Could not revert bank advice.',
+      });
+    } finally {
+      setReverting(false);
+    }
+  };
+
   const handleReconciliationUpdate = async () => {
     if (!selectedRecord) return;
 
