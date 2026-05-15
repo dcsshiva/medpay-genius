@@ -3,9 +3,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Download, RefreshCw, Eye, FileText, Calendar } from 'lucide-react';
+import { useAuth } from '@/lib/auth';
+import { Download, RefreshCw, Eye, FileText, Calendar, Undo2 } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
 import { formatDateTimeIST } from '@/lib/dateUtils';
 
