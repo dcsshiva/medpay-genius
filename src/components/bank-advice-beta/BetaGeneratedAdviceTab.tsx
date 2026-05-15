@@ -41,11 +41,40 @@ interface BankDetailsComparison {
 
 export const BetaGeneratedAdviceTab: React.FC = () => {
   const { toast } = useToast();
+  const { userRole } = useAuth();
   const [records, setRecords] = useState<GeneratedAdvice[]>([]);
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState<string | null>(null);
   const [comparisonDialog, setComparisonDialog] = useState(false);
   const [comparison, setComparison] = useState<BankDetailsComparison[]>([]);
+  const [revertTarget, setRevertTarget] = useState<GeneratedAdvice | null>(null);
+  const [revertReason, setRevertReason] = useState('');
+  const [reverting, setReverting] = useState(false);
+
+  const handleRevert = async () => {
+    if (!revertTarget) return;
+    if (revertReason.trim().length < 5) {
+      toast({ title: 'Reason required', description: 'Min 5 characters.', variant: 'destructive' });
+      return;
+    }
+    setReverting(true);
+    try {
+      const { error } = await supabase.rpc('revert_bank_advice', {
+        p_history_id: revertTarget.id,
+        p_source: revertTarget.payment_source,
+        p_reason: revertReason.trim(),
+      });
+      if (error) throw error;
+      toast({ title: 'Reverted', description: `${revertTarget.filename} sent back for re-generation.` });
+      setRevertTarget(null);
+      setRevertReason('');
+      fetchGeneratedAdvice();
+    } catch (err: any) {
+      toast({ title: 'Revert failed', description: err?.message || 'Error', variant: 'destructive' });
+    } finally {
+      setReverting(false);
+    }
+  };
 
   useEffect(() => {
     fetchGeneratedAdvice();
