@@ -177,6 +177,7 @@ export type Database = {
           generated_by: string | null
           generation_date: string
           id: string
+          is_reverted: boolean
           payment_count: number
           payment_ids: Json
           payment_mode: string | null
@@ -186,6 +187,9 @@ export type Database = {
           reconciliation_proof_file_name: string | null
           reconciliation_proof_file_path: string | null
           reconciliation_status: string | null
+          revert_reason: string | null
+          reverted_at: string | null
+          reverted_by: string | null
           total_amount: number
           updated_at: string
         }
@@ -198,6 +202,7 @@ export type Database = {
           generated_by?: string | null
           generation_date?: string
           id?: string
+          is_reverted?: boolean
           payment_count: number
           payment_ids?: Json
           payment_mode?: string | null
@@ -207,6 +212,9 @@ export type Database = {
           reconciliation_proof_file_name?: string | null
           reconciliation_proof_file_path?: string | null
           reconciliation_status?: string | null
+          revert_reason?: string | null
+          reverted_at?: string | null
+          reverted_by?: string | null
           total_amount: number
           updated_at?: string
         }
@@ -219,6 +227,7 @@ export type Database = {
           generated_by?: string | null
           generation_date?: string
           id?: string
+          is_reverted?: boolean
           payment_count?: number
           payment_ids?: Json
           payment_mode?: string | null
@@ -228,6 +237,9 @@ export type Database = {
           reconciliation_proof_file_name?: string | null
           reconciliation_proof_file_path?: string | null
           reconciliation_status?: string | null
+          revert_reason?: string | null
+          reverted_at?: string | null
+          reverted_by?: string | null
           total_amount?: number
           updated_at?: string
         }
@@ -240,6 +252,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      bank_advice_revert_log: {
+        Row: {
+          created_at: string
+          filename: string
+          history_id: string
+          id: string
+          payment_count: number
+          payment_ids: Json
+          payment_source: string
+          reason: string
+          reverted_at: string
+          reverted_by: string
+          total_amount: number
+        }
+        Insert: {
+          created_at?: string
+          filename: string
+          history_id: string
+          id?: string
+          payment_count?: number
+          payment_ids?: Json
+          payment_source: string
+          reason: string
+          reverted_at?: string
+          reverted_by: string
+          total_amount?: number
+        }
+        Update: {
+          created_at?: string
+          filename?: string
+          history_id?: string
+          id?: string
+          payment_count?: number
+          payment_ids?: Json
+          payment_source?: string
+          reason?: string
+          reverted_at?: string
+          reverted_by?: string
+          total_amount?: number
+        }
+        Relationships: []
       }
       branches_master: {
         Row: {
@@ -1508,6 +1562,7 @@ export type Database = {
           generated_by: string | null
           generation_date: string
           id: string
+          is_reverted: boolean
           payment_count: number
           payment_ids: Json
           payment_mode: string | null
@@ -1517,6 +1572,9 @@ export type Database = {
           reconciliation_proof_file_name: string | null
           reconciliation_proof_file_path: string | null
           reconciliation_status: string | null
+          revert_reason: string | null
+          reverted_at: string | null
+          reverted_by: string | null
           total_gross_amount: number
           total_net_amount: number
           total_tds_amount: number
@@ -1531,6 +1589,7 @@ export type Database = {
           generated_by?: string | null
           generation_date?: string
           id?: string
+          is_reverted?: boolean
           payment_count: number
           payment_ids?: Json
           payment_mode?: string | null
@@ -1540,6 +1599,9 @@ export type Database = {
           reconciliation_proof_file_name?: string | null
           reconciliation_proof_file_path?: string | null
           reconciliation_status?: string | null
+          revert_reason?: string | null
+          reverted_at?: string | null
+          reverted_by?: string | null
           total_gross_amount?: number
           total_net_amount?: number
           total_tds_amount?: number
@@ -1554,6 +1616,7 @@ export type Database = {
           generated_by?: string | null
           generation_date?: string
           id?: string
+          is_reverted?: boolean
           payment_count?: number
           payment_ids?: Json
           payment_mode?: string | null
@@ -1563,6 +1626,9 @@ export type Database = {
           reconciliation_proof_file_name?: string | null
           reconciliation_proof_file_path?: string | null
           reconciliation_status?: string | null
+          revert_reason?: string | null
+          reverted_at?: string | null
+          reverted_by?: string | null
           total_gross_amount?: number
           total_net_amount?: number
           total_tds_amount?: number
@@ -2228,6 +2294,7 @@ export type Database = {
           generated_by: string | null
           generation_date: string
           id: string
+          is_reverted: boolean
           payment_count: number
           payment_ids: Json
           payment_mode: string | null
@@ -2237,6 +2304,9 @@ export type Database = {
           reconciliation_proof_file_name: string | null
           reconciliation_proof_file_path: string | null
           reconciliation_status: string | null
+          revert_reason: string | null
+          reverted_at: string | null
+          reverted_by: string | null
           total_amount: number
           updated_at: string
         }
@@ -2249,6 +2319,7 @@ export type Database = {
           generated_by?: string | null
           generation_date?: string
           id?: string
+          is_reverted?: boolean
           payment_count: number
           payment_ids?: Json
           payment_mode?: string | null
@@ -2258,6 +2329,9 @@ export type Database = {
           reconciliation_proof_file_name?: string | null
           reconciliation_proof_file_path?: string | null
           reconciliation_status?: string | null
+          revert_reason?: string | null
+          reverted_at?: string | null
+          reverted_by?: string | null
           total_amount?: number
           updated_at?: string
         }
@@ -2270,6 +2344,7 @@ export type Database = {
           generated_by?: string | null
           generation_date?: string
           id?: string
+          is_reverted?: boolean
           payment_count?: number
           payment_ids?: Json
           payment_mode?: string | null
@@ -2279,6 +2354,9 @@ export type Database = {
           reconciliation_proof_file_name?: string | null
           reconciliation_proof_file_path?: string | null
           reconciliation_status?: string | null
+          revert_reason?: string | null
+          reverted_at?: string | null
+          reverted_by?: string | null
           total_amount?: number
           updated_at?: string
         }
@@ -3824,6 +3902,10 @@ export type Database = {
           _user_type: string
         }
         Returns: undefined
+      }
+      revert_bank_advice: {
+        Args: { p_history_id: string; p_reason: string; p_source: string }
+        Returns: Json
       }
       simple_hash: { Args: { password: string }; Returns: string }
       update_session_activity: { Args: { _token: string }; Returns: undefined }
