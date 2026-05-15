@@ -182,6 +182,7 @@ const BankAdviceReports = () => {
       let quickQuery = supabase
         .from('quick_payment_bank_advice_history')
         .select('*')
+        .eq('is_reverted', false)
         .order('created_at', { ascending: false });
 
       // Apply same date filters
