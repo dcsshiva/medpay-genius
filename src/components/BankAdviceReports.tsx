@@ -1443,10 +1443,17 @@ const BankAdviceReports = () => {
                             <RefreshCw className="h-4 w-4 mr-2" />
                             Regenerate
                           </DropdownMenuItem>
+
+                          {userRole === 'admin' && record.reconciliation_status === 'pending' && (
+                            <DropdownMenuItem
+                              onClick={() => openRevertDialog(record)}
+                              className="cursor-pointer text-amber-600"
+                            >
+                              <Undo2 className="h-4 w-4 mr-2" />
+                              Revert to Approval
+                            </DropdownMenuItem>
+                          )}
                           
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setSelectedRecord(record);
                               setDetailsDialog(true);
                               fetchPaymentDetails(record);
                             }}
