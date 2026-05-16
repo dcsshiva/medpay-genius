@@ -44,6 +44,7 @@ const ChatbotKnowledgeBase = lazy(() => import('@/components/ChatbotKnowledgeBas
 const StaffAttendanceManagement = lazy(() => import('@/components/StaffAttendanceManagement'));
 const AuditTrailViewer = lazy(() => import('@/components/AuditTrailViewer'));
 const VendorPaymentReports = lazy(() => import('@/components/VendorPaymentReports'));
+const QuickPaymentReport = lazy(() => import('@/components/QuickPaymentReport'));
 const StaffSalaryStructure = lazy(() => import('@/components/StaffSalaryStructure'));
 const StaffPayrollGeneration = lazy(() => import('@/components/StaffPayrollGeneration'));
 
@@ -210,6 +211,8 @@ const Index = () => {
           return <StaffAttendanceManagement />;
         case 'vendor-reports':
           return <VendorPaymentReports />;
+        case 'quick-payment-report':
+          return <QuickPaymentReport />;
         case 'audit-trail':
           return <AuditTrailViewer />;
         case 'payroll':
