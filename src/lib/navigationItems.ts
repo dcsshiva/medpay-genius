@@ -121,6 +121,7 @@ export const getNavigationItems = ({
       { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
       { id: 'complaints', label: 'Complaints', icon: MessageCircle },
       { id: 'vendor-reports', label: 'Vendor Reports', icon: FileText },
+      { id: 'quick-payment-report', label: 'Quick Payment Report', icon: FileText },
       { id: 'payroll', label: 'Payroll', icon: Wallet },
       { id: 'chat', label: 'Team Chat', icon: MessageSquare },
     ];
