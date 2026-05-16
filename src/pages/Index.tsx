@@ -211,6 +211,8 @@ const Index = () => {
           return <StaffAttendanceManagement />;
         case 'vendor-reports':
           return <VendorPaymentReports />;
+        case 'quick-payment-report':
+          return <QuickPaymentReport />;
         case 'audit-trail':
           return <AuditTrailViewer />;
         case 'payroll':
