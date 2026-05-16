@@ -44,6 +44,7 @@ const ChatbotKnowledgeBase = lazy(() => import('@/components/ChatbotKnowledgeBas
 const StaffAttendanceManagement = lazy(() => import('@/components/StaffAttendanceManagement'));
 const AuditTrailViewer = lazy(() => import('@/components/AuditTrailViewer'));
 const VendorPaymentReports = lazy(() => import('@/components/VendorPaymentReports'));
+const QuickPaymentReport = lazy(() => import('@/components/QuickPaymentReport'));
 const StaffSalaryStructure = lazy(() => import('@/components/StaffSalaryStructure'));
 const StaffPayrollGeneration = lazy(() => import('@/components/StaffPayrollGeneration'));
 
