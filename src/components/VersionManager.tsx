@@ -132,8 +132,72 @@ const VersionManager = () => {
     }
   };
 
+  const fetchForceUpdateSettings = async () => {
+    setFuLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('app_downloads')
+        .select('id, version, min_required_version, min_required_version_code, force_update_message, force_update_for_roles')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      if (data) {
+        setFuRowId(data.id);
+        setFuActiveVersion(data.version || '');
+        setMinRequiredVersion(data.min_required_version || '');
+        setMinRequiredVersionCode(data.min_required_version_code != null ? String(data.min_required_version_code) : '');
+        setForceUpdateMessage(data.force_update_message || '');
+        setForceUpdateRoles(Array.isArray(data.force_update_for_roles) && data.force_update_for_roles.length
+          ? data.force_update_for_roles
+          : ['doctor']);
+      }
+    } catch (e: any) {
+      console.error('Failed to load force-update settings:', e);
+    } finally {
+      setFuLoading(false);
+    }
+  };
+
+  const saveForceUpdateSettings = async () => {
+    if (!fuRowId) {
+      toast({
+        title: 'No active app download',
+        description: 'Add an active app build first before configuring force update.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setFuSaving(true);
+    try {
+      const { error } = await supabase
+        .from('app_downloads')
+        .update({
+          min_required_version: minRequiredVersion.trim() || null,
+          min_required_version_code: minRequiredVersionCode ? parseInt(minRequiredVersionCode, 10) : null,
+          force_update_message: forceUpdateMessage.trim() || null,
+          force_update_for_roles: forceUpdateRoles.length ? forceUpdateRoles : ['doctor'],
+        })
+        .eq('id', fuRowId);
+      if (error) throw error;
+      toast({ title: 'Saved', description: 'Force-update settings updated.' });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setFuSaving(false);
+    }
+  };
+
+  const toggleRole = (role: string, checked: boolean) => {
+    setForceUpdateRoles((prev) =>
+      checked ? Array.from(new Set([...prev, role])) : prev.filter((r) => r !== role)
+    );
+  };
+
   useEffect(() => {
     fetchVersions();
+    fetchForceUpdateSettings();
   }, []);
 
 
