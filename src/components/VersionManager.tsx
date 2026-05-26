@@ -27,12 +27,24 @@ interface VersionHistory {
   created_by: string;
 }
 
+const ROLE_OPTIONS = ['doctor', 'staff', 'manager', 'admin', 'super_admin'];
+
 const VersionManager = () => {
   const currentVersion = useVersionInfo();
   const { toast } = useToast();
   const [versions, setVersions] = useState<VersionHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+
+  // Force update settings
+  const [fuLoading, setFuLoading] = useState(true);
+  const [fuSaving, setFuSaving] = useState(false);
+  const [fuRowId, setFuRowId] = useState<string | null>(null);
+  const [fuActiveVersion, setFuActiveVersion] = useState<string>('');
+  const [minRequiredVersion, setMinRequiredVersion] = useState('');
+  const [minRequiredVersionCode, setMinRequiredVersionCode] = useState<string>('');
+  const [forceUpdateMessage, setForceUpdateMessage] = useState('');
+  const [forceUpdateRoles, setForceUpdateRoles] = useState<string[]>(['doctor']);
 
   const fetchVersions = async () => {
     try {
