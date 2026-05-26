@@ -100,6 +100,47 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
     }
   }, [isMobile, filterDoctorId, doctors, expandedDoctor]);
 
+  // Realtime: when admin reverts a bank advice (or any payment update), refresh the doctor's view
+  useEffect(() => {
+    if (!filterDoctorId) return;
+    const channel = supabase
+      .channel(`doctor-hub-payments-${filterDoctorId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'payments',
+          filter: `doctor_id=eq.${filterDoctorId}`,
+        },
+        (payload: any) => {
+          const oldRow = payload.old || {};
+          const newRow = payload.new || {};
+          const changed =
+            oldRow.bank_advice_generated !== newRow.bank_advice_generated ||
+            oldRow.is_fully_paid !== newRow.is_fully_paid ||
+            oldRow.status !== newRow.status ||
+            oldRow.paid_amount !== newRow.paid_amount;
+          if (!changed) return;
+          fetchDoctorSummaries();
+          if (expandedDoctor && expandedTab) {
+            handleDoctorClick(expandedDoctor, expandedTab);
+          }
+          if (oldRow.bank_advice_generated === true && newRow.bank_advice_generated === false) {
+            toast({
+              title: 'Payment updated',
+              description: 'A previously paid item has been moved back to pending by admin.',
+            });
+          }
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterDoctorId, expandedDoctor, expandedTab]);
+
   const fetchDoctorSummaries = async () => {
     try {
       setLoading(true);
