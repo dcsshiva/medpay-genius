@@ -243,6 +243,7 @@ const Index = () => {
 
   return (
     <Layout activeTab={activeTab} onTabChange={handleTabChange}>
+      <ForceUpdateGate />
       {renderContent()}
     </Layout>
   );
