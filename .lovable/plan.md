@@ -1,61 +1,79 @@
-# Revert Generated Bank Advice
+## Goal
 
-Allow admins to undo a mistakenly generated bank advice file and send the underlying payments back to the approved-pending-generation state, so they can be re-grouped and re-generated.
+Two related improvements for doctors using the app:
 
-## Where it appears
+1. **Mandatory update gate** — when a new app version is released, doctors are blocked at login until they reload (PWA) or install the latest APK (Android).
+2. **Live Paid tab** — when an admin reverts a bank advice, the doctor's Doctor Hub updates without a manual refresh, so the reverted payment moves from Paid → Unpaid automatically.
 
-- **Bank Advice History** page (current screen — `BankAdviceReports.tsx`)
-- **Beta Generated Advice tab** (`BetaGeneratedAdviceTab.tsx`)
+---
 
-Each row gets a new **Revert** button next to Download / Regenerate / View, shown only to **admin** users and only when:
-- `reconciliation_status` is `pending` (not yet reconciled with bank)
-- File hasn't already been reverted
+## Part 1 — Force update for doctors
 
-## User flow
+### Database
+- Add columns to `app_downloads`:
+  - `min_required_version` (text) — semver string, e.g. `"1.4.0"`
+  - `min_required_version_code` (integer) — for Android APK comparison
+  - `force_update_message` (text, nullable) — shown in the blocking modal
+  - `force_update_for_roles` (text[], default `'{doctor}'`) — which roles must update; defaults to doctors only so other staff aren't impacted today
+- Only admins can update these fields (existing RLS already restricts writes).
+- A public read-only view `latest_required_version` (or just query the active row) so any authenticated user can read the threshold.
 
-1. Admin clicks **Revert** on a generated advice row.
-2. Confirmation dialog: "This will delete the bank advice file and make these N payments available for generation again. Continue?" with mandatory **reason** textarea.
-3. On confirm:
-   - For doctor payments (`payments` table): set `bank_advice_generated = false`, clear `bank_advice_generated_at` / `bank_advice_generated_by`.
-   - For quick payments: same flag reset on `quick_payments`.
-   - Insert an audit row capturing who reverted, when, reason, original filename, payment_ids, total amount.
-   - Delete the row from `bank_advice_history` / `quick_payment_bank_advice_history` (or soft-delete — see decision below).
-4. Toast confirms; list refreshes; the affected payments reappear in **Pending Bank Advice** for re-generation.
+### Admin UI
+- In **Version Manager** (`src/components/VersionManager.tsx`), add fields next to the existing version inputs:
+  - "Minimum required version" + "Minimum required version code"
+  - "Force update message" (textarea)
+  - Multi-select chips for "Force update applies to" (default Doctor)
 
-## Guardrails
+### Frontend gate
+- New hook `useForceUpdateGate()`:
+  - Reads current running version from the existing build-info constants (already injected via Vite define).
+  - Fetches the latest active `app_downloads` row.
+  - Compares running version vs `min_required_version` (and `version_code` when running inside Capacitor).
+  - Returns `{ mustUpdate, message, downloadUrl, isAndroid }`.
+- New blocking component `ForceUpdateGate.tsx` rendered at the top of `src/pages/Index.tsx` (and the doctor mobile entry) — when `mustUpdate && userIsDoctor`, render a full-screen modal that:
+  - Shows the message + new version number
+  - PWA: "Reload now" button → `window.location.reload()` with cache-bust + unregister SW
+  - Android (Capacitor): "Download update" button → opens APK from `app_downloads.file_path`
+  - No dismiss / no close — the modal blocks the rest of the UI
+- Gate runs at login and again whenever the tab regains focus.
 
-- Block revert if `reconciliation_status` ∈ (`confirmed`, `partially_confirmed`) → toast "Cannot revert a reconciled advice."
-- Admin-only (checked via `has_role(auth.uid(), 'admin')`).
-- Reason is required (min 5 chars).
-- All operations wrapped in a Postgres function (`revert_bank_advice`) so partial failures roll back.
+### Notes
+- Only doctors are gated initially (configurable). Admin/manager/staff continue to see the existing non-blocking update prompt.
+- The check is read-only and cheap (one row); cached for 60 s.
 
-## Open decision
+---
 
-**Hard delete vs soft delete the history row?**
-- Hard delete keeps the history clean but loses the file content.
-- Soft delete (add `is_reverted`, `reverted_by`, `reverted_at`, `revert_reason` columns; hide reverted rows by default with a toggle "Show reverted") preserves audit trail.
+## Part 2 — Realtime Paid tab on doctor dashboard
 
-Recommendation: **soft delete** — safer, matches the existing reconciliation audit pattern.
+### Approach
+Use Supabase Postgres realtime on the `payments` table, scoped to the doctor's own rows.
 
-## Technical changes
+### Changes in `src/components/DoctorHub.tsx`
+- When `filterDoctorId` is set, subscribe to a channel on `payments` filtered by `doctor_id=eq.{filterDoctorId}` listening for `UPDATE` events.
+- On any update where `bank_advice_generated` changed (or `is_fully_paid`, `status`), call `fetchDoctorSummaries()` and, if a tab is expanded, re-fetch its detail (`handleDoctorClick(doctorId, expandedTab)`).
+- Tear down the channel on unmount.
+- Add a small toast: "Payment status updated by admin" when an update arrives while the doctor is viewing.
 
 ### Migration
-- Add columns to both history tables: `is_reverted boolean default false`, `reverted_by uuid`, `reverted_at timestamptz`, `revert_reason text`.
-- Create `bank_advice_revert_log` table (filename, payment_ids jsonb, total_amount, source, reverted_by, reason, created_at) with RLS: admin select/insert.
-- Create RPC `public.revert_bank_advice(p_history_id uuid, p_source text, p_reason text)`:
-  - SECURITY DEFINER, checks `has_role(auth.uid(), 'admin')`.
-  - Reads history row, validates `reconciliation_status = 'pending'` and `is_reverted = false`.
-  - Updates underlying payments to clear generation flags.
-  - Marks history row reverted, writes audit log.
-- Filter default queries in both UI tabs with `.eq('is_reverted', false)`.
+- Ensure `payments` is added to the `supabase_realtime` publication (one-line `ALTER PUBLICATION supabase_realtime ADD TABLE public.payments;` if not already).
+- RLS already restricts doctors to their own rows, so the subscription is safe.
 
-### Frontend
-- `BetaGeneratedAdviceTab.tsx`: add Revert button + confirm dialog with reason field; call `supabase.rpc('revert_bank_advice', …)`.
-- `BankAdviceReports.tsx`: same button + dialog inline with existing actions.
-- `BetaPendingPaymentsTab.tsx` / `BankAdviceGeneration.tsx`: no change needed — they already query payments where `bank_advice_generated = false`, so reverted payments resurface automatically.
+### Behavior after revert
+- Admin reverts → `revert_bank_advice` RPC flips `bank_advice_generated = false` on the payment.
+- Doctor's open Doctor Hub receives the realtime UPDATE → Paid total drops, Unpaid total rises, payment row moves between lists automatically — no manual reload needed.
 
-### Files touched
-- New: `supabase/migrations/<ts>_revert_bank_advice.sql`
-- Edit: `src/components/bank-advice-beta/BetaGeneratedAdviceTab.tsx`
-- Edit: `src/components/BankAdviceReports.tsx`
-- New: `src/components/bank-advice-beta/RevertAdviceDialog.tsx` (shared dialog)
+---
+
+## Files
+
+**New**
+- `src/hooks/useForceUpdateGate.tsx`
+- `src/components/ForceUpdateGate.tsx`
+- migration: add columns to `app_downloads`, add `payments` to realtime publication
+
+**Edited**
+- `src/components/VersionManager.tsx` — admin inputs for min required version + message + roles
+- `src/pages/Index.tsx` — mount `<ForceUpdateGate />`
+- `src/components/DoctorHub.tsx` — realtime subscription when `filterDoctorId` is set
+
+No changes to existing payment/revert logic.

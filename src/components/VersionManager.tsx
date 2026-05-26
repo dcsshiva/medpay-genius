@@ -2,13 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useVersionInfo } from '@/hooks/useVersionInfo';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { GitBranch, Clock, Hash, Download, ArrowLeft, RefreshCw, History } from 'lucide-react';
+import { GitBranch, Clock, Hash, Download, ArrowLeft, RefreshCw, History, ShieldAlert, Save } from 'lucide-react';
 import { formatFullDateTimeIST } from '@/lib/dateUtils';
 
 interface VersionHistory {
@@ -23,12 +27,24 @@ interface VersionHistory {
   created_by: string;
 }
 
+const ROLE_OPTIONS = ['doctor', 'staff', 'manager', 'admin', 'super_admin'];
+
 const VersionManager = () => {
   const currentVersion = useVersionInfo();
   const { toast } = useToast();
   const [versions, setVersions] = useState<VersionHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
+
+  // Force update settings
+  const [fuLoading, setFuLoading] = useState(true);
+  const [fuSaving, setFuSaving] = useState(false);
+  const [fuRowId, setFuRowId] = useState<string | null>(null);
+  const [fuActiveVersion, setFuActiveVersion] = useState<string>('');
+  const [minRequiredVersion, setMinRequiredVersion] = useState('');
+  const [minRequiredVersionCode, setMinRequiredVersionCode] = useState<string>('');
+  const [forceUpdateMessage, setForceUpdateMessage] = useState('');
+  const [forceUpdateRoles, setForceUpdateRoles] = useState<string[]>(['doctor']);
 
   const fetchVersions = async () => {
     try {
@@ -116,8 +132,72 @@ const VersionManager = () => {
     }
   };
 
+  const fetchForceUpdateSettings = async () => {
+    setFuLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('app_downloads')
+        .select('id, version, min_required_version, min_required_version_code, force_update_message, force_update_for_roles')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      if (data) {
+        setFuRowId(data.id);
+        setFuActiveVersion(data.version || '');
+        setMinRequiredVersion(data.min_required_version || '');
+        setMinRequiredVersionCode(data.min_required_version_code != null ? String(data.min_required_version_code) : '');
+        setForceUpdateMessage(data.force_update_message || '');
+        setForceUpdateRoles(Array.isArray(data.force_update_for_roles) && data.force_update_for_roles.length
+          ? data.force_update_for_roles
+          : ['doctor']);
+      }
+    } catch (e: any) {
+      console.error('Failed to load force-update settings:', e);
+    } finally {
+      setFuLoading(false);
+    }
+  };
+
+  const saveForceUpdateSettings = async () => {
+    if (!fuRowId) {
+      toast({
+        title: 'No active app download',
+        description: 'Add an active app build first before configuring force update.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setFuSaving(true);
+    try {
+      const { error } = await supabase
+        .from('app_downloads')
+        .update({
+          min_required_version: minRequiredVersion.trim() || null,
+          min_required_version_code: minRequiredVersionCode ? parseInt(minRequiredVersionCode, 10) : null,
+          force_update_message: forceUpdateMessage.trim() || null,
+          force_update_for_roles: forceUpdateRoles.length ? forceUpdateRoles : ['doctor'],
+        })
+        .eq('id', fuRowId);
+      if (error) throw error;
+      toast({ title: 'Saved', description: 'Force-update settings updated.' });
+    } catch (e: any) {
+      toast({ title: 'Error', description: e.message, variant: 'destructive' });
+    } finally {
+      setFuSaving(false);
+    }
+  };
+
+  const toggleRole = (role: string, checked: boolean) => {
+    setForceUpdateRoles((prev) =>
+      checked ? Array.from(new Set([...prev, role])) : prev.filter((r) => r !== role)
+    );
+  };
+
   useEffect(() => {
     fetchVersions();
+    fetchForceUpdateSettings();
   }, []);
 
 
@@ -178,6 +258,73 @@ const VersionManager = () => {
                 Record Current Version
               </Button>
             </div>
+          </div>
+
+          {/* Force Update Settings */}
+          <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4 space-y-4">
+            <div className="flex items-center gap-2">
+              <ShieldAlert className="h-5 w-5 text-destructive" />
+              <h3 className="font-semibold">Force Update Settings</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Users running an app older than the minimum version below will be blocked with an
+              update prompt at login. Currently active app build: <span className="font-mono">{fuActiveVersion || 'none'}</span>
+            </p>
+            {fuLoading ? (
+              <div className="text-sm text-muted-foreground">Loading…</div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="min-version">Minimum required version</Label>
+                    <Input
+                      id="min-version"
+                      placeholder="e.g. 1.4.0"
+                      value={minRequiredVersion}
+                      onChange={(e) => setMinRequiredVersion(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="min-version-code">Minimum version code (Android)</Label>
+                    <Input
+                      id="min-version-code"
+                      type="number"
+                      placeholder="e.g. 14"
+                      value={minRequiredVersionCode}
+                      onChange={(e) => setMinRequiredVersionCode(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="fu-msg">Message shown to users</Label>
+                  <Textarea
+                    id="fu-msg"
+                    rows={3}
+                    placeholder="Please update to continue using the app."
+                    value={forceUpdateMessage}
+                    onChange={(e) => setForceUpdateMessage(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Force update applies to</Label>
+                  <div className="flex flex-wrap gap-3">
+                    {ROLE_OPTIONS.map((role) => (
+                      <label key={role} className="flex items-center gap-2 text-sm capitalize">
+                        <Checkbox
+                          checked={forceUpdateRoles.includes(role)}
+                          onCheckedChange={(c) => toggleRole(role, c === true)}
+                        />
+                        {role.replace('_', ' ')}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <Button onClick={saveForceUpdateSettings} disabled={fuSaving} className="gap-2">
+                  {fuSaving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Save force-update settings
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Version History */}

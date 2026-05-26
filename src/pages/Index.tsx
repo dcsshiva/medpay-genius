@@ -5,6 +5,7 @@ import { useAuth } from '@/lib/auth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import Layout from '@/components/Layout';
 import { LoadingScreen } from '@/components/ui/loading-skeleton';
+import ForceUpdateGate from '@/components/ForceUpdateGate';
 
 // Lazy-loaded components
 const Dashboard = lazy(() => import('@/components/Dashboard'));
@@ -242,6 +243,7 @@ const Index = () => {
 
   return (
     <Layout activeTab={activeTab} onTabChange={handleTabChange}>
+      <ForceUpdateGate />
       {renderContent()}
     </Layout>
   );

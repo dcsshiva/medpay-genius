@@ -21,8 +21,12 @@ export type Database = {
           file_name: string
           file_path: string
           file_size: number | null
+          force_update_for_roles: string[]
+          force_update_message: string | null
           id: string
           is_active: boolean | null
+          min_required_version: string | null
+          min_required_version_code: number | null
           release_notes: string | null
           release_notes_tamil: string | null
           updated_at: string | null
@@ -35,8 +39,12 @@ export type Database = {
           file_name: string
           file_path: string
           file_size?: number | null
+          force_update_for_roles?: string[]
+          force_update_message?: string | null
           id?: string
           is_active?: boolean | null
+          min_required_version?: string | null
+          min_required_version_code?: number | null
           release_notes?: string | null
           release_notes_tamil?: string | null
           updated_at?: string | null
@@ -49,8 +57,12 @@ export type Database = {
           file_name?: string
           file_path?: string
           file_size?: number | null
+          force_update_for_roles?: string[]
+          force_update_message?: string | null
           id?: string
           is_active?: boolean | null
+          min_required_version?: string | null
+          min_required_version_code?: number | null
           release_notes?: string | null
           release_notes_tamil?: string | null
           updated_at?: string | null
