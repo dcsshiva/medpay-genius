@@ -246,32 +246,20 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
     try {
       setPaymentVisitsLoading(prev => new Set(prev).add(paymentId));
 
-      const { data, error } = await supabase
-        .from('payment_visits')
-        .select(`
-          visit_id,
-          visits (
-            id,
-            visit_code,
-            visit_date,
-            patient_name,
-            payment_type,
-            visit_payment,
-            is_processed
-          )
-        `)
-        .eq('payment_id', paymentId);
+      const { data, error } = await (supabase.rpc as any)('get_doctor_payment_visit_details', {
+        _payment_id: paymentId,
+      });
 
       if (error) throw error;
 
-      const visitDetails: PaymentVisitDetail[] = (data || []).map((pv: any) => ({
-        id: pv.visits.id,
-        visit_code: pv.visits.visit_code,
-        visit_date: pv.visits.visit_date,
-        patient_name: pv.visits.patient_name,
-        payment_type: pv.visits.payment_type,
-        visit_payment: pv.visits.visit_payment,
-        status: pv.visits.is_processed ? 'Processed' : 'Pending'
+      const visitDetails: PaymentVisitDetail[] = ((data || []) as any[]).map((v: any) => ({
+        id: v.id,
+        visit_code: v.visit_code,
+        visit_date: v.visit_date,
+        patient_name: v.patient_name,
+        payment_type: v.payment_type,
+        visit_payment: Number(v.visit_payment || 0),
+        status: v.status || 'Processed',
       }));
 
       setPaymentVisitsData(prev => new Map(prev).set(paymentId, visitDetails));
@@ -297,22 +285,15 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
     try {
       setDetailsLoading(true);
 
-      let query = supabase
-        .from('payments')
-        .select('id, period_start, period_end, gross_amount, tds_amount, net_amount, bank_advice_generated_at')
-        .eq('doctor_id', doctorId)
-        .eq('bank_advice_generated', true);
-
-      if (selectedPeriod === 'custom' && customDateRange.start && customDateRange.end) {
-        query = query
-          .gte('period_start', customDateRange.start)
-          .lte('period_end', customDateRange.end);
-      }
-
-      const { data, error } = await query.order('bank_advice_generated_at', { ascending: false });
+      const useCustom = selectedPeriod === 'custom' && customDateRange.start && customDateRange.end;
+      const { data, error } = await (supabase.rpc as any)('get_doctor_paid_payments', {
+        _doctor_id: doctorId,
+        _start: useCustom ? customDateRange.start : null,
+        _end: useCustom ? customDateRange.end : null,
+      });
 
       if (error) throw error;
-      setPaymentHistory(data || []);
+      setPaymentHistory((data || []) as any);
     } catch (error: any) {
       console.error('Error fetching payment history:', error);
       toast({
@@ -329,93 +310,25 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
     try {
       setDetailsLoading(true);
 
-      let query = supabase
-        .from('visits')
-        .select('id, visit_code, visit_date, patient_name, visit_payment, payment_type, is_processed')
-        .eq('doctor_id', doctorId)
-        .eq('is_processed', false);
-
-      if (selectedPeriod === 'custom' && customDateRange.start && customDateRange.end) {
-        query = query
-          .gte('visit_date', customDateRange.start)
-          .lte('visit_date', customDateRange.end);
-      }
-
-      const { data: visitsData, error: visitsError } = await query.order('visit_date', { ascending: false });
-
-      if (visitsError) throw visitsError;
-
-      // Get pending payments (not fully paid, not rejected)
-      const { data: paymentsData, error: paymentsError } = await supabase
-        .from('payments')
-        .select(`
-          id,
-          period_start,
-          period_end,
-          status,
-          is_fully_paid,
-          bank_advice_generated,
-          payment_visits (
-            visit_id,
-            visits (
-              id,
-              visit_code,
-              visit_date,
-              patient_name,
-              visit_payment,
-              payment_type
-            )
-          )
-        `)
-        .eq('doctor_id', doctorId)
-        .eq('is_fully_paid', false)
-        .neq('status', 'rejected')
-        .eq('bank_advice_generated', false);
-
-      if (paymentsError) throw paymentsError;
-
-      // Combine unprocessed visits with visits in pending payments
-      const unprocessedVisitIds = new Set((visitsData || []).map(v => v.id));
-      
-      // Extract visits from pending payments that aren't already in the unprocessed list
-      const pendingPaymentVisitsList: UnpaidVisit[] = [];
-      (paymentsData || []).forEach((payment: any) => {
-        const statusLabel = payment.status === 'pending' ? 'Pending Approval' 
-          : payment.status === 'manager_approved' ? 'Manager Approved'
-          : payment.status === 'admin_approved' ? 'Admin Approved'
-          : 'In Payment';
-        
-        (payment.payment_visits || []).forEach((pv: any) => {
-          if (pv.visits && !unprocessedVisitIds.has(pv.visits.id)) {
-            pendingPaymentVisitsList.push({
-              id: pv.visits.id,
-              visit_code: pv.visits.visit_code,
-              visit_date: pv.visits.visit_date,
-              patient_name: pv.visits.patient_name,
-              visit_payment: pv.visits.visit_payment,
-              payment_type: pv.visits.payment_type,
-              is_processed: true,
-              payment_status: statusLabel,
-            });
-          }
-        });
+      const useCustom = selectedPeriod === 'custom' && customDateRange.start && customDateRange.end;
+      const { data, error } = await (supabase.rpc as any)('get_doctor_unpaid_visits', {
+        _doctor_id: doctorId,
+        _start: useCustom ? customDateRange.start : null,
+        _end: useCustom ? customDateRange.end : null,
       });
 
-      const allUnpaidVisits: UnpaidVisit[] = [
-        ...(visitsData || []).map((v) => ({
-          id: v.id,
-          visit_code: v.visit_code,
-          visit_date: v.visit_date,
-          patient_name: v.patient_name,
-          visit_payment: v.visit_payment,
-          payment_type: v.payment_type,
-          is_processed: v.is_processed,
-          payment_status: 'unprocessed',
-        })),
-        ...pendingPaymentVisitsList,
-      ];
+      if (error) throw error;
 
-      setUnpaidVisits(allUnpaidVisits);
+      setUnpaidVisits(((data || []) as any[]).map((v: any) => ({
+        id: v.id,
+        visit_code: v.visit_code,
+        visit_date: v.visit_date,
+        patient_name: v.patient_name,
+        visit_payment: Number(v.visit_payment || 0),
+        payment_type: v.payment_type,
+        is_processed: v.is_processed,
+        payment_status: v.payment_status,
+      })));
     } catch (error: any) {
       console.error('Error fetching unpaid visits:', error);
       toast({

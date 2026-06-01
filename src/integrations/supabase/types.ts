@@ -3655,6 +3655,18 @@ export type Database = {
           unpaid_visits_count: number
         }[]
       }
+      get_doctor_payment_visit_details: {
+        Args: { _payment_id: string }
+        Returns: {
+          id: string
+          patient_name: string
+          payment_type: string
+          status: string
+          visit_code: string
+          visit_date: string
+          visit_payment: number
+        }[]
+      }
       get_doctor_tds_summary: {
         Args: { _doctor_id?: string; _end_date: string; _start_date: string }
         Returns: {
