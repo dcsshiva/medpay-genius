@@ -246,7 +246,7 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
     try {
       setPaymentVisitsLoading(prev => new Set(prev).add(paymentId));
 
-      const { data, error } = await supabase.rpc('get_doctor_payment_visit_details', {
+      const { data, error } = await (supabase.rpc as any)('get_doctor_payment_visit_details', {
         _payment_id: paymentId,
       });
 
@@ -286,7 +286,7 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
       setDetailsLoading(true);
 
       const useCustom = selectedPeriod === 'custom' && customDateRange.start && customDateRange.end;
-      const { data, error } = await supabase.rpc('get_doctor_paid_payments', {
+      const { data, error } = await (supabase.rpc as any)('get_doctor_paid_payments', {
         _doctor_id: doctorId,
         _start: useCustom ? customDateRange.start : null,
         _end: useCustom ? customDateRange.end : null,
@@ -311,7 +311,7 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
       setDetailsLoading(true);
 
       const useCustom = selectedPeriod === 'custom' && customDateRange.start && customDateRange.end;
-      const { data, error } = await supabase.rpc('get_doctor_unpaid_visits', {
+      const { data, error } = await (supabase.rpc as any)('get_doctor_unpaid_visits', {
         _doctor_id: doctorId,
         _start: useCustom ? customDateRange.start : null,
         _end: useCustom ? customDateRange.end : null,
