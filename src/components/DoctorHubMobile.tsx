@@ -9,6 +9,7 @@ import { ChevronDown, ChevronUp, Clock, Receipt, Calendar, FileText, CheckCircle
 import { formatCurrency } from '@/lib/currency';
 import { formatDateIST } from '@/lib/dateUtils';
 import DoctorHistoryExport from './DoctorHistoryExport';
+import CheckUpdateButton from './CheckUpdateButton';
 
 interface DoctorSummary {
   id: string;
@@ -97,11 +98,16 @@ const DoctorHubMobile: React.FC<DoctorHubMobileProps> = ({
     <div className="min-h-screen bg-background pb-6">
       {/* Header Section */}
       <div className="bg-gradient-to-br from-primary/10 via-primary/5 to-background p-6 space-y-2">
-        <h1 className="text-2xl font-bold text-foreground">My Dashboard</h1>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span className="font-medium">{doctor.doctor_code}</span>
-          <span>•</span>
-          <span>{doctor.full_name}</span>
+        <div className="flex items-start justify-between gap-3">
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold text-foreground">My Dashboard</h1>
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span className="font-medium">{doctor.doctor_code}</span>
+              <span>•</span>
+              <span>{doctor.full_name}</span>
+            </div>
+          </div>
+          <CheckUpdateButton />
         </div>
       </div>
 
