@@ -9,6 +9,7 @@ import { ChevronDown, ChevronUp, Clock, Receipt, Calendar, FileText, CheckCircle
 import { formatCurrency } from '@/lib/currency';
 import { formatDateIST } from '@/lib/dateUtils';
 import DoctorHistoryExport from './DoctorHistoryExport';
+import CheckUpdateButton from './CheckUpdateButton';
 
 interface DoctorSummary {
   id: string;
