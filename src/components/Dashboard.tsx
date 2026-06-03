@@ -200,7 +200,7 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
   };
 
   const renderAdminDashboard = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
       <Card 
         className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
         onClick={() => onTabChange?.('doctors')}
