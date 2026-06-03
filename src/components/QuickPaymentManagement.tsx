@@ -1543,13 +1543,14 @@ const QuickPaymentManagement = () => {
                       <TableHead>TDS</TableHead>
                       <TableHead>Net Amount</TableHead>
                       <TableHead>Bank</TableHead>
+                      <TableHead>Last Advice Generated</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {paginatedPending.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                        <TableCell colSpan={10} className="text-center py-8 text-muted-foreground">
                           No pending payments
                         </TableCell>
                       </TableRow>
@@ -1575,6 +1576,7 @@ const QuickPaymentManagement = () => {
                           <TableCell>{payment.tds_percentage}%</TableCell>
                           <TableCell className="font-semibold">{formatCurrency(payment.net_amount)}</TableCell>
                           <TableCell>{payment.bank_name || '-'}</TableCell>
+                          <TableCell className="text-sm">{payment.bank_advice_generated_at ? formatDateTimeIST(payment.bank_advice_generated_at) : '-'}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex gap-2 justify-end">
                               <Button
