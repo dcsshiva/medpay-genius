@@ -1,59 +1,60 @@
-## Why the tabs are empty
+## Goal
 
-The summary cards work because `get_doctor_hub_summaries` is a **SECURITY DEFINER** RPC — it bypasses RLS and returns Paid (23) / Unpaid (30) for Dr.Manomenane (`abc145bd-…`).
+Make the six Quick Access pages (Quick Payment, Visit Management, Cash Payments, Dashboard, Insurance Payments, Bank Advice Hub) fully usable on phones and tablets when running as an installed PWA / Capacitor app, and tighten the PWA shell so the app behaves correctly on those devices.
 
-When the doctor clicks **Paid / Unpaid / All**, the code hits the tables directly:
+## Scope by page
 
-- `fetchPaymentHistory` → `supabase.from('payments').select(...).eq('doctor_id', …)`
-- `fetchUnpaidVisits` → `supabase.from('visits')` + `supabase.from('payments')`
-- `fetchPaymentVisitDetails` (row expand) → `supabase.from('payment_visits')`
+All six pages currently render the same desktop layout on mobile (tables overflow, dialogs exceed viewport, action buttons too small for touch). Fixes per page:
 
-These rely on RLS policies like `doctor_id IN (SELECT id FROM doctors WHERE user_id = auth.uid())`. Mobile OTP login has two paths in `src/lib/auth.tsx`:
+1. **Quick Payment Management** (`QuickPaymentManagement.tsx`)
+   - Wrap every `<Table>` in a horizontally scrollable container (`overflow-x-auto -mx-4 px-4`), pin column min-widths.
+   - On `<md`, render Pending Payments and Generated Advice rows as stacked Cards instead of table rows.
+   - Convert top action bar (filters, search, generate button) from inline row to wrap/stack with full-width controls on mobile.
+   - Resize dialogs: `max-w-2xl` → `w-[95vw] max-w-2xl` and `max-h-[90vh]` already present; switch nested forms to single column on mobile.
+   - Bump icon-only action buttons to `min-h-11 min-w-11` (44px touch target).
 
-1. Magic-link `verifyOtp` → real Supabase session → `auth.uid()` valid → RLS allows.
-2. Fallback "mock session" with our own `session_token` (lines 833–874) → **`auth.uid()` is NULL** → RLS returns 0 rows silently → tabs show "No paid payments" / "No unpaid visits" even though counts are 23/30.
+2. **Visit Management** (`VisitManagement.tsx`)
+   - Same table → card pattern for the visit list on `<md`.
+   - Tab strip becomes horizontally scrollable (`overflow-x-auto`).
+   - Filter row stacks vertically on mobile, doctor/date pickers full-width.
 
-Dr.Manomenane is on path 2, so all direct table reads come back empty. No error is raised — just empty arrays.
+3. **Cash Payments** + **Insurance Payments** (lite wrappers)
+   - Both are 17-line wrappers; the heavy work is in `CashPaymentManagement` / `InsurancePaymentManagement`. Apply the same table-wrap + card-on-mobile + touch-target rules there.
 
-## Fix
+4. **Dashboard** (`Dashboard.tsx`)
+   - Stats grid: ensure `grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4` (verify current values, tighten gaps).
+   - Make stat cards tap-targets (full-width on mobile, comfortable padding).
+   - Reduce header/card title sizes on mobile via `text-base md:text-lg`.
 
-Mirror the summary pattern: serve doctor detail data through SECURITY DEFINER RPCs so it works regardless of how the session was established.
+5. **Bank Advice Hub** (`BankAdviceGeneration.tsx` + related Reports views)
+   - Table → card list on mobile for both the generation queue and the history list.
+   - Bank/date filter bar wraps; "Generate Advice" stays as full-width primary on mobile.
+   - File preview dialog: `w-[95vw]` and `overflow-auto`.
 
-### 1. New DB functions (single migration, all `SECURITY DEFINER`, `search_path = public`)
+## Shared infrastructure (small, reusable)
 
-- `get_doctor_paid_payments(_doctor_id uuid, _start date default null, _end date default null)`
-  Returns `id, period_start, period_end, gross_amount, tds_amount, net_amount, bank_advice_generated_at` for `doctor_id = _doctor_id AND bank_advice_generated = true`, optional period filter, ordered by `bank_advice_generated_at desc`.
+- Add a `ResponsiveTable` wrapper component (`src/components/ui/responsive-table.tsx`) that renders children as a horizontally scrollable table on `≥md` and exposes a `mobileCardRender` prop to render the same row data as a Card on `<md`. Use it in all six pages instead of repeating the pattern.
+- Add `safe-area` padding utilities in `index.css` (`pt-safe`, `pb-safe`) using `env(safe-area-inset-*)` so the mobile header and footer clear the iOS notch / Android nav bar inside the Capacitor app.
+- Update `Layout.tsx`:
+  - Mobile branch (`md:hidden`) currently uses `p-4` only — add `pb-safe` and a bottom spacer so floating elements (AI chatbot FAB, VersionDisplay) don't cover content.
+  - Ensure `MobileHeader` uses `pt-safe`.
 
-- `get_doctor_unpaid_visits(_doctor_id uuid, _start date default null, _end date default null)`
-  Returns a unified row set with columns matching the existing `UnpaidVisit` shape (`id, visit_code, visit_date, patient_name, visit_payment, payment_type, is_processed, payment_status`) combining:
-  - Unprocessed visits (`visits.is_processed = false`), `payment_status = 'unprocessed'`.
-  - Visits inside non-released, non-rejected payments (`is_fully_paid = false AND status <> 'rejected' AND bank_advice_generated = false`), `payment_status` derived from `payments.status` (Pending Approval / Manager Approved / Admin Approved / In Payment) and de-duplicated against the unprocessed set.
+## PWA shell
 
-- `get_doctor_payment_visit_details(_payment_id uuid)`
-  Returns `id, visit_code, visit_date, patient_name, payment_type, visit_payment, status` for visits in a given payment. Internally verifies the payment exists; relies on caller already knowing the payment id (which only came back from the paid-payments RPC for that doctor).
-
-All three: `GRANT EXECUTE ... TO authenticated, anon;` (anon used because fallback mock sessions are effectively anon to PostgREST).
-
-### 2. Frontend (`src/components/DoctorHub.tsx`)
-
-- Replace the body of `fetchPaymentHistory` with `supabase.rpc('get_doctor_paid_payments', { _doctor_id: doctorId, _start, _end })`.
-- Replace the body of `fetchUnpaidVisits` with a single `supabase.rpc('get_doctor_unpaid_visits', …)` and drop the in-JS dedupe/merge (now done in SQL).
-- Replace `fetchPaymentVisitDetails` to use `supabase.rpc('get_doctor_payment_visit_details', { _payment_id })`.
-- Keep all existing state, toggling, realtime subscription, mobile/desktop branches, export hook — only the data source changes.
-
-### 3. Regenerated types
-
-`src/integrations/supabase/types.ts` will pick up the three new RPCs automatically (no manual edit).
-
-## Out of scope
-
-- No changes to RLS policies, no changes to `payments` / `visits` / `payment_visits` grants.
-- No change to the OTP login flow — keeping the fallback path intact, just making detail reads independent of `auth.uid()`.
-- No UI/layout changes.
+- `index.html`: confirm `<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">` (add `viewport-fit=cover` if missing) and `<meta name="theme-color" content="#e8f3eb">` matching the splash background.
+- `manifest.webmanifest` / vite-plugin-pwa config: verify `display: standalone`, `orientation: any`, correct `start_url`, and icons for 192/512/maskable. No service-worker behaviour changes (existing CacheFirst-excluding-supabase strategy per project memory stays).
+- Capacitor `StatusBar` already configured; no change.
 
 ## Verification
 
-1. Log in as Dr.Manomenane on mobile → All / Paid / Unpaid tabs populate with rows matching the 23 / 30 counts.
-2. Expand a paid row → visit details appear.
-3. Admin reverts a bank advice → realtime listener still fires, row moves from Paid to Unpaid.
-4. Admin / manager Doctor Hub view still works (same RPCs, same data).
+For each of the six pages, run through the preview at three viewports (375×812 phone, 768×1024 tablet, 1280 desktop) and confirm:
+- No horizontal page scroll on phone (only the table strip scrolls).
+- All primary buttons reachable with thumb; 44px min tap area.
+- Dialogs fit inside viewport with internal scroll.
+- Desktop layout visually unchanged.
+
+## Out of scope
+
+- No business logic / data changes.
+- No new offline behaviour beyond what's already in the service worker.
+- No redesign of the sidebar or AI chatbot.
