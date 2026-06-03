@@ -1576,6 +1576,7 @@ const QuickPaymentManagement = () => {
                           <TableCell>{payment.tds_percentage}%</TableCell>
                           <TableCell className="font-semibold">{formatCurrency(payment.net_amount)}</TableCell>
                           <TableCell>{payment.bank_name || '-'}</TableCell>
+                          <TableCell className="text-sm">{payment.bank_advice_generated_at ? formatDateTimeIST(payment.bank_advice_generated_at) : '-'}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex gap-2 justify-end">
                               <Button
