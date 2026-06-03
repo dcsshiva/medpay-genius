@@ -1543,6 +1543,7 @@ const QuickPaymentManagement = () => {
                       <TableHead>TDS</TableHead>
                       <TableHead>Net Amount</TableHead>
                       <TableHead>Bank</TableHead>
+                      <TableHead>Last Advice Generated</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
