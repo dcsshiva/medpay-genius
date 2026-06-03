@@ -200,7 +200,7 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
   };
 
   const renderAdminDashboard = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
       <Card 
         className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
         onClick={() => onTabChange?.('doctors')}
@@ -400,7 +400,7 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
   );
 
   const renderManagerDashboard = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6">
       <Card 
         className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
         onClick={() => onTabChange?.('doctors')}
@@ -488,7 +488,7 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
   );
 
   const renderStaffDashboard = () => (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
       <Card 
         className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
         onClick={() => onTabChange?.('tasks')}
@@ -520,7 +520,7 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
   );
 
   const renderDoctorDashboard = () => (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
       <Card 
         className="cursor-pointer hover:shadow-lg transition-shadow duration-200 hover:border-primary/50"
         onClick={() => onTabChange?.('visits')}
@@ -569,7 +569,7 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
           {[1, 2, 3].map((i) => (
             <Card key={i}>
               <CardContent className="p-6">

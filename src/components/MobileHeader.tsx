@@ -26,7 +26,7 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <header className="bg-card border-b border-border shadow-sm md:hidden">
+    <header className="bg-card border-b border-border shadow-sm md:hidden pt-safe sticky top-0 z-40">
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center space-x-3">
           <img src={westmedLogo} alt="WestMed Hospital" className="h-6 w-6" />

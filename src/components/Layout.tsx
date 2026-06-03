@@ -104,8 +104,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
           </div>
 
           {/* Mobile Content - fallback for old mobile behavior */}
-          <div className="md:hidden">
-            <main className="p-4">
+          <div className="md:hidden pl-safe pr-safe">
+            <main className="p-4 pb-24 pb-safe min-h-[calc(100dvh-3.5rem)]">
               {children}
             </main>
           </div>
