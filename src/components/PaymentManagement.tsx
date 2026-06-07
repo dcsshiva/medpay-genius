@@ -3540,6 +3540,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                 showBankAdviceCheckbox={true}
                 selectedPayments={selectedPaymentsForBankAdvice}
                 onSelectPayment={handleSelectPaymentForBankAdvice}
+                expandPatientsByDefault={searchTerm.trim().length > 0 && (searchFilter === 'doctor_name' || searchFilter === 'doctor_code' || searchFilter === 'all')}
               />
               
               {fullyPaidPayments.length === 0 && (
