@@ -267,9 +267,72 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
     return actions;
   };
 
+  // Patient detail right-side Sheet (shared by mobile + desktop views)
+  const patientSheetEl = (
+    <Sheet open={patientSheet.open} onOpenChange={(open) => setPatientSheet((s) => ({ ...s, open }))}>
+      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle className="break-words">{patientSheet.patientName || 'Patient'}</SheetTitle>
+          <SheetDescription>
+            Doctor: <span className="font-medium text-foreground">{patientSheet.doctorName}</span>
+          </SheetDescription>
+        </SheetHeader>
+        <div className="mt-4 space-y-3">
+          {patientSheet.loading ? (
+            <div className="text-sm text-muted-foreground py-8 text-center">Loading details…</div>
+          ) : patientSheet.visits.length === 0 ? (
+            <div className="text-sm text-muted-foreground py-8 text-center">No visit details found for this patient.</div>
+          ) : (
+            patientSheet.visits.map((v: any, i: number) => (
+              <Card key={i}>
+                <CardContent className="p-3 space-y-2 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <Badge variant="secondary" className={v.payment_type === 'cash'
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300'
+                      : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'}>
+                      {v.payment_type === 'cash' ? 'Cash' : 'Insurance'}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {v.visit_date ? formatDateIST(v.visit_date) : '—'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <div className="text-muted-foreground">Amount</div>
+                      <div className="font-semibold text-primary">{formatCurrency(v.visit_payment || 0)}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Patients</div>
+                      <div className="font-medium">{v.patient_count ?? 1}</div>
+                    </div>
+                    {v.company_name && (
+                      <div className="col-span-2">
+                        <div className="text-muted-foreground">Insurance Company</div>
+                        <div className="font-medium break-words">{v.company_name}</div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+          {!patientSheet.loading && patientSheet.visits.length > 0 && (
+            <div className="border-t pt-3 flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Total</span>
+              <span className="font-semibold text-primary">
+                {formatCurrency(patientSheet.visits.reduce((s: number, v: any) => s + (v.visit_payment || 0), 0))}
+              </span>
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+
   // Mobile Card View
   if (isMobile) {
     return (
+      <>
       <div className="space-y-3">
         {sortedPayments.length === 0 ? (
           <div className="text-center text-muted-foreground py-8">No payments found</div>
