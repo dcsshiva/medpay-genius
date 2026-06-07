@@ -3378,6 +3378,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
               showApprovalCheckbox={(userRole === 'admin' || userRole === 'manager')}
               selectedForApproval={selectedForApproval}
               onSelectForApproval={handleSelectForApproval}
+              expandPatientsByDefault={searchTerm.trim().length > 0 && (searchFilter === 'doctor_name' || searchFilter === 'doctor_code' || searchFilter === 'all')}
             />
             
             {waitingForApprovalPayments.length === 0 && !loading && (
