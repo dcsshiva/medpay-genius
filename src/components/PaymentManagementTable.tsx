@@ -127,6 +127,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   showApprovalCheckbox,
   selectedForApproval,
   onSelectForApproval,
+  expandPatientsByDefault = false,
 }) => {
   const isMobile = useIsMobile();
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'discharge_date', direction: 'asc' });
