@@ -933,6 +933,8 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
         </Table>
       </div>
     </TooltipProvider>
+    {patientSheetEl}
+    </>
   );
 };
 
