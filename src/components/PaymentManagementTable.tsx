@@ -139,9 +139,46 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   expandPatientsByDefault = false,
 }) => {
   const isMobile = useIsMobile();
+  const { user, userRole } = useAuth();
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'discharge_date', direction: 'asc' });
   const [expandedPatients, setExpandedPatients] = useState<Set<string>>(new Set());
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+
+  // Patient detail side-sheet state
+  const [patientSheet, setPatientSheet] = useState<{
+    open: boolean;
+    patientName: string;
+    doctorName: string;
+    loading: boolean;
+    visits: any[];
+  }>({ open: false, patientName: '', doctorName: '', loading: false, visits: [] });
+
+  const openPatientSheet = async (payment: Payment, patientName: string) => {
+    setPatientSheet({
+      open: true,
+      patientName,
+      doctorName: payment.doctors?.profiles?.full_name || 'Unknown',
+      loading: true,
+      visits: [],
+    });
+    try {
+      const userId = userRole === 'doctor'
+        ? ((user as any)?.user_metadata?.auth_user_id || user?.id)
+        : user?.id;
+      const { data, error } = await supabase.rpc('get_payment_visits', {
+        _payment_id: payment.id,
+        _user_id: userId,
+      });
+      if (error) throw error;
+      const filtered = (data || []).filter(
+        (v: any) => (v.patient_name || '').trim().toLowerCase() === patientName.trim().toLowerCase()
+      );
+      setPatientSheet((s) => ({ ...s, loading: false, visits: filtered }));
+    } catch (e) {
+      console.error('Error fetching patient visits:', e);
+      setPatientSheet((s) => ({ ...s, loading: false, visits: [] }));
+    }
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
