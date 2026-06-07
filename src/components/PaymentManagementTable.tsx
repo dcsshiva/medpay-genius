@@ -46,6 +46,15 @@ import {
 import { formatCurrency } from '@/lib/currency';
 import { formatDateIST } from '@/lib/dateUtils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/lib/auth';
 
 interface Payment {
   id: string;
@@ -130,9 +139,46 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   expandPatientsByDefault = false,
 }) => {
   const isMobile = useIsMobile();
+  const { user } = useAuth();
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'discharge_date', direction: 'asc' });
   const [expandedPatients, setExpandedPatients] = useState<Set<string>>(new Set());
   const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+
+  // Patient detail side-sheet state
+  const [patientSheet, setPatientSheet] = useState<{
+    open: boolean;
+    patientName: string;
+    doctorName: string;
+    loading: boolean;
+    visits: any[];
+  }>({ open: false, patientName: '', doctorName: '', loading: false, visits: [] });
+
+  const openPatientSheet = async (payment: Payment, patientName: string) => {
+    setPatientSheet({
+      open: true,
+      patientName,
+      doctorName: payment.doctors?.profiles?.full_name || 'Unknown',
+      loading: true,
+      visits: [],
+    });
+    try {
+      const userId = userRole === 'doctor'
+        ? ((user as any)?.user_metadata?.auth_user_id || user?.id)
+        : user?.id;
+      const { data, error } = await supabase.rpc('get_payment_visits', {
+        _payment_id: payment.id,
+        _user_id: userId,
+      });
+      if (error) throw error;
+      const filtered = (data || []).filter(
+        (v: any) => (v.patient_name || '').trim().toLowerCase() === patientName.trim().toLowerCase()
+      );
+      setPatientSheet((s) => ({ ...s, loading: false, visits: filtered }));
+    } catch (e) {
+      console.error('Error fetching patient visits:', e);
+      setPatientSheet((s) => ({ ...s, loading: false, visits: [] }));
+    }
+  };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -221,9 +267,72 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
     return actions;
   };
 
+  // Patient detail right-side Sheet (shared by mobile + desktop views)
+  const patientSheetEl = (
+    <Sheet open={patientSheet.open} onOpenChange={(open) => setPatientSheet((s) => ({ ...s, open }))}>
+      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle className="break-words">{patientSheet.patientName || 'Patient'}</SheetTitle>
+          <SheetDescription>
+            Doctor: <span className="font-medium text-foreground">{patientSheet.doctorName}</span>
+          </SheetDescription>
+        </SheetHeader>
+        <div className="mt-4 space-y-3">
+          {patientSheet.loading ? (
+            <div className="text-sm text-muted-foreground py-8 text-center">Loading details…</div>
+          ) : patientSheet.visits.length === 0 ? (
+            <div className="text-sm text-muted-foreground py-8 text-center">No visit details found for this patient.</div>
+          ) : (
+            patientSheet.visits.map((v: any, i: number) => (
+              <Card key={i}>
+                <CardContent className="p-3 space-y-2 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <Badge variant="secondary" className={v.payment_type === 'cash'
+                      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300'
+                      : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'}>
+                      {v.payment_type === 'cash' ? 'Cash' : 'Insurance'}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {v.visit_date ? formatDateIST(v.visit_date) : '—'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <div className="text-muted-foreground">Amount</div>
+                      <div className="font-semibold text-primary">{formatCurrency(v.visit_payment || 0)}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Patients</div>
+                      <div className="font-medium">{v.patient_count ?? 1}</div>
+                    </div>
+                    {v.company_name && (
+                      <div className="col-span-2">
+                        <div className="text-muted-foreground">Insurance Company</div>
+                        <div className="font-medium break-words">{v.company_name}</div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
+          {!patientSheet.loading && patientSheet.visits.length > 0 && (
+            <div className="border-t pt-3 flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Total</span>
+              <span className="font-semibold text-primary">
+                {formatCurrency(patientSheet.visits.reduce((s: number, v: any) => s + (v.visit_payment || 0), 0))}
+              </span>
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+
   // Mobile Card View
   if (isMobile) {
     return (
+      <>
       <div className="space-y-3">
         {sortedPayments.length === 0 ? (
           <div className="text-center text-muted-foreground py-8">No payments found</div>
@@ -362,8 +471,22 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                         {/* Patient Names */}
                         {payment.patient_names && payment.patient_names.length > 0 && (
                           <div>
-                            <span className="text-muted-foreground">Patients: </span>
-                            <span>{expandPatientsByDefault ? payment.patient_names.join(', ') : `${payment.patient_names.slice(0, 3).join(', ')}${payment.patient_names.length > 3 ? ` +${payment.patient_names.length - 3}` : ''}`}</span>
+                            <div className="text-muted-foreground mb-1">Patients:</div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {(expandPatientsByDefault ? payment.patient_names : payment.patient_names.slice(0, 3)).map((name, i) => (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  className="text-xs text-primary underline-offset-2 hover:underline"
+                                  onClick={() => openPatientSheet(payment, name)}
+                                >
+                                  {name}
+                                </button>
+                              ))}
+                              {!expandPatientsByDefault && payment.patient_names.length > 3 && (
+                                <span className="text-xs text-muted-foreground">+{payment.patient_names.length - 3}</span>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
@@ -375,11 +498,14 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
           })
         )}
       </div>
+      {patientSheetEl}
+      </>
     );
   }
 
   // Desktop Table View
   return (
+    <>
     <TooltipProvider>
       <div className="rounded-md border">
         <Table>
@@ -484,9 +610,15 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                           ? payment.patient_names 
                           : payment.patient_names.slice(0, 2)
                         ).map((name, idx) => (
-                          <div key={idx} className="text-sm truncate" title={name}>
+                          <button
+                            key={idx}
+                            type="button"
+                            className="text-sm truncate text-left w-full text-primary hover:underline focus:outline-none focus:underline"
+                            title={`View details for ${name}`}
+                            onClick={() => openPatientSheet(payment, name)}
+                          >
                             {name}
-                          </div>
+                          </button>
                         ))}
                         {!expandPatientsByDefault && payment.patient_names.length > 2 && (
                           <Badge 
@@ -801,6 +933,8 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
         </Table>
       </div>
     </TooltipProvider>
+    {patientSheetEl}
+    </>
   );
 };
 
