@@ -530,9 +530,15 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                           ? payment.patient_names 
                           : payment.patient_names.slice(0, 2)
                         ).map((name, idx) => (
-                          <div key={idx} className="text-sm truncate" title={name}>
+                          <button
+                            key={idx}
+                            type="button"
+                            className="text-sm truncate text-left w-full text-primary hover:underline focus:outline-none focus:underline"
+                            title={`View details for ${name}`}
+                            onClick={() => openPatientSheet(payment, name)}
+                          >
                             {name}
-                          </div>
+                          </button>
                         ))}
                         {!expandPatientsByDefault && payment.patient_names.length > 2 && (
                           <Badge 
