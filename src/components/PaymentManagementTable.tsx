@@ -46,6 +46,15 @@ import {
 import { formatCurrency } from '@/lib/currency';
 import { formatDateIST } from '@/lib/dateUtils';
 import { useIsMobile } from '@/hooks/use-mobile';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/lib/auth';
 
 interface Payment {
   id: string;
