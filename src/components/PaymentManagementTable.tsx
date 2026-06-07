@@ -106,6 +106,7 @@ interface PaymentManagementTableProps {
   showApprovalCheckbox?: boolean;
   selectedForApproval?: Set<string>;
   onSelectForApproval?: (paymentId: string, checked: boolean) => void;
+  expandPatientsByDefault?: boolean;
 }
 
 const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
@@ -126,6 +127,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
   showApprovalCheckbox,
   selectedForApproval,
   onSelectForApproval,
+  expandPatientsByDefault = false,
 }) => {
   const isMobile = useIsMobile();
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>({ key: 'discharge_date', direction: 'asc' });
@@ -361,7 +363,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                         {payment.patient_names && payment.patient_names.length > 0 && (
                           <div>
                             <span className="text-muted-foreground">Patients: </span>
-                            <span>{payment.patient_names.slice(0, 3).join(', ')}{payment.patient_names.length > 3 ? ` +${payment.patient_names.length - 3}` : ''}</span>
+                            <span>{expandPatientsByDefault ? payment.patient_names.join(', ') : `${payment.patient_names.slice(0, 3).join(', ')}${payment.patient_names.length > 3 ? ` +${payment.patient_names.length - 3}` : ''}`}</span>
                           </div>
                         )}
                       </div>
@@ -478,7 +480,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                   <div className="space-y-1 max-w-[200px]">
                     {payment.patient_names && payment.patient_names.length > 0 ? (
                       <>
-                        {(expandedPatients.has(payment.id) 
+                        {((expandPatientsByDefault || expandedPatients.has(payment.id))
                           ? payment.patient_names 
                           : payment.patient_names.slice(0, 2)
                         ).map((name, idx) => (
@@ -486,7 +488,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                             {name}
                           </div>
                         ))}
-                        {payment.patient_names.length > 2 && (
+                        {!expandPatientsByDefault && payment.patient_names.length > 2 && (
                           <Badge 
                             variant="secondary" 
                             className="text-xs cursor-pointer hover:bg-secondary/80"
