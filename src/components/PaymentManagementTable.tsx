@@ -408,8 +408,22 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                         {/* Patient Names */}
                         {payment.patient_names && payment.patient_names.length > 0 && (
                           <div>
-                            <span className="text-muted-foreground">Patients: </span>
-                            <span>{expandPatientsByDefault ? payment.patient_names.join(', ') : `${payment.patient_names.slice(0, 3).join(', ')}${payment.patient_names.length > 3 ? ` +${payment.patient_names.length - 3}` : ''}`}</span>
+                            <div className="text-muted-foreground mb-1">Patients:</div>
+                            <div className="flex flex-wrap gap-1.5">
+                              {(expandPatientsByDefault ? payment.patient_names : payment.patient_names.slice(0, 3)).map((name, i) => (
+                                <button
+                                  key={i}
+                                  type="button"
+                                  className="text-xs text-primary underline-offset-2 hover:underline"
+                                  onClick={() => openPatientSheet(payment, name)}
+                                >
+                                  {name}
+                                </button>
+                              ))}
+                              {!expandPatientsByDefault && payment.patient_names.length > 3 && (
+                                <span className="text-xs text-muted-foreground">+{payment.patient_names.length - 3}</span>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>
