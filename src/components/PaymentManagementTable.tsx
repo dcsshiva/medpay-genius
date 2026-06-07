@@ -106,6 +106,7 @@ interface PaymentManagementTableProps {
   showApprovalCheckbox?: boolean;
   selectedForApproval?: Set<string>;
   onSelectForApproval?: (paymentId: string, checked: boolean) => void;
+  expandPatientsByDefault?: boolean;
 }
 
 const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
