@@ -363,7 +363,7 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
                         {payment.patient_names && payment.patient_names.length > 0 && (
                           <div>
                             <span className="text-muted-foreground">Patients: </span>
-                            <span>{payment.patient_names.slice(0, 3).join(', ')}{payment.patient_names.length > 3 ? ` +${payment.patient_names.length - 3}` : ''}</span>
+                            <span>{expandPatientsByDefault ? payment.patient_names.join(', ') : `${payment.patient_names.slice(0, 3).join(', ')}${payment.patient_names.length > 3 ? ` +${payment.patient_names.length - 3}` : ''}`}</span>
                           </div>
                         )}
                       </div>
