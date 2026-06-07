@@ -498,11 +498,14 @@ const PaymentManagementTable: React.FC<PaymentManagementTableProps> = ({
           })
         )}
       </div>
+      {patientSheetEl}
+      </>
     );
   }
 
   // Desktop Table View
   return (
+    <>
     <TooltipProvider>
       <div className="rounded-md border">
         <Table>
