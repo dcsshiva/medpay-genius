@@ -3475,6 +3475,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                 }}
                 onPartPayment={handleOpenPartPayment}
                 onViewReleaseHistory={handleOpenReleaseHistory}
+                expandPatientsByDefault={searchTerm.trim().length > 0 && (searchFilter === 'doctor_name' || searchFilter === 'doctor_code' || searchFilter === 'all')}
               />
               
               {processedPayments.length === 0 && !loading && (
