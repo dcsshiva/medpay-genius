@@ -1042,11 +1042,16 @@ const DoctorManagement = () => {
         
           {(userRole === 'admin' || userRole === 'manager') && (
             <Dialog open={dialogOpen} onOpenChange={(open) => {
-              if (open) {
-                resetForm();
+              if (!open) {
+                setDialogOpen(false);
                 setEditingDoctor(null);
+                resetForm();
+                return;
               }
-              setDialogOpen(open);
+              // Only reset for the Add flow (no doctor being edited).
+              // Programmatic opens from handleEdit must NOT wipe the prefilled form.
+              if (!editingDoctor) resetForm();
+              setDialogOpen(true);
             }}>
               <DialogTrigger asChild>
                 <Button>
