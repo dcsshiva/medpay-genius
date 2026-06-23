@@ -313,23 +313,32 @@ const DoctorManagement = () => {
           }
         }
 
+        const updatePayload = {
+          full_name: formData.full_name,
+          doctor_code: formData.doctor_code,
+          specialization: formData.specialization,
+          is_active: formData.is_active,
+          pan_number: formData.pan_number || null,
+          mobile_number: formData.mobile_number.trim() || null,
+          bank_account_number: formData.bank_account_number,
+          account_holder_name: formData.account_holder_name,
+          bank_name: formData.bank_name,
+          branch_name: formData.branch_name,
+          ifsc_code: formData.ifsc_code
+        };
+        if (import.meta.env.DEV) {
+          console.log('[DoctorManagement] update payload for', editingDoctor.id, updatePayload);
+        }
         // Update existing doctor
-        const { error: updateDoctorError } = await supabase
+        const { data: updatedRow, error: updateDoctorError } = await supabase
           .from('doctors')
-          .update({
-            full_name: formData.full_name,
-            doctor_code: formData.doctor_code,
-            specialization: formData.specialization,
-            is_active: formData.is_active,
-            pan_number: formData.pan_number || null,
-            mobile_number: formData.mobile_number.trim() || null,
-            bank_account_number: formData.bank_account_number,
-            account_holder_name: formData.account_holder_name,
-            bank_name: formData.bank_name,
-            branch_name: formData.branch_name,
-            ifsc_code: formData.ifsc_code
-          })
-          .eq('id', editingDoctor.id);
+          .update(updatePayload)
+          .eq('id', editingDoctor.id)
+          .select()
+          .maybeSingle();
+        if (import.meta.env.DEV) {
+          console.log('[DoctorManagement] update returned row:', updatedRow);
+        }
 
         if (updateDoctorError) {
           console.error('Doctor update error:', updateDoctorError);
