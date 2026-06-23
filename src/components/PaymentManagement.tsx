@@ -2771,11 +2771,18 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
         
         {(userRole === 'admin' || userRole === 'manager') && (
           <Dialog open={dialogOpen} onOpenChange={(open) => {
-            if (open) {
+            if (!open) {
+              setDialogOpen(false);
+              setEditingPayment(null);
+              resetForm();
+              return;
+            }
+            // Only reset for the Add flow. Programmatic opens from handleEditPayment must NOT wipe the prefilled form.
+            if (!editingPayment) {
               resetForm();
               setEditingPayment(null);
             }
-            setDialogOpen(open);
+            setDialogOpen(true);
           }}>
             <DialogTrigger asChild>
               <Button>
