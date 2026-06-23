@@ -39,7 +39,16 @@ const AppraisalReasonsTab = ({ searchTerm = '' }: Props) => {
   }, [reasons, searchTerm]);
 
   const handleAdd = () => { setSelectedReason(null); setFormData({ reason_name: '', reason_code: '', description: '', is_active: true }); setEditDialogOpen(true); };
-  const handleEdit = (r: AppraisalReason) => { setSelectedReason(r); setFormData({ reason_name: r.reason_name, reason_code: r.reason_code, description: r.description || '', is_active: r.is_active }); setEditDialogOpen(true); };
+  const handleEdit = async (r: AppraisalReason) => {
+    let fresh: AppraisalReason = r;
+    try {
+      const { data } = await supabase.from('appraisal_reasons').select('*').eq('id', r.id).maybeSingle();
+      if (data) fresh = data as AppraisalReason;
+    } catch { /* fall back */ }
+    setSelectedReason(fresh);
+    setFormData({ reason_name: fresh.reason_name, reason_code: fresh.reason_code, description: fresh.description || '', is_active: fresh.is_active });
+    setEditDialogOpen(true);
+  };
 
   const handleSave = async () => {
     try {

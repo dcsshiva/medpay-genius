@@ -41,7 +41,16 @@ const InsuranceCompaniesTab = ({ searchTerm = '' }: Props) => {
   }, [companies, searchTerm]);
 
   const handleAdd = () => { setSelectedCompany(null); setFormData({ company_name: '', company_code: '', contact_number: '', email: '', is_active: true }); setEditDialogOpen(true); };
-  const handleEdit = (c: InsuranceCompany) => { setSelectedCompany(c); setFormData({ company_name: c.company_name, company_code: c.company_code || '', contact_number: c.contact_number || '', email: c.email || '', is_active: c.is_active }); setEditDialogOpen(true); };
+  const handleEdit = async (c: InsuranceCompany) => {
+    let fresh: InsuranceCompany = c;
+    try {
+      const { data } = await supabase.from('insurance_companies').select('*').eq('id', c.id).maybeSingle();
+      if (data) fresh = data as InsuranceCompany;
+    } catch { /* fall back to cached row */ }
+    setSelectedCompany(fresh);
+    setFormData({ company_name: fresh.company_name, company_code: fresh.company_code || '', contact_number: fresh.contact_number || '', email: fresh.email || '', is_active: fresh.is_active });
+    setEditDialogOpen(true);
+  };
 
   const handleSave = async () => {
     try {

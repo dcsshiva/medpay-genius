@@ -43,7 +43,16 @@ const VisitReasonsTab = ({ searchTerm = '' }: Props) => {
   }, [visitReasons, searchTerm]);
 
   const handleAdd = () => { setSelectedReason(null); setFormData({ reason_name: '', reason_code: '', description: '', is_active: true }); setEditDialogOpen(true); };
-  const handleEdit = (reason: VisitReason) => { setSelectedReason(reason); setFormData({ reason_name: reason.reason_name, reason_code: reason.reason_code, description: reason.description || '', is_active: reason.is_active }); setEditDialogOpen(true); };
+  const handleEdit = async (reason: VisitReason) => {
+    let fresh: VisitReason = reason;
+    try {
+      const { data } = await supabase.from('visit_reasons').select('*').eq('id', reason.id).maybeSingle();
+      if (data) fresh = data as VisitReason;
+    } catch { /* fall back */ }
+    setSelectedReason(fresh);
+    setFormData({ reason_name: fresh.reason_name, reason_code: fresh.reason_code, description: fresh.description || '', is_active: fresh.is_active });
+    setEditDialogOpen(true);
+  };
 
   const handleSave = async () => {
     try {

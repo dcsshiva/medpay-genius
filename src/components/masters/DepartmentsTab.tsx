@@ -62,9 +62,14 @@ const DepartmentsTab = ({ searchTerm = '' }: DepartmentsTabProps) => {
     }
   };
 
-  const handleEdit = (dept: Department) => {
-    setEditingDepartment(dept);
-    setFormData({ department_name: dept.department_name, department_code: dept.department_code, description: dept.description || '' });
+  const handleEdit = async (dept: Department) => {
+    let fresh: Department = dept;
+    try {
+      const { data } = await supabase.from('departments_master').select('*').eq('id', dept.id).maybeSingle();
+      if (data) fresh = data as Department;
+    } catch { /* fall back */ }
+    setEditingDepartment(fresh);
+    setFormData({ department_name: fresh.department_name, department_code: fresh.department_code, description: fresh.description || '' });
     setDialogOpen(true);
   };
 

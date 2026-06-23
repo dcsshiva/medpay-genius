@@ -53,7 +53,16 @@ const PermissionReasonsTab = ({ searchTerm = '' }: Props) => {
     }
   };
 
-  const handleEdit = (r: PermissionReason) => { setEditingReason(r); setFormData({ reason_name: r.reason_name, reason_code: r.reason_code, description: r.description || '' }); setDialogOpen(true); };
+  const handleEdit = async (r: PermissionReason) => {
+    let fresh: PermissionReason = r;
+    try {
+      const { data } = await supabase.from('permission_reasons_master').select('*').eq('id', r.id).maybeSingle();
+      if (data) fresh = data as PermissionReason;
+    } catch { /* fall back */ }
+    setEditingReason(fresh);
+    setFormData({ reason_name: fresh.reason_name, reason_code: fresh.reason_code, description: fresh.description || '' });
+    setDialogOpen(true);
+  };
   const handleDelete = async (id: string) => { if (!confirm('Delete this permission reason?')) return; const { error } = await supabase.from('permission_reasons_master').delete().eq('id', id); if (!error) { toast.success('Deleted'); fetchReasons(); } };
   const toggleActive = async (r: PermissionReason) => { const { error } = await supabase.from('permission_reasons_master').update({ is_active: !r.is_active }).eq('id', r.id); if (!error) { toast.success(`${!r.is_active ? 'Activated' : 'Deactivated'}`); fetchReasons(); } };
   const updateDisplayOrder = async (id: string, newOrder: number) => { await supabase.from('permission_reasons_master').update({ display_order: newOrder }).eq('id', id); fetchReasons(); };

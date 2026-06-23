@@ -42,7 +42,16 @@ const AppraisalCriteriaTab = ({ searchTerm = '' }: Props) => {
   }, [criteria, searchTerm]);
 
   const handleAdd = () => { setSelectedCriteria(null); setFormData({ criteria_name: '', criteria_code: '', description: '', is_active: true }); setEditDialogOpen(true); };
-  const handleEdit = (item: AppraisalCriteria) => { setSelectedCriteria(item); setFormData({ criteria_name: item.criteria_name, criteria_code: item.criteria_code, description: item.description || '', is_active: item.is_active }); setEditDialogOpen(true); };
+  const handleEdit = async (item: AppraisalCriteria) => {
+    let fresh: AppraisalCriteria = item;
+    try {
+      const { data } = await (supabase as any).from('appraisal_criteria_master').select('*').eq('id', item.id).maybeSingle();
+      if (data) fresh = data as AppraisalCriteria;
+    } catch { /* fall back */ }
+    setSelectedCriteria(fresh);
+    setFormData({ criteria_name: fresh.criteria_name, criteria_code: fresh.criteria_code, description: fresh.description || '', is_active: fresh.is_active });
+    setEditDialogOpen(true);
+  };
 
   const handleSave = async () => {
     try {

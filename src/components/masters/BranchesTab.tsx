@@ -71,9 +71,14 @@ const BranchesTab = ({ searchTerm = '' }: BranchesTabProps) => {
     }
   };
 
-  const handleEdit = (branch: Branch) => {
-    setEditingBranch(branch);
-    setFormData({ branch_name: branch.branch_name, branch_code: branch.branch_code, branch_location: branch.branch_location, contact_number: branch.contact_number || '', contact_email: branch.contact_email || '', description: branch.description || '' });
+  const handleEdit = async (branch: Branch) => {
+    let fresh: Branch = branch;
+    try {
+      const { data } = await supabase.from('branches_master').select('*').eq('id', branch.id).maybeSingle();
+      if (data) fresh = data as Branch;
+    } catch { /* fall back */ }
+    setEditingBranch(fresh);
+    setFormData({ branch_name: fresh.branch_name, branch_code: fresh.branch_code, branch_location: fresh.branch_location, contact_number: fresh.contact_number || '', contact_email: fresh.contact_email || '', description: fresh.description || '' });
     setDialogOpen(true);
   };
 

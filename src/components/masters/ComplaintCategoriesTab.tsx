@@ -39,7 +39,16 @@ const ComplaintCategoriesTab = ({ searchTerm = '' }: Props) => {
   }, [categories, searchTerm]);
 
   const handleAdd = () => { setSelectedCategory(null); setFormData({ category_name: '', category_code: '', description: '', is_active: true }); setEditDialogOpen(true); };
-  const handleEdit = (c: ComplaintCategory) => { setSelectedCategory(c); setFormData({ category_name: c.category_name, category_code: c.category_code, description: c.description || '', is_active: c.is_active }); setEditDialogOpen(true); };
+  const handleEdit = async (c: ComplaintCategory) => {
+    let fresh: ComplaintCategory = c;
+    try {
+      const { data } = await supabase.from('complaint_categories').select('*').eq('id', c.id).maybeSingle();
+      if (data) fresh = data as ComplaintCategory;
+    } catch { /* fall back */ }
+    setSelectedCategory(fresh);
+    setFormData({ category_name: fresh.category_name, category_code: fresh.category_code, description: fresh.description || '', is_active: fresh.is_active });
+    setEditDialogOpen(true);
+  };
 
   const handleSave = async () => {
     try {
