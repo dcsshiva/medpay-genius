@@ -90,15 +90,20 @@ const StaffSalaryStructure: React.FC = () => {
     }
   };
 
-  const openEdit = (s: SalaryStructure) => {
-    setEditingId(s.id);
+  const openEdit = async (s: SalaryStructure) => {
+    let fresh: SalaryStructure = s;
+    try {
+      const { data } = await supabase.from('staff_salary_structure').select('*').eq('id', s.id).maybeSingle();
+      if (data) fresh = data as SalaryStructure;
+    } catch { /* fall back */ }
+    setEditingId(fresh.id);
     setForm({
-      staff_id: s.staff_id,
-      basic_salary: s.basic_salary,
-      hra: s.hra,
-      conveyance: s.conveyance,
-      medical: s.medical,
-      other_allowances: s.other_allowances,
+      staff_id: fresh.staff_id,
+      basic_salary: fresh.basic_salary,
+      hra: fresh.hra,
+      conveyance: fresh.conveyance,
+      medical: fresh.medical,
+      other_allowances: fresh.other_allowances,
     });
     setDialogOpen(true);
   };

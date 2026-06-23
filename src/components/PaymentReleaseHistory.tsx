@@ -139,9 +139,14 @@ const PaymentReleaseHistory: React.FC<PaymentReleaseHistoryProps> = ({
     }
   };
 
-  const handleEditRelease = (release: PaymentRelease) => {
-    setEditingRelease(release);
-    setEditNotes(release.notes || '');
+  const handleEditRelease = async (release: PaymentRelease) => {
+    let fresh: PaymentRelease = release;
+    try {
+      const { data } = await supabase.from('payment_releases').select('*').eq('id', release.id).maybeSingle();
+      if (data) fresh = { ...release, ...(data as any) } as PaymentRelease;
+    } catch { /* fall back */ }
+    setEditingRelease(fresh);
+    setEditNotes(fresh.notes || '');
   };
 
   const handleSaveEdit = async () => {

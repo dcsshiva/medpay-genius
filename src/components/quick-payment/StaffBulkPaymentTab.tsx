@@ -182,14 +182,19 @@ export const StaffBulkPaymentTab = () => {
               staff.branch_name && staff.account_holder_name);
   };
 
-  const openEditBankDialog = (staff: StaffForPayment) => {
-    setEditingStaff(staff);
+  const openEditBankDialog = async (staff: StaffForPayment) => {
+    let fresh: StaffForPayment = staff;
+    try {
+      const { data } = await supabase.from('staff').select('*').eq('id', staff.id).maybeSingle();
+      if (data) fresh = { ...staff, ...(data as any) } as StaffForPayment;
+    } catch { /* fall back */ }
+    setEditingStaff(fresh);
     setEditBankDetails({
-      bank_name: staff.bank_name || '',
-      bank_account_number: staff.bank_account_number || '',
-      ifsc_code: staff.ifsc_code || '',
-      branch_name: staff.branch_name || '',
-      account_holder_name: staff.account_holder_name || '',
+      bank_name: fresh.bank_name || '',
+      bank_account_number: fresh.bank_account_number || '',
+      ifsc_code: fresh.ifsc_code || '',
+      branch_name: fresh.branch_name || '',
+      account_holder_name: fresh.account_holder_name || '',
     });
     setEditBankDialogOpen(true);
   };

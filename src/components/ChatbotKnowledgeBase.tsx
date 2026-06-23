@@ -113,9 +113,14 @@ const ChatbotKnowledgeBase: React.FC = () => {
     fetchEntries();
   };
 
-  const handleEdit = (entry: KnowledgeEntry) => {
-    setForm({ question: entry.question, answer: entry.answer, category: entry.category });
-    setEditingId(entry.id);
+  const handleEdit = async (entry: KnowledgeEntry) => {
+    let fresh: KnowledgeEntry = entry;
+    try {
+      const { data } = await (supabase as any).from('chatbot_knowledge_base').select('*').eq('id', entry.id).maybeSingle();
+      if (data) fresh = data as KnowledgeEntry;
+    } catch { /* fall back */ }
+    setForm({ question: fresh.question, answer: fresh.answer, category: fresh.category });
+    setEditingId(fresh.id);
     setShowForm(true);
   };
 
