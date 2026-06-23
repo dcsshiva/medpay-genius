@@ -1,62 +1,63 @@
-## Problem
+## Goal
+Apply the same "stale-on-reopen" edit-form fix that was applied to `DoctorManagement.tsx` to every other component that has an Edit dialog, so reopened Edit forms always show the latest DB values (not a stale React-state snapshot) and `onOpenChange` never wipes a freshly-prefilled form.
 
-Database audit logs confirm the `UPDATE` SQL on the `doctors` table is actually persisting changes for every field (specialization, PAN, mobile, bank fields, etc.). So writes are fine. The bug is on the **read / dialog-open path**: when you reopen Edit for the same doctor right after saving, the form shows the old values.
+## Forms with Edit option (to be fixed)
 
-## Root cause
+**Main modules**
+1. `src/components/StaffManagement.tsx`
+2. `src/components/StaffSalaryStructure.tsx`
+3. `src/components/VisitManagement.tsx`
+4. `src/components/PaymentManagement.tsx`
+5. `src/components/PaymentReleaseHistory.tsx`
+6. `src/components/ChatbotKnowledgeBase.tsx`
 
-In `src/components/DoctorManagement.tsx`:
+**Masters tabs**
+7. `src/components/masters/BranchesTab.tsx`
+8. `src/components/masters/DepartmentsTab.tsx`
+9. `src/components/masters/RolesTab.tsx`
+10. `src/components/masters/InsuranceCompaniesTab.tsx`
+11. `src/components/masters/VendorDetailsTab.tsx`
+12. `src/components/masters/VisitReasonsTab.tsx`
+13. `src/components/masters/LeaveReasonsTab.tsx`
+14. `src/components/masters/PermissionReasonsTab.tsx`
+15. `src/components/masters/ComplaintCategoriesTab.tsx`
+16. `src/components/masters/AppraisalCriteriaTab.tsx`
+17. `src/components/masters/AppraisalReasonsTab.tsx`
+18. `src/components/masters/QuickPaymentTypesTab.tsx`
 
-1. `Dialog onOpenChange` (line 982) calls `resetForm()` + `setEditingDoctor(null)` whenever `open === true`. With Radix this normally fires only from a trigger click, but in the Add path it briefly races with `handleEdit` patterns and, more importantly, it is wired so that any path that goes through the trigger button wipes the doctor we just selected.
-2. `handleEdit` reads from the `doctors` state snapshot captured at render time. After save, the close flow runs `setDialogOpen(false) → setEditingDoctor(null) → resetForm() → fetchDoctors()`. `fetchDoctors` is **not awaited**, so if the user immediately clicks Edit again, the row in state is the pre-update snapshot and the form prefills stale values.
-3. `useEffect([formData.mobile_number, editingDoctor])` triggers a duplicate-mobile check, but `formatMobileNumber` is called on every keystroke — if it strips characters silently it can look like "the field didn't change". Worth verifying with logs.
+**Quick payment**
+19. `src/components/quick-payment/StaffBulkPaymentTab.tsx`
 
-## Fix
+**Excluded** (not classical edit-form dialogs)
+- `TeamChat.tsx` — message edit (inline, not a CRUD form)
+- `DoctorManagement.tsx` — already fixed
 
-**`src/components/DoctorManagement.tsx`**
+## Fix pattern (applied to each file above)
 
-1. **Always reload from DB on Edit.** Change `handleEdit(doctor)` to:
-   - Refetch the single doctor by id: `supabase.from('doctors').select(...same columns...).eq('id', doctor.id).maybeSingle()`.
-   - Refetch its email via the `get-user-emails` edge function (same call already used in `fetchDoctors`).
-   - Use the fresh row to populate `formData` and `setEditingDoctor`, then open the dialog. Falls back to the cached `doctor` object on fetch error.
+For each component that has an "Edit" dialog driven by an `editing<X>` state + shared form `Dialog`:
 
-2. **Stop `onOpenChange` from clobbering edit state.** Replace the inline `onOpenChange` on the `<Dialog>` (line 982) with:
-   ```ts
-   onOpenChange={(open) => {
-     if (!open) {
-       setDialogOpen(false);
-       setEditingDoctor(null);
-       resetForm();
-       return;
-     }
-     // Only reset when opening for *Add* (no editingDoctor yet)
-     if (!editingDoctor) resetForm();
-     setDialogOpen(true);
-   }}
-   ```
-   The `<DialogTrigger>` Add button keeps working (no `editingDoctor` → reset). Programmatic open from `handleEdit` no longer wipes the freshly-set form.
+1. **Refetch fresh row on Edit click**  
+   Convert `handleEdit(row)` to `async`. Inside, fetch the single row from Supabase by id (`.select('*').eq('id', row.id).maybeSingle()`), then populate `formData` and `setEditing<X>` from the fresh row. Fall back to the passed-in `row` on error so the dialog still opens.
 
-3. **Await refresh after save.** In `handleSubmit`, change the success tail to:
-   ```ts
-   await fetchDoctors();
-   setDialogOpen(false);
-   setEditingDoctor(null);
-   resetForm();
-   ```
-   so the next Edit click reads from refreshed state even without the per-row refetch.
+2. **Stop `Dialog onOpenChange` from clobbering edit state**  
+   Replace the inline `onOpenChange` that always calls `resetForm()` / `setEditing<X>(null)` when `open === true`. New behavior:
+   - On open: only reset when there is no `editing<X>` yet (i.e. Add flow). When `editing<X>` is set (Edit flow opened programmatically), do nothing.
+   - On close: reset form + clear `editing<X>` as before.
 
-4. **Diagnostic logging (temporary, behind `import.meta.env.DEV`)** in `handleEdit`, `handleSubmit` (log the update payload + the row returned by the post-save select), and `fetchDoctors` (log the refreshed row for `editingDoctor.id`). Lets us confirm in console if the issue is anywhere else (e.g. mobile formatter stripping digits).
+3. **Await refresh after save**  
+   In the submit/mutation success path, `await` the list refetch (`fetchX()` / `queryClient.invalidateQueries({...})` with `await`) before closing the dialog, so the next Edit click reads from refreshed state.
+
+4. **Return updated row from update mutation** (where applicable)  
+   Append `.select().maybeSingle()` to `supabase.from('<table>').update(...)` calls so failures surface and the updated row is verifiable.
+
+5. **DEV-only diagnostic logs**  
+   Add `if (import.meta.env.DEV) console.log(...)` traces in `handleEdit`, submit success, and the fetch list function — same as `DoctorManagement`. No production logging.
 
 ## Out of scope
+- No DB / RLS / migration changes.
+- No layout, styling, validation, or business-rule changes.
+- No changes to Add-only forms, inline edits, or read-only detail views.
+- No changes to `TeamChat` message editing or `DoctorManagement` (already done).
 
-- No DB / RLS / migration changes — admin update privileges are correct and audit logs confirm writes.
-- No edge-function changes (`update-user-credentials`, `create-user`, `get-user-emails` untouched).
-- No layout, styling, or validation rule changes.
-- No changes to the Add Doctor flow behaviour, only the shared dialog wiring.
-
-## Verification
-
-1. Edit a doctor → change Specialization, PAN, Mobile, Bank Name, IFSC → Update Doctor → toast Success.
-2. Immediately click Edit again on the same row → all new values appear in the form.
-3. Refresh page → values still match (confirms DB persistence).
-4. Click Add Doctor → form is blank (Add flow untouched).
-5. Cancel mid-edit → reopening Edit shows current DB values, not the abandoned edits.
+## Verification (per file)
+For each component: open Edit on a row → change a field → Save → immediately click Edit on the same row → new value appears. Refresh → still correct. Click Add → form is blank. Cancel mid-edit → reopening Edit shows current DB values.
