@@ -1565,20 +1565,27 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
       return;
     }
 
+    // Always reload from DB so we never prefill stale cached values
+    let fresh: Payment = payment;
+    try {
+      const { data } = await supabase.from('payments').select('*').eq('id', payment.id).maybeSingle();
+      if (data) fresh = { ...payment, ...(data as any) } as Payment;
+    } catch { /* fall back */ }
+
     // Determine payment type from paymentTypeOnly or payment data
     let derivedPaymentType: 'cash' | 'insurance' = 'cash';
     if (paymentTypeOnly) {
       derivedPaymentType = paymentTypeOnly;
-    } else if (payment.insurance_total && payment.insurance_total > 0 && (!payment.cash_total || payment.cash_total === 0)) {
+    } else if (fresh.insurance_total && fresh.insurance_total > 0 && (!fresh.cash_total || fresh.cash_total === 0)) {
       derivedPaymentType = 'insurance';
     }
 
     setFormData({
-      doctor_id: payment.doctors ? '' : payment.doctors.profiles.full_name,
+      doctor_id: fresh.doctors ? '' : fresh.doctors.profiles.full_name,
       payment_type_filter: derivedPaymentType,
-      payment_notes: payment.payment_notes || ''
+      payment_notes: fresh.payment_notes || ''
     });
-    setEditingPayment(payment);
+    setEditingPayment(fresh);
     setDialogOpen(true);
   };
 
@@ -2764,11 +2771,18 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
         
         {(userRole === 'admin' || userRole === 'manager') && (
           <Dialog open={dialogOpen} onOpenChange={(open) => {
-            if (open) {
+            if (!open) {
+              setDialogOpen(false);
+              setEditingPayment(null);
+              resetForm();
+              return;
+            }
+            // Only reset for the Add flow. Programmatic opens from handleEditPayment must NOT wipe the prefilled form.
+            if (!editingPayment) {
               resetForm();
               setEditingPayment(null);
             }
-            setDialogOpen(open);
+            setDialogOpen(true);
           }}>
             <DialogTrigger asChild>
               <Button>

@@ -82,7 +82,16 @@ const QuickPaymentTypesTab = ({ searchTerm = '' }: Props) => {
   };
 
   const resetForm = () => { setFormData({ type_code: '', type_name: '', description: '', is_active: true, display_order: types.length }); setEditingType(null); };
-  const openEditDialog = (type: QuickPaymentType) => { setEditingType(type); setFormData({ type_code: type.type_code, type_name: type.type_name, description: type.description || '', is_active: type.is_active, display_order: type.display_order }); setOpen(true); };
+  const openEditDialog = async (type: QuickPaymentType) => {
+    let fresh: QuickPaymentType = type;
+    try {
+      const { data } = await supabase.from('quick_payment_types').select('*').eq('id', type.id).maybeSingle();
+      if (data) fresh = data as QuickPaymentType;
+    } catch { /* fall back */ }
+    setEditingType(fresh);
+    setFormData({ type_code: fresh.type_code, type_name: fresh.type_name, description: fresh.description || '', is_active: fresh.is_active, display_order: fresh.display_order });
+    setOpen(true);
+  };
 
   return (
     <Card>

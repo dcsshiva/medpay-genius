@@ -91,9 +91,14 @@ const RolesTab = ({ searchTerm = '' }: RolesTabProps) => {
     }
   };
 
-  const handleEdit = (role: Role) => {
-    setEditingRole(role);
-    setFormData({ role_name: role.role_name, role_code: role.role_code, description: role.description || '' });
+  const handleEdit = async (role: Role) => {
+    let fresh: Role = role;
+    try {
+      const { data } = await supabase.from('roles_master').select('*').eq('id', role.id).maybeSingle();
+      if (data) fresh = data as Role;
+    } catch { /* fall back */ }
+    setEditingRole(fresh);
+    setFormData({ role_name: fresh.role_name, role_code: fresh.role_code, description: fresh.description || '' });
     setDialogOpen(true);
   };
 

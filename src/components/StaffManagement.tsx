@@ -694,22 +694,28 @@ const StaffManagement = () => {
     setEditingStaff(null);
   };
 
-  const handleEdit = (staffMember: Staff) => {
-    setEditingStaff(staffMember);
+  const handleEdit = async (staffMember: Staff) => {
+    // Always reload from DB so we never prefill stale cached values
+    let fresh: Staff = staffMember;
+    try {
+      const { data } = await supabase.from('staff').select('*').eq('id', staffMember.id).maybeSingle();
+      if (data) fresh = { ...staffMember, ...(data as any) } as Staff;
+    } catch { /* fall back */ }
+    setEditingStaff(fresh);
     setFormData({
-      staff_code: staffMember.staff_code,
-      username: staffMember.username,
+      staff_code: fresh.staff_code,
+      username: fresh.username,
       password: '', // Don't pre-fill for security
-      full_name: staffMember.full_name,
-      email: staffMember.email || '',
-      phone: staffMember.phone || '',
-      role: staffMember.role,
-      department: staffMember.department || '',
-      bank_account_number: staffMember.bank_account_number || '',
-      ifsc_code: staffMember.ifsc_code || '',
-      account_holder_name: staffMember.account_holder_name || '',
-      bank_name: staffMember.bank_name || '',
-      branch_name: staffMember.branch_name || ''
+      full_name: fresh.full_name,
+      email: fresh.email || '',
+      phone: fresh.phone || '',
+      role: fresh.role,
+      department: fresh.department || '',
+      bank_account_number: fresh.bank_account_number || '',
+      ifsc_code: fresh.ifsc_code || '',
+      account_holder_name: fresh.account_holder_name || '',
+      bank_name: fresh.bank_name || '',
+      branch_name: fresh.branch_name || ''
     });
     setDialogOpen(true);
   };

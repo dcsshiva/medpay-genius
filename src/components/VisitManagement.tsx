@@ -849,19 +849,25 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
     setEditingVisit(null);
   };
 
-  const handleEdit = (visit: Visit) => {
+  const handleEdit = async (visit: Visit) => {
+    // Always reload from DB so we never prefill stale cached values
+    let fresh: Visit = visit;
+    try {
+      const { data } = await supabase.from('visits').select('*').eq('id', visit.id).maybeSingle();
+      if (data) fresh = { ...visit, ...(data as any) } as Visit;
+    } catch { /* fall back */ }
     setFormData({
-      visit_date: visit.visit_date,
-      patient_id: visit.patient_id || '',
-      patient_name: visit.patient_name,
-      visit_payment: visit.visit_payment?.toString() || '',
-      payment_type: visit.payment_type,
-      visit_reason: visit.visit_reason,
-      notes: visit.notes || '',
-      doctor_id: visit.doctor_id,
-      insurance_company_id: visit.insurance_company_id || ''
+      visit_date: fresh.visit_date,
+      patient_id: fresh.patient_id || '',
+      patient_name: fresh.patient_name,
+      visit_payment: fresh.visit_payment?.toString() || '',
+      payment_type: fresh.payment_type,
+      visit_reason: fresh.visit_reason,
+      notes: fresh.notes || '',
+      doctor_id: fresh.doctor_id,
+      insurance_company_id: fresh.insurance_company_id || ''
     });
-    setEditingVisit(visit);
+    setEditingVisit(fresh);
     setDialogOpen(true);
   };
 

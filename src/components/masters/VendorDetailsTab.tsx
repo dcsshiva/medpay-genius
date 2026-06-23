@@ -65,9 +65,14 @@ const VendorDetailsTab = ({ searchTerm = '' }: Props) => {
     setDialogOpen(true);
   };
 
-  const openEditDialog = (vendor: Vendor) => {
-    setEditingVendor(vendor);
-    setFormData({ vendor_code: vendor.vendor_code, vendor_name: vendor.vendor_name, contact_person_name: vendor.contact_person_name, mobile_number: vendor.mobile_number, email: vendor.email || '', address: vendor.address || '', gst_number: vendor.gst_number || '', bank_name: vendor.bank_name || '', account_number: vendor.account_number || '', ifsc_code: vendor.ifsc_code || '', branch_name: vendor.branch_name || '', account_holder_name: vendor.account_holder_name || '', description: vendor.description || '' });
+  const openEditDialog = async (vendor: Vendor) => {
+    let fresh: Vendor = vendor;
+    try {
+      const { data } = await supabase.from('vendors').select('*').eq('id', vendor.id).maybeSingle();
+      if (data) fresh = data as Vendor;
+    } catch { /* fall back */ }
+    setEditingVendor(fresh);
+    setFormData({ vendor_code: fresh.vendor_code, vendor_name: fresh.vendor_name, contact_person_name: fresh.contact_person_name, mobile_number: fresh.mobile_number, email: fresh.email || '', address: fresh.address || '', gst_number: fresh.gst_number || '', bank_name: fresh.bank_name || '', account_number: fresh.account_number || '', ifsc_code: fresh.ifsc_code || '', branch_name: fresh.branch_name || '', account_holder_name: fresh.account_holder_name || '', description: fresh.description || '' });
     setDialogOpen(true);
   };
 
