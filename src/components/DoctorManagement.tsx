@@ -441,11 +441,11 @@ const DoctorManagement = () => {
         });
       }
 
+      // Refresh first so re-opening Edit pulls the updated row from state
+      await fetchDoctors();
       setDialogOpen(false);
       setEditingDoctor(null);
       resetForm();
-      // Force refresh to get updated data
-      fetchDoctors();
     } catch (error: any) {
       toast({
         variant: "destructive",
