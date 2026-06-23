@@ -476,22 +476,84 @@ const DoctorManagement = () => {
     setMobileError('');
   };
 
-  const handleEdit = (doctor: Doctor) => {
-    setEditingDoctor(doctor);
+  const handleEdit = async (doctor: Doctor) => {
+    // Always reload from DB so we never prefill stale cached values
+    let fresh: Doctor = doctor;
+    try {
+      const { data, error } = await supabase
+        .from('doctors')
+        .select(`
+          id,
+          user_id,
+          full_name,
+          doctor_code,
+          specialization,
+          is_active,
+          mobile_number,
+          pan_number,
+          bank_account_number,
+          account_holder_name,
+          bank_name,
+          branch_name,
+          ifsc_code
+        `)
+        .eq('id', doctor.id)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        let email = doctor.email || '';
+        if (data.user_id) {
+          try {
+            const { data: emailData } = await supabase.functions.invoke(
+              'get-user-emails',
+              {
+                body: { userIds: [data.user_id] },
+                headers: getSessionAuthHeaders()
+              }
+            );
+            const found = emailData?.emails?.find(
+              (item: { user_id: string; email: string | null }) => item.user_id === data.user_id
+            );
+            if (found?.email) email = found.email;
+          } catch (err) {
+            console.error('Failed to refresh email for edit:', err);
+          }
+        }
+
+        fresh = {
+          ...data,
+          email,
+          profiles: {
+            id: data.user_id || '',
+            full_name: data.full_name || ''
+          }
+        } as Doctor;
+      }
+    } catch (err) {
+      console.error('Failed to refresh doctor for edit, using cached row:', err);
+    }
+
+    if (import.meta.env.DEV) {
+      console.log('[DoctorManagement] handleEdit fresh row:', fresh);
+    }
+
+    setEditingDoctor(fresh);
     setFormData({
-      full_name: doctor.profiles?.full_name || '',
-      doctor_code: doctor.doctor_code,
-      specialization: doctor.specialization,
-      is_active: doctor.is_active,
-      email: doctor.email || '',
+      full_name: fresh.profiles?.full_name || fresh.full_name || '',
+      doctor_code: fresh.doctor_code,
+      specialization: fresh.specialization,
+      is_active: fresh.is_active,
+      email: fresh.email || '',
       password: '',
-      pan_number: doctor.pan_number || '',
-      mobile_number: doctor.mobile_number || '',
-      bank_account_number: doctor.bank_account_number || '',
-      account_holder_name: doctor.account_holder_name || '',
-      bank_name: doctor.bank_name || '',
-      branch_name: doctor.branch_name || '',
-      ifsc_code: doctor.ifsc_code || ''
+      pan_number: fresh.pan_number || '',
+      mobile_number: fresh.mobile_number || '',
+      bank_account_number: fresh.bank_account_number || '',
+      account_holder_name: fresh.account_holder_name || '',
+      bank_name: fresh.bank_name || '',
+      branch_name: fresh.branch_name || '',
+      ifsc_code: fresh.ifsc_code || ''
     });
     setDialogOpen(true);
   };
