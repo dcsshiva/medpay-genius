@@ -20,6 +20,9 @@ const VersionDisplay: React.FC = () => {
               <p className="text-xs font-medium text-muted-foreground">
                 HMS v{versionInfo.version}
               </p>
+              <p className="text-[10px] leading-tight text-muted-foreground/80">
+                {formatFullDateTimeIST(versionInfo.buildDate)}
+              </p>
             </div>
           </DialogTrigger>
           <DialogContent className="max-w-md">

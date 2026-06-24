@@ -1,63 +1,74 @@
-## Goal
-Apply the same "stale-on-reopen" edit-form fix that was applied to `DoctorManagement.tsx` to every other component that has an Edit dialog, so reopened Edit forms always show the latest DB values (not a stale React-state snapshot) and `onOpenChange` never wipes a freshly-prefilled form.
+# Fix: Version refresh, Manager doctor-edit, Rename jurel, Unpaid-visits error
 
-## Forms with Edit option (to be fixed)
+## 1. Version label shows "HMS v0.0.0" — bump + show build date/time
 
-**Main modules**
-1. `src/components/StaffManagement.tsx`
-2. `src/components/StaffSalaryStructure.tsx`
-3. `src/components/VisitManagement.tsx`
-4. `src/components/PaymentManagement.tsx`
-5. `src/components/PaymentReleaseHistory.tsx`
-6. `src/components/ChatbotKnowledgeBase.tsx`
+`package.json` is pinned at `version: "0.0.0"`, so the floating badge stays at v0.0.0 and users don't realise the build refreshed. PWA may also be serving cached old menus.
 
-**Masters tabs**
-7. `src/components/masters/BranchesTab.tsx`
-8. `src/components/masters/DepartmentsTab.tsx`
-9. `src/components/masters/RolesTab.tsx`
-10. `src/components/masters/InsuranceCompaniesTab.tsx`
-11. `src/components/masters/VendorDetailsTab.tsx`
-12. `src/components/masters/VisitReasonsTab.tsx`
-13. `src/components/masters/LeaveReasonsTab.tsx`
-14. `src/components/masters/PermissionReasonsTab.tsx`
-15. `src/components/masters/ComplaintCategoriesTab.tsx`
-16. `src/components/masters/AppraisalCriteriaTab.tsx`
-17. `src/components/masters/AppraisalReasonsTab.tsx`
-18. `src/components/masters/QuickPaymentTypesTab.tsx`
+Changes:
+- Bump `package.json` version to `1.1.0` (semantic bump for the doctor/edit fix batch).
+- Update `src/components/VersionDisplay.tsx` badge label to include the build timestamp:
+  `HMS v{version} · {dd-MMM HH:mm IST}` (using existing `formatFullDateTimeIST` on `buildDate`).
+- Confirm `vite.config.ts` already injects fresh `timestamp` on every build (it does) — no change needed.
+- PWA: `registerType: 'autoUpdate'` is already set; the version bump + filename hash will trigger Workbox to swap the new bundle on next load. Add a one-line `skipWaiting`/`clientsClaim` in the Workbox block so clients update without waiting for a second reload.
 
-**Quick payment**
-19. `src/components/quick-payment/StaffBulkPaymentTab.tsx`
+Result: every user sees a unique `v1.1.0 · <build datetime>` chip and the SW activates the new bundle on first refresh.
 
-**Excluded** (not classical edit-form dialogs)
-- `TeamChat.tsx` — message edit (inline, not a CRUD form)
-- `DoctorManagement.tsx` — already fixed
+## 2. Manager "jurel" cannot save Doctor edits
 
-## Fix pattern (applied to each file above)
+Per `supabase/migrations/20251031003949_…sql` the only ALL-policy on `public.doctors` is `Super admins can manage doctors` (role `super_admin`). Managers therefore can SELECT (via a separate read policy) but UPDATE silently fails RLS — the form looks like it saves but the row never changes. This matches the symptom from earlier (`Doctor Name / Doctor Code / Account Holder Name` weren't reported because the form might have re-fetched before; now with fresh-fetch-on-edit the staleness is exposed as "nothing saved").
 
-For each component that has an "Edit" dialog driven by an `editing<X>` state + shared form `Dialog`:
+Add a migration that lets `manager` designation update existing doctor rows (no insert/delete, to keep super-admin gating):
 
-1. **Refetch fresh row on Edit click**  
-   Convert `handleEdit(row)` to `async`. Inside, fetch the single row from Supabase by id (`.select('*').eq('id', row.id).maybeSingle()`), then populate `formData` and `setEditing<X>` from the fresh row. Fall back to the passed-in `row` on error so the dialog still opens.
+```sql
+CREATE POLICY "Managers can update doctors"
+ON public.doctors
+FOR UPDATE
+USING (has_designation(auth.uid(), 'manager'::app_designation))
+WITH CHECK (has_designation(auth.uid(), 'manager'::app_designation));
+```
 
-2. **Stop `Dialog onOpenChange` from clobbering edit state**  
-   Replace the inline `onOpenChange` that always calls `resetForm()` / `setEditing<X>(null)` when `open === true`. New behavior:
-   - On open: only reset when there is no `editing<X>` yet (i.e. Add flow). When `editing<X>` is set (Edit flow opened programmatically), do nothing.
-   - On close: reset form + clear `editing<X>` as before.
+Also add explicit `GRANT UPDATE ON public.doctors TO authenticated;` (idempotent) in case the earlier grant block omitted UPDATE.
 
-3. **Await refresh after save**  
-   In the submit/mutation success path, `await` the list refetch (`fetchX()` / `queryClient.invalidateQueries({...})` with `await`) before closing the dialog, so the next Edit click reads from refreshed state.
+After deploy, jurel's edits to Specialization / Bank fields / Mobile / Email / Password / PAN will persist.
 
-4. **Return updated row from update mutation** (where applicable)  
-   Append `.select().maybeSingle()` to `supabase.from('<table>').update(...)` calls so failures surface and the updated row is verifiable.
+## 3. Rename manager "jurel" → "Deepan" in Masters
 
-5. **DEV-only diagnostic logs**  
-   Add `if (import.meta.env.DEV) console.log(...)` traces in `handleEdit`, submit success, and the fetch list function — same as `DoctorManagement`. No production logging.
+One-off data migration (no schema change):
 
-## Out of scope
-- No DB / RLS / migration changes.
-- No layout, styling, validation, or business-rule changes.
-- No changes to Add-only forms, inline edits, or read-only detail views.
-- No changes to `TeamChat` message editing or `DoctorManagement` (already done).
+```sql
+UPDATE public.staff
+SET full_name = 'Deepan', username = 'Deepan'  -- only the columns that exist
+WHERE lower(username) = 'jurel' OR lower(full_name) = 'jurel';
 
-## Verification (per file)
-For each component: open Edit on a row → change a field → Save → immediately click Edit on the same row → new value appears. Refresh → still correct. Click Add → form is blank. Cancel mid-edit → reopening Edit shows current DB values.
+UPDATE public.profiles
+SET full_name = 'Deepan'
+WHERE lower(full_name) = 'jurel';
+```
+
+Before running, the migration will introspect with `to_regclass` / `information_schema.columns` so it skips columns that don't exist (username may not be present in `profiles`). Auth-side `auth.users.email` is left untouched — login identifier stays the same unless you ask otherwise.
+
+## 4. "Failed to load unpaid visits" toast (second screenshot, admin: Arulmani)
+
+Source: `src/components/DoctorHub.tsx` line 309 calls RPC `get_doctor_unpaid_visits(_doctor_id, _start, _end)`. The toast appears for the Total tab too because it `Promise.all`s both fetches.
+
+Diagnostic plan (one round-trip):
+- Add a `console.error('[DoctorHub] unpaid RPC error', { doctorId, period, error })` log that prints `error.message / error.code / error.hint` before the toast — surfaces whether it's `PGRST202` (function missing/signature mismatch), `42501` (permission), or a SQL error.
+- Verify the function exists with the expected signature; the most recent doctor-payment migrations created `get_doctor_paid_payments` and `get_doctor_unpaid_visits` — confirm both have `GRANT EXECUTE … TO authenticated` and `SECURITY DEFINER` so RLS on `visits` doesn't block admins viewing other doctors.
+- If the function is missing the grant (typical cause), the migration in step 2 also adds:
+  ```sql
+  GRANT EXECUTE ON FUNCTION public.get_doctor_unpaid_visits(uuid, date, date) TO authenticated;
+  GRANT EXECUTE ON FUNCTION public.get_doctor_paid_payments(uuid, date, date) TO authenticated;
+  ```
+
+The browser log from the next session will confirm which of the two it is; the migration covers the permission case, the function-signature case will be a follow-up edit.
+
+## Technical details
+
+Files edited:
+- `package.json` — version bump.
+- `src/components/VersionDisplay.tsx` — badge label includes build datetime.
+- `vite.config.ts` — `workbox.skipWaiting: true, clientsClaim: true`.
+- `src/components/DoctorHub.tsx` — richer error log in `fetchUnpaidVisits` (and matching log in `fetchPaymentHistory`).
+- New migration `supabase/migrations/<ts>_manager_doctor_edit_and_rename.sql` containing: manager UPDATE policy on `doctors`, GRANTs on the two RPCs, rename of `jurel` → `Deepan` in `staff` / `profiles`.
+
+Out of scope: no UI/layout changes to Doctor form, no other menu reshuffles, no auth/email changes for the renamed manager.

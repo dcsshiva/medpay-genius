@@ -295,10 +295,17 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
       if (error) throw error;
       setPaymentHistory((data || []) as any);
     } catch (error: any) {
-      console.error('Error fetching payment history:', error);
+      console.error('[DoctorHub] paid RPC error', {
+        doctorId,
+        period: selectedPeriod,
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint,
+      });
       toast({
         title: 'Error',
-        description: 'Failed to load payment history',
+        description: `Failed to load payment history${error?.code ? ` (${error.code})` : ''}: ${error?.message || 'unknown error'}`,
         variant: 'destructive',
       });
     } finally {
@@ -330,10 +337,17 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
         payment_status: v.payment_status,
       })));
     } catch (error: any) {
-      console.error('Error fetching unpaid visits:', error);
+      console.error('[DoctorHub] unpaid RPC error', {
+        doctorId,
+        period: selectedPeriod,
+        message: error?.message,
+        code: error?.code,
+        details: error?.details,
+        hint: error?.hint,
+      });
       toast({
         title: 'Error',
-        description: 'Failed to load unpaid visits',
+        description: `Failed to load unpaid visits${error?.code ? ` (${error.code})` : ''}: ${error?.message || 'unknown error'}`,
         variant: 'destructive',
       });
     } finally {
