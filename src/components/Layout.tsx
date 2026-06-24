@@ -18,6 +18,7 @@ import { getNavigationItems } from '@/lib/navigationItems';
 import AIChatbot from '@/components/AIChatbot';
 import WalkthroughOverlay from '@/components/WalkthroughOverlay';
 import { useWalkthrough } from '@/hooks/useWalkthrough';
+import { useVersionLoginToast } from '@/hooks/useVersionLoginToast';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -27,6 +28,8 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => {
   const { user, userRole, userDesignation, userProfile, signOut } = useAuth();
+
+  useVersionLoginToast(user?.id);
 
   const walkthrough = useWalkthrough({
     userId: user?.id,
