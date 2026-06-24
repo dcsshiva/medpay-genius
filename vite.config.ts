@@ -84,6 +84,8 @@ export default defineConfig(({ mode }) => {
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
           maximumFileSizeToCacheInBytes: 10 * 1024 * 1024, // 10 MB limit
+          skipWaiting: true,
+          clientsClaim: true,
     runtimeCaching: [
             // NOTE: Supabase API/Auth traffic is intentionally NOT cached to prevent
             // stale auth tokens and corrupted session state from persisting across reloads.
