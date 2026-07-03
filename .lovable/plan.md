@@ -1,74 +1,46 @@
-# Fix: Version refresh, Manager doctor-edit, Rename jurel, Unpaid-visits error
+# Header "Check for updates" button + fix Doctor unpaid RPC
 
-## 1. Version label shows "HMS v0.0.0" — bump + show build date/time
+## 1. Header "Check for updates" button
 
-`package.json` is pinned at `version: "0.0.0"`, so the floating badge stays at v0.0.0 and users don't realise the build refreshed. PWA may also be serving cached old menus.
+Reuse the existing `CheckUpdateButton` component (already implements the exact update+reload flow — polls `app_downloads`, shows red dot when new version, reloads with SW/cache cleanup).
 
-Changes:
-- Bump `package.json` version to `1.1.0` (semantic bump for the doctor/edit fix batch).
-- Update `src/components/VersionDisplay.tsx` badge label to include the build timestamp:
-  `HMS v{version} · {dd-MMM HH:mm IST}` (using existing `formatFullDateTimeIST` on `buildDate`).
-- Confirm `vite.config.ts` already injects fresh `timestamp` on every build (it does) — no change needed.
-- PWA: `registerType: 'autoUpdate'` is already set; the version bump + filename hash will trigger Workbox to swap the new bundle on next load. Add a one-line `skipWaiting`/`clientsClaim` in the Workbox block so clients update without waiting for a second reload.
+**`src/components/Layout.tsx`** — Import `CheckUpdateButton` and mount it in the desktop header (in the right-side action cluster, next to the color picker / Logout button).
 
-Result: every user sees a unique `v1.1.0 · <build datetime>` chip and the SW activates the new bundle on first refresh.
+**`src/components/MobileHeader.tsx`** — Add the same `CheckUpdateButton` to the mobile top bar so phone users can also trigger it (the doctor-only button on DoctorHubMobile stays as-is).
 
-## 2. Manager "jurel" cannot save Doctor edits
+No new logic — same component reused everywhere.
 
-Per `supabase/migrations/20251031003949_…sql` the only ALL-policy on `public.doctors` is `Super admins can manage doctors` (role `super_admin`). Managers therefore can SELECT (via a separate read policy) but UPDATE silently fails RLS — the form looks like it saves but the row never changes. This matches the symptom from earlier (`Doctor Name / Doctor Code / Account Holder Name` weren't reported because the form might have re-fetched before; now with fresh-fetch-on-edit the staleness is exposed as "nothing saved").
+## 2. Fix "Failed to load unpaid visits (PGRST202)" error
 
-Add a migration that lets `manager` designation update existing doctor rows (no insert/delete, to keep super-admin gating):
+Root cause: `DoctorHub.tsx` calls `supabase.rpc('get_doctor_unpaid_visits', ...)` and `get_doctor_paid_payments`, but these RPCs were never created in the database (PGRST202 = function not found in schema cache).
+
+**New migration** — create both SECURITY DEFINER RPCs so doctors on the custom-session (OTP fallback) path can load their own paid/unpaid data:
 
 ```sql
-CREATE POLICY "Managers can update doctors"
-ON public.doctors
-FOR UPDATE
-USING (has_designation(auth.uid(), 'manager'::app_designation))
-WITH CHECK (has_designation(auth.uid(), 'manager'::app_designation));
+-- get_doctor_unpaid_visits(_doctor_id uuid, _start date, _end date)
+-- Returns: id, visit_code, visit_date, patient_name, visit_payment,
+--          payment_type, is_processed, payment_status
+-- Source: public.visits WHERE doctor_id = _doctor_id
+--   AND (payment released flag is false / not fully paid)
+--   AND optional date range on visit_date
+
+-- get_doctor_paid_payments(_doctor_id uuid, _start date, _end date)
+-- Returns paid payment rows for the doctor (id, payment_date, gross, tds,
+--   net, payment_mode, reference_no, period_start, period_end, patients_count)
+-- Source: public.payments joined per existing paid-tab query shape
+
+GRANT EXECUTE ON FUNCTION public.get_doctor_unpaid_visits(uuid, date, date)
+  TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION public.get_doctor_paid_payments(uuid, date, date)
+  TO authenticated, anon;
 ```
 
-Also add explicit `GRANT UPDATE ON public.doctors TO authenticated;` (idempotent) in case the earlier grant block omitted UPDATE.
+Both functions run as `SECURITY DEFINER` with `SET search_path = public`, and internally scope by `_doctor_id` — matching the pattern in `mem://features/doctor-dashboard-accessibility` (inactive doctors keep historical access; no `is_active` filter).
 
-After deploy, jurel's edits to Specialization / Bank fields / Mobile / Email / Password / PAN will persist.
+Before writing the SQL I'll read the current `visits` and `payments` column shapes to keep the return signatures 1:1 with what `DoctorHub.tsx` already consumes, so no frontend changes are needed for the fix.
 
-## 3. Rename manager "jurel" → "Deepan" in Masters
+## Files touched
 
-One-off data migration (no schema change):
-
-```sql
-UPDATE public.staff
-SET full_name = 'Deepan', username = 'Deepan'  -- only the columns that exist
-WHERE lower(username) = 'jurel' OR lower(full_name) = 'jurel';
-
-UPDATE public.profiles
-SET full_name = 'Deepan'
-WHERE lower(full_name) = 'jurel';
-```
-
-Before running, the migration will introspect with `to_regclass` / `information_schema.columns` so it skips columns that don't exist (username may not be present in `profiles`). Auth-side `auth.users.email` is left untouched — login identifier stays the same unless you ask otherwise.
-
-## 4. "Failed to load unpaid visits" toast (second screenshot, admin: Arulmani)
-
-Source: `src/components/DoctorHub.tsx` line 309 calls RPC `get_doctor_unpaid_visits(_doctor_id, _start, _end)`. The toast appears for the Total tab too because it `Promise.all`s both fetches.
-
-Diagnostic plan (one round-trip):
-- Add a `console.error('[DoctorHub] unpaid RPC error', { doctorId, period, error })` log that prints `error.message / error.code / error.hint` before the toast — surfaces whether it's `PGRST202` (function missing/signature mismatch), `42501` (permission), or a SQL error.
-- Verify the function exists with the expected signature; the most recent doctor-payment migrations created `get_doctor_paid_payments` and `get_doctor_unpaid_visits` — confirm both have `GRANT EXECUTE … TO authenticated` and `SECURITY DEFINER` so RLS on `visits` doesn't block admins viewing other doctors.
-- If the function is missing the grant (typical cause), the migration in step 2 also adds:
-  ```sql
-  GRANT EXECUTE ON FUNCTION public.get_doctor_unpaid_visits(uuid, date, date) TO authenticated;
-  GRANT EXECUTE ON FUNCTION public.get_doctor_paid_payments(uuid, date, date) TO authenticated;
-  ```
-
-The browser log from the next session will confirm which of the two it is; the migration covers the permission case, the function-signature case will be a follow-up edit.
-
-## Technical details
-
-Files edited:
-- `package.json` — version bump.
-- `src/components/VersionDisplay.tsx` — badge label includes build datetime.
-- `vite.config.ts` — `workbox.skipWaiting: true, clientsClaim: true`.
-- `src/components/DoctorHub.tsx` — richer error log in `fetchUnpaidVisits` (and matching log in `fetchPaymentHistory`).
-- New migration `supabase/migrations/<ts>_manager_doctor_edit_and_rename.sql` containing: manager UPDATE policy on `doctors`, GRANTs on the two RPCs, rename of `jurel` → `Deepan` in `staff` / `profiles`.
-
-Out of scope: no UI/layout changes to Doctor form, no other menu reshuffles, no auth/email changes for the renamed manager.
+- `src/components/Layout.tsx` — mount `CheckUpdateButton` in desktop header
+- `src/components/MobileHeader.tsx` — mount `CheckUpdateButton` in mobile header
+- New SQL migration — create `get_doctor_unpaid_visits` and `get_doctor_paid_payments` with grants

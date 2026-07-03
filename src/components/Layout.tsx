@@ -13,6 +13,7 @@ import {
   SidebarTrigger 
 } from '@/components/ui/sidebar';
 import { LogOut } from 'lucide-react';
+import CheckUpdateButton from '@/components/CheckUpdateButton';
 import westmedLogo from '@/assets/westmed-logo.png';
 import { getNavigationItems } from '@/lib/navigationItems';
 import AIChatbot from '@/components/AIChatbot';
@@ -86,6 +87,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
                     {(userRole === 'manager' || userRole === 'admin' || userDesignation === 'super_admin' || userDesignation === 'admin' || userDesignation === 'manager') && (
                       <PaymentStatsColorPicker variant="icon" />
                     )}
+                    <CheckUpdateButton />
                     <Button 
                       variant="outline" 
                       size="sm" 

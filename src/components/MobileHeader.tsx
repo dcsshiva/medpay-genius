@@ -6,6 +6,7 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import westmedLogo from '@/assets/westmed-logo.png';
 import { NotificationCenter } from '@/components/NotificationCenter';
 import { PaymentStatsColorPicker } from '@/components/PaymentStatsColorPicker';
+import CheckUpdateButton from '@/components/CheckUpdateButton';
 
 interface MobileHeaderProps {
   navigationItems: Array<{
@@ -40,6 +41,8 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
           <NotificationCenter onNavigate={(tab) => {
             onTabChange(tab);
           }} />
+
+          <CheckUpdateButton />
           
           <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>
