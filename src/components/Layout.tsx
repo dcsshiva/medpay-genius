@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/sidebar';
 import { LogOut } from 'lucide-react';
 import CheckUpdateButton from '@/components/CheckUpdateButton';
+import MobileBottomNav from '@/components/MobileBottomNav';
 import westmedLogo from '@/assets/westmed-logo.png';
 import { getNavigationItems } from '@/lib/navigationItems';
 import AIChatbot from '@/components/AIChatbot';
@@ -108,12 +109,19 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
             </SidebarInset>
           </div>
 
-          {/* Mobile Content - fallback for old mobile behavior */}
+          {/* Mobile Content - padded to clear the bottom tab bar */}
           <div className="md:hidden pl-safe pr-safe">
-            <main className="p-4 pb-24 pb-safe min-h-[calc(100dvh-3.5rem)]">
+            <main className="p-4 pb-[calc(4rem+env(safe-area-inset-bottom))] min-h-[calc(100dvh-3.5rem)]">
               {children}
             </main>
           </div>
+
+          {/* Mobile Bottom Navigation (Phase 1) */}
+          <MobileBottomNav
+            navigationItems={navigationItems}
+            activeTab={activeTab}
+            onTabChange={onTabChange}
+          />
           
           {/* Version Display */}
           <VersionDisplay />
