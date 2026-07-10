@@ -4,6 +4,7 @@ import { LayoutDashboard, PlusCircle, CheckSquare } from 'lucide-react';
 import PaymentHubDashboard from './payment-hub/PaymentHubDashboard';
 import UnifiedPaymentCreation from './payment-hub/UnifiedPaymentCreation';
 import PaymentBatchApproval from './payment-hub/PaymentBatchApproval';
+import MobileSegmentedTabs from '@/components/mobile/MobileSegmentedTabs';
 
 /**
  * Payment Hub - Unified interface for managing all payment types
