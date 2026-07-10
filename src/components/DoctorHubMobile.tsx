@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import MobileSegmentedTabs from '@/components/mobile/MobileSegmentedTabs';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ChevronDown, ChevronUp, Clock, Receipt, Calendar, FileText, CheckCircle2, AlertCircle, IndianRupee } from 'lucide-react';
@@ -220,17 +221,19 @@ const DoctorHubMobile: React.FC<DoctorHubMobileProps> = ({
           fetchVisitDetails={fetchVisitDetails}
         />
 
-        {/* Tabs */}
+        {/* Tabs — mobile segmented control */}
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 h-12">
-            <TabsTrigger value="all" className="h-10">All</TabsTrigger>
-            <TabsTrigger value="paid" className="h-10">
-              Paid ({doctor.paid_count})
-            </TabsTrigger>
-            <TabsTrigger value="unpaid" className="h-10">
-              Unpaid ({doctor.unpaid_visits_count})
-            </TabsTrigger>
-          </TabsList>
+          <MobileSegmentedTabs
+            value={activeTab}
+            onValueChange={(v) => handleTabChange(v as 'all' | 'paid' | 'unpaid')}
+            sticky={false}
+            className="!mx-0 !px-0"
+            segments={[
+              { value: 'all', label: 'All' },
+              { value: 'paid', label: `Paid (${doctor.paid_count})` },
+              { value: 'unpaid', label: `Unpaid (${doctor.unpaid_visits_count})` },
+            ]}
+          />
 
           {/* All Tab */}
           <TabsContent value="all" className="space-y-4 mt-4">

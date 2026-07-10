@@ -4,6 +4,7 @@ import { LayoutDashboard, PlusCircle, CheckSquare } from 'lucide-react';
 import PaymentHubDashboard from './payment-hub/PaymentHubDashboard';
 import UnifiedPaymentCreation from './payment-hub/UnifiedPaymentCreation';
 import PaymentBatchApproval from './payment-hub/PaymentBatchApproval';
+import MobileSegmentedTabs from '@/components/mobile/MobileSegmentedTabs';
 
 /**
  * Payment Hub - Unified interface for managing all payment types
@@ -20,16 +21,17 @@ const PaymentHub = () => {
   };
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Payment Hub</h1>
-        <p className="text-muted-foreground">
+    <div className="container mx-auto p-4 md:p-6 space-y-4 md:space-y-6">
+      <div className="space-y-1 md:space-y-2">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Payment Hub</h1>
+        <p className="text-sm md:text-base text-muted-foreground">
           Unified interface for managing cash, insurance, and quick payments
         </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        {/* Desktop tabs */}
+        <TabsList className="hidden md:grid w-full grid-cols-3">
           <TabsTrigger value="dashboard" className="flex items-center gap-2">
             <LayoutDashboard className="h-4 w-4" />
             Dashboard
@@ -43,6 +45,17 @@ const PaymentHub = () => {
             Approval & Status
           </TabsTrigger>
         </TabsList>
+
+        {/* Mobile segmented control */}
+        <MobileSegmentedTabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          segments={[
+            { value: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+            { value: 'create', label: 'Create', icon: PlusCircle },
+            { value: 'approval', label: 'Approve', icon: CheckSquare },
+          ]}
+        />
 
         <TabsContent value="dashboard" className="mt-6">
           <PaymentHubDashboard 
