@@ -32,6 +32,11 @@
   .scrollbar-thin::-webkit-scrollbar { height: 4px; width: 4px; }
   .scrollbar-thin::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
 
+  /* Prevent iOS zoom on input focus (needs >=16px on mobile) */
+  @media (max-width: 767px) {
+    input, select, textarea { font-size: 16px; }
+  }
+
   @keyframes shimmer {
     100% {
       transform: translateX(100%);
