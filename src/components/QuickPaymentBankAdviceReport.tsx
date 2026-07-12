@@ -454,8 +454,47 @@ const QuickPaymentBankAdviceReport = () => {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
+            <>
+              {/* Mobile card list */}
+              <div className="md:hidden space-y-2">
+                {currentRecords.map((payment) => (
+                  <MobileListCard
+                    key={payment.id}
+                    title={payment.beneficiary_name}
+                    subtitle={
+                      <span>
+                        {formatDateIST(new Date(payment.payment_date))} · {payment.mobile_number}
+                      </span>
+                    }
+                    amount={formatCurrency(payment.net_amount)}
+                    status={
+                      <Badge variant="outline" className="text-[10px]">
+                        {payment.payment_type_name}
+                      </Badge>
+                    }
+                  >
+                    <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs">
+                      <div className="text-muted-foreground">Gross</div>
+                      <div className="text-right tabular-nums">{formatCurrency(payment.gross_amount)}</div>
+                      <div className="text-muted-foreground">TDS ({payment.tds_percentage}%)</div>
+                      <div className="text-right tabular-nums">{formatCurrency(payment.tds_amount)}</div>
+                      <div className="text-muted-foreground">Bank</div>
+                      <div className="text-right truncate">{payment.bank_name || '-'}</div>
+                      {payment.bank_advice_reference && (
+                        <>
+                          <div className="text-muted-foreground">Ref</div>
+                          <div className="text-right truncate font-mono">{payment.bank_advice_reference}</div>
+                        </>
+                      )}
+                    </div>
+                  </MobileListCard>
+                ))}
+              </div>
+
+              {/* Desktop table */}
+              <div className="hidden md:block overflow-x-auto">
+                <Table>
+
                 <TableHeader>
                   <TableRow>
                     <TableHead>Payment Date</TableHead>
