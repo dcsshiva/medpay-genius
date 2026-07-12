@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Edit, Trash2, ChevronUp, ChevronDown } from 'lucide-react';
 import { formatDateIST } from '@/lib/dateUtils';
+import { MobileListCard } from '@/components/mobile/MobileListCard';
+
 
 interface Visit {
   id: string;
