@@ -1,77 +1,52 @@
 ## Goal
-Make the attached screens (sidebar navigation + hub landing surfaces like Doctor Hub, Visit Management, Quick Payment, Bank Advice Hub, Cash/Insurance Payments) feel mobile-first and touch-native, **without changing the desktop layout** that admins/managers already rely on.
+Let admins and managers delete an unpaid visit (and its related rows) directly from the Doctor Hub → Unpaid list, without leaving the screen.
 
-## Guiding Principle
-Split responsibility by breakpoint:
-- **Desktop (`md:` and up)** — keep the current `AppSidebar` + header + dense tables exactly as they are today.
-- **Mobile (`<md`)** — replace desktop patterns with mobile-native patterns behind `useIsMobile()` / Tailwind `md:hidden` gates. No shared component gets a visual rewrite; we branch.
+## Scope
+- Doctor Hub desktop table + `DoctorHubMobile` unpaid list only.
+- Only visits with `is_processed = false` (i.e. truly unpaid, never entered a payment batch). Paid/processed rows stay non-deletable.
+- Restricted to `userRole === 'admin' || userRole === 'manager'`. Others don't see the button.
 
----
+## UI changes
+- In each unpaid visit row (both DoctorHub.tsx desktop expanded panel around L586–610, and the mobile equivalent in `DoctorHubMobile`), add a small trash icon button on the right.
+- Click → confirmation dialog (`AlertDialog`, not native `confirm`) showing: patient name, visit code, date, amount, and a warning line "This will permanently remove the visit and its related unpaid records."
+- On success: toast, remove row from local `unpaidVisits`, refresh doctor summary (re-run the RPC that populates `doctors[]` so Unpaid amount/visits count decrement).
 
-## Suggested Mobile-First Improvements
+## Data / backend
+Visits can have dependent rows. Safe delete needs a single RPC so it's atomic and permission-checked server-side:
 
-### 1. Navigation shell
-Current mobile uses a hamburger sheet with a long vertical list (screenshot). Improvements:
-- **Bottom tab bar** (fixed, safe-area aware) with the 4–5 most-used destinations for that role: Dashboard, Doctor Hub, Visits, Payments, More.
-- **"More" sheet** holds the long tail (Bank Advice Hub, Cash, Insurance, Quick Payment, Reports, Settings) as a grid of large tap targets (icon + label), not a text list.
-- **Quick Access** pinned as a horizontal scrollable chip row at the top of the Dashboard on mobile only.
-- Keep the existing hamburger `Sheet` as a secondary drawer for search + profile.
+1. New Postgres function `delete_unpaid_visit(_visit_id uuid)`:
+   - `SECURITY DEFINER`, `search_path = public`.
+   - Verify caller role via `has_role(auth.uid(),'admin') OR has_role(auth.uid(),'manager')` — raise exception otherwise.
+   - Load the visit; if `is_processed = true` OR `processed_in_payment_id IS NOT NULL` → raise `'Visit already processed, cannot delete'`.
+   - Delete dependent rows first (only those tied to this unprocessed visit): any `visit_*` child tables, insurance visit links, audit-only children. Then delete the visit.
+   - Return the deleted `visit_id`.
+2. Grant `EXECUTE` to `authenticated`.
+3. Add an `audit_log` insert inside the function capturing actor, visit_id, doctor_id, amount, timestamp.
 
-### 2. Hub landing pages (Doctor Hub, Payment Hub, Bank Advice Hub)
-- Replace `Tabs` with **segmented control** (pill style, full-width, sticky under header) on mobile — same tab state, different rendering.
-- **Summary cards** stack vertically, one per row, with the KPI number as the hero (48–56px) and label below — no side-by-side 4-up grids that shrink text.
-- **Sticky action bar** at bottom for the primary CTA (Create Payment, Add Visit, Generate Advice) so it's always thumb-reachable.
+I'll enumerate the actual child tables from the schema before writing the migration (visits FK inbound scan) so nothing dangling is left.
 
-### 3. Data tables → mobile cards
-Every desktop table (Visits, Payments, Doctors, Bank Advice records) gets a **card list** on mobile:
-- Row → card with: title line (patient/doctor name), secondary line (code + date), amount right-aligned bold, status chip, and an overflow (`⋯`) for row actions.
-- Tap card = open detail drawer (bottom sheet), not a new route.
-- Filters move into a bottom-sheet "Filter" button; active filters show as removable chips above the list.
+## Frontend wiring
+- New helper `deleteUnpaidVisit(visitId)` in `DoctorHub.tsx` calling `supabase.rpc('delete_unpaid_visit', { _visit_id })`.
+- On success: `setUnpaidVisits(prev => prev.filter(v => v.id !== visitId))` and re-fetch `doctors` summary.
+- Button disabled while request in flight.
+- Hide button entirely when `userRole` is not admin/manager (read from existing auth hook already used in Doctor Hub).
 
-### 4. Forms (Payment creation, Doctor edit, Visit edit)
-- **One field per screen section**, larger inputs (min 44px height), floating labels.
-- **Stepper** at top for multi-step flows (Payment Hub creation) instead of long scroll.
-- Numeric fields use `inputMode="decimal"` and open the number pad.
-- Sticky footer with **Cancel / Save** — never rely on scrolling to reach Save.
-- Confirmations via bottom sheet, not centered modals.
+## Conflicts / risks to flag
+1. **Processed visits**: a visit already inside a manager- or admin-approved payment batch must never be deletable — server RPC enforces, UI also hides for `is_processed`. The current "Unpaid" list is defined as `unpaid_amount > 0` for the doctor, but a doctor's unpaid bucket can still include visits already sitting in a *pending* batch (created but not approved). Deleting those would corrupt the batch totals. Decision needed: (a) block delete if the visit is referenced by any `payment_batch_items` row, or (b) allow and cascade-remove the batch line. Recommendation: **block** and show reason "Visit is part of a pending payment batch — remove it from the batch first."
+2. **Bank advice / GEFU**: same as above — if the visit is on a generated advice, block.
+3. **TDS / part-payment history**: unpaid visits shouldn't have these, but the RPC will double-check `part_payments` / `tds_entries` FK and refuse if present.
+4. **Audit trail**: deletion is destructive; the audit log insert above is mandatory so admins can trace who removed what.
+5. **Undo**: no soft-delete today. If you want reversibility, we'd instead add a `deleted_at` column and filter it out — bigger change. Default plan is hard delete + audit row.
+6. **Mobile fallback password (9629945305)**: your existing rule for deleting pending payments requires admin + fallback password. Do you want the same password gate here, or is role-only sufficient? **Recommendation: role-only** because these are unpaid visits (no money moved yet), unlike pending payments.
+7. **Concurrent state**: if a manager approves a batch between the UI opening and the delete click, the RPC's `is_processed` check will correctly reject with a clear error — UI shows the toast and refreshes the list.
 
-### 5. Doctor Hub specifics (the failing screen from earlier)
-- Doctor picker → searchable bottom sheet with recent doctors pinned.
-- Paid / Unpaid / Summary tabs → segmented control.
-- Each visit row → card showing patient, date, amount, status chip; swipe-left reveals "Mark Paid" / "Edit" (manager only).
+## Files touched
+- `src/components/DoctorHub.tsx` — add delete button + handler in unpaid rendering blocks (desktop L586–610, and total-tab block near L994).
+- `src/components/DoctorHubMobile.tsx` — mirror the button in mobile unpaid rows.
+- New Supabase migration: `delete_unpaid_visit` RPC + grant + audit insert.
+- No changes to `VisitManagement` (already has its own delete flow).
 
-### 6. Header on mobile
-- Compact: logo + role initial avatar + Check-Update icon + hamburger.
-- Move Notification Center into the bottom tab bar's More sheet header to reduce top-bar clutter.
-
-### 7. Touch, spacing, typography
-- Min tap target 44×44px everywhere.
-- Increase base font on mobile to 16px (prevents iOS zoom on input focus).
-- 16px horizontal page padding, 12px vertical rhythm between cards.
-- Respect `pt-safe` / `pb-safe` already present; extend to bottom tab bar.
-
-### 8. Performance / feel
-- Skeleton loaders on cards (not spinners) for perceived speed.
-- Pull-to-refresh on list screens (Capacitor-friendly).
-- Debounced search inputs; results in same view (no route change).
-
----
-
-## Scope Boundaries
-- **No desktop visual changes.** All new mobile UI lives under `md:hidden` or `useIsMobile()` branches; desktop keeps `hidden md:flex` blocks untouched.
-- **No business-logic changes.** Same hooks, same Supabase calls, same permissions — only presentation.
-- **No route changes.** Tab state stays in `Index.tsx`'s `activeTab`.
-
----
-
-## Suggested Rollout (if you approve, I'll plan phases)
-1. **Phase 1 — Navigation shell**: bottom tab bar + More sheet + Quick Access chips. (Layout.tsx, MobileHeader.tsx, new `MobileBottomNav.tsx`.)
-2. **Phase 2 — Hub pages**: Doctor Hub, Payment Hub, Bank Advice Hub mobile branches (segmented control + stacked KPI cards + sticky CTA).
-3. **Phase 3 — Lists**: Visits, Payments, Bank Advice records → mobile card lists with bottom-sheet filters/details.
-4. **Phase 4 — Forms**: Payment creation stepper, Doctor edit, Visit edit mobile forms with sticky footer.
-5. **Phase 5 — Polish**: skeletons, pull-to-refresh, safe-area, typography pass.
-
----
-
-## Question before I turn this into a build plan
-Which phase(s) do you want implemented first? I'd recommend **Phase 1 + Phase 2** together so the navigation and the most-used hub screens both feel native on mobile, while everything else stays functional as-is. Reply with the phase numbers (e.g. "1 and 2") or "all" and I'll produce a concrete build plan per phase.
+## Open questions before build
+1. Batch/advice conflict: **block** (recommended) or **cascade-remove**?
+2. Fallback-password gate: **role only** (recommended) or match pending-payments rule?
+3. Hard delete vs. soft delete (`deleted_at`)?
