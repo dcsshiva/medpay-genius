@@ -14,8 +14,10 @@ import { formatDateIST } from '@/lib/dateUtils';
 import { getFinancialYearStart } from '@/lib/tdsUtils';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '@/lib/auth';
 import DoctorHistoryExport from './DoctorHistoryExport';
 import DoctorHubMobile from './DoctorHubMobile';
+import DeleteUnpaidVisitButton from './DeleteUnpaidVisitButton';
 
 interface DoctorSummary {
   id: string;
