@@ -14,8 +14,10 @@ import { formatDateIST } from '@/lib/dateUtils';
 import { getFinancialYearStart } from '@/lib/tdsUtils';
 import { useToast } from '@/hooks/use-toast';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '@/lib/auth';
 import DoctorHistoryExport from './DoctorHistoryExport';
 import DoctorHubMobile from './DoctorHubMobile';
+import DeleteUnpaidVisitButton from './DeleteUnpaidVisitButton';
 
 interface DoctorSummary {
   id: string;
@@ -88,6 +90,8 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
   });
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { userRole } = useAuth();
+  const canDeleteUnpaid = userRole === 'admin' || userRole === 'manager';
 
   useEffect(() => {
     fetchDoctorSummaries();
@@ -589,9 +593,24 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
                             <div className="space-y-2 max-h-48 overflow-y-auto">
                               {unpaidVisits.map((visit) => (
                                 <div key={visit.id} className="bg-muted/50 rounded p-2 text-xs">
-                                  <div className="flex justify-between">
+                                  <div className="flex justify-between items-center">
                                     <span className="font-medium">{visit.visit_code}</span>
-                                    <span className="font-semibold text-orange-600">{formatCurrency(visit.visit_payment)}</span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-semibold text-orange-600">{formatCurrency(visit.visit_payment)}</span>
+                                      {canDeleteUnpaid && (
+                                        <DeleteUnpaidVisitButton
+                                          visitId={visit.id}
+                                          visitCode={visit.visit_code}
+                                          patientName={visit.patient_name}
+                                          amount={visit.visit_payment}
+                                          size="icon"
+                                          onDeleted={() => {
+                                            fetchDoctorSummaries();
+                                            if (expandedDoctor) fetchUnpaidVisits(expandedDoctor);
+                                          }}
+                                        />
+                                      )}
+                                    </div>
                                   </div>
                                   <div className="flex justify-between text-muted-foreground mt-1">
                                     <span>{visit.patient_name}</span>
@@ -1010,6 +1029,7 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
                                           <TableHead>Type</TableHead>
                                           <TableHead>Amount</TableHead>
                                           <TableHead>Status</TableHead>
+                                          {canDeleteUnpaid && <TableHead className="text-right">Action</TableHead>}
                                         </TableRow>
                                       </TableHeader>
                                       <TableBody>
@@ -1040,6 +1060,22 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
                                                 </Badge>
                                               </button>
                                             </TableCell>
+                                            {canDeleteUnpaid && (
+                                              <TableCell className="text-right">
+                                                <DeleteUnpaidVisitButton
+                                                  visitId={visit.id}
+                                                  visitCode={visit.visit_code}
+                                                  patientName={visit.patient_name}
+                                                  amount={visit.visit_payment}
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  onDeleted={() => {
+                                                    fetchDoctorSummaries();
+                                                    if (expandedDoctor) fetchUnpaidVisits(expandedDoctor);
+                                                  }}
+                                                />
+                                              </TableCell>
+                                            )}
                                           </TableRow>
                                         ))}
                                       </TableBody>
