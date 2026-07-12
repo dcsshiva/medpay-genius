@@ -13,6 +13,8 @@ import { formatDateIST, formatFullDateTimeIST } from '@/lib/dateUtils';
 import ReportGeneration from './ReportGeneration';
 import { StatsCard } from '@/components/ui/stats-card';
 import { PaginationControls } from '@/components/ui/pagination-controls';
+import { MobileListCard } from '@/components/mobile/MobileListCard';
+
 
 interface QuickPaymentReportData {
   id: string;
