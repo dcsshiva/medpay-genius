@@ -90,6 +90,8 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
   });
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const { userRole } = useAuth();
+  const canDeleteUnpaid = userRole === 'admin' || userRole === 'manager';
 
   useEffect(() => {
     fetchDoctorSummaries();
