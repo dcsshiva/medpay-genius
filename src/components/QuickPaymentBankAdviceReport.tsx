@@ -559,8 +559,10 @@ const QuickPaymentBankAdviceReport = () => {
                   ))}
                 </TableBody>
               </Table>
-            </div>
+              </div>
+            </>
           )}
+
           
           {filteredData.length > 0 && (
             <PaginationControls
