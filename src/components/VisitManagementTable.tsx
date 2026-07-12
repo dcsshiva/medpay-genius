@@ -65,7 +65,77 @@ export const VisitManagementTable: React.FC<VisitManagementTableProps> = ({
   };
 
   return (
-    <Table>
+    <>
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-2">
+        {visits.map((visit) => (
+          <MobileListCard
+            key={visit.id}
+            title={
+              <span className="flex items-center gap-2">
+                <span className="truncate">{visit.patient_name}</span>
+                {visit.visit_code && (
+                  <span className="font-mono text-[10px] text-muted-foreground">{visit.visit_code}</span>
+                )}
+              </span>
+            }
+            subtitle={
+              <span>
+                {formatDateIST(visit.visit_date)} · {visit.doctors.profiles.full_name}
+              </span>
+            }
+            amount={visit.visit_payment ? `₹${visit.visit_payment.toFixed(2)}` : '-'}
+            status={
+              <div className="flex flex-col items-end gap-1">
+                <Badge variant={visit.payment_type === 'cash' ? 'default' : 'secondary'} className="text-[10px]">
+                  {visit.payment_type === 'cash' ? 'Cash' : 'Insurance'}
+                </Badge>
+                <Badge variant={visit.is_processed ? 'default' : 'outline'} className="text-[10px]">
+                  {visit.is_processed ? 'Processed' : 'Pending'}
+                </Badge>
+              </div>
+            }
+          >
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <div className="text-muted-foreground capitalize">
+                {visit.visit_reason.replace('_', ' ')} · {visit.patient_count} pt
+                {visit.insurance_company_name ? ` · ${visit.insurance_company_name}` : ''}
+              </div>
+              {showActions && (
+                <div className="flex gap-1">
+                  {onEdit && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={(e) => { e.stopPropagation(); onEdit(visit); }}
+                      disabled={visit.is_processed}
+                    >
+                      <Edit className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {onDelete && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={(e) => { e.stopPropagation(); onDelete(visit.id); }}
+                      disabled={visit.is_processed}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
+          </MobileListCard>
+        ))}
+      </div>
+
+      {/* Desktop table */}
+      <div className="hidden md:block">
+        <Table>
+
       <TableHeader>
         <TableRow>
           <TableHead>Visit Code</TableHead>
