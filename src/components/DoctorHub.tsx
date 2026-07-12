@@ -593,9 +593,24 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
                             <div className="space-y-2 max-h-48 overflow-y-auto">
                               {unpaidVisits.map((visit) => (
                                 <div key={visit.id} className="bg-muted/50 rounded p-2 text-xs">
-                                  <div className="flex justify-between">
+                                  <div className="flex justify-between items-center">
                                     <span className="font-medium">{visit.visit_code}</span>
-                                    <span className="font-semibold text-orange-600">{formatCurrency(visit.visit_payment)}</span>
+                                    <div className="flex items-center gap-2">
+                                      <span className="font-semibold text-orange-600">{formatCurrency(visit.visit_payment)}</span>
+                                      {canDeleteUnpaid && (
+                                        <DeleteUnpaidVisitButton
+                                          visitId={visit.id}
+                                          visitCode={visit.visit_code}
+                                          patientName={visit.patient_name}
+                                          amount={visit.visit_payment}
+                                          size="icon"
+                                          onDeleted={() => {
+                                            fetchDoctorSummaries();
+                                            if (expandedDoctor) fetchUnpaidVisits(expandedDoctor);
+                                          }}
+                                        />
+                                      )}
+                                    </div>
                                   </div>
                                   <div className="flex justify-between text-muted-foreground mt-1">
                                     <span>{visit.patient_name}</span>
