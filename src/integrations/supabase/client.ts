@@ -2,44 +2,87 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+const SUPABASE_URL = "https://chbntbekbgetbyyxapqh.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYm50YmVrYmdldGJ5eXhhcHFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5NTM5NDcsImV4cCI6MjA3MjUyOTk0N30.iTlMXOoynJFKE0djf0LAZoaeLY6O07uYM5UxtS8jcDc";
 
+// Storage key version — bump this to invalidate all old persisted sessions
+const STORAGE_VERSION = 'v2';
 
-function isNewSupabaseApiKey(value: string): boolean {
-  return value.startsWith('sb_publishable_') || value.startsWith('sb_secret_');
-}
-
-function createSupabaseFetch(supabaseKey: string): typeof fetch {
-  return (input, init) => {
-    const headers = new Headers(
-      typeof Request !== 'undefined' && input instanceof Request ? input.headers : undefined,
+// One-time migration: wipe old-format auth keys on first load with new version
+const AUTH_MIGRATED_KEY = `__auth_storage_migrated_${STORAGE_VERSION}`;
+if (typeof window !== 'undefined' && !window.localStorage.getItem(AUTH_MIGRATED_KEY)) {
+  try {
+    const keysToRemove = Object.keys(window.localStorage).filter(
+      (k) => k.startsWith('sb-') || k.includes('supabase')
     );
-
-    if (init?.headers) {
-      new Headers(init.headers).forEach((value, key) => headers.set(key, value));
-    }
-
-    // New Supabase API keys are opaque strings, not bearer JWTs.
-    if (isNewSupabaseApiKey(supabaseKey) && headers.get('Authorization') === `Bearer ${supabaseKey}`) {
-      headers.delete('Authorization');
-    }
-
-    headers.set('apikey', supabaseKey);
-    return fetch(input, { ...init, headers });
-  };
+    keysToRemove.forEach((k) => window.localStorage.removeItem(k));
+    const sessionKeysToRemove = Object.keys(window.sessionStorage).filter(
+      (k) => k.startsWith('sb-') || k.includes('supabase')
+    );
+    sessionKeysToRemove.forEach((k) => window.sessionStorage.removeItem(k));
+    window.localStorage.setItem(AUTH_MIGRATED_KEY, Date.now().toString());
+    console.log('[auth-bootstrap] Cleared legacy auth keys for storage version', STORAGE_VERSION);
+  } catch (_) {
+    // Ignore storage errors
+  }
 }
+
+// Validate persisted auth token shape before Supabase SDK reads it
+const isValidAuthPayload = (raw: string | null): boolean => {
+  if (!raw) return false;
+  try {
+    const parsed = JSON.parse(raw);
+    // Supabase stores { access_token, refresh_token, ... } or nested under a key
+    // Keep minimum length guard conservative to avoid rejecting valid short-lived OTP refresh tokens.
+    const refreshToken = parsed?.refresh_token;
+    if (!refreshToken || typeof refreshToken !== 'string' || refreshToken.length < 10) {
+      return false;
+    }
+    const accessToken = parsed?.access_token;
+    if (!accessToken || typeof accessToken !== 'string' || accessToken.length < 10) {
+      return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+// Custom storage wrapper that validates auth payloads before returning them
+const validatingStorage: Storage & { getItem: (key: string) => string | null } = {
+  get length() { return window.localStorage.length; },
+  key(index: number) { return window.localStorage.key(index); },
+  clear() { window.localStorage.clear(); },
+  getItem(key: string): string | null {
+    const raw = window.localStorage.getItem(key);
+    // Only validate auth token keys
+    if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+      if (!isValidAuthPayload(raw)) {
+        if (raw !== null) {
+          console.warn('[auth-bootstrap] Removing malformed auth token from storage:', key);
+          window.localStorage.removeItem(key);
+        }
+        return null;
+      }
+    }
+    return raw;
+  },
+  setItem(key: string, value: string) {
+    window.localStorage.setItem(key, value);
+  },
+  removeItem(key: string) {
+    window.localStorage.removeItem(key);
+  },
+};
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
-  global: {
-    fetch: createSupabaseFetch(SUPABASE_PUBLISHABLE_KEY),
-  },
   auth: {
-    storage: localStorage,
-    persistSession: true,
+    storage: validatingStorage,
     autoRefreshToken: true,
-  }
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
 });
