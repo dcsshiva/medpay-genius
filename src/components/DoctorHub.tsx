@@ -1029,6 +1029,7 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
                                           <TableHead>Type</TableHead>
                                           <TableHead>Amount</TableHead>
                                           <TableHead>Status</TableHead>
+                                          {canDeleteUnpaid && <TableHead className="text-right">Action</TableHead>}
                                         </TableRow>
                                       </TableHeader>
                                       <TableBody>
@@ -1059,6 +1060,22 @@ const DoctorHub: React.FC<DoctorHubProps> = ({ filterDoctorId }) => {
                                                 </Badge>
                                               </button>
                                             </TableCell>
+                                            {canDeleteUnpaid && (
+                                              <TableCell className="text-right">
+                                                <DeleteUnpaidVisitButton
+                                                  visitId={visit.id}
+                                                  visitCode={visit.visit_code}
+                                                  patientName={visit.patient_name}
+                                                  amount={visit.visit_payment}
+                                                  size="sm"
+                                                  variant="ghost"
+                                                  onDeleted={() => {
+                                                    fetchDoctorSummaries();
+                                                    if (expandedDoctor) fetchUnpaidVisits(expandedDoctor);
+                                                  }}
+                                                />
+                                              </TableCell>
+                                            )}
                                           </TableRow>
                                         ))}
                                       </TableBody>
