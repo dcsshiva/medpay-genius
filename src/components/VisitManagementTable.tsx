@@ -266,5 +266,8 @@ export const VisitManagementTable: React.FC<VisitManagementTableProps> = ({
         ))}
       </TableBody>
     </Table>
+      </div>
+    </>
   );
+
 };
