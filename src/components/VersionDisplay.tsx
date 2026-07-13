@@ -6,25 +6,51 @@ import { Button } from '@/components/ui/button';
 import { Clock, GitBranch, Hash, Monitor } from 'lucide-react';
 import { formatFullDateTimeIST } from '@/lib/dateUtils';
 
-const VersionDisplay: React.FC = () => {
+interface VersionDisplayProps {
+  inline?: boolean;
+}
+
+const VersionDisplay: React.FC<VersionDisplayProps> = ({ inline = false }) => {
   const versionInfo = useVersionInfo();
   const [detailsOpen, setDetailsOpen] = useState(false);
 
+  const trigger = (
+    <div
+      className={
+        inline
+          ? 'cursor-pointer rounded-md px-2 py-1 hover:bg-muted/60 transition-colors'
+          : 'bg-muted/80 backdrop-blur-sm border border-border rounded-lg px-3 py-2 shadow-lg cursor-pointer hover:bg-muted/90 transition-colors'
+      }
+    >
+      <p className="text-[10px] font-medium text-muted-foreground leading-tight">
+        HMS v{versionInfo.version}
+      </p>
+      <p className="text-[9px] leading-tight text-muted-foreground/80">
+        {formatFullDateTimeIST(versionInfo.buildDate)}
+      </p>
+    </div>
+  );
 
   return (
     <>
-      <div className="fixed bottom-4 left-4 z-50">
+      {inline ? (
         <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-          <DialogTrigger asChild>
-            <div className="bg-muted/80 backdrop-blur-sm border border-border rounded-lg px-3 py-2 shadow-lg cursor-pointer hover:bg-muted/90 transition-colors">
-              <p className="text-xs font-medium text-muted-foreground">
-                HMS v{versionInfo.version}
-              </p>
-              <p className="text-[10px] leading-tight text-muted-foreground/80">
-                {formatFullDateTimeIST(versionInfo.buildDate)}
-              </p>
-            </div>
-          </DialogTrigger>
+          <DialogTrigger asChild>{trigger}</DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Monitor className="h-5 w-5" />
+                Version Information
+              </DialogTitle>
+            </DialogHeader>
+            <VersionDetails versionInfo={versionInfo} />
+          </DialogContent>
+        </Dialog>
+      ) : (
+        <div className="fixed bottom-4 left-4 z-50">
+          <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+            <DialogTrigger asChild>{trigger}</DialogTrigger>
+
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
