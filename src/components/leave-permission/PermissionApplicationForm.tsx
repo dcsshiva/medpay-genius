@@ -133,7 +133,7 @@ const PermissionApplicationForm = ({ onSuccess }: PermissionApplicationFormProps
           applicant_id: staffId, application_type: "permission", permission_date: todayStr,
           permission_start_time: values.startTime, permission_end_time: values.endTime,
           permission_duration_minutes: duration, permission_reason: values.reason,
-          reason_details: values.reasonDetails, notes: values.notes,
+          reason_details: values.reasonDetails?.trim() || '-', notes: values.notes ?? null,
           approver_id: values.approverId, status: "pending",
         });
       if (insertError) throw insertError;
