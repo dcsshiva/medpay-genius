@@ -110,13 +110,17 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
             <img src={westmedLogo} alt="WestMed Hospital" className="h-8 w-8" />
             {!isCollapsed && (
               <div>
-                <h1 className="text-lg font-bold">WestMed</h1>
-                <p className="text-xs text-muted-foreground">Hospital System</p>
+                <h1 className="text-lg font-bold leading-tight">WestMed</h1>
+                <p className="text-xs text-muted-foreground leading-tight">Hospital System</p>
+                <div className="mt-1 -ml-2">
+                  <VersionDisplay inline />
+                </div>
               </div>
             )}
           </div>
           {!isCollapsed && <NotificationCenter onNavigate={onTabChange} />}
         </div>
+
       </SidebarHeader>
 
       <SidebarContent>
