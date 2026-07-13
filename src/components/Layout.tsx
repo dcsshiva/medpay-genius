@@ -123,8 +123,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
             onTabChange={onTabChange}
           />
           
-          {/* Version Display */}
-          <VersionDisplay />
+
+
           
           {/* Footer */}
           <Footer />
