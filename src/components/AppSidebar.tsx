@@ -6,6 +6,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
+import VersionDisplay from '@/components/VersionDisplay';
 import { getNavigationItems } from '@/lib/navigationItems';
 import {
   Sidebar,
