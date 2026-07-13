@@ -144,8 +144,8 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
           leave_days: days,
           leave_reason: values.reason,
           is_half_day: values.leaveType === "half",
-          reason_details: values.reasonDetails,
-          notes: values.notes,
+          reason_details: values.reasonDetails?.trim() || '-',
+          notes: values.notes ?? null,
           approver_id: values.approverId,
           status: "pending",
         });
