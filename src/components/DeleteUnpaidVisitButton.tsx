@@ -116,8 +116,10 @@ const DeleteUnpaidVisitButton: React.FC<DeleteUnpaidVisitButtonProps> = ({
                 )}
               </div>
               <p>
-                This permanently removes the visit. It only works if the visit has
-                never been processed and is not linked to any payment.
+                This permanently removes the visit. It works for unprocessed visits
+                and for processed visits whose linked payment has not yet been
+                released, advised, or paid out. Linked payment totals are recomputed
+                automatically; empty payments are removed.
               </p>
               <div className="space-y-1.5">
                 <Label htmlFor={`delete-reason-${visitId}`}>Reason (min 5 characters)</Label>
