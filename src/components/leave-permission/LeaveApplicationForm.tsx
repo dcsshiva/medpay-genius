@@ -51,7 +51,7 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { leaveType: "full" },
+    defaultValues: { leaveType: "full", reasonDetails: "", notes: "" },
   });
 
   const startDate = form.watch("startDate");
