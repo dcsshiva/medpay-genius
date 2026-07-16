@@ -1,543 +1,467 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "@/hooks/use-toast";
-import { Search, Download, Printer, Check, X as XIcon, Loader2, CalendarClock } from "lucide-react";
-import { formatDateIST } from "@/lib/dateUtils";
-import * as XLSX from "xlsx";
+import { CalendarIcon, Loader2, ArrowRight, Info, UserCheck } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { formatInputDateIST, getMinLeaveDate, getMaxLeaveDate, formatDateIST } from "@/lib/dateUtils";
 
-// ── Types ──────────────────────────────────────────────────────────
-type AppStatus = "pending" | "approved" | "rejected";
-type AppType = "leave" | "permission";
+const formSchema = z.object({
+  startDate: z.date({ required_error: "Start date is required" }),
+  endDate: z.date({ required_error: "End date is required" }),
+  leaveType: z.enum(["full", "half"], { required_error: "Please select leave type" }),
+  reason: z.string({ required_error: "Please select a reason" }),
+  reasonDetails: z.string().optional(),
+  approverId: z.string({ required_error: "Please select an approver" }),
+  notes: z.string().optional(),
+});
 
-interface StaffLite {
-  full_name: string;
-  staff_code: string;
+type FormValues = z.infer<typeof formSchema>;
+
+interface LeaveApplicationFormProps {
+  onSuccess: () => void;
 }
 
-interface AppRow {
-  id: string;
-  applicant_id: string;
-  application_type: AppType;
-  status: AppStatus;
-  approver_id: string;
-  reason_details: string | null;
-  notes: string | null;
-  leave_start_date: string | null;
-  leave_end_date: string | null;
-  leave_days: number | null;
-  leave_reason: string | null;
-  is_half_day: boolean | null;
-  permission_date: string | null;
-  permission_start_time: string | null;
-  permission_end_time: string | null;
-  permission_duration_minutes: number | null;
-  permission_reason: string | null;
-  approved_at: string | null;
-  approved_by: string | null;
-  rejected_at: string | null;
-  rejected_by: string | null;
-  rejection_reason: string | null;
-  created_at: string;
-  updated_at: string;
-  // enriched client-side
-  applicantName?: string;
-  applicantCode?: string;
-  approverName?: string;
-  rejecterName?: string;
-}
-
-interface TabViewState {
-  search: string;
-  typeFilter: "all" | AppType;
-  rows: AppRow[];
-  loading: boolean;
-}
-
-const emptyTabState = (): TabViewState => ({ search: "", typeFilter: "all", rows: [], loading: false });
-
-const TAB_CONFIG: { key: AppStatus; label: string }[] = [
-  { key: "pending", label: "Pending" },
-  { key: "approved", label: "Approved" },
-  { key: "rejected", label: "Rejected" },
-];
-
-// ── Helpers ────────────────────────────────────────────────────────
-const typeLabel = (t: AppType) => (t === "leave" ? "Leave" : "Permission");
-
-const formatPeriod = (row: AppRow) => {
-  if (row.application_type === "leave") {
-    if (!row.leave_start_date) return "-";
-    const start = formatDateIST(new Date(row.leave_start_date));
-    if (row.leave_start_date === row.leave_end_date) {
-      return row.is_half_day ? `${start} (Half day)` : start;
-    }
-    const end = row.leave_end_date ? formatDateIST(new Date(row.leave_end_date)) : "";
-    return `${start} → ${end}`;
-  }
-  if (!row.permission_date) return "-";
-  const date = formatDateIST(new Date(row.permission_date));
-  const start = row.permission_start_time?.slice(0, 5) ?? "";
-  const end = row.permission_end_time?.slice(0, 5) ?? "";
-  return `${date}, ${start}–${end}`;
-};
-
-const formatReason = (row: AppRow) =>
-  (row.application_type === "leave" ? row.leave_reason : row.permission_reason)?.replace(/_/g, " ") || "-";
-
-const formatDateTime = (iso: string | null) => {
-  if (!iso) return "-";
-  const d = new Date(iso);
-  return `${formatDateIST(d)} ${d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}`;
-};
-
-// ── Component ──────────────────────────────────────────────────────
-const LeavePermissionApprovals = () => {
+const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
+  const [loading, setLoading] = useState(false);
+  const [managers, setManagers] = useState<Array<{ id: string; staff_code: string; full_name: string }>>([]);
   const [staffId, setStaffId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<AppStatus>("pending");
-  const [tabState, setTabState] = useState<Record<AppStatus, TabViewState>>({
-    pending: emptyTabState(),
-    approved: emptyTabState(),
-    rejected: emptyTabState(),
+  const [isManagerRole, setIsManagerRole] = useState(false);
+  const [leaveReasons, setLeaveReasons] = useState<Array<{ id: string; reason_code: string; reason_name: string }>>([]);
+  const [openStart, setOpenStart] = useState(false);
+  const [openEnd, setOpenEnd] = useState(false);
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: { leaveType: "full", reasonDetails: "", notes: "" },
   });
-  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
-  const [rejectTarget, setRejectTarget] = useState<AppRow | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
+
+  const startDate = form.watch("startDate");
+  const endDate = form.watch("endDate");
+  const leaveType = form.watch("leaveType");
 
   useEffect(() => {
-    const loadStaff = async () => {
-      if (!user?.id) return;
-      const { data } = await supabase.from("staff").select("id").eq("user_id", user.id).single();
-      if (data) setStaffId(data.id);
-    };
-    loadStaff();
-  }, [user?.id]);
-
-  const patchTab = (status: AppStatus, patch: Partial<TabViewState>) => {
-    setTabState((prev) => ({ ...prev, [status]: { ...prev[status], ...patch } }));
-  };
-
-  const fetchTab = useCallback(async (status: AppStatus) => {
-    patchTab(status, { loading: true });
-    try {
-      const orderCol = status === "pending" ? "created_at" : status === "approved" ? "approved_at" : "rejected_at";
-      const { data, error } = await supabase
-        .from("leave_permission_applications" as any)
-        .select("*")
-        .eq("status", status)
-        .order(orderCol, { ascending: false });
-      if (error) throw error;
-
-      const rows = (data || []) as AppRow[];
-      const staffIds = Array.from(
-        new Set(rows.flatMap((r) => [r.applicant_id, r.approved_by, r.rejected_by].filter(Boolean) as string[])),
-      );
-      let staffMap: Record<string, StaffLite> = {};
-      if (staffIds.length > 0) {
-        const { data: staffRows } = await supabase.from("staff").select("id, full_name, staff_code").in("id", staffIds);
-        staffMap = Object.fromEntries(
-          (staffRows || []).map((s: any) => [s.id, { full_name: s.full_name, staff_code: s.staff_code }]),
-        );
-      }
-
-      const enriched = rows.map((r) => ({
-        ...r,
-        applicantName: staffMap[r.applicant_id]?.full_name ?? "Unknown",
-        applicantCode: staffMap[r.applicant_id]?.staff_code ?? "-",
-        approverName: r.approved_by ? (staffMap[r.approved_by]?.full_name ?? "Unknown") : undefined,
-        rejecterName: r.rejected_by ? (staffMap[r.rejected_by]?.full_name ?? "Unknown") : undefined,
-      }));
-
-      patchTab(status, { rows: enriched, loading: false });
-    } catch (error: any) {
-      console.error(`Error loading ${status} applications:`, error);
-      toast({ title: "Error", description: `Failed to load ${status} applications`, variant: "destructive" });
-      patchTab(status, { loading: false });
-    }
+    loadManagersAndStaffInfo();
+    fetchLeaveReasons();
   }, []);
 
-  useEffect(() => {
-    fetchTab("pending");
-    fetchTab("approved");
-    fetchTab("rejected");
-  }, [fetchTab]);
-
-  const filteredRows = (status: AppStatus) => {
-    const { rows, search, typeFilter } = tabState[status];
-    const q = search.trim().toLowerCase();
-    return rows.filter((r) => {
-      const matchesSearch =
-        !q || r.applicantName?.toLowerCase().includes(q) || r.applicantCode?.toLowerCase().includes(q);
-      const matchesType = typeFilter === "all" || r.application_type === typeFilter;
-      return matchesSearch && matchesType;
-    });
+  const fetchLeaveReasons = async () => {
+    const { data, error } = await supabase
+      .from("leave_reasons_master")
+      .select("id, reason_code, reason_name")
+      .eq("is_active", true)
+      .order("display_order");
+    if (!error && data) setLeaveReasons(data);
   };
 
-  const handleApprove = async (row: AppRow) => {
-    if (!staffId) return;
-    setActionLoadingId(row.id);
+  const loadManagersAndStaffInfo = async () => {
     try {
-      const { error } = await supabase
-        .from("leave_permission_applications" as any)
-        .update({ status: "approved", approved_at: new Date().toISOString(), approved_by: staffId })
-        .eq("id", row.id);
-      if (error) throw error;
-      toast({ title: "Approved", description: `${row.applicantName}'s application has been approved.` });
-      fetchTab("pending");
-      fetchTab("approved");
+      if (!user?.id) {
+        toast({ title: "Error", description: "You are not logged in", variant: "destructive" });
+        return;
+      }
+      const { data: staffData, error: staffError } = await supabase
+        .from("staff")
+        .select("id, role")
+        .eq("user_id", user.id)
+        .single();
+      if (staffError) throw staffError;
+      setStaffId(staffData.id);
+      const isManager = staffData.role === "manager";
+      setIsManagerRole(isManager);
+
+      const { data: managersData, error: managersError } = await supabase.rpc("get_available_managers" as any);
+      if (managersError) throw managersError;
+      const mgrs = (managersData || []) as Array<{ id: string; staff_code: string; full_name: string }>;
+      setManagers(mgrs);
+      if (mgrs.length === 0) {
+        toast({
+          title: "No approvers found",
+          description: "Please contact the administrator.",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (isManager && mgrs.length > 0) {
+        const admin = mgrs.find((m: any) => m.full_name?.toLowerCase().includes("admin")) || mgrs[0];
+        form.setValue("approverId", admin.id);
+      } else if (mgrs.length === 1) {
+        form.setValue("approverId", mgrs[0].id);
+      }
     } catch (error: any) {
-      toast({ title: "Error", description: error.message || "Failed to approve", variant: "destructive" });
-    } finally {
-      setActionLoadingId(null);
+      console.error("Error loading managers:", error);
+      toast({ title: "Error", description: "Failed to load approvers", variant: "destructive" });
     }
   };
 
-  const submitReject = async () => {
-    if (!rejectTarget || !staffId) return;
-    if (!rejectReason.trim()) {
-      toast({ title: "Reason required", description: "Please provide a rejection reason.", variant: "destructive" });
+  const calculateLeaveDays = (start: Date, end: Date, isHalfDay: boolean): number => {
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    return isHalfDay && diffDays === 1 ? 0.5 : diffDays;
+  };
+
+  const leaveDays = startDate && endDate ? calculateLeaveDays(startDate, endDate, leaveType === "half") : null;
+
+  const onSubmit = async (values: FormValues) => {
+    if (!staffId) {
+      toast({ title: "Error", description: "Staff information not found", variant: "destructive" });
       return;
     }
-    setActionLoadingId(rejectTarget.id);
+    setLoading(true);
     try {
-      const { error } = await supabase
-        .from("leave_permission_applications" as any)
-        .update({
-          status: "rejected",
-          rejected_at: new Date().toISOString(),
-          rejected_by: staffId,
-          rejection_reason: rejectReason.trim(),
-        })
-        .eq("id", rejectTarget.id);
-      if (error) throw error;
-      toast({ title: "Rejected", description: `${rejectTarget.applicantName}'s application has been rejected.` });
-      setRejectTarget(null);
-      setRejectReason("");
-      fetchTab("pending");
-      fetchTab("rejected");
+      const { data: validationResult, error: validationError } = await supabase.rpc(
+        "validate_leave_application" as any,
+        {
+          _applicant_id: staffId,
+          _leave_start_date: formatInputDateIST(values.startDate),
+          _leave_end_date: formatInputDateIST(values.endDate),
+        },
+      );
+      if (validationError) throw validationError;
+      const validation = validationResult as any as { valid: boolean; error?: string };
+      if (!validation.valid) {
+        toast({ title: "Validation Failed", description: validation.error, variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+      const days = calculateLeaveDays(values.startDate, values.endDate, values.leaveType === "half");
+      const { error: insertError } = await supabase.from("leave_permission_applications" as any).insert({
+        applicant_id: staffId,
+        application_type: "leave",
+        leave_start_date: formatInputDateIST(values.startDate),
+        leave_end_date: formatInputDateIST(values.endDate),
+        leave_days: days,
+        leave_reason: values.reason,
+        is_half_day: values.leaveType === "half",
+        reason_details: values.reasonDetails?.trim() || "-",
+        notes: values.notes ?? null,
+        approver_id: values.approverId,
+        status: "pending",
+      });
+      if (insertError) throw insertError;
+      toast({ title: "Success", description: "Leave application submitted successfully" });
+      form.reset();
+      onSuccess();
     } catch (error: any) {
-      toast({ title: "Error", description: error.message || "Failed to reject", variant: "destructive" });
+      console.error("Error submitting leave:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to submit leave application",
+        variant: "destructive",
+      });
     } finally {
-      setActionLoadingId(null);
+      setLoading(false);
     }
   };
 
-  // ── Export to Excel ────────────────────────────────────────────
-  const exportToExcel = (status: AppStatus) => {
-    const rows = filteredRows(status);
-    if (rows.length === 0) {
-      toast({ title: "Nothing to export", description: "There are no rows in the current view." });
-      return;
-    }
-    const data = rows.map((r) => {
-      const base = {
-        Applicant: r.applicantName,
-        "Staff Code": r.applicantCode,
-        Type: typeLabel(r.application_type),
-        "Date/Period": formatPeriod(r),
-        Reason: formatReason(r),
-        "Applied On": formatDateTime(r.created_at),
-      };
-      if (status === "approved") {
-        return { ...base, "Approved By": r.approverName, "Approved On": formatDateTime(r.approved_at) };
-      }
-      if (status === "rejected") {
-        return {
-          ...base,
-          "Rejected By": r.rejecterName,
-          "Rejected On": formatDateTime(r.rejected_at),
-          "Rejection Reason": r.rejection_reason,
-        };
-      }
-      return base;
-    });
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, status.charAt(0).toUpperCase() + status.slice(1));
-    const today = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(wb, `leave-permission-${status}-${today}.xlsx`);
-  };
+  const minDate = getMinLeaveDate();
+  const maxDate = getMaxLeaveDate();
 
-  // ── Print ──────────────────────────────────────────────────────
-  const printTab = (status: AppStatus) => {
-    const rows = filteredRows(status);
-    if (rows.length === 0) {
-      toast({ title: "Nothing to print", description: "There are no rows in the current view." });
-      return;
-    }
-    const label = TAB_CONFIG.find((t) => t.key === status)?.label ?? status;
-    const generatedOn = new Date().toLocaleString("en-IN");
-
-    let extraHeadCols = "";
-    let extraRowCols = (r: AppRow) => "";
-    if (status === "approved") {
-      extraHeadCols = "<th>Approved By</th><th>Approved On</th>";
-      extraRowCols = (r) => `<td>${r.approverName ?? "-"}</td><td>${formatDateTime(r.approved_at)}</td>`;
-    } else if (status === "rejected") {
-      extraHeadCols = "<th>Rejected By</th><th>Rejected On</th><th>Rejection Reason</th>";
-      extraRowCols = (r) =>
-        `<td>${r.rejecterName ?? "-"}</td><td>${formatDateTime(r.rejected_at)}</td><td>${r.rejection_reason ?? "-"}</td>`;
-    }
-
-    const tableRows = rows
-      .map(
-        (r) => `
-        <tr>
-          <td>${r.applicantName} (${r.applicantCode})</td>
-          <td>${typeLabel(r.application_type)}</td>
-          <td>${formatPeriod(r)}</td>
-          <td>${formatReason(r)}</td>
-          <td>${formatDateTime(r.created_at)}</td>
-          ${extraRowCols(r)}
-        </tr>`,
-      )
-      .join("");
-
-    const html = `
-      <html>
-        <head>
-          <title>Leave & Permission — ${label}</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 24px; color: #1a1a1a; }
-            h1 { font-size: 18px; margin-bottom: 2px; }
-            p.meta { font-size: 12px; color: #555; margin-top: 0; margin-bottom: 16px; }
-            table { width: 100%; border-collapse: collapse; font-size: 12px; }
-            th, td { border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
-            th { background: #f3f3f3; }
-          </style>
-        </head>
-        <body>
-          <h1>Leave &amp; Permission Approvals — ${label}</h1>
-          <p class="meta">Generated on ${generatedOn} • ${rows.length} record(s)</p>
-          <table>
-            <thead>
-              <tr>
-                <th>Applicant</th><th>Type</th><th>Date/Period</th><th>Reason</th><th>Applied On</th>${extraHeadCols}
-              </tr>
-            </thead>
-            <tbody>${tableRows}</tbody>
-          </table>
-        </body>
-      </html>`;
-
-    const win = window.open("", "_blank");
-    if (!win) {
-      toast({ title: "Popup blocked", description: "Please allow popups to print.", variant: "destructive" });
-      return;
-    }
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    win.print();
-  };
-
-  // ── Render ─────────────────────────────────────────────────────
   return (
-    <div className="rounded-xl border border-border bg-card">
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AppStatus)}>
-        <div className="flex items-center justify-between px-4 pt-4 md:px-6 md:pt-6">
-          <TabsList>
-            {TAB_CONFIG.map((t) => (
-              <TabsTrigger key={t.key} value={t.key}>
-                {t.label} ({tabState[t.key].rows.length})
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </div>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+        {/* Section 1: When */}
+        <div className="rounded-lg border border-border bg-muted/30 p-3 md:p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <CalendarIcon className="h-4 w-4 text-primary" />
+            <span>When</span>
+            {leaveDays !== null && (
+              <span className="ml-auto inline-flex items-center rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-xs font-bold">
+                {leaveDays} {leaveDays === 0.5 ? "half day" : leaveDays === 1 ? "day" : "days"}
+              </span>
+            )}
+          </div>
 
-        {TAB_CONFIG.map(({ key: status, label }) => {
-          const state = tabState[status];
-          const rows = filteredRows(status);
-          return (
-            <TabsContent key={status} value={status} className="p-4 md:p-6 space-y-4">
-              <div className="flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
-                <div className="flex flex-col sm:flex-row gap-3 flex-1">
-                  <div className="relative flex-1 max-w-sm">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Search by name or staff code..."
-                      className="pl-9"
-                      value={state.search}
-                      onChange={(e) => patchTab(status, { search: e.target.value })}
-                    />
-                  </div>
-                  <Select value={state.typeFilter} onValueChange={(v) => patchTab(status, { typeFilter: v as any })}>
-                    <SelectTrigger className="w-full sm:w-40">
-                      <SelectValue placeholder="All Types" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      <SelectItem value="leave">Leave</SelectItem>
-                      <SelectItem value="permission">Permission</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => exportToExcel(status)}
-                    disabled={rows.length === 0}
-                  >
-                    <Download className="h-4 w-4 mr-1.5" />
-                    Export to Excel
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => printTab(status)} disabled={rows.length === 0}>
-                    <Printer className="h-4 w-4 mr-1.5" />
-                    Print
-                  </Button>
-                </div>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <FormField
+              control={form.control}
+              name="startDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel className="text-xs text-muted-foreground">From</FormLabel>
+                  <Popover open={openStart} onOpenChange={setOpenStart}>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "min-h-[44px] pl-3 text-left font-normal justify-start",
+                            !field.value && "text-muted-foreground",
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                          {field.value ? format(field.value, "dd MMM yyyy") : "Pick start date"}
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={(date) => {
+                          field.onChange(date);
+                          setOpenStart(false);
+                        }}
+                        disabled={(date) => {
+                          const d = new Date(date);
+                          d.setHours(0, 0, 0, 0);
+                          const mn = new Date(minDate);
+                          mn.setHours(0, 0, 0, 0);
+                          const mx = new Date(maxDate);
+                          mx.setHours(23, 59, 59, 999);
+                          return d < mn || d > mx;
+                        }}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-              <div className="rounded-lg border border-border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>APPLICANT</TableHead>
-                      <TableHead>TYPE</TableHead>
-                      <TableHead>DATE/PERIOD</TableHead>
-                      <TableHead>REASON</TableHead>
-                      <TableHead>APPLIED ON</TableHead>
-                      {status === "approved" && (
-                        <>
-                          <TableHead>APPROVED BY</TableHead>
-                          <TableHead>APPROVED ON</TableHead>
-                        </>
-                      )}
-                      {status === "rejected" && (
-                        <>
-                          <TableHead>REJECTED BY</TableHead>
-                          <TableHead>REJECTED ON</TableHead>
-                          <TableHead>REJECTION REASON</TableHead>
-                        </>
-                      )}
-                      {status === "pending" && <TableHead>ACTIONS</TableHead>}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {state.loading ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                          <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
-                          Loading...
-                        </TableCell>
-                      </TableRow>
-                    ) : rows.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                          No {label.toLowerCase()} applications
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      rows.map((r) => (
-                        <TableRow key={r.id}>
-                          <TableCell>
-                            <div className="font-medium">{r.applicantName}</div>
-                            <div className="text-xs text-muted-foreground">{r.applicantCode}</div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="secondary" className="gap-1">
-                              <CalendarClock className="h-3 w-3" />
-                              {typeLabel(r.application_type)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap">{formatPeriod(r)}</TableCell>
-                          <TableCell className="capitalize">{formatReason(r)}</TableCell>
-                          <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                            {formatDateTime(r.created_at)}
-                          </TableCell>
-                          {status === "approved" && (
-                            <>
-                              <TableCell>{r.approverName}</TableCell>
-                              <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                                {formatDateTime(r.approved_at)}
-                              </TableCell>
-                            </>
+            <FormField
+              control={form.control}
+              name="endDate"
+              render={({ field }) => (
+                <FormItem className="flex flex-col">
+                  <FormLabel className="text-xs text-muted-foreground">To</FormLabel>
+                  <Popover open={openEnd} onOpenChange={setOpenEnd}>
+                    <PopoverTrigger asChild>
+                      <FormControl>
+                        <Button
+                          variant="outline"
+                          className={cn(
+                            "min-h-[44px] pl-3 text-left font-normal justify-start",
+                            !field.value && "text-muted-foreground",
                           )}
-                          {status === "rejected" && (
-                            <>
-                              <TableCell>{r.rejecterName}</TableCell>
-                              <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
-                                {formatDateTime(r.rejected_at)}
-                              </TableCell>
-                              <TableCell className="max-w-[200px] truncate" title={r.rejection_reason ?? ""}>
-                                {r.rejection_reason}
-                              </TableCell>
-                            </>
-                          )}
-                          {status === "pending" && (
-                            <TableCell>
-                              <div className="flex gap-2">
-                                <Button size="sm" onClick={() => handleApprove(r)} disabled={actionLoadingId === r.id}>
-                                  {actionLoadingId === r.id ? (
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                  ) : (
-                                    <Check className="h-3.5 w-3.5" />
-                                  )}
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="destructive"
-                                  onClick={() => setRejectTarget(r)}
-                                  disabled={actionLoadingId === r.id}
-                                >
-                                  <XIcon className="h-3.5 w-3.5" />
-                                </Button>
-                              </div>
-                            </TableCell>
-                          )}
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            </TabsContent>
-          );
-        })}
-      </Tabs>
-
-      {/* Reject reason dialog */}
-      <Dialog open={!!rejectTarget} onOpenChange={(open) => !open && setRejectTarget(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reject Application</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label className="text-sm">
-              Rejecting {rejectTarget?.applicantName}'s{" "}
-              {rejectTarget && typeLabel(rejectTarget.application_type).toLowerCase()} application
-            </Label>
-            <Textarea
-              placeholder="Reason for rejection..."
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              rows={3}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+                          {field.value ? format(field.value, "dd MMM yyyy") : "Pick end date"}
+                        </Button>
+                      </FormControl>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={field.value}
+                        onSelect={(date) => {
+                          field.onChange(date);
+                          setOpenEnd(false);
+                        }}
+                        disabled={(date) => {
+                          const sd = form.getValues("startDate");
+                          const d = new Date(date);
+                          d.setHours(0, 0, 0, 0);
+                          const mn = sd ? new Date(sd) : new Date(minDate);
+                          mn.setHours(0, 0, 0, 0);
+                          const mx = new Date(maxDate);
+                          mx.setHours(23, 59, 59, 999);
+                          return d < mn || d > mx;
+                        }}
+                        initialFocus
+                        className="pointer-events-auto"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectTarget(null)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={submitReject} disabled={actionLoadingId === rejectTarget?.id}>
-              {actionLoadingId === rejectTarget?.id && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Reject
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+          <p className="text-[11px] text-muted-foreground">
+            {formatDateIST(minDate)} to {formatDateIST(maxDate)} (IST)
+          </p>
+        </div>
+
+        {/* Leave summary banner */}
+        {startDate && endDate && leaveDays !== null && (
+          <div className="flex items-center gap-2 rounded-lg bg-primary/5 border border-primary/20 px-3 py-2 text-sm">
+            <Info className="h-4 w-4 text-primary shrink-0" />
+            <span>
+              Requesting{" "}
+              <strong>
+                {leaveDays} {leaveDays === 0.5 ? "half day" : leaveDays === 1 ? "day" : "days"}
+              </strong>{" "}
+              from <strong>{format(startDate, "dd MMM")}</strong>
+              <ArrowRight className="inline h-3 w-3 mx-1" />
+              <strong>{format(endDate, "dd MMM yyyy")}</strong>
+            </span>
+          </div>
+        )}
+
+        {/* Section 2: Leave Type - Pill toggles */}
+        <FormField
+          control={form.control}
+          name="leaveType"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel className="text-sm font-medium">Leave Type</FormLabel>
+              <FormControl>
+                <div className="flex gap-2">
+                  {[
+                    { value: "full", label: "Full Day" },
+                    { value: "half", label: "Half Day" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => field.onChange(opt.value)}
+                      className={cn(
+                        "flex-1 min-h-[44px] rounded-lg border-2 text-sm font-medium transition-all",
+                        field.value === opt.value
+                          ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                          : "border-border bg-background text-foreground hover:border-primary/50",
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
+        {/* Section 3: Reason */}
+        <div className="rounded-lg border border-border p-3 md:p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Info className="h-4 w-4 text-primary" />
+            <span>Reason</span>
+          </div>
+
+          <FormField
+            control={form.control}
+            name="reason"
+            render={({ field }) => (
+              <FormItem>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger className="min-h-[44px]">
+                      <SelectValue placeholder="Select leave reason" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {leaveReasons.map((reason) => (
+                      <SelectItem key={reason.id} value={reason.reason_code}>
+                        {reason.reason_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="reasonDetails"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs text-muted-foreground">Details (optional)</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Provide additional details..."
+                    className="resize-none"
+                    rows={isMobile ? 2 : 3}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* Section 4: Approval */}
+        <div className="rounded-lg border border-border bg-muted/20 p-3 md:p-4 space-y-3">
+          <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <UserCheck className="h-4 w-4 text-primary" />
+            <span>Approval</span>
+          </div>
+
+          <FormField
+            control={form.control}
+            name="approverId"
+            render={({ field }) => (
+              <FormItem>
+                <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isManagerRole}>
+                  <FormControl>
+                    <SelectTrigger className="min-h-[44px]">
+                      <SelectValue placeholder="Select approver" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {managers.map((manager) => (
+                      <SelectItem key={manager.id} value={manager.id}>
+                        {manager.full_name} ({manager.staff_code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormDescription className="text-xs">
+                  {isManagerRole ? "Sent to admin automatically" : "Select reviewing manager"}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="notes"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs text-muted-foreground">Notes (optional)</FormLabel>
+                <FormControl>
+                  <Textarea
+                    placeholder="Any additional information..."
+                    className="resize-none"
+                    rows={isMobile ? 2 : 3}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        {/* Submit buttons */}
+        <div className={cn("flex gap-3 pt-2", isMobile ? "flex-col" : "justify-end")}>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => form.reset()}
+            disabled={loading}
+            className={cn("min-h-[44px]", isMobile && "order-2")}
+          >
+            Reset
+          </Button>
+          <Button type="submit" disabled={loading} className={cn("min-h-[44px]", isMobile && "order-1")}>
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Submit Leave
+          </Button>
+        </div>
+      </form>
+    </Form>
   );
 };
 
-export default LeavePermissionApprovals;
+export default LeaveApplicationForm;
