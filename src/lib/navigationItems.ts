@@ -130,7 +130,7 @@ export const getNavigationItems = ({
   if (userRole === 'admin' || userDesignation === 'admin') {
     return [
       ...baseItems,
-      { id: 'staff', label: 'Staff Management', icon: UserCog },
+      { id: 'masters', label: 'Masters', icon: Database },
       { id: 'attendance', label: 'Attendance', icon: CalendarCheck },
       { id: 'doctors', label: 'Doctor Management', icon: Users },
       { id: 'doctor-hub', label: 'Doctor Hub', icon: Stethoscope },
