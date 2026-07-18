@@ -53,7 +53,6 @@ export const getNavigationItems = ({
     return [
       ...baseItems,
       { id: 'masters', label: 'Masters', icon: Database },
-      { id: 'staff', label: 'Staff Management', icon: UserCog },
       { id: 'attendance', label: 'Attendance', icon: CalendarCheck },
       { id: 'doctors', label: 'Doctor Management', icon: Users },
       { id: 'visits', label: 'Visit Management', icon: Calendar },
@@ -71,7 +70,7 @@ export const getNavigationItems = ({
       { id: 'bank-advice-payment-report', label: 'BA Payment Report', icon: FileText },
       { id: 'quick-payment-bank-advice-report', label: 'Quick Payment BA Report', icon: FileText },
       { id: 'tasks', label: 'Task Management', icon: ClipboardList },
-      { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
+      { id: 'appraisals', label: 'Staff Management', icon: UserCog },
       { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
       { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
       { id: 'login-reports', label: 'Login Reports', icon: TrendingUp },
@@ -117,7 +116,7 @@ export const getNavigationItems = ({
       { id: 'bank-advice-payment-report', label: 'BA Payment Report', icon: FileText },
       { id: 'quick-payment-bank-advice-report', label: 'Quick Payment BA Report', icon: FileText },
       { id: 'tasks', label: 'Task Management', icon: ClipboardList },
-      { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
+      { id: 'appraisals', label: 'Staff Management', icon: UserCog },
       { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
       { id: 'complaints', label: 'Complaints', icon: MessageCircle },
       { id: 'vendor-reports', label: 'Vendor Reports', icon: FileText },
@@ -131,7 +130,6 @@ export const getNavigationItems = ({
   if (userRole === 'admin' || userDesignation === 'admin') {
     return [
       ...baseItems,
-      { id: 'masters', label: 'Masters', icon: Database },
       { id: 'staff', label: 'Staff Management', icon: UserCog },
       { id: 'attendance', label: 'Attendance', icon: CalendarCheck },
       { id: 'doctors', label: 'Doctor Management', icon: Users },
@@ -150,7 +148,7 @@ export const getNavigationItems = ({
       { id: 'bank-advice-payment-report', label: 'BA Payment Report', icon: FileText },
       { id: 'quick-payment-bank-advice-report', label: 'Quick Payment BA Report', icon: FileText },
       { id: 'tasks', label: 'Task Management', icon: ClipboardList },
-      { id: 'appraisals', label: 'Staff Appraisals', icon: ClipboardCheck },
+      { id: 'appraisals', label: 'Staff Management', icon: UserCog },
       { id: 'leave-approvals', label: 'Leave Approvals', icon: CalendarCheck },
       { id: 'complaints', label: 'Complaint Management', icon: MessageCircle },
       { id: 'login-reports', label: 'Login Reports', icon: TrendingUp },
