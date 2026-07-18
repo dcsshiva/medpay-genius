@@ -49,7 +49,11 @@ interface Staff {
   branch_name?: string;
 }
 
-const StaffManagement = () => {
+interface StaffManagementProps {
+  excludeAdminAndDoctor?: boolean;
+}
+
+const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps = {}) => {
   const { userRole, userDesignation } = useAuth();
   const { toast } = useToast();
   const [staff, setStaff] = useState<Staff[]>([]);
