@@ -44,7 +44,7 @@ const StaffSalaryStructure: React.FC = () => {
     try {
       const [structRes, staffRes] = await Promise.all([
         supabase.from('staff_salary_structure').select('*, staff(full_name, staff_code, department)'),
-        supabase.from('staff').select('id, full_name, staff_code, department').eq('is_active', true).order('full_name'),
+        supabase.from('staff').select('id, full_name, staff_code, department').eq('is_active', true).not('role', 'in', '(doctor,admin)').order('full_name'),
       ]);
       if (structRes.data) setStructures(structRes.data as any);
       if (staffRes.data) setStaffList(staffRes.data);
