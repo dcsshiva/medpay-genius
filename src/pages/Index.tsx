@@ -166,7 +166,7 @@ const Index = () => {
         case 'tasks':
           return <TaskManagement />;
         case 'appraisals':
-          return <StaffAppraisalManagement />;
+          return <StaffManagementDashboard />;
         case 'complaints':
           return <ComplaintManagement />;
         case 'login-reports':
