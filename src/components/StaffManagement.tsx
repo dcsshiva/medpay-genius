@@ -155,10 +155,14 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
 
   const fetchStaff = async () => {
     try {
-      const { data, error } = await supabase
+      let query: any = supabase
         .from('staff')
         .select('*')
         .order('created_at', { ascending: false });
+      if (excludeAdminAndDoctor) {
+        query = query.not('role', 'in', '(doctor,admin)');
+      }
+      const { data, error } = await query;
 
       if (error) throw error;
       setStaff(data || []);
