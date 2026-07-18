@@ -364,6 +364,7 @@ export default function StaffAppraisalManagement() {
       .from("staff")
       .select("id, staff_code, full_name, role, department")
       .eq("is_active", true)
+      .not("role", "in", "(doctor,admin)")
       .order("full_name");
     if (error) throw error;
     setStaffList(data || []);

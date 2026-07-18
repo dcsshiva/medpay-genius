@@ -88,7 +88,8 @@ export const StaffBulkPaymentTab = () => {
       const { data: staffData, error: staffError } = await supabase
         .from('staff')
         .select('id, staff_code, full_name, bank_name, bank_account_number, ifsc_code, branch_name, account_holder_name, user_id')
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .not('role', 'in', '(doctor,admin)');
 
       if (staffError) throw staffError;
 

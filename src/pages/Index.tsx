@@ -20,6 +20,7 @@ const PaymentManagement = lazy(() => import('@/components/PaymentManagement'));
 const StaffManagement = lazy(() => import('@/components/StaffManagement'));
 const TaskManagement = lazy(() => import('@/components/TaskManagement'));
 const StaffAppraisalManagement = lazy(() => import('@/components/StaffAppraisalManagement'));
+const StaffManagementDashboard = lazy(() => import('@/components/StaffManagementDashboard'));
 const TeamChat = lazy(() => import('@/components/TeamChat'));
 const ComplaintManagement = lazy(() => import('@/components/ComplaintManagement'));
 const UserLoginReports = lazy(() => import('@/components/UserLoginReports'));
@@ -165,7 +166,7 @@ const Index = () => {
         case 'tasks':
           return <TaskManagement />;
         case 'appraisals':
-          return <StaffAppraisalManagement />;
+          return <StaffManagementDashboard />;
         case 'complaints':
           return <ComplaintManagement />;
         case 'login-reports':
