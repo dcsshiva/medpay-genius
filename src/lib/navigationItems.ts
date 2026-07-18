@@ -99,7 +99,7 @@ export const getNavigationItems = ({
     return [
       ...baseItems,
       { id: 'masters', label: 'Masters', icon: Database },
-      { id: 'staff', label: 'Staff Management', icon: UserCog },
+      { id: 'appraisals', label: 'Staff Management', icon: UserCog },
       { id: 'attendance', label: 'Attendance', icon: CalendarCheck },
       { id: 'visits', label: 'Visit Management', icon: Calendar },
       { id: 'doctors', label: 'Doctors', icon: Users },
