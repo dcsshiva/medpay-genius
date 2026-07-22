@@ -114,42 +114,49 @@ DROP POLICY IF EXISTS "approval_registry_read" ON public.approval_permission_reg
 CREATE POLICY "approval_registry_read" ON public.approval_permission_registry
   FOR SELECT USING (true);
 
+-- Helper: resolve caller's role via public.staff (roles live on staff.role,
+-- there is no public.user_roles table in this project). SECURITY DEFINER
+-- avoids RLS recursion on staff.
+CREATE OR REPLACE FUNCTION public.current_user_has_role(_roles text[])
+RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.staff
+     WHERE user_id = auth.uid()
+       AND role = ANY(_roles)
+       AND is_active = true
+  );
+$$;
+GRANT EXECUTE ON FUNCTION public.current_user_has_role(text[])
+  TO authenticated, anon, service_role;
+
 -- Staff permission rows: staff can read their own; admin/manager can read all.
 -- Writes handled through security-definer RPCs, so no direct write policy.
 DROP POLICY IF EXISTS "ssp_read_own_or_admin" ON public.staff_screen_permissions;
 CREATE POLICY "ssp_read_own_or_admin" ON public.staff_screen_permissions
   FOR SELECT USING (
-    -- own row (staff.user_id = auth.uid())
     staff_id IN (SELECT id FROM public.staff WHERE user_id = auth.uid())
-    OR EXISTS (SELECT 1 FROM public.user_roles ur
-               WHERE ur.user_id = auth.uid()
-                 AND ur.role IN ('admin','manager','super_admin'))
+    OR public.current_user_has_role(ARRAY['admin','manager','super_admin'])
   );
 
 DROP POLICY IF EXISTS "sap_read_own_or_admin" ON public.staff_approval_permissions;
 CREATE POLICY "sap_read_own_or_admin" ON public.staff_approval_permissions
   FOR SELECT USING (
     staff_id IN (SELECT id FROM public.staff WHERE user_id = auth.uid())
-    OR EXISTS (SELECT 1 FROM public.user_roles ur
-               WHERE ur.user_id = auth.uid()
-                 AND ur.role IN ('admin','manager','super_admin'))
+    OR public.current_user_has_role(ARRAY['admin','manager','super_admin'])
   );
 
 DROP POLICY IF EXISTS "asp_read_self_or_super" ON public.admin_screen_permissions;
 CREATE POLICY "asp_read_self_or_super" ON public.admin_screen_permissions
   FOR SELECT USING (
     admin_user_id = auth.uid()
-    OR EXISTS (SELECT 1 FROM public.user_roles ur
-               WHERE ur.user_id = auth.uid()
-                 AND ur.role IN ('admin','super_admin'))
+    OR public.current_user_has_role(ARRAY['admin','super_admin'])
   );
 
 DROP POLICY IF EXISTS "log_read_admin" ON public.permission_change_log;
 CREATE POLICY "log_read_admin" ON public.permission_change_log
   FOR SELECT USING (
-    EXISTS (SELECT 1 FROM public.user_roles ur
-            WHERE ur.user_id = auth.uid()
-              AND ur.role IN ('admin','manager','super_admin'))
+    public.current_user_has_role(ARRAY['admin','manager','super_admin'])
   );
 
 -- ---------- 5. Realtime publication ----------------------------------------
