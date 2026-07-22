@@ -123,7 +123,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (
     SELECT 1 FROM public.staff
      WHERE user_id = auth.uid()
-       AND role = ANY(_roles)
+       AND role::text = ANY(_roles)
        AND is_active = true
   );
 $$;
