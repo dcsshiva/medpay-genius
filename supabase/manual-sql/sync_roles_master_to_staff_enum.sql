@@ -1,16 +1,16 @@
 -- Fix: "Email already registered" error when creating staff with a role
--- whose code (e.g. 'data_entry') is not in the staff role enum "n".
+-- whose code (e.g. 'data_entry') is not in the staff role enum.
 --
 -- Root cause: create-user edge fn creates the auth user first. Then the
 -- client inserts into public.staff with role = formData.role (e.g. 'data_entry').
--- If that value is not in enum "n", the staff insert fails, leaving the
+-- If that value is not in the staff_role enum, the staff insert fails, leaving the
 -- auth user orphaned. Every subsequent attempt with the same email then
 -- returns "already registered" from Supabase Auth.
 --
 -- Run this once in the production Supabase SQL editor.
 
 -- 1) Backfill: add every active roles_master.role_code that is missing
---    from the staff role enum "n".
+--    from the staff_role enum.
 DO $$
 DECLARE
   r record;
@@ -28,9 +28,9 @@ BEGIN
       SELECT 1
       FROM pg_enum e
       JOIN pg_type t ON t.oid = e.enumtypid
-      WHERE t.typname = 'n' AND e.enumlabel = code
+      WHERE t.typname = 'staff_role' AND e.enumlabel = code
     ) THEN
-      EXECUTE format('ALTER TYPE public.n ADD VALUE IF NOT EXISTS %L', code);
+      EXECUTE format('ALTER TYPE public.staff_role ADD VALUE IF NOT EXISTS %L', code);
     END IF;
   END LOOP;
 END $$;
@@ -54,9 +54,9 @@ BEGIN
     SELECT 1
     FROM pg_enum e
     JOIN pg_type t ON t.oid = e.enumtypid
-    WHERE t.typname = 'n' AND e.enumlabel = code
+    WHERE t.typname = 'staff_role' AND e.enumlabel = code
   ) THEN
-    EXECUTE format('ALTER TYPE public.n ADD VALUE IF NOT EXISTS %L', code);
+    EXECUTE format('ALTER TYPE public.staff_role ADD VALUE IF NOT EXISTS %L', code);
   END IF;
   RETURN NEW;
 END;
