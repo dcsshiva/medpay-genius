@@ -502,6 +502,19 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
           userData: {
             full_name: formData.full_name,
             role: profileRole
+          },
+          staffData: {
+            password: formData.password,
+            staff_code: staffCode,
+            username: formData.username.trim(),
+            role: formData.role,
+            department: formData.department.trim() || null,
+            phone: formData.phone.trim() || null,
+            bank_account_number: formData.bank_account_number.trim() || null,
+            ifsc_code: formData.ifsc_code.trim().toUpperCase() || null,
+            account_holder_name: formData.account_holder_name.trim() || null,
+            bank_name: formData.bank_name.trim() || null,
+            branch_name: formData.branch_name.trim() || null
           }
         },
         headers: getSessionAuthHeaders()
@@ -524,6 +537,19 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
               userData: {
                 full_name: formData.full_name,
                 role: profileRole
+              },
+              staffData: {
+                password: formData.password,
+                staff_code: staffCode,
+                username: formData.username.trim(),
+                role: formData.role,
+                department: formData.department.trim() || null,
+                phone: formData.phone.trim() || null,
+                bank_account_number: formData.bank_account_number.trim() || null,
+                ifsc_code: formData.ifsc_code.trim().toUpperCase() || null,
+                account_holder_name: formData.account_holder_name.trim() || null,
+                bank_name: formData.bank_name.trim() || null,
+                branch_name: formData.branch_name.trim() || null
               }
             },
             headers: getSessionAuthHeaders()
@@ -541,56 +567,7 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
         createdUser = result.user;
       }
 
-      // Get or create profile record (profile should exist due to trigger)
-      let profileData;
-      const { data: existingProfile, error: fetchError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', createdUser.id)
-        .maybeSingle();
-
-      if (fetchError) throw fetchError;
-
-      if (existingProfile) {
-        // Use existing profile created by trigger; admins/managers cannot UPDATE due to RLS
-        profileData = existingProfile;
-      } else {
-        // Fallback: create profile if it doesn't exist (shouldn't happen due to trigger)
-        const { data: newProfile, error: insertError } = await supabase
-          .from('profiles')
-          .insert({
-            user_id: createdUser.id,
-            full_name: formData.full_name,
-            role: profileRole as any
-          })
-          .select()
-          .single();
-
-        if (insertError) throw insertError;
-        profileData = newProfile;
-      }
-
-      // Create staff record with user_id link
-      const { error } = await supabase
-        .from('staff')
-        .insert({
-          user_id: createdUser.id, // Link directly to auth user
-          staff_code: staffCode,
-          username: formData.username.trim(),
-          password_hash: 'managed_by_supabase_auth', // Placeholder since auth is handled by Supabase
-          full_name: formData.full_name.trim(),
-          email: createdUser.email, // Store the actual email used for auth
-          phone: formData.phone.trim() || null,
-          role: formData.role as any,
-          department: formData.department.trim() || null,
-          bank_account_number: formData.bank_account_number.trim() || null,
-          ifsc_code: formData.ifsc_code.trim().toUpperCase() || null,
-          account_holder_name: formData.account_holder_name.trim() || null,
-          bank_name: formData.bank_name.trim() || null,
-          branch_name: formData.branch_name.trim() || null
-        });
-
-      if (error) throw error;
+      if (!createdUser?.id) throw new Error('Failed to create staff login');
 
       toast({
         title: "Success",
@@ -860,9 +837,23 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
               body: {
                 email,
                 password: row.password,
+                designation: profileRole,
                 userData: {
                   full_name: row.full_name,
                   role: profileRole
+                },
+                staffData: {
+                  password: row.password,
+                  staff_code: staffCode,
+                  username: row.username,
+                  role: row.role,
+                  department: row.department || null,
+                  phone: row.phone || null,
+                  bank_account_number: row.bank_account_number || null,
+                  ifsc_code: row.ifsc_code || null,
+                  account_holder_name: row.account_holder_name || null,
+                  bank_name: row.bank_name || null,
+                  branch_name: row.branch_name || null
                 }
               },
               headers: getSessionAuthHeaders()
@@ -871,22 +862,6 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
             if (authError || !authResult?.success) {
               throw new Error(authResult?.error || 'Failed to create user');
             }
-            
-            const { error: staffError } = await supabase
-              .from('staff')
-              .insert({
-                user_id: authResult.user.id, // Link directly to auth user
-                staff_code: staffCode,
-                username: row.username,
-                password_hash: 'managed_by_supabase_auth',
-                full_name: row.full_name,
-                email: authResult.user.email,
-                phone: row.phone || null,
-                role: row.role,
-                department: row.department || null
-              });
-            
-            if (staffError) throw staffError;
             
             results.inserted++;
           }

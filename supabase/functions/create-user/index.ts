@@ -53,9 +53,43 @@ serve(async (req) => {
     }
 
     const { email, password, userData, doctorData, staffData, designation } = await req.json();
+    const targetDesignation = designation || (staffData ? 'staff' : 'doctor');
 
-    // Create the auth user
-    const { data: authData, error: createError } = await supabaseClient.auth.admin.createUser({
+    const normalizeEmail = (value: string) => value.trim().toLowerCase();
+    const requestEmail = normalizeEmail(email);
+
+    const findAuthUserByEmail = async (lookupEmail: string) => {
+      for (let page = 1; page <= 20; page++) {
+        const { data, error } = await supabaseClient.auth.admin.listUsers({ page, perPage: 1000 });
+        if (error) throw error;
+        const found = data.users.find((u) => normalizeEmail(u.email || '') === lookupEmail);
+        if (found) return found;
+        if (data.users.length < 1000) break;
+      }
+      return null;
+    };
+
+    const isLinkedApplicationUser = async (userId: string, lookupEmail: string) => {
+      const [staffByUser, staffByEmail, doctorByUser, doctorByEmail] = await Promise.all([
+        supabaseClient.from('staff').select('id').eq('user_id', userId).maybeSingle(),
+        supabaseClient.from('staff').select('id').ilike('email', lookupEmail).maybeSingle(),
+        supabaseClient.from('doctors').select('id').eq('user_id', userId).maybeSingle(),
+        supabaseClient.from('doctors').select('id').eq('user_id', userId).maybeSingle(),
+      ]);
+
+      return Boolean(
+        staffByUser.data || staffByEmail.data || doctorByUser.data || doctorByEmail.data
+      );
+    };
+
+    let authData: any = null;
+    let createdFreshAuthUser = false;
+    let reusedOrphanAuthUser = false;
+
+    // Create the auth user. If an earlier failed staff/doctor creation left an
+    // unlinked auth record behind, safely reuse it instead of blocking forever
+    // with "email already registered".
+    const { data: createdAuthData, error: createError } = await supabaseClient.auth.admin.createUser({
       email,
       password,
       email_confirm: true,
@@ -65,9 +99,34 @@ serve(async (req) => {
     if (createError) {
       // Provide more specific error messages
       if (createError.message?.includes('already been registered')) {
-        throw new Error('A user with this email address already exists. Please use a different email.');
+        const existingAuthUser = await findAuthUserByEmail(requestEmail);
+        if (!existingAuthUser) {
+          throw new Error('A user with this email address already exists. Please use a different email.');
+        }
+
+        const alreadyLinked = await isLinkedApplicationUser(existingAuthUser.id, requestEmail);
+        if (alreadyLinked) {
+          throw new Error('A user with this email address already exists. Please use a different email.');
+        }
+
+        const { data: updatedAuthData, error: updateAuthError } = await supabaseClient.auth.admin.updateUserById(
+          existingAuthUser.id,
+          {
+            password,
+            email_confirm: true,
+            user_metadata: userData,
+          }
+        );
+
+        if (updateAuthError) throw updateAuthError;
+        authData = { user: updatedAuthData.user };
+        reusedOrphanAuthUser = true;
+      } else {
+        throw createError;
       }
-      throw createError;
+    } else {
+      authData = createdAuthData;
+      createdFreshAuthUser = true;
     }
 
     const userId = authData.user.id;
@@ -78,17 +137,32 @@ serve(async (req) => {
       console.warn('Email mismatch detected! Expected:', email, 'Got:', authData.user.email);
     }
 
-    // Insert into user_designations table
-    const { error: designationError } = await supabaseClient
+    // Insert/update user designation. Failed previous attempts may already have
+    // a designation row, so update first and insert only when needed.
+    const { data: existingDesignation } = await supabaseClient
       .from('user_designations')
-      .insert({
-        user_id: userId,
-        designation: designation || 'doctor'
-      });
+      .select('user_id')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const { error: designationError } = existingDesignation
+      ? await supabaseClient
+          .from('user_designations')
+          .update({ designation: targetDesignation })
+          .eq('user_id', userId)
+      : await supabaseClient
+          .from('user_designations')
+          .insert({
+            user_id: userId,
+            designation: targetDesignation
+          });
 
     if (designationError) {
       console.error('Error creating user designation:', designationError);
-      throw new Error('Failed to assign user designation');
+      if (createdFreshAuthUser || reusedOrphanAuthUser) {
+        await supabaseClient.auth.admin.deleteUser(userId);
+      }
+      throw new Error(`Failed to assign user designation: ${designationError.message}`);
     }
 
     let doctorId = null;
@@ -103,6 +177,9 @@ serve(async (req) => {
 
       if (hashError) {
         console.error('Error hashing password:', hashError);
+        if (createdFreshAuthUser || reusedOrphanAuthUser) {
+          await supabaseClient.auth.admin.deleteUser(userId);
+        }
         throw new Error('Failed to hash password');
       }
 
@@ -128,7 +205,10 @@ serve(async (req) => {
 
       if (doctorError) {
         console.error('Error creating doctor:', doctorError);
-        throw new Error('Failed to create doctor record');
+        if (createdFreshAuthUser || reusedOrphanAuthUser) {
+          await supabaseClient.auth.admin.deleteUser(userId);
+        }
+        throw new Error(`Failed to create doctor record: ${doctorError.message}`);
       }
       doctorId = doctor.id;
     }
@@ -142,6 +222,9 @@ serve(async (req) => {
 
       if (hashError) {
         console.error('Error hashing password:', hashError);
+        if (createdFreshAuthUser || reusedOrphanAuthUser) {
+          await supabaseClient.auth.admin.deleteUser(userId);
+        }
         throw new Error('Failed to hash password');
       }
 
@@ -158,6 +241,11 @@ serve(async (req) => {
           phone: staffData.phone,
           email: email,
           staff_category_id: staffData.staff_category_id,
+          bank_account_number: staffData.bank_account_number || null,
+          ifsc_code: staffData.ifsc_code || null,
+          account_holder_name: staffData.account_holder_name || null,
+          bank_name: staffData.bank_name || null,
+          branch_name: staffData.branch_name || null,
           is_active: true
         })
         .select()
@@ -165,7 +253,10 @@ serve(async (req) => {
 
       if (staffError) {
         console.error('Error creating staff:', staffError);
-        throw new Error('Failed to create staff record');
+        if (createdFreshAuthUser || reusedOrphanAuthUser) {
+          await supabaseClient.auth.admin.deleteUser(userId);
+        }
+        throw new Error(`Failed to create staff record: ${staffError.message}`);
       }
       staffId = staff.id;
     }
@@ -174,9 +265,10 @@ serve(async (req) => {
     console.log('User creation completed successfully:', {
       user_id: userId,
       email_set: email,
-      designation,
+      designation: targetDesignation,
       doctor_id: doctorId,
       staff_id: staffId,
+      reused_orphan_auth_user: reusedOrphanAuthUser,
     });
 
     return new Response(JSON.stringify({ 
