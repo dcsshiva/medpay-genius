@@ -65,18 +65,19 @@ const QuickPaymentReport: React.FC = () => {
   const fetchPayments = async () => {
     setLoading(true);
     try {
-      let q = supabase
-        .from('quick_payments')
-        .select('id, vendor_id, payment_type_id, name, mobile_number, gross_amount, tds_amount, tds_percentage, net_amount, payment_mode, bank_name, account_number, cheque_number, payment_notes, bank_advice_generated, bank_advice_reference, created_at')
-        .order('created_at', { ascending: false })
-        .limit(1000);
-      if (typeFilter !== 'all') q = q.eq('payment_type_id', typeFilter);
-      if (vendorFilter) q = q.eq('vendor_id', vendorFilter);
-      if (dateFrom) q = q.gte('created_at', dateFrom + 'T00:00:00');
-      if (dateTo) q = q.lte('created_at', dateTo + 'T23:59:59');
-      const { data, error } = await q;
-      if (error) throw error;
-      setPayments(data || []);
+      const { fetchAllPaginated } = await import('@/lib/fetchAllPaginated');
+      const data = await fetchAllPaginated<any>(() => {
+        let q = supabase
+          .from('quick_payments')
+          .select('id, vendor_id, payment_type_id, name, mobile_number, gross_amount, tds_amount, tds_percentage, net_amount, payment_mode, bank_name, account_number, cheque_number, payment_notes, bank_advice_generated, bank_advice_reference, created_at')
+          .order('created_at', { ascending: false });
+        if (typeFilter !== 'all') q = q.eq('payment_type_id', typeFilter);
+        if (vendorFilter) q = q.eq('vendor_id', vendorFilter);
+        if (dateFrom) q = q.gte('created_at', dateFrom + 'T00:00:00');
+        if (dateTo) q = q.lte('created_at', dateTo + 'T23:59:59');
+        return q as any;
+      });
+      setPayments(data);
     } catch (e: any) {
       toast.error('Failed to load: ' + e.message);
     } finally { setLoading(false); }

@@ -142,16 +142,24 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
         ? user?.user_metadata?.auth_user_id || user?.id
         : user?.id;
 
-      const { data, error } = await supabase.rpc('get_user_visits', {
-        _user_type: userRole === 'doctor' ? 'doctor' : 'staff',
-        _user_id: userId,
-        _user_role: userRole || 'staff'
-      });
-
-      if (error) {
+      // Paginate the RPC to bypass PostgREST's 1000-row response cap.
+      const { fetchAllPaginatedRpc } = await import('@/lib/fetchAllPaginated');
+      let data: any[] = [];
+      try {
+        data = await fetchAllPaginatedRpc<any>(() =>
+          supabase.rpc('get_user_visits', {
+            _user_type: userRole === 'doctor' ? 'doctor' : 'staff',
+            _user_id: userId,
+            _user_role: userRole || 'staff'
+          }) as any
+        );
+      } catch (error) {
         console.error('Error fetching visits:', error);
         setVisits([]);
-      } else {
+        return;
+      }
+
+      {
         // Transform the RPC response to match the expected format
         const transformedVisits = data?.map((visit: any) => ({
           id: visit.id,
@@ -333,10 +341,30 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
         errors: []
       };
       
-      // Fetch all existing visits for duplicate detection
-      const { data: existingVisits } = await supabase
-        .from('visits')
-        .select('*');
+      // Fetch existing visits for duplicate detection — scoped to only the
+      // (doctor_id, visit_date) pairs that appear in the import, and paginated
+      // to bypass the 1000-row PostgREST cap. Selects only the columns
+      // analyzeVisitImport actually needs.
+      const { fetchAllPaginated } = await import('@/lib/fetchAllPaginated');
+      const importDoctorCodes = Array.from(new Set(
+        rows.map((r: any) => {
+          const m = r.doctor?.toString().trim().match(/^([A-Z]{3}\d+)/i);
+          return m ? m[1].toUpperCase() : null;
+        }).filter(Boolean)
+      )) as string[];
+      const importDoctorIds = doctors
+        .filter(d => importDoctorCodes.includes(d.doctor_code))
+        .map(d => d.id);
+
+      const existingVisits = importDoctorIds.length > 0
+        ? await fetchAllPaginated<any>(() =>
+            supabase
+              .from('visits')
+              .select('id, doctor_id, patient_name, visit_date, visit_payment')
+              .in('doctor_id', importDoctorIds) as any
+          )
+        : [];
+      
       
       const visitsToInsert = [];
       
