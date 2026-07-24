@@ -116,10 +116,14 @@ const UserLoginReports = () => {
         }
       }
 
-      const { data, error } = await query.limit(1000);
-
-      if (error) throw error;
-      setSessions((data as LoginSession[]) || []);
+      const { fetchAllPaginated } = await import('@/lib/fetchAllPaginated');
+      let data: LoginSession[] = [];
+      try {
+        data = await fetchAllPaginated<LoginSession>(() => query as any);
+      } catch (error) {
+        throw error;
+      }
+      setSessions(data);
     } catch (error) {
       console.error('Error fetching login sessions:', error);
       toast({
