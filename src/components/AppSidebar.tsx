@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
 import VersionDisplay from '@/components/VersionDisplay';
-import { getNavigationItems } from '@/lib/navigationItems';
+import { useNavigationItems } from '@/lib/navigationItems';
 import {
   Sidebar,
   SidebarContent,
@@ -93,11 +93,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
     return () => clearInterval(interval);
   }, [fetchStats]);
 
-  const allNavigationItems = useMemo(() => getNavigationItems({
-    userRole,
-    userDesignation,
-    userProfile
-  }), [userRole, userDesignation, userProfile?.id]);
+  const { items: allNavigationItems } = useNavigationItems();
   // Filter by admin-configured visibility
   const navigationItems = allNavigationItems.filter(item => isItemVisible(item.id));
   const quickAccessItems = useQuickAccessItems(allNavigationItems);

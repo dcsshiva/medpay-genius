@@ -12,6 +12,9 @@ import {
 import { fetchDesignation, resolveFullProfile } from '@/lib/auth/resolveProfile';
 import { performEmergencySignIn } from '@/lib/auth/emergencyLogin';
 
+export interface ScreenPermission { can_view: boolean; can_edit: boolean; }
+export type ScreenPermissions = Record<string, ScreenPermission>;
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -19,6 +22,11 @@ interface AuthContextType {
   userRole: string | null;
   userProfile: any | null;
   userDesignation: 'super_admin' | 'admin' | 'manager' | 'supervisor' | 'doctor' | 'staff' | null;
+  screenPermissions: ScreenPermissions;
+  /** Fully seeded permissions from screen_registry (empty => DB not seeded yet, legacy fallback in effect). */
+  permissionsLoaded: boolean;
+  canView: (key: string) => boolean;
+  canEdit: (key: string) => boolean;
   signInWithUsername: (username: string, password: string) => Promise<{ error: any }>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
   signInWithOTP: (email: string) => Promise<{ error: any }>;
@@ -29,6 +37,26 @@ interface AuthContextType {
   getUserEmail: (username: string, userType: 'staff' | 'doctor') => Promise<{ email: string | null; error: any }>;
   signOut: () => Promise<void>;
 }
+
+// Legacy fallback: matches the pre-migration hardcoded role gates. Used ONLY
+// when the DB has no screen_registry seed yet (permissionsLoaded=false), so
+// nobody loses access before the SQL is run.
+const LEGACY_VIEW: Record<string, string[]> = {
+  'admin-dashboard': ['admin', 'manager', 'super_admin'],
+  'doctor-dashboard': ['doctor', 'admin', 'super_admin'],
+  'staff-dashboard': ['staff', 'nurse', 'technician', 'receptionist', 'pharmacist', 'cleaner', 'security'],
+  'staff-management': ['admin', 'manager', 'super_admin'],
+  'doctors': ['admin', 'manager', 'super_admin'],
+  'settings-auth-sync': ['super_admin'],
+};
+const LEGACY_EDIT: Record<string, string[]> = {
+  'doctors': ['admin', 'manager'],
+  'doctor-management-reactivate': ['admin'],
+  'staff-management': ['admin', 'manager'],
+  'doctor-hub-delete-unpaid-visit': ['admin', 'manager'],
+};
+const legacyAllowed = (map: Record<string, string[]>, key: string, role: string | null) =>
+  !!role && !!map[key] && map[key].includes(role);
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
@@ -44,6 +72,96 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userProfile, setUserProfile] = useState<any | null>(null);
   const [userDesignation, setUserDesignation] = useState<'super_admin' | 'admin' | 'manager' | 'supervisor' | 'doctor' | 'staff' | null>(null);
+  const [screenPermissions, setScreenPermissions] = useState<ScreenPermissions>({});
+  const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+
+  // Load per-user screen permissions whenever the user or designation changes,
+  // and subscribe to Realtime so Configure Access toggles take effect immediately.
+  useEffect(() => {
+    const authUserId: string | null =
+      (userProfile?.auth_user_id as string | undefined) ||
+      (userProfile?.user_id as string | undefined) ||
+      user?.id ||
+      null;
+
+    if (!authUserId) {
+      setScreenPermissions({});
+      setPermissionsLoaded(false);
+      return;
+    }
+
+    // super_admin bypass — no need to load, canView/canEdit shortcircuit true.
+    if (userDesignation === 'super_admin' || userRole === 'super_admin') {
+      setScreenPermissions({});
+      setPermissionsLoaded(true);
+      return;
+    }
+
+    const isAdminTier = userDesignation === 'admin' || userRole === 'admin';
+    const table = isAdminTier ? 'admin_screen_permissions' : 'staff_screen_permissions';
+    const idColumn = isAdminTier ? 'admin_user_id' : 'staff_id';
+    // staff_screen_permissions.staff_id references public.staff.id — prefer that.
+    const targetId: string = isAdminTier
+      ? authUserId
+      : ((userProfile?.id as string | undefined) || authUserId);
+
+    let cancelled = false;
+    const load = async () => {
+      const { data, error } = await (supabase as any)
+        .from(table)
+        .select('screen_key, can_view, can_edit')
+        .eq(idColumn, targetId);
+      if (cancelled) return;
+      if (error || !data) {
+        setScreenPermissions({});
+        setPermissionsLoaded(false);
+        return;
+      }
+      const map: ScreenPermissions = {};
+      (data as any[]).forEach((r) => {
+        map[r.screen_key] = { can_view: !!r.can_view, can_edit: !!r.can_edit };
+      });
+      setScreenPermissions(map);
+      setPermissionsLoaded(true);
+    };
+    load();
+
+    const ch = supabase
+      .channel(`auth_perms_${table}_${targetId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table, filter: `${idColumn}=eq.${targetId}` },
+        (payload: any) => {
+          const row = (payload.new || payload.old) as any;
+          if (!row?.screen_key) return;
+          setScreenPermissions((prev) => {
+            const next = { ...prev };
+            if (payload.eventType === 'DELETE') delete next[row.screen_key];
+            else next[row.screen_key] = { can_view: !!row.can_view, can_edit: !!row.can_edit };
+            return next;
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      cancelled = true;
+      supabase.removeChannel(ch);
+    };
+  }, [user?.id, userProfile?.id, userProfile?.user_id, userProfile?.auth_user_id, userRole, userDesignation]);
+
+  const isSuper = userDesignation === 'super_admin' || userRole === 'super_admin';
+  const canView = (key: string): boolean => {
+    if (isSuper) return true;
+    if (permissionsLoaded && screenPermissions[key]) return screenPermissions[key].can_view;
+    // Fallback while DB not yet seeded — preserve legacy behavior.
+    return legacyAllowed(LEGACY_VIEW, key, userRole || userDesignation);
+  };
+  const canEdit = (key: string): boolean => {
+    if (isSuper) return true;
+    if (permissionsLoaded && screenPermissions[key]) return screenPermissions[key].can_edit;
+    return legacyAllowed(LEGACY_EDIT, key, userRole || userDesignation);
+  };
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, supaSession) => {
@@ -938,6 +1056,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       userRole,
       userProfile,
       userDesignation,
+      screenPermissions,
+      permissionsLoaded,
+      canView,
+      canEdit,
       signInWithUsername,
       signInWithEmail,
       signInWithOTP,
