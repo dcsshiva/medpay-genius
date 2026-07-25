@@ -16,7 +16,7 @@ import { LogOut } from 'lucide-react';
 import CheckUpdateButton from '@/components/CheckUpdateButton';
 import MobileBottomNav from '@/components/MobileBottomNav';
 import westmedLogo from '@/assets/westmed-logo.png';
-import { getNavigationItems } from '@/lib/navigationItems';
+import { useNavigationItems } from '@/lib/navigationItems';
 import AIChatbot from '@/components/AIChatbot';
 import WalkthroughOverlay from '@/components/WalkthroughOverlay';
 import { useWalkthrough } from '@/hooks/useWalkthrough';
