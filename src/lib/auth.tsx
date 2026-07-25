@@ -12,6 +12,9 @@ import {
 import { fetchDesignation, resolveFullProfile } from '@/lib/auth/resolveProfile';
 import { performEmergencySignIn } from '@/lib/auth/emergencyLogin';
 
+export interface ScreenPermission { can_view: boolean; can_edit: boolean; }
+export type ScreenPermissions = Record<string, ScreenPermission>;
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -19,6 +22,11 @@ interface AuthContextType {
   userRole: string | null;
   userProfile: any | null;
   userDesignation: 'super_admin' | 'admin' | 'manager' | 'supervisor' | 'doctor' | 'staff' | null;
+  screenPermissions: ScreenPermissions;
+  /** Fully seeded permissions from screen_registry (empty => DB not seeded yet, legacy fallback in effect). */
+  permissionsLoaded: boolean;
+  canView: (key: string) => boolean;
+  canEdit: (key: string) => boolean;
   signInWithUsername: (username: string, password: string) => Promise<{ error: any }>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
   signInWithOTP: (email: string) => Promise<{ error: any }>;
@@ -29,6 +37,26 @@ interface AuthContextType {
   getUserEmail: (username: string, userType: 'staff' | 'doctor') => Promise<{ email: string | null; error: any }>;
   signOut: () => Promise<void>;
 }
+
+// Legacy fallback: matches the pre-migration hardcoded role gates. Used ONLY
+// when the DB has no screen_registry seed yet (permissionsLoaded=false), so
+// nobody loses access before the SQL is run.
+const LEGACY_VIEW: Record<string, string[]> = {
+  'admin-dashboard': ['admin', 'manager', 'super_admin'],
+  'doctor-dashboard': ['doctor', 'admin', 'super_admin'],
+  'staff-dashboard': ['staff', 'nurse', 'technician', 'receptionist', 'pharmacist', 'cleaner', 'security'],
+  'staff-management': ['admin', 'manager', 'super_admin'],
+  'doctors': ['admin', 'manager', 'super_admin'],
+  'settings-auth-sync': ['super_admin'],
+};
+const LEGACY_EDIT: Record<string, string[]> = {
+  'doctors': ['admin', 'manager'],
+  'doctor-management-reactivate': ['admin'],
+  'staff-management': ['admin', 'manager'],
+  'doctor-hub-delete-unpaid-visit': ['admin', 'manager'],
+};
+const legacyAllowed = (map: Record<string, string[]>, key: string, role: string | null) =>
+  !!role && !!map[key] && map[key].includes(role);
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
