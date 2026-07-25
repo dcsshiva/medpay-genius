@@ -40,11 +40,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
     userType: userProfile?.user_type,
   });
 
-  const navigationItems = getNavigationItems({
-    userRole,
-    userDesignation,
-    userProfile
-  });
+  const { items: navigationItems } = useNavigationItems();
 
   return (
     <PaymentStatsColorsProvider>
