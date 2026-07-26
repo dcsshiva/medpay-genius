@@ -102,10 +102,8 @@ const Index = () => {
       return;
     }
     
-    if (role && ['admin', 'manager', 'super_admin'].includes(role)) {
-      setActiveTab('doctor-hub');
-      return;
-    }
+    // Admin/Manager/Super admin land on the main Dashboard, not Doctor Hub.
+
     
     if (role && ['staff', 'nurse'].includes(role) && isMobile) {
       setActiveTab('staff-dashboard');
