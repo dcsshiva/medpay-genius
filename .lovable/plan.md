@@ -1,106 +1,71 @@
-# Wire Configure Access into the rest of the app
+## Root cause (confirmed from console)
 
-Goal: close the loop so `staff_screen_permissions` / `admin_screen_permissions` (already written by Configure Access) actually drive what each user sees and can do. Remove the hardcoded role branches that currently ignore them.
-
-Out of scope / do NOT touch: `AccessConfigDialog.tsx`, `AdminAccessConfigDialog.tsx`, `UserAccessManagement.tsx`, `AdminAccessManagement.tsx`, `user_screen_access` table.
-
----
-
-## Step 1 — Seed registry + existing permissions (migration + insert, ships FIRST)
-
-Two data operations, in order, before any code change.
-
-**1a. Backfill `screen_registry`** with every id currently returned by `navigationItems.ts` across the four role branches. Group + sort using `MenuVisibilitySettings.tsx`'s existing `MENU_GROUPS` (Core / People / Visits / Payments / Bank Advice / Reports / Collaboration / System). Screens only present in super_admin get `super_admin_only = true` where appropriate; everything else is normal.
-
-Also register the non-navigation action keys needed by Step 5:
-- `admin-dashboard`, `doctor-dashboard`, `staff-dashboard` (dashboard variants)
-- `doctor-management-reactivate`
-- `doctor-hub-delete-unpaid-visit`
-
-**1b. Backfill `staff_screen_permissions` + `admin_screen_permissions`** for every existing staff/doctor/admin, mirroring today's hardcoded gates so nobody loses access on deploy:
-
-| Role today | `can_view` seeded for | `can_edit` seeded for |
-|---|---|---|
-| admin | full admin nav list + `admin-dashboard`, `doctor-dashboard` | doctor-management, doctor-management-reactivate, staff-management, doctor-hub-delete-unpaid-visit, and all edit-implying screens |
-| manager | full manager nav list + `admin-dashboard` | doctor-management, staff-management, doctor-hub-delete-unpaid-visit |
-| doctor | `doctor-hub` + `doctor-dashboard` | — |
-| staff/nurse/etc. | base + leave-permission, tasks, complaints, chat, `staff-dashboard` | — |
-| super_admin | seed nothing per-user — super_admin bypass stays in the query |
-
-Idempotent inserts (`ON CONFLICT DO NOTHING`) so a re-run is safe.
-
-## Step 2 — AuthContext exposes live `screenPermissions`
-
-`src/lib/auth.tsx`:
-- After designation resolves in all three auth paths (SIGNED_IN listener, `loadSession` real-session branch, custom `user_sessions` fallback), fetch the current user's rows from `staff_screen_permissions` (or `admin_screen_permissions` when the designation is admin/super_admin) joined with `screen_registry` (to drop rows whose `is_active = false`).
-- Store as `screenPermissions: Record<string, { can_view: boolean; can_edit: boolean }>` on `AuthContextType`.
-- Add a Realtime channel filtered to that user's id (mirrors `useStaffPermissions`) so toggles in Configure Access propagate app-wide with no reload. Tear it down on sign-out / user change.
-- Super_admin short-circuit: return `{}` and let consumers treat `super_admin` as "always allowed" via a helper.
-
-Export a helper `canView(key)` / `canEdit(key)` from the context that returns `true` unconditionally for super_admin, otherwise reads `screenPermissions`.
-
-## Step 3 — Replace `navigationItems.ts` with a reactive hook
-
-New file: `src/lib/navigationItems.ts` becomes a small module holding just:
-- `SCREEN_ICONS: Record<screen_key, LucideIcon>` (icons don't live in DB)
-- `useNavigationItems()` hook returning `{ items, loading }` where items = active `screen_registry` rows the user can view, mapped to `{ id: screen_key, label: screen_name, icon: SCREEN_ICONS[key] }`, sorted by `group_name` then `sort_order`, super_admin_only rows only for super_admins.
-- A separate `useAllScreens()` hook that returns every active `screen_registry` row unfiltered — used only by `MenuVisibilitySettings.tsx`.
-
-Migrate all 4 call sites:
-1. **`Layout.tsx:43`** — swap `getNavigationItems({...})` for `useNavigationItems()`.
-2. **`AppSidebar.tsx:96`** — same swap; drop the `useMemo` wrapper (hook already memoizes).
-3. **`QuickAccessConfig.tsx:24`** — same swap; if it needs the user's *own* nav (for picking quick-access items), use `useNavigationItems()`; if it needs the full catalog, use `useAllScreens()`. (Will confirm on read during build.)
-4. **`MenuVisibilitySettings.tsx:42`** — switch to `useAllScreens()`.
-
-## Step 4 — Clean up `MenuVisibilitySettings.tsx`
-
-- Delete the hardcoded `MENU_GROUPS` constant.
-- Group by `screen_registry.group_name`, order by `sort_order`.
-- Add a header comment:
+The "Failed to save permissions" toast is triggered by this Postgres error, captured live in the console for the Settings bundle:
 
 ```
-// Two-layer visibility:
-//   1. screen_registry.is_active  — global on/off, edited HERE (super_admin only).
-//   2. staff_screen_permissions.can_view — per-user on/off, edited in Configure Access.
-// A screen is shown to a user only when BOTH are true.
+code: 22P02
+message: invalid input value for enum screen_module: "leave_permission"
 ```
 
-## Step 5 — Replace hardcoded role gates with permission checks
+That enum belongs to the **legacy** `user_screen_access` table (migration `20251024044910_…`, `CREATE TYPE screen_module AS ENUM (...)`). The bundle currently running in your preview is still calling the old `grant_screen_access` / `user_screen_access` write path with the newer screen key `leave_permission`, which was added to `screen_registry` (`permission_registry.sql:190`) but was never added to the old `screen_module` enum — so the insert aborts and the dialog surfaces the generic failure toast.
 
-Using `canView` / `canEdit` from Step 2's AuthContext helper:
+Two things are true at once:
+1. The registry-based rewrite of `AccessConfigDialog.tsx` in the repo no longer touches `user_screen_access`.
+2. The build being served to PARTHA still has the legacy write path (either an older cached bundle via the service worker, or the new registry RPCs `upsert_staff_screen_permission` / `upsert_admin_screen_permission` don't exist in the DB yet, so a fallback path fires).
 
-| File | Current gate | New gate |
-|---|---|---|
-| `Dashboard.tsx` | `userRole === 'admin'/'manager'/'doctor'` variant branching + `isStaffRole()` fallback | `canView('admin-dashboard')` → admin variant · `canView('doctor-dashboard')` → doctor variant · else staff dashboard |
-| `DoctorManagement.tsx` | `['admin','manager'].includes(userRole)` + `userRole !== 'admin'` reactivate check | `canEdit('doctor-management')` for create/edit/delete · `canEdit('doctor-management-reactivate')` for reactivate |
-| `StaffManagement.tsx` | role gate + create/reactivate check | `canView('staff-management')` (page) · `canEdit('staff-management')` (create/reactivate) |
-| `DoctorHub.tsx` | `canDeleteUnpaid = userRole === 'admin' \|\| 'manager'` | `canEdit('doctor-hub-delete-unpaid-visit')` |
-| `Settings.tsx` | Auth Sync tab trigger uses `userDesignation === 'super_admin'` (~L143) but content uses `userRole === 'admin'` (~L529) — mismatch, super_admin sees empty tab | Align both to a single `canView('settings-auth-sync')` check (register that key in Step 1) |
+Either way, adding the missing enum value stops the crash for every historical build, and finishing the registry rollout removes the legacy path for good.
 
-Super_admin continues to pass every check via the helper's short-circuit.
+## Fix (two SQL steps, no app-code changes)
 
-## Step 6 — Verify end-to-end
+### Step 1 — Unblock immediately: extend the legacy enum
 
-1. Admin unchecks a staff's View for a screen in Configure Access.
-2. Within ~1 s (Realtime), that staff's sidebar drops the item; if they're on that route, they're redirected to `/dashboard`.
-3. Re-check restores it live, no reload.
-4. Super_admin sets `screen_registry.is_active = false` for a screen in Menu Visibility → the screen disappears for everyone including staff whose `can_view` is still true.
-5. Super_admin never loses anything.
+Add every current `screen_registry.screen_key` that is missing from the `screen_module` enum, so any lingering legacy write succeeds instead of throwing 22P02.
 
-## Technical notes
+```sql
+-- Run once; idempotent via IF NOT EXISTS.
+ALTER TYPE public.screen_module ADD VALUE IF NOT EXISTS 'leave_permission';
+ALTER TYPE public.screen_module ADD VALUE IF NOT EXISTS 'staff_management';
+ALTER TYPE public.screen_module ADD VALUE IF NOT EXISTS 'doctor_hub';
+ALTER TYPE public.screen_module ADD VALUE IF NOT EXISTS 'admin_dashboard';
+ALTER TYPE public.screen_module ADD VALUE IF NOT EXISTS 'doctor_dashboard';
+ALTER TYPE public.screen_module ADD VALUE IF NOT EXISTS 'staff_dashboard';
+ALTER TYPE public.screen_module ADD VALUE IF NOT EXISTS 'doctor_management_reactivate';
+ALTER TYPE public.screen_module ADD VALUE IF NOT EXISTS 'doctor_hub_delete_unpaid_visit';
+ALTER TYPE public.screen_module ADD VALUE IF NOT EXISTS 'settings_auth_sync';
+-- (final list finalized during build by diffing `screen_registry.screen_key`
+--  against `pg_enum` for `screen_module`.)
+```
 
-- Hook must handle "not yet loaded" (return `items: []`, `loading: true`) so sidebar renders skeleton, not the wrong list.
-- Route guard for step 6.2 lives in `Index.tsx`'s `activeTab` effect: if current `activeTab` maps to a screen_key the user can't view, redirect to `/dashboard`.
-- The `screen_registry` icon lookup must include every id used across all 4 hardcoded role branches — enumerated in Step 1 seed.
-- No changes to `user_screen_access` table.
+Delivered as a new file: `supabase/manual-sql/extend_screen_module_enum.sql`.
+
+Postgres restriction: `ALTER TYPE … ADD VALUE` cannot run inside a transaction block that later uses the new value, so this file will contain only the ADD VALUE statements and nothing else.
+
+### Step 2 — Finish the registry rollout so the legacy path is never hit again
+
+Run, in this order, the two files that already exist in the repo but have not been executed on the database:
+
+1. `supabase/manual-sql/permission_registry.sql` — creates `screen_registry`, `admin_screen_permissions`, `staff_screen_permissions`, `permission_change_log`, and the RPCs `upsert_staff_screen_permission` / `upsert_admin_screen_permission` / `list_screen_registry` / `list_approval_registry` that the current `AccessConfigDialog.tsx` / `AdminAccessConfigDialog.tsx` call.
+2. `supabase/manual-sql/seed_screen_registry_and_permissions.sql` — backfills registry rows and per-user permissions so no existing user loses access.
+
+After these run, the "Configure Access" dialog will write only to the new registry tables (no `screen_module` enum involved at all).
+
+### Step 3 — Force the browser off the stale bundle
+
+Because this app is a PWA with a service worker, PARTHA's browser may still be executing an older cached `Settings-*.js`. Ask the affected user(s) to click the **Check for updates** icon in the header (already wired via `CheckUpdateButton.tsx` + `forceVersionRefresh.ts`) once, so the newest bundle — which no longer writes to `user_screen_access` — is loaded.
+
+## Verification
+
+1. Run Step 1 SQL → reopen "Configure Access for PARTHA" on the currently-served bundle → toggle **Leave & Permission → View** → toast shows "Saved" instead of "Failed to save permissions".
+2. Run Step 2 SQL → hard-refresh via the Check-for-updates button → toggle any screen for PARTHA → row appears in `staff_screen_permissions` and `permission_change_log`; no writes hit `user_screen_access`.
+3. Confirm no console error with `code: 22P02` after either fix.
 
 ## Files touched
 
-- Migration: `screen_registry` seed rows + new keys (`admin-dashboard`, `doctor-dashboard`, `staff-dashboard`, `doctor-management-reactivate`, `doctor-hub-delete-unpaid-visit`, `settings-auth-sync`)
-- Insert: backfill `staff_screen_permissions` / `admin_screen_permissions` for existing users
-- `src/lib/auth.tsx` — add `screenPermissions`, `canView`, `canEdit`, Realtime subscription
-- `src/lib/navigationItems.ts` — rewrite to `useNavigationItems` + `useAllScreens` + `SCREEN_ICONS`
-- `src/components/Layout.tsx`, `AppSidebar.tsx`, `QuickAccessConfig.tsx`, `MenuVisibilitySettings.tsx` — migrate to hooks
-- `src/components/MenuVisibilitySettings.tsx` — drop `MENU_GROUPS`, group by registry
-- `src/components/Dashboard.tsx`, `DoctorManagement.tsx`, `StaffManagement.tsx`, `DoctorHub.tsx`, `Settings.tsx` — swap role checks for permission checks
-- `src/pages/Index.tsx` — route guard on `activeTab`
+- **New**: `supabase/manual-sql/extend_screen_module_enum.sql` (Step 1).
+- **Existing, unchanged, executed as-is**: `supabase/manual-sql/permission_registry.sql`, `supabase/manual-sql/seed_screen_registry_and_permissions.sql` (Step 2).
+- No frontend code changes required to resolve this error.
+
+## Out of scope
+
+- `AccessConfigDialog.tsx`, `AdminAccessConfigDialog.tsx`, `UserAccessManagement.tsx`, `AdminAccessManagement.tsx` — not modified (matches the existing plan's guard-rails).
+- No changes to `user_screen_access` structure; the legacy table stays intact and simply gains new enum values so historical builds stop crashing.
