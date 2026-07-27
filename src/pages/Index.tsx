@@ -73,8 +73,6 @@ const Index = () => {
       setActiveTab('doctor-hub');
     } else if (view === 'staff') {
       setActiveTab('staff-dashboard');
-    } else if (view === 'admin' || view === 'manager' || view === 'staff') {
-      setActiveTab('doctor-hub');
     }
   }, [location.state, location.search, navigate, location.pathname]);
 

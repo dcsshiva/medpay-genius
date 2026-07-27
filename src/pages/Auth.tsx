@@ -165,7 +165,7 @@ const Auth: React.FC = () => {
     if (userType === "doctor") {
       navigate("/dashboard?view=doctor-hub");
     } else if (role && ["admin", "manager", "super_admin"].includes(role)) {
-      navigate("/dashboard?view=doctor-hub");
+      navigate("/dashboard");
     } else if (role && ["staff", "nurse"].includes(role)) {
       navigate(isMobile ? "/dashboard?view=staff" : "/dashboard");
     } else {
