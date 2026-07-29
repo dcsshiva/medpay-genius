@@ -24,12 +24,12 @@ WITH me AS (
   WHERE staff_code = 'ADM430' OR email = 'drarulmani375@gmail.com'
   LIMIT 1
 )
-INSERT INTO public.staff_approval_permissions (staff_id, permission_key, granted)
+INSERT INTO public.staff_approval_permissions (staff_id, permission_key, can_approve)
 SELECT me.id, p.permission_key, true
 FROM me
 CROSS JOIN public.approval_permission_registry p
 ON CONFLICT (staff_id, permission_key)
-DO UPDATE SET granted = true, updated_at = now();
+DO UPDATE SET can_approve = true, updated_at = now();
 
 -- 3. Mirror into admin_screen_permissions if this staff has an admin_users row
 DO $$
