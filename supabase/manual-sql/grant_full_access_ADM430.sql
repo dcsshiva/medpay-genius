@@ -57,4 +57,4 @@ SELECT
     WHERE s.staff_code = 'ADM430' AND sp.can_view AND sp.can_edit) AS screens_granted,
   (SELECT COUNT(*) FROM public.staff_approval_permissions ap
     JOIN public.staff s ON s.id = ap.staff_id
-    WHERE s.staff_code = 'ADM430' AND ap.granted) AS approvals_granted;
+    WHERE s.staff_code = 'ADM430' AND ap.can_approve) AS approvals_granted;
