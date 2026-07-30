@@ -390,7 +390,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
         const filteredTransactions = paymentTypeOnly 
           ? transactionsResponse.data.filter(transaction => {
               // Check if this transaction's payment has visits of the specified type
-              const hasMatchingVisits = transaction.payments.payment_visits.some(
+              const hasMatchingVisits = (transaction.payments as any).payment_visits.some(
                 (pv: any) => pv.visits.payment_type === paymentTypeOnly
               );
               return hasMatchingVisits;
