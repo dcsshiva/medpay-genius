@@ -121,8 +121,8 @@ const BankAdvicePaymentReport: React.FC = () => {
           transformedData.push({
             id: visit.id,
             visit_date: visit.visit_date,
-            doctor_name: payment.doctors?.full_name || 'Unknown',
-            doctor_code: payment.doctors?.doctor_code || 'N/A',
+            doctor_name: (payment.doctors as any)?.full_name || 'Unknown',
+            doctor_code: (payment.doctors as any)?.doctor_code || 'N/A',
             patient_name: visit.patient_name,
             payment_type: visit.payment_type,
             visit_payment: visit.visit_payment,

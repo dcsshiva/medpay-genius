@@ -216,7 +216,7 @@ const InsurancePaymentLite = () => {
 
       if (error) throw error;
 
-      setVisits(data || []);
+      setVisits((data || []) as any);
       setSelectedVisitIds(new Set());
       
       if (data && data.length === 0) {
