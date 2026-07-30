@@ -92,7 +92,7 @@ export const AccessConfigDialog = ({ isOpen, onClose, staffMember }: AccessConfi
     setPendingScreens((p) => ({ ...p, [key]: next }));
     if (!user) return;
     setSavingKey(key);
-    const { error } = await (supabase.rpc as any)('upsert_staff_screen_permission', {
+    let { error } = await (supabase.rpc as any)('upsert_staff_screen_permission', {
       _staff_id: staffMember.id,
       _screen_key: key,
       _can_view: next.can_view,
@@ -100,6 +100,23 @@ export const AccessConfigDialog = ({ isOpen, onClose, staffMember }: AccessConfi
       _notes: notes || null,
       _actor_id: user.id,
     });
+    // Fallback when the RPC isn't deployed yet (PGRST202 / 404)
+    if (error && (error.code === 'PGRST202' || /function .* does not exist|schema cache/i.test(error.message || ''))) {
+      const res = await (supabase as any)
+        .from('staff_screen_permissions')
+        .upsert(
+          {
+            staff_id: staffMember.id,
+            screen_key: key,
+            can_view: next.can_view,
+            can_edit: next.can_edit,
+            updated_by: user.id,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'staff_id,screen_key' }
+        );
+      error = res.error;
+    }
     setSavingKey(null);
     if (error) {
       toast.error(`Save failed: ${error.message}`);
@@ -114,13 +131,28 @@ export const AccessConfigDialog = ({ isOpen, onClose, staffMember }: AccessConfi
     setPendingApprovals((p) => ({ ...p, [key]: value }));
     if (!user) return;
     setSavingKey(key);
-    const { error } = await (supabase.rpc as any)('upsert_staff_approval_permission', {
+    let { error } = await (supabase.rpc as any)('upsert_staff_approval_permission', {
       _staff_id: staffMember.id,
       _permission_key: key,
       _can_approve: value,
       _notes: notes || null,
       _actor_id: user.id,
     });
+    if (error && (error.code === 'PGRST202' || /function .* does not exist|schema cache/i.test(error.message || ''))) {
+      const res = await (supabase as any)
+        .from('staff_approval_permissions')
+        .upsert(
+          {
+            staff_id: staffMember.id,
+            permission_key: key,
+            can_approve: value,
+            updated_by: user.id,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'staff_id,permission_key' }
+        );
+      error = res.error;
+    }
     setSavingKey(null);
     if (error) {
       toast.error(`Save failed: ${error.message}`);
@@ -129,6 +161,7 @@ export const AccessConfigDialog = ({ isOpen, onClose, staffMember }: AccessConfi
       setPendingApprovals((p) => { const n = { ...p }; delete n[key]; return n; });
     }
   };
+
 
   const handleSaveAll = async () => {
     setSaving(true);
