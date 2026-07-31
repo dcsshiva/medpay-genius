@@ -2,8 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://chbntbekbgetbyyxapqh.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNoYm50YmVrYmdldGJ5eXhhcHFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTY5NTM5NDcsImV4cCI6MjA3MjUyOTk0N30.iTlMXOoynJFKE0djf0LAZoaeLY6O07uYM5UxtS8jcDc";
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
 
 // Storage key version — bump this to invalidate all old persisted sessions
 const STORAGE_VERSION = 'v2';
