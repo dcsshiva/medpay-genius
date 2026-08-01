@@ -21,14 +21,14 @@ import {
 } from "lucide-react";
 import westmedBanner from "@/assets/westmed-banner.png";
 import westmedLogo from "@/assets/westmed-logo.png";
-import { useWebsiteSettings } from "@/hooks/useWebsiteSettings";
+import { usePublicWebsiteSettings } from "@/hooks/useWebsiteSettings";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Capacitor } from '@capacitor/core';
 
 const Landing = () => {
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
-  const { data: settings, isLoading } = useWebsiteSettings();
+  const { data: settings, isLoading } = usePublicWebsiteSettings();
   const isMobile = useIsMobile();
   
   // Auto-redirect to auth page on mobile/webview/native app
