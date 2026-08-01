@@ -8,6 +8,7 @@ import {
   FolderOpen, Stethoscope, BarChart3, ShieldCheck, Wallet,
 } from 'lucide-react';
 import { isStaffRole } from './staffUtils';
+import { hasFullAccess, isSuperAdmin } from './accessLevels';
 
 export interface NavigationItem {
   id: string;
