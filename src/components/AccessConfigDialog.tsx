@@ -172,10 +172,12 @@ export const AccessConfigDialog = ({ isOpen, onClose, staffMember }: AccessConfi
   };
 
   const loading = loadingScreens || loadingApprovals || loadingPerms;
+  // super_admin / admin have unrestricted access by design — nothing to configure.
+  const targetFullAccess = hasFullAccess(staffMember.role);
   const disabledScreen = (superAdminOnly: boolean) =>
-    superAdminOnly && userDesignation !== 'super_admin';
+    targetFullAccess || (superAdminOnly && userDesignation !== 'super_admin');
   const disabledApproval = (level: string) =>
-    level === 'admin' && userDesignation !== 'super_admin' && userDesignation !== 'admin';
+    targetFullAccess || (level === 'admin' && userDesignation !== 'super_admin' && userDesignation !== 'admin');
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
