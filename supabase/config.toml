@@ -1,28 +1,23 @@
 project_id = "zallnyrcsarecttjecrg"
 
-[functions.create-user]
-verify_jwt = false
-
-[functions.update-user-credentials]
-verify_jwt = false
-
-[functions.get-user-emails]
-verify_jwt = false
-
-[functions.send-otp]
-verify_jwt = false
-
-[functions.verify-otp]
-verify_jwt = false
-
-[functions.sync-auth-emails]
-verify_jwt = false
-
-[functions.chatbot]
-verify_jwt = false
-
-[functions.verify-emergency-otp]
-verify_jwt = false
-
-[functions.process-email-queue]
-verify_jwt = true
+[functions]
+  [functions.auth-email-hook]
+    verify_jwt = false
+  [functions.chatbot]
+    verify_jwt = false
+  [functions.create-user]
+    verify_jwt = false
+  [functions.get-user-emails]
+    verify_jwt = false
+  [functions.process-email-queue]
+    verify_jwt = true
+  [functions.send-otp]
+    verify_jwt = false
+  [functions.sync-auth-emails]
+    verify_jwt = false
+  [functions.update-user-credentials]
+    verify_jwt = false
+  [functions.verify-emergency-otp]
+    verify_jwt = false
+  [functions.verify-otp]
+    verify_jwt = false
