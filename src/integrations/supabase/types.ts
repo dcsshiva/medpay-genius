@@ -3705,6 +3705,93 @@ export type Database = {
         }
         Relationships: []
       }
+      website_settings_public: {
+        Row: {
+          about_paragraph_1: string | null
+          about_paragraph_2: string | null
+          banner_url: string | null
+          book_appointment_text: string | null
+          copyright_text: string | null
+          created_at: string | null
+          emergency_button_text: string | null
+          emergency_care_description: string | null
+          emergency_contact: string | null
+          expert_doctors: number | null
+          health_checkups_description: string | null
+          hero_headline: string | null
+          hero_tagline: string | null
+          hospital_name: string | null
+          id: string
+          is_active: boolean | null
+          location: string | null
+          logo_url: string | null
+          operating_hours: string | null
+          patient_rating: number | null
+          patients_served: string | null
+          phone: string | null
+          specialist_care_description: string | null
+          updated_at: string | null
+          why_choose_us: Json | null
+          years_of_service: number | null
+        }
+        Insert: {
+          about_paragraph_1?: string | null
+          about_paragraph_2?: string | null
+          banner_url?: string | null
+          book_appointment_text?: string | null
+          copyright_text?: string | null
+          created_at?: string | null
+          emergency_button_text?: string | null
+          emergency_care_description?: string | null
+          emergency_contact?: string | null
+          expert_doctors?: number | null
+          health_checkups_description?: string | null
+          hero_headline?: string | null
+          hero_tagline?: string | null
+          hospital_name?: string | null
+          id: string
+          is_active?: boolean | null
+          location?: string | null
+          logo_url?: string | null
+          operating_hours?: string | null
+          patient_rating?: number | null
+          patients_served?: string | null
+          phone?: string | null
+          specialist_care_description?: string | null
+          updated_at?: string | null
+          why_choose_us?: Json | null
+          years_of_service?: number | null
+        }
+        Update: {
+          about_paragraph_1?: string | null
+          about_paragraph_2?: string | null
+          banner_url?: string | null
+          book_appointment_text?: string | null
+          copyright_text?: string | null
+          created_at?: string | null
+          emergency_button_text?: string | null
+          emergency_care_description?: string | null
+          emergency_contact?: string | null
+          expert_doctors?: number | null
+          health_checkups_description?: string | null
+          hero_headline?: string | null
+          hero_tagline?: string | null
+          hospital_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          location?: string | null
+          logo_url?: string | null
+          operating_hours?: string | null
+          patient_rating?: number | null
+          patients_served?: string | null
+          phone?: string | null
+          specialist_care_description?: string | null
+          updated_at?: string | null
+          why_choose_us?: Json | null
+          years_of_service?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       staff_basic_info: {
@@ -3743,51 +3830,6 @@ export type Database = {
           role?: Database["public"]["Enums"]["staff_role"] | null
           staff_code?: string | null
           user_id?: string | null
-        }
-        Relationships: []
-      }
-      website_settings_public: {
-        Row: {
-          banner_url: string | null
-          created_at: string | null
-          hero_headline: string | null
-          hero_tagline: string | null
-          hospital_name: string | null
-          id: string | null
-          is_active: boolean | null
-          location: string | null
-          logo_url: string | null
-          operating_hours: string | null
-          phone: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          banner_url?: string | null
-          created_at?: string | null
-          hero_headline?: string | null
-          hero_tagline?: string | null
-          hospital_name?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          location?: string | null
-          logo_url?: string | null
-          operating_hours?: string | null
-          phone?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          banner_url?: string | null
-          created_at?: string | null
-          hero_headline?: string | null
-          hero_tagline?: string | null
-          hospital_name?: string | null
-          id?: string | null
-          is_active?: boolean | null
-          location?: string | null
-          logo_url?: string | null
-          operating_hours?: string | null
-          phone?: string | null
-          updated_at?: string | null
         }
         Relationships: []
       }
