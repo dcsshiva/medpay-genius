@@ -61,6 +61,29 @@ export const useWebsiteSettings = () => {
   });
 };
 
+export const usePublicWebsiteSettings = () => {
+  return useQuery({
+    queryKey: ["website-settings-public"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("website_settings_public")
+        .select("*")
+        .eq("is_active", true)
+        .single();
+
+      if (error) throw error;
+
+      const parsedData: WebsiteSettings = {
+        ...(data as any),
+        why_choose_us: (data?.why_choose_us as any) || []
+      };
+
+      return parsedData;
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+};
+
 export const useUpdateWebsiteSettings = () => {
   const queryClient = useQueryClient();
 
