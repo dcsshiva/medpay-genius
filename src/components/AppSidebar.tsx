@@ -93,7 +93,8 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
     return () => clearInterval(interval);
   }, [fetchStats]);
 
-  const { items: allNavigationItems } = useNavigationItems();
+  const { items: allNavigationItems, loading: navItemsLoading } = useNavigationItems();
+  const navLoading = authLoading || navItemsLoading;
   // Filter by admin-configured visibility
   const navigationItems = allNavigationItems.filter(item => isItemVisible(item.id));
   const quickAccessItems = useQuickAccessItems(allNavigationItems);
