@@ -1,45 +1,39 @@
-## Post-migration cutover: what still needs to be done
+# Fix empty sidebar in production + guarantee super_admin full access
 
-The database, storage, and schema migration to Lovable Cloud is complete. The app client (`src/integrations/supabase/client.ts`) and `supabase/config.toml` are already pointed at the new Cloud project. The generated types (`src/integrations/supabase/types.ts`) are now populated with the migrated schema.
+## What I verified (this is the real cause, not a timing issue)
 
-Remaining items to finish the cutover:
+Checked the live database directly for `shivanss@gmail.com`:
 
-1. **Deploy edge functions to Cloud** (critical blocker)
-   - The 8 functions in `supabase/functions/` are currently returning `404 NOT_FOUND` from the Cloud project (`zallnyrcsarecttjecrg`).
-   - OTP login, staff creation, and chatbot will not work until they are deployed.
-   - Deploy all functions: `create-user`, `update-user-credentials`, `get-user-emails`, `send-otp`, `verify-otp`, `sync-auth-emails`, `chatbot`, `verify-emergency-otp`.
-   - Smoke-test each function via GET health check and a real OTP round-trip.
+- The staff row has `role = admin`, and `user_designations.designation = admin`.
+- That user's 37 screen permissions (dashboard, masters, visits, settings, ...) all live in **`staff_screen_permissions`**, keyed by `staff.id`.
+- The table **`admin_screen_permissions` is completely empty (0 rows)** across the whole database.
+- `screen_registry` has 71 active screens; `sidebar_menu_config` hides nothing.
 
-2. **Clean up empty-types workarounds**
-   - `src/integrations/supabase/client.ts` still has a comment claiming `Database` is empty; the generic is still removed. Re-attach `<Database>` and delete the stale comment.
-   - Remove `as any` casts that were added in `BankAdvicePaymentReport.tsx`, `CashPaymentLite.tsx`, `InsurancePaymentLite.tsx`, and `PaymentManagement.tsx` now that the types file is populated.
+The auth code branches on designation: when the designation is `admin`, it loads permissions from `admin_screen_permissions` using the auth user id. That table is empty, so the permission map comes back empty, and the sidebar hook hides every screen that has no `can_view` permission row. Result: a sidebar with zero navigation items. This is a data/branching mismatch, not an auth-loading race — a loading guard alone would not fix it.
 
-3. **Remove migration-only secrets**
-   - `EXTERNAL_DB_URL` and `EXTERNAL_SERVICE_ROLE_KEY` are no longer needed after the cutover. Delete them to reduce exposure.
-   - Keep the SMS/edge-function secrets: `MSG91_AUTH_KEY`, `SOFTSMS_API_KEY`, `SOFTSMS_PE_ID`, `SOFTSMS_SENDER_ID`, `SOFTSMS_TEMPLATE_ID`.
+Preview vs. production differ only because the deployed bundle is an older build; both point at the same backend (`.env` has a single set of backend variables, and there is no separate production config in the repo). I will re-verify the deployed bundle's backend URL after the fix and report it.
 
-4. **Build check**
-   - Run `bun run build` (or `vite build`) to confirm TypeScript is happy with the re-attached `<Database>` generic and without the `as any` casts.
+## Part 1 — Fix the sidebar
 
-5. **End-to-end smoke tests on preview**
-   - Login with Email OTP, Mobile OTP, and username/password for admin/manager/doctor/staff roles.
-   - Verify the sidebar renders correctly based on `screen_registry` permissions.
-   - Create a quick payment and generate bank advice.
-   - Open Visit Management and confirm row counts are not capped at 1000.
-   - Test staff creation and leave/permission flows.
+1. **Permission loading (auth)**: load permissions from both sources and merge instead of picking one table by designation:
+   - `staff_screen_permissions` keyed by the staff row id (the source that actually has data), and
+   - `admin_screen_permissions` keyed by the auth user id, if any rows exist.
+   A screen is viewable if either source grants it. Realtime subscriptions on both tables so Configure Access changes still apply live.
+2. **Safety net**: if, after loading, a user with designation/role `admin` or `manager` ends up with an empty permission map, fall back to the legacy hardcoded role menu rather than showing an empty sidebar. Losing all navigation should never be a possible state for a privileged user.
+3. **Loading guard**: the sidebar waits for auth `loading === false` and for the permission load to settle, showing a small skeleton in the nav area during that gap instead of rendering an empty list.
 
-6. **Republish if needed**
-   - The published site is live at `https://westmedhospital.com` and redirects are in place. If any code changes are made in steps 2–5, republish so the live bundle uses the updated client and types.
+## Part 2 — super_admin needs zero configuration
 
-## Technical details
+- Keep and harden the hardcoded bypass: `canView`, `canEdit`, `canApprove` return `true` for `super_admin` before any permission lookup, and the sidebar hook already shows every registry screen (including `super_admin_only` ones) for super admins. I will add `canApprove` to the same bypass path and add a shared `isSuperAdmin` helper so no future check can bypass it.
+- Brand-new screens added to `screen_registry` with zero permission rows will appear for super admins automatically — that already follows from the bypass plus the registry-driven sidebar.
+- In User Access Management / Admin Access Management: super_admin users stay listed but are shown with a "Full access — no configuration needed" badge, and opening Configure Access for them renders all toggles checked and disabled, so nobody thinks unchecking restricts them.
 
-- Edge function base URL to test: `https://zallnyrcsarecttjecrg.supabase.co/functions/v1/{function-name}`.
-- `supabase/config.toml` already has `project_id = "zallnyrcsarecttjecrg"`, so `supabase functions deploy` will target the correct Cloud project.
-- `src/integrations/supabase/types.ts` is 4,639 lines and contains the full migrated schema, so it is safe to re-introduce the typed `createClient<Database>`.
+## Part 3 — Current state for the record
 
-## Out of scope unless you ask
-- Custom domain DNS changes (`westmedhospital.com`) — already configured and redirecting.
-- Auth email/SMS provider templates — the SMS secrets are in place; email templates may need reconfiguration in Cloud auth settings separately.
-- Storage files/buckets — already migrated.
+- `src/lib/navigationItems.ts` is **no longer** fully hardcoded per role. The registry-driven migration is **already done**: `useNavigationItems()` reads active rows from `screen_registry`, filters them by `screenPermissions` from the auth context, and applies `super_admin_only`. The old hardcoded `getNavigationItems()` remains only as a fallback used when `screen_registry` returns zero rows.
+- So Part 1's fix belongs in the **new registry-driven path** (auth permission loading + the sidebar's loading guard), not in the legacy hardcoded list.
 
-Once the plan is approved, I can execute it in build mode.
+## Technical notes
+
+- Files touched: `src/lib/auth.tsx` (merged permission load, super_admin helper, approval bypass), `src/lib/navigationItems.ts` (privileged-empty fallback), `src/components/AppSidebar.tsx` (loading skeleton), `src/components/UserAccessManagement.tsx` / `AdminAccessManagement.tsx` / `AccessConfigDialog.tsx` (super_admin display state).
+- No database migration required — existing `staff_screen_permissions` data is used as-is.
