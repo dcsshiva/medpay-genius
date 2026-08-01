@@ -418,164 +418,71 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  /**
+   * Resolve a username / staff code / doctor code to the login email that
+   * Supabase Auth knows about. Returns null when nothing matches.
+   */
+  const resolveLoginEmail = async (identifier: string): Promise<string | null> => {
+    if (identifier.includes('@')) return identifier;
+    try {
+      const { data: staffEmail } = await supabase.rpc('get_staff_auth_email', { _username: identifier });
+      if (staffEmail) return staffEmail as string;
+    } catch (_) { /* ignore and try doctor */ }
+    try {
+      const { data: doctorEmail } = await supabase.rpc('get_doctor_auth_email', { _doctor_code: identifier });
+      if (doctorEmail) return doctorEmail as string;
+    } catch (_) { /* no match */ }
+    return null;
+  };
+
+  /**
+   * Username (or email) + password login.
+   *
+   * Always ends in a REAL Supabase session so row-level security sees the
+   * signed-in user. If the account has no backend password yet, the legacy
+   * credential store is verified server-side and the backend password is
+   * synced transparently, then we sign in for real.
+   */
   const signInWithUsername = async (username: string, password: string) => {
     try {
       await invalidateSession();
 
-      const { data, error } = await supabase
-        .rpc('verify_user_login', { 
-          _username: username, 
-          _password: password 
-        });
-
-      if (!error && data && typeof data === 'object' && data !== null && !Array.isArray(data)) {
-        const loginResult = data as { 
-          error?: string;
-          user_type?: string; 
-          id?: string; 
-          user_id?: string;
-          full_name?: string; 
-          role?: string; 
-        };
-
-        if (!loginResult.error && loginResult?.user_type && loginResult.id) {
-          try {
-            const sessionData = await createUserSession({
-              user_type: loginResult.user_type,
-              original_id: loginResult.id,
-              user_id: loginResult.user_id || loginResult.id,
-              username: username,
-              full_name: loginResult.full_name || username,
-              role: loginResult.role || 'staff'
-            });
-
-            const mockUser = {
-              id: sessionData.user_id,
-              email: `${username}@westmed.local`,
-              app_metadata: {},
-              aud: 'authenticated',
-              created_at: sessionData.created_at,
-              user_metadata: {
-                full_name: sessionData.full_name,
-                role: sessionData.role,
-                user_type: sessionData.user_type,
-                original_id: sessionData.original_id,
-                auth_user_id: loginResult.user_id
-              }
-            } as User;
-
-            const mockSession = {
-              user: mockUser,
-              access_token: sessionData.session_token,
-              refresh_token: sessionData.refresh_token || '',
-              expires_in: Math.floor((new Date(sessionData.expires_at).getTime() - Date.now()) / 1000),
-              expires_at: Math.floor(new Date(sessionData.expires_at).getTime() / 1000),
-              token_type: 'bearer'
-            } as Session;
-
-            const designation = await fetchDesignation(sessionData.user_id);
-            
-            setUser(mockUser);
-            setSession(mockSession);
-            setUserRole(sessionData.role);
-            setUserDesignation(designation);
-            setUserProfile({
-              role: sessionData.role,
-              full_name: sessionData.full_name,
-              id: sessionData.original_id,
-              user_type: sessionData.user_type
-            });
-
-            return { error: null };
-          } catch (e: any) {
-            console.error('createUserSession failed:', e?.message || e);
-            const fallbackUser = {
-              id: loginResult.id,
-              email: `${username}@westmed.local`,
-              app_metadata: {},
-              aud: 'authenticated',
-              created_at: new Date().toISOString(),
-              user_metadata: {
-                full_name: loginResult.full_name || username,
-                role: loginResult.role || 'staff',
-                user_type: loginResult.user_type,
-                original_id: loginResult.id,
-                auth_user_id: loginResult.user_id
-              }
-            } as User;
-
-            const expAt = new Date('2099-12-31T23:59:59.000Z').getTime();
-            const fallbackSession = {
-              user: fallbackUser,
-              access_token: crypto.randomUUID(),
-              refresh_token: crypto.randomUUID(),
-              expires_in: Math.floor((expAt - Date.now()) / 1000),
-              expires_at: Math.floor(expAt / 1000),
-              token_type: 'bearer'
-            } as Session;
-
-            setUser(fallbackUser);
-            setSession(fallbackSession);
-            setUserRole(loginResult.role || 'staff');
-            setUserProfile({
-              role: loginResult.role || 'staff',
-              full_name: loginResult.full_name || username,
-              id: loginResult.id,
-              user_type: loginResult.user_type
-            });
-
-            return { error: null };
-          }
-        }
+      // 1. Real auth first, using the resolved login email.
+      const email = await resolveLoginEmail(username);
+      if (email) {
+        const direct = await signInWithEmail(email, password);
+        if (!direct.error) return direct;
       }
 
-      const { data: emailData } = await supabase
-        .rpc('get_staff_auth_email', { _username: username });
+      // 2. Fall back to the legacy credential store and sync the password.
+      const { data: sync, error: syncError } = await supabase.functions.invoke('password-login-sync', {
+        body: { identifier: username, password },
+      });
 
-      if (emailData) {
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-          email: emailData,
-          password
-        });
-
-        if (!authError && authData.user) {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', authData.user.id)
-            .maybeSingle();
-
-          if (profile) {
-            await createUserSession({
-              user_type: 'supabase_auth',
-              original_id: authData.user.id,
-              user_id: authData.user.id,
-              username: emailData,
-              full_name: profile.full_name || emailData,
-              role: profile.role || 'staff'
-            });
-
-            setUser(authData.user);
-            setSession(authData.session);
-            setUserRole(profile.role);
-            setUserProfile(profile);
-          }
-
-          return { error: null };
-        }
-
-        if (authError) {
-          return { error: { message: authError.message || 'Authentication failed' } };
-        }
+      if (syncError && !sync) {
+        return { error: { message: 'Sign-in service unreachable. Please try again.' } };
       }
 
-      return { error: { message: 'Invalid username or password' } };
+      if (sync?.success && sync?.email) {
+        const synced = await signInWithEmail(sync.email, password);
+        if (!synced.error) return synced;
+        return { error: { message: synced.error.message || 'Sign in failed' } };
+      }
 
+      const code = sync?.error;
+      if (code === 'invalid_password') {
+        return { error: { message: 'Incorrect password. Please try again.' } };
+      }
+      if (code === 'not_found') {
+        return { error: { message: 'No active account found for this username.' } };
+      }
+      return { error: { message: sync?.message || 'Invalid username or password' } };
     } catch (error) {
       console.error('Username sign in error:', error);
       return { error: { message: 'Sign in failed' } };
     }
   };
+
 
   const signInWithEmail = async (email: string, password: string) => {
     try {
