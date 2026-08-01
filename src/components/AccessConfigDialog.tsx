@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { Eye, Edit, Shield, MonitorPlay, Save, Radio } from 'lucide-react';
 import { useScreenRegistry, useApprovalRegistry } from '@/hooks/usePermissionRegistry';
 import { useStaffPermissions } from '@/hooks/useStaffPermissions';
+import { hasFullAccess } from '@/lib/accessLevels';
 
 interface StaffMember {
   id: string;
