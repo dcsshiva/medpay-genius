@@ -58,11 +58,13 @@ export const AccessConfigDialog = ({ isOpen, onClose, staffMember }: AccessConfi
   }, [isOpen, staffMember.id]);
 
   const effectiveScreen = (key: string) => {
+    if (hasFullAccess(staffMember.role)) return { can_view: true, can_edit: true };
     if (pendingScreens[key]) return pendingScreens[key];
     const cur = currentScreens[key];
     return { can_view: !!cur?.can_view, can_edit: !!cur?.can_edit };
   };
   const effectiveApproval = (key: string) => {
+    if (hasFullAccess(staffMember.role)) return true;
     if (key in pendingApprovals) return pendingApprovals[key];
     return !!currentApprovals[key]?.can_approve;
   };
