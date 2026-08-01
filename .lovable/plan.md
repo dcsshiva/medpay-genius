@@ -22,11 +22,13 @@ Preview vs. production differ only because the deployed bundle is an older build
 2. **Safety net**: if, after loading, a user with designation/role `admin` or `manager` ends up with an empty permission map, fall back to the legacy hardcoded role menu rather than showing an empty sidebar. Losing all navigation should never be a possible state for a privileged user.
 3. **Loading guard**: the sidebar waits for auth `loading === false` and for the permission load to settle, showing a small skeleton in the nav area during that gap instead of rendering an empty list.
 
-## Part 2 — super_admin needs zero configuration
+## Part 2 — super_admin AND admin need zero configuration
 
 - Keep and harden the hardcoded bypass: `canView`, `canEdit`, `canApprove` return `true` for `super_admin` before any permission lookup, and the sidebar hook already shows every registry screen (including `super_admin_only` ones) for super admins. I will add `canApprove` to the same bypass path and add a shared `isSuperAdmin` helper so no future check can bypass it.
-- Brand-new screens added to `screen_registry` with zero permission rows will appear for super admins automatically — that already follows from the bypass plus the registry-driven sidebar.
-- In User Access Management / Admin Access Management: super_admin users stay listed but are shown with a "Full access — no configuration needed" badge, and opening Configure Access for them renders all toggles checked and disabled, so nobody thinks unchecking restricts them.
+- **`admin` gets the same treatment**: an admin designation/role is also a hardcoded bypass — every `canView`/`canEdit`/`canApprove` returns `true`, and the sidebar shows every active `screen_registry` screen except those flagged `super_admin_only`. No Configure Access rows are required for an admin to see or use any screen, including brand-new screens with zero permission rows. This on its own resolves the empty-sidebar bug for `shivanss@gmail.com`.
+- Brand-new screens added to `screen_registry` with zero permission rows appear automatically for both super admins and admins.
+- In User Access Management / Admin Access Management: super_admin and admin users stay listed but are shown with a "Full access — no configuration needed" badge, and opening Configure Access for them renders all toggles checked and disabled, so nobody thinks unchecking restricts them.
+
 
 ## Part 3 — Current state for the record
 
