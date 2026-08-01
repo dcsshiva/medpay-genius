@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { Eye, Edit, Shield, MonitorPlay, Save, Radio } from 'lucide-react';
 import { useScreenRegistry, useApprovalRegistry } from '@/hooks/usePermissionRegistry';
 import { useStaffPermissions } from '@/hooks/useStaffPermissions';
+import { hasFullAccess } from '@/lib/accessLevels';
 
 interface StaffMember {
   id: string;
@@ -57,11 +58,13 @@ export const AccessConfigDialog = ({ isOpen, onClose, staffMember }: AccessConfi
   }, [isOpen, staffMember.id]);
 
   const effectiveScreen = (key: string) => {
+    if (hasFullAccess(staffMember.role)) return { can_view: true, can_edit: true };
     if (pendingScreens[key]) return pendingScreens[key];
     const cur = currentScreens[key];
     return { can_view: !!cur?.can_view, can_edit: !!cur?.can_edit };
   };
   const effectiveApproval = (key: string) => {
+    if (hasFullAccess(staffMember.role)) return true;
     if (key in pendingApprovals) return pendingApprovals[key];
     return !!currentApprovals[key]?.can_approve;
   };
@@ -172,10 +175,12 @@ export const AccessConfigDialog = ({ isOpen, onClose, staffMember }: AccessConfi
   };
 
   const loading = loadingScreens || loadingApprovals || loadingPerms;
+  // super_admin / admin have unrestricted access by design — nothing to configure.
+  const targetFullAccess = hasFullAccess(staffMember.role);
   const disabledScreen = (superAdminOnly: boolean) =>
-    superAdminOnly && userDesignation !== 'super_admin';
+    targetFullAccess || (superAdminOnly && userDesignation !== 'super_admin');
   const disabledApproval = (level: string) =>
-    level === 'admin' && userDesignation !== 'super_admin' && userDesignation !== 'admin';
+    targetFullAccess || (level === 'admin' && userDesignation !== 'super_admin' && userDesignation !== 'admin');
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -189,6 +194,11 @@ export const AccessConfigDialog = ({ isOpen, onClose, staffMember }: AccessConfi
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <Badge>{staffMember.staff_code}</Badge>
               <Badge variant="outline">{staffMember.role}</Badge>
+              {targetFullAccess && (
+                <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">
+                  Full access — no configuration needed
+                </Badge>
+              )}
               {staffMember.department && <Badge variant="secondary">{staffMember.department}</Badge>}
               {lastUpdate && (
                 <span className="text-xs text-muted-foreground flex items-center gap-1 ml-2">

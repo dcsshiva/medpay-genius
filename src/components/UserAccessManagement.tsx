@@ -12,6 +12,7 @@ import { Shield, Search, Settings2, Eye, History, UserCheck } from 'lucide-react
 import { AccessConfigDialog } from './AccessConfigDialog';
 import { AdminAccessManagement } from './AdminAccessManagement';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { hasFullAccess } from '@/lib/accessLevels';
 
 interface StaffMember {
   id: string;
@@ -237,18 +238,28 @@ export const UserAccessManagement = () => {
                             </Badge>
                           </TableCell>
                           <TableCell>{staff.department || '-'}</TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant="outline">
-                              <Eye className="h-3 w-3 mr-1" />
-                              {staff.screen_access_count}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Badge variant="outline">
-                              <Shield className="h-3 w-3 mr-1" />
-                              {staff.approval_permission_count}
-                            </Badge>
-                          </TableCell>
+                          {hasFullAccess(staff.role) ? (
+                            <TableCell colSpan={2} className="text-center">
+                              <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">
+                                Full access — no configuration needed
+                              </Badge>
+                            </TableCell>
+                          ) : (
+                            <>
+                              <TableCell className="text-center">
+                                <Badge variant="outline">
+                                  <Eye className="h-3 w-3 mr-1" />
+                                  {staff.screen_access_count}
+                                </Badge>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Badge variant="outline">
+                                  <Shield className="h-3 w-3 mr-1" />
+                                  {staff.approval_permission_count}
+                                </Badge>
+                              </TableCell>
+                            </>
+                          )}
                           <TableCell className="text-right">
                             <Button
                               size="sm"

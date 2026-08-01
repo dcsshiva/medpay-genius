@@ -8,6 +8,7 @@ import {
   FolderOpen, Stethoscope, BarChart3, ShieldCheck, Wallet,
 } from 'lucide-react';
 import { isStaffRole } from './staffUtils';
+import { hasFullAccess, isSuperAdmin } from './accessLevels';
 
 export interface NavigationItem {
   id: string;
@@ -232,11 +233,12 @@ export const useAllScreens = () => {
  * when the DB is not yet seeded so users don't lose access.
  */
 export const useNavigationItems = (): { items: NavigationItem[]; loading: boolean } => {
-  const { userRole, userDesignation, userProfile, screenPermissions } = useAuth() as any;
+  const { userRole, userDesignation, userProfile, screenPermissions, permissionsReady } = useAuth() as any;
   const { rows, loading } = useAllScreens();
 
   return useMemo(() => {
-    const isSuper = userDesignation === 'super_admin' || userRole === 'super_admin';
+    const isSuper = isSuperAdmin(userRole, userDesignation);
+    const fullAccess = hasFullAccess(userRole, userDesignation);
 
     // Registry empty → fall back to legacy hardcoded list.
     if (!loading && rows.length === 0) {
@@ -247,16 +249,28 @@ export const useNavigationItems = (): { items: NavigationItem[]; loading: boolea
     }
 
     if (loading) return { items: [], loading: true };
+    // Wait for permissions to settle for non-full-access users so we never
+    // render an empty sidebar mid-resolution.
+    if (!fullAccess && !permissionsReady) return { items: [], loading: true };
 
-    const items = rows
+    const permitted = rows
       .filter((r) => (r.super_admin_only ? isSuper : true))
       .filter((r) => {
-        if (isSuper) return true;
+        // super_admin / admin: zero configuration required, everything visible.
+        if (fullAccess) return true;
         const perm = screenPermissions?.[r.screen_key];
-        // If a permission row exists → obey it. If not, hide by default
-        // (permissions are the source of truth once seeded).
         return !!perm?.can_view;
-      })
+      });
+
+    // Safety net: a privileged user should never end up with no navigation.
+    if (permitted.length === 0 && (userRole === 'manager' || userDesignation === 'manager')) {
+      return {
+        items: getNavigationItems({ userRole, userDesignation, userProfile }),
+        loading: false,
+      };
+    }
+
+    const items = permitted
       .filter((r) => !!SCREEN_ICONS[r.screen_key]) // don't render permission-only keys (dashboard variants, delete actions)
       .map<NavigationItem>((r) => ({
         id: r.screen_key,
@@ -265,5 +279,5 @@ export const useNavigationItems = (): { items: NavigationItem[]; loading: boolea
       }));
 
     return { items, loading: false };
-  }, [rows, loading, userRole, userDesignation, userProfile, screenPermissions]);
+  }, [rows, loading, userRole, userDesignation, userProfile, screenPermissions, permissionsReady]);
 };

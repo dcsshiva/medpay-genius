@@ -46,7 +46,7 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
-  const { userRole, userDesignation, userProfile } = useAuth();
+  const { userRole, userDesignation, userProfile, loading: authLoading } = useAuth();
   const { open } = useSidebar();
   const { trackNavigation } = useNavigationTracking();
   const { isItemVisible } = useMenuVisibility();
@@ -93,7 +93,8 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
     return () => clearInterval(interval);
   }, [fetchStats]);
 
-  const { items: allNavigationItems } = useNavigationItems();
+  const { items: allNavigationItems, loading: navItemsLoading } = useNavigationItems();
+  const navLoading = authLoading || navItemsLoading;
   // Filter by admin-configured visibility
   const navigationItems = allNavigationItems.filter(item => isItemVisible(item.id));
   const quickAccessItems = useQuickAccessItems(allNavigationItems);
@@ -153,6 +154,13 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
         {/* Flat Navigation */}
         <SidebarGroup>
           <SidebarGroupContent>
+            {navLoading ? (
+              <div className="space-y-2 px-2 py-1">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="h-8 rounded-md bg-muted animate-pulse" />
+                ))}
+              </div>
+            ) : (
             <SidebarMenu>
               {navigationItems.map((item) => {
                 const Icon = item.icon;
@@ -172,8 +180,10 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
                 );
               })}
             </SidebarMenu>
+            )}
           </SidebarGroupContent>
         </SidebarGroup>
+
 
         {/* Doctor Payments Section - Only for managers and admins */}
         {(userRole === 'manager' || userRole === 'admin' || userDesignation === 'super_admin' || userDesignation === 'admin' || userDesignation === 'manager') && (
