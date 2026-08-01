@@ -11,6 +11,7 @@ import {
 } from '@/lib/auth/sessionManager';
 import { fetchDesignation, resolveFullProfile } from '@/lib/auth/resolveProfile';
 import { performEmergencySignIn } from '@/lib/auth/emergencyLogin';
+import { hasFullAccess as hasFullAccessLevel, isSuperAdmin as isSuperAdminLevel } from '@/lib/accessLevels';
 
 export interface ScreenPermission { can_view: boolean; can_edit: boolean; }
 export type ScreenPermissions = Record<string, ScreenPermission>;
@@ -25,8 +26,15 @@ interface AuthContextType {
   screenPermissions: ScreenPermissions;
   /** Fully seeded permissions from screen_registry (empty => DB not seeded yet, legacy fallback in effect). */
   permissionsLoaded: boolean;
+  /** True once the permission load settled (or was bypassed) — sidebar waits on this. */
+  permissionsReady: boolean;
+  /** super_admin — unrestricted, including super_admin_only screens. */
+  isSuperAdmin: boolean;
+  /** super_admin or admin — zero Configure Access setup required. */
+  hasFullAccess: boolean;
   canView: (key: string) => boolean;
   canEdit: (key: string) => boolean;
+  canApprove: (key: string) => boolean;
   signInWithUsername: (username: string, password: string) => Promise<{ error: any }>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: any }>;
   signInWithOTP: (email: string) => Promise<{ error: any }>;
