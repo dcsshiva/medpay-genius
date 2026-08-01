@@ -3793,7 +3793,6 @@ export type Database = {
       }
     }
     Functions: {
-      __mig_exec: { Args: { sql: string }; Returns: string }
       cleanup_expired_otps: { Args: never; Returns: number }
       cleanup_expired_sessions: { Args: never; Returns: undefined }
       cleanup_expired_user_sessions: { Args: never; Returns: number }
