@@ -390,8 +390,8 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
         const filteredTransactions = paymentTypeOnly 
           ? transactionsResponse.data.filter(transaction => {
               // Check if this transaction's payment has visits of the specified type
-              const hasMatchingVisits = (transaction.payments as any).payment_visits.some(
-                (pv: any) => pv.visits.payment_type === paymentTypeOnly
+              const hasMatchingVisits = transaction.payments.payment_visits.some(
+                pv => pv.visits.payment_type === paymentTypeOnly
               );
               return hasMatchingVisits;
             })
@@ -1569,7 +1569,7 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
     let fresh: Payment = payment;
     try {
       const { data } = await supabase.from('payments').select('*').eq('id', payment.id).maybeSingle();
-      if (data) fresh = { ...payment, ...(data as any) } as Payment;
+      if (data) fresh = { ...payment, ...data };
     } catch { /* fall back */ }
 
     // Determine payment type from paymentTypeOnly or payment data

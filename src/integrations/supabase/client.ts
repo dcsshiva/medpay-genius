@@ -78,10 +78,7 @@ const validatingStorage: Storage & { getItem: (key: string) => string | null } =
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-// NOTE: this project points at an external Supabase instance whose types
-// cannot be generated here, so `Database` is empty and would make every
-// table/RPC resolve to `never`. Use the permissive default schema instead.
-export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: validatingStorage,
     autoRefreshToken: true,
