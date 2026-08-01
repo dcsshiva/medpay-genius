@@ -81,7 +81,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userProfile, setUserProfile] = useState<any | null>(null);
   const [userDesignation, setUserDesignation] = useState<'super_admin' | 'admin' | 'manager' | 'supervisor' | 'doctor' | 'staff' | null>(null);
   const [screenPermissions, setScreenPermissions] = useState<ScreenPermissions>({});
+  const [approvalPermissions, setApprovalPermissions] = useState<Record<string, boolean>>({});
   const [permissionsLoaded, setPermissionsLoaded] = useState(false);
+  const [permissionsReady, setPermissionsReady] = useState(false);
 
   // Load per-user screen permissions whenever the user or designation changes,
   // and subscribe to Realtime so Configure Access toggles take effect immediately.
