@@ -17,12 +17,12 @@ const corsHeaders = {
 }
 
 const EMAIL_SUBJECTS: Record<string, string> = {
-  signup: 'Confirm your email',
-  invite: "You've been invited",
-  magiclink: 'Your login link',
-  recovery: 'Reset your password',
-  email_change: 'Confirm your new email',
-  reauthentication: 'Your verification code',
+  signup: 'Confirm your email - WestMed HMS',
+  invite: "You've been invited to WestMed HMS",
+  magiclink: 'Your WestMed HMS login code',
+  recovery: 'Reset your WestMed HMS password',
+  email_change: 'Confirm your new email - WestMed HMS',
+  reauthentication: 'Your WestMed HMS verification code',
 }
 
 // Template mapping
@@ -54,10 +54,12 @@ const SAMPLE_DATA: Record<string, object> = {
     siteUrl: SAMPLE_PROJECT_URL,
     recipient: SAMPLE_EMAIL,
     confirmationUrl: SAMPLE_PROJECT_URL,
+    token: '123456',
   },
   magiclink: {
     siteName: SITE_NAME,
     confirmationUrl: SAMPLE_PROJECT_URL,
+    token: '123456',
   },
   recovery: {
     siteName: SITE_NAME,
