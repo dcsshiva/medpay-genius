@@ -194,6 +194,11 @@ export const AccessConfigDialog = ({ isOpen, onClose, staffMember }: AccessConfi
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <Badge>{staffMember.staff_code}</Badge>
               <Badge variant="outline">{staffMember.role}</Badge>
+              {targetFullAccess && (
+                <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white">
+                  Full access — no configuration needed
+                </Badge>
+              )}
               {staffMember.department && <Badge variant="secondary">{staffMember.department}</Badge>}
               {lastUpdate && (
                 <span className="text-xs text-muted-foreground flex items-center gap-1 ml-2">
