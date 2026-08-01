@@ -20,27 +20,23 @@ interface InviteEmailProps {
   confirmationUrl: string
 }
 
-export const InviteEmail = ({
-  siteName,
-  siteUrl,
-  confirmationUrl,
-}: InviteEmailProps) => (
+export const InviteEmail = ({ siteUrl, confirmationUrl }: InviteEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>You've been invited to join {siteName}</Preview>
+    <Preview>You've been invited to WestMed HMS</Preview>
     <Body style={main}>
       <Container style={container}>
+        <Text style={brand}>WestMed Hospital</Text>
         <Heading style={h1}>You've been invited</Heading>
         <Text style={text}>
           You've been invited to join{' '}
           <Link href={siteUrl} style={link}>
-            <strong>{siteName}</strong>
+            <strong>WestMed HMS</strong>
           </Link>
-          . Click the button below to accept the invitation and create your
-          account.
+          . Accept the invitation to set up your account.
         </Text>
         <Button style={button} href={confirmationUrl}>
-          Accept Invitation
+          Accept invitation
         </Button>
         <Text style={footer}>
           If you weren't expecting this invitation, you can safely ignore this
@@ -53,27 +49,36 @@ export const InviteEmail = ({
 
 export default InviteEmail
 
-const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
-const container = { padding: '20px 25px' }
+const main = { backgroundColor: '#ffffff', fontFamily: 'Helvetica, Arial, sans-serif' }
+const container = { padding: '24px 25px', maxWidth: '560px' }
+const brand = {
+  fontSize: '13px',
+  fontWeight: 'bold' as const,
+  letterSpacing: '1px',
+  textTransform: 'uppercase' as const,
+  color: 'hsl(140, 45%, 40%)',
+  margin: '0 0 16px',
+}
 const h1 = {
   fontSize: '22px',
   fontWeight: 'bold' as const,
-  color: '#000000',
-  margin: '0 0 20px',
+  color: 'hsl(160, 20%, 20%)',
+  margin: '0 0 16px',
 }
 const text = {
   fontSize: '14px',
-  color: '#55575d',
-  lineHeight: '1.5',
-  margin: '0 0 25px',
+  color: 'hsl(155, 12%, 45%)',
+  lineHeight: '1.6',
+  margin: '0 0 20px',
 }
-const link = { color: 'inherit', textDecoration: 'underline' }
+const link = { color: 'hsl(140, 45%, 40%)', textDecoration: 'underline' }
 const button = {
-  backgroundColor: '#000000',
+  backgroundColor: 'hsl(140, 45%, 50%)',
   color: '#ffffff',
   fontSize: '14px',
+  fontWeight: 'bold' as const,
   borderRadius: '8px',
   padding: '12px 20px',
   textDecoration: 'none',
 }
-const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
+const footer = { fontSize: '12px', color: 'hsl(155, 12%, 60%)', margin: '32px 0 0' }

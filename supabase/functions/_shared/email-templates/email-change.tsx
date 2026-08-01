@@ -16,10 +16,6 @@ import {
 
 interface EmailChangeEmailProps {
   siteName: string
-  // oldEmail is the user's current address (HookData.OldEmail). For the
-  // NEW-recipient half of a secure email_change fanout, `email` equals the
-  // recipient (NEW), so the "from" line must render oldEmail to read
-  // "from OLD to NEW" instead of "from NEW to NEW".
   oldEmail: string
   email: string
   newEmail: string
@@ -27,19 +23,19 @@ interface EmailChangeEmailProps {
 }
 
 export const EmailChangeEmail = ({
-  siteName,
   oldEmail,
   newEmail,
   confirmationUrl,
 }: EmailChangeEmailProps) => (
   <Html lang="en" dir="ltr">
     <Head />
-    <Preview>Confirm your email change for {siteName}</Preview>
+    <Preview>Confirm your WestMed HMS email change</Preview>
     <Body style={main}>
       <Container style={container}>
+        <Text style={brand}>WestMed Hospital</Text>
         <Heading style={h1}>Confirm your email change</Heading>
         <Text style={text}>
-          You requested to change your email address for {siteName} from{' '}
+          A request was made to change the WestMed HMS login email from{' '}
           <Link href={`mailto:${oldEmail}`} style={link}>
             {oldEmail}
           </Link>{' '}
@@ -49,11 +45,8 @@ export const EmailChangeEmail = ({
           </Link>
           .
         </Text>
-        <Text style={text}>
-          Click the button below to confirm this change:
-        </Text>
         <Button style={button} href={confirmationUrl}>
-          Confirm Email Change
+          Confirm email change
         </Button>
         <Text style={footer}>
           If you didn't request this change, please secure your account
@@ -66,27 +59,36 @@ export const EmailChangeEmail = ({
 
 export default EmailChangeEmail
 
-const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
-const container = { padding: '20px 25px' }
+const main = { backgroundColor: '#ffffff', fontFamily: 'Helvetica, Arial, sans-serif' }
+const container = { padding: '24px 25px', maxWidth: '560px' }
+const brand = {
+  fontSize: '13px',
+  fontWeight: 'bold' as const,
+  letterSpacing: '1px',
+  textTransform: 'uppercase' as const,
+  color: 'hsl(140, 45%, 40%)',
+  margin: '0 0 16px',
+}
 const h1 = {
   fontSize: '22px',
   fontWeight: 'bold' as const,
-  color: '#000000',
-  margin: '0 0 20px',
+  color: 'hsl(160, 20%, 20%)',
+  margin: '0 0 16px',
 }
 const text = {
   fontSize: '14px',
-  color: '#55575d',
-  lineHeight: '1.5',
-  margin: '0 0 25px',
+  color: 'hsl(155, 12%, 45%)',
+  lineHeight: '1.6',
+  margin: '0 0 20px',
 }
-const link = { color: 'inherit', textDecoration: 'underline' }
+const link = { color: 'hsl(140, 45%, 40%)', textDecoration: 'underline' }
 const button = {
-  backgroundColor: '#000000',
+  backgroundColor: 'hsl(140, 45%, 50%)',
   color: '#ffffff',
   fontSize: '14px',
+  fontWeight: 'bold' as const,
   borderRadius: '8px',
   padding: '12px 20px',
   textDecoration: 'none',
 }
-const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
+const footer = { fontSize: '12px', color: 'hsl(155, 12%, 60%)', margin: '32px 0 0' }
