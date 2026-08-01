@@ -12,6 +12,7 @@ import { Shield, Search, Settings2, Eye, History, UserCheck } from 'lucide-react
 import { AccessConfigDialog } from './AccessConfigDialog';
 import { AdminAccessManagement } from './AdminAccessManagement';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { hasFullAccess } from '@/lib/accessLevels';
 
 interface StaffMember {
   id: string;
