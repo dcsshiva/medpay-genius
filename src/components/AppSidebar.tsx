@@ -46,7 +46,7 @@ interface AppSidebarProps {
 }
 
 export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
-  const { userRole, userDesignation, userProfile } = useAuth();
+  const { userRole, userDesignation, userProfile, loading: authLoading } = useAuth();
   const { open } = useSidebar();
   const { trackNavigation } = useNavigationTracking();
   const { isItemVisible } = useMenuVisibility();
