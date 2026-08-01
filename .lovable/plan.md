@@ -1,43 +1,45 @@
-## Goal
-Move everything from the external backend (`chbntbekbgetbyyxapqh`) into the Lovable Cloud backend that is already provisioned on this project, then repoint the app and publish.
+## Post-migration cutover: what still needs to be done
 
-Current state (verified): Lovable Cloud is already enabled — `.env` points at the Cloud project, but `src/integrations/supabase/client.ts` still hardcodes the external URL and key. The Cloud database is empty (no tables, functions, triggers, or storage buckets).
+The database, storage, and schema migration to Lovable Cloud is complete. The app client (`src/integrations/supabase/client.ts`) and `supabase/config.toml` are already pointed at the new Cloud project. The generated types (`src/integrations/supabase/types.ts`) are now populated with the migrated schema.
 
-## What you need to do first
-Provide the external database connection string. I'll request it through the secure secret form as `EXTERNAL_DB_URL` — do not paste it in chat.
+Remaining items to finish the cutover:
 
-Format: `postgresql://postgres:<password>@db.chbntbekbgetbyyxapqh.supabase.co:5432/postgres` (or the pooler URL from Connect → Session pooler).
+1. **Deploy edge functions to Cloud** (critical blocker)
+   - The 8 functions in `supabase/functions/` are currently returning `404 NOT_FOUND` from the Cloud project (`zallnyrcsarecttjecrg`).
+   - OTP login, staff creation, and chatbot will not work until they are deployed.
+   - Deploy all functions: `create-user`, `update-user-credentials`, `get-user-emails`, `send-otp`, `verify-otp`, `sync-auth-emails`, `chatbot`, `verify-emergency-otp`.
+   - Smoke-test each function via GET health check and a real OTP round-trip.
 
-I will also need the external project's **service role key** (as `EXTERNAL_SERVICE_ROLE_KEY`) to read `auth.users` and recreate accounts with their original IDs.
+2. **Clean up empty-types workarounds**
+   - `src/integrations/supabase/client.ts` still has a comment claiming `Database` is empty; the generic is still removed. Re-attach `<Database>` and delete the stale comment.
+   - Remove `as any` casts that were added in `BankAdvicePaymentReport.tsx`, `CashPaymentLite.tsx`, `InsurancePaymentLite.tsx`, and `PaymentManagement.tsx` now that the types file is populated.
 
-## Migration steps
+3. **Remove migration-only secrets**
+   - `EXTERNAL_DB_URL` and `EXTERNAL_SERVICE_ROLE_KEY` are no longer needed after the cutover. Delete them to reduce exposure.
+   - Keep the SMS/edge-function secrets: `MSG91_AUTH_KEY`, `SOFTSMS_API_KEY`, `SOFTSMS_PE_ID`, `SOFTSMS_SENDER_ID`, `SOFTSMS_TEMPLATE_ID`.
 
-**1. Dump and inspect**
-Dump `public` schema-only and data-only from the external DB inside the sandbox. Review size, table count, extensions, and anything Cloud-incompatible (owner/privilege statements, `supabase_admin` grants, cross-schema references).
+4. **Build check**
+   - Run `bun run build` (or `vite build`) to confirm TypeScript is happy with the re-attached `<Database>` generic and without the `as any` casts.
 
-**2. Recreate the schema in Cloud**
-Convert the schema dump into one or more approved migrations: tables, enums, functions, triggers, RLS policies, plus explicit GRANTs for `authenticated` / `service_role` / `anon` on every public table. Anything referencing `auth.users` stays as-is; the `auth` schema itself is not migrated.
+5. **End-to-end smoke tests on preview**
+   - Login with Email OTP, Mobile OTP, and username/password for admin/manager/doctor/staff roles.
+   - Verify the sidebar renders correctly based on `screen_registry` permissions.
+   - Create a quick payment and generate bank advice.
+   - Open Visit Management and confirm row counts are not capped at 1000.
+   - Test staff creation and leave/permission flows.
 
-**3. Recreate auth users with original UUIDs**
-Read `auth.users` from the external project, then create each user in Cloud via the admin API with the same `id`, email, phone, and metadata, with email/phone pre-confirmed. Passwords cannot be moved — every user signs in by OTP (already the primary login here), and password users get a reset path. This keeps every `user_id` foreign key intact.
+6. **Republish if needed**
+   - The published site is live at `https://westmedhospital.com` and redirects are in place. If any code changes are made in steps 2–5, republish so the live bundle uses the updated client and types.
 
-**4. Load the data**
-With entry frozen, load the data dump into Cloud in FK-safe order, triggers disabled during load, then re-enable and reset all sequences. Verify with per-table row-count comparison between source and target.
+## Technical details
 
-**5. Secrets and edge functions**
-Re-add `MSG91_AUTH_KEY`, `SOFTSMS_API_KEY`, `SOFTSMS_SENDER_ID`, `SOFTSMS_PE_ID`, `SOFTSMS_TEMPLATE_ID` via the secure form. The `SUPABASE_*` secrets are provided automatically by Cloud. All 8 edge functions get deployed to Cloud.
+- Edge function base URL to test: `https://zallnyrcsarecttjecrg.supabase.co/functions/v1/{function-name}`.
+- `supabase/config.toml` already has `project_id = "zallnyrcsarecttjecrg"`, so `supabase functions deploy` will target the correct Cloud project.
+- `src/integrations/supabase/types.ts` is 4,639 lines and contains the full migrated schema, so it is safe to re-introduce the typed `createClient<Database>`.
 
-**6. Repoint the app**
-Update `src/integrations/supabase/client.ts` to read `import.meta.env.VITE_SUPABASE_URL` / `VITE_SUPABASE_PUBLISHABLE_KEY` instead of the hardcoded external values, keeping the existing storage-validation wrapper. Update `supabase/config.toml` project ref. Regenerated `types.ts` then fixes the empty-types problem; remove the `any` casts added earlier where they're no longer needed.
+## Out of scope unless you ask
+- Custom domain DNS changes (`westmedhospital.com`) — already configured and redirecting.
+- Auth email/SMS provider templates — the SMS secrets are in place; email templates may need reconfiguration in Cloud auth settings separately.
+- Storage files/buckets — already migrated.
 
-**7. Verify, then cut over**
-On preview: OTP login for admin/manager/doctor/staff, permissions and sidebar visibility, quick payment + bank advice generation, visit management row counts (confirm >1000 works), leave/appraisal screens, and an edge-function smoke test. Then publish and point `westmedhospital.com` at the Cloud build.
-
-## Technical notes
-- Order matters: schema → auth users → data. Loading data before auth users exist will fail FK checks.
-- Row counts and sequence values are the acceptance check for step 4; I'll report a table-by-table diff.
-- Storage: no buckets exist on either side, so nothing to move unless you tell me otherwise.
-- Rollback: the external project stays untouched and live throughout; until you publish, nothing changes for current users.
-
-## Freeze window
-Steps 3–4 need the freeze. Length depends on database size, which I'll measure in step 1 before you announce a window to users.
+Once the plan is approved, I can execute it in build mode.
