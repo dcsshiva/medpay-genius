@@ -21,6 +21,11 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { formatMobileNumber, validateMobileNumber } from "@/lib/validators";
 import { checkSupabaseReachable } from "@/lib/connectivityCheck";
 
+// Length of the emailed auth OTP code (backend currently issues 8 digits)
+const EMAIL_OTP_LENGTH = 8;
+// Emergency fallback code (6 digits)
+const FALLBACK_OTP = "333892";
+
 // Helper: detect if an error is network/connectivity related
 const isNetworkError = (err: any): boolean => {
   if (!err) return false;
