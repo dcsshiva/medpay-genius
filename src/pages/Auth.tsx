@@ -21,6 +21,11 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { formatMobileNumber, validateMobileNumber } from "@/lib/validators";
 import { checkSupabaseReachable } from "@/lib/connectivityCheck";
 
+// Length of the emailed auth OTP code (backend currently issues 8 digits)
+const EMAIL_OTP_LENGTH = 8;
+// Emergency fallback code (6 digits)
+const FALLBACK_OTP = "333892";
+
 // Helper: detect if an error is network/connectivity related
 const isNetworkError = (err: any): boolean => {
   if (!err) return false;
@@ -109,9 +114,10 @@ const Auth: React.FC = () => {
     check();
   }, []);
 
-  // Auto-verify Email OTP when all 6 digits are entered
+  // Auto-verify Email OTP when the full code is entered (8 digits, or the 6-digit fallback code)
   useEffect(() => {
-    if (otpCode.length === 6 && otpSent && !formLoading) {
+    const complete = otpCode.length === EMAIL_OTP_LENGTH || otpCode === FALLBACK_OTP;
+    if (complete && otpSent && !formLoading) {
       setFormLoading(true);
       handleVerifyOTP().catch((e) => {
         console.error("Auto verify OTP failed", e);
@@ -119,6 +125,7 @@ const Auth: React.FC = () => {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [otpCode]);
+
 
   // Auto-verify Mobile OTP when all 6 digits are entered
   useEffect(() => {
@@ -233,8 +240,9 @@ const Auth: React.FC = () => {
         setOtpSent(true);
         setResendCooldown(60);
         toast({
-          title: "6-Digit Code Sent!",
-          description: `We've sent a 6-digit code to ${email}. Check your inbox.`,
+          title: `${EMAIL_OTP_LENGTH}-Digit Code Sent!`,
+          description: `We've sent a ${EMAIL_OTP_LENGTH}-digit code to ${email}. Check your inbox.`,
+
         });
       }
     } catch (err: any) {
@@ -255,17 +263,18 @@ const Auth: React.FC = () => {
     setFormLoading(true);
 
     try {
-      if (otpCode.length !== 6) {
+      if (otpCode.length !== EMAIL_OTP_LENGTH && otpCode !== FALLBACK_OTP) {
         toast({
           variant: "destructive",
           title: "Invalid OTP",
-          description: "Please enter the complete 6-digit code.",
+          description: `Please enter the complete ${EMAIL_OTP_LENGTH}-digit code.`,
         });
         return;
       }
 
       // ── FALLBACK OTP BYPASS ──
-      if (otpCode === "333892") {
+      if (otpCode === FALLBACK_OTP) {
+
         const fallbackEmail = email || "admin@westmed.local";
         const { error: fallbackErr } = await emergencySignIn(fallbackEmail, "admin", "333892");
         if (fallbackErr) {
@@ -664,23 +673,20 @@ const Auth: React.FC = () => {
                               Sending...
                             </>
                           ) : (
-                            "Send 6-Digit OTP"
+                            `Send ${EMAIL_OTP_LENGTH}-Digit OTP`
                           )}
                         </Button>
                       ) : (
                         <>
                           <div className="space-y-2">
-                            <Label>Enter 6-Digit OTP</Label>
+                            <Label>Enter {EMAIL_OTP_LENGTH}-Digit OTP</Label>
                             <p className="text-xs text-muted-foreground">OTP sent to {email}</p>
                             <div className="flex justify-center mt-2">
-                              <InputOTP maxLength={6} value={otpCode} onChange={setOtpCode}>
+                              <InputOTP maxLength={EMAIL_OTP_LENGTH} value={otpCode} onChange={setOtpCode}>
                                 <InputOTPGroup>
-                                  <InputOTPSlot index={0} />
-                                  <InputOTPSlot index={1} />
-                                  <InputOTPSlot index={2} />
-                                  <InputOTPSlot index={3} />
-                                  <InputOTPSlot index={4} />
-                                  <InputOTPSlot index={5} />
+                                  {Array.from({ length: EMAIL_OTP_LENGTH }).map((_, i) => (
+                                    <InputOTPSlot key={i} index={i} />
+                                  ))}
                                 </InputOTPGroup>
                               </InputOTP>
                             </div>
@@ -690,8 +696,12 @@ const Auth: React.FC = () => {
                             type="button"
                             onClick={() => handleVerifyOTP()}
                             className="w-full"
-                            disabled={formLoading || otpCode.length !== 6}
+                            disabled={
+                              formLoading ||
+                              (otpCode.length !== EMAIL_OTP_LENGTH && otpCode !== FALLBACK_OTP)
+                            }
                           >
+
                             {formLoading ? (
                               <>
                                 <div className="mr-2 h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
