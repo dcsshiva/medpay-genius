@@ -240,8 +240,9 @@ const Auth: React.FC = () => {
         setOtpSent(true);
         setResendCooldown(60);
         toast({
-          title: "6-Digit Code Sent!",
-          description: `We've sent a 6-digit code to ${email}. Check your inbox.`,
+          title: `${EMAIL_OTP_LENGTH}-Digit Code Sent!`,
+          description: `We've sent a ${EMAIL_OTP_LENGTH}-digit code to ${email}. Check your inbox.`,
+
         });
       }
     } catch (err: any) {

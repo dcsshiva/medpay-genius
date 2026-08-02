@@ -32,8 +32,9 @@ export const MagicLinkEmail = ({
         <Text style={brand}>WestMed Hospital</Text>
         <Heading style={h1}>Your login code</Heading>
         <Text style={text}>
-          Enter this 6-digit code on the WestMed HMS login screen. It expires
+          Enter this code on the WestMed HMS login screen. It expires
           shortly, so use it soon.
+
         </Text>
         {token ? (
           <Section style={codeBox}>
