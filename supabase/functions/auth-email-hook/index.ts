@@ -37,9 +37,9 @@ const EMAIL_TEMPLATES: Record<string, React.ComponentType<any>> = {
 
 // Configuration
 const SITE_NAME = "westmed-hospital-admin"
-const SENDER_DOMAIN = "notify.westmedhospital.com"
+const SENDER_DOMAIN = "notify.smail.westmedhospital.com"
 const ROOT_DOMAIN = "westmedhospital.com"
-const FROM_DOMAIN = "westmedhospital.com" // Domain shown in From address (may be root or sender subdomain)
+const FROM_DOMAIN = "notify.smail.westmedhospital.com" // Domain shown in From address (verified sending domain)
 
 // Sample data for preview mode ONLY (not used in actual email sending).
 // URLs are baked in at scaffold time from the project's real data.
