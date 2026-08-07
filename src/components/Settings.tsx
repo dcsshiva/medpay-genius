@@ -25,6 +25,7 @@ import { AuthEmailSync } from './AuthEmailSync';
 import QuickAccessConfig from './QuickAccessConfig';
 import MenuVisibilitySettings from './MenuVisibilitySettings';
 import NotificationPreferences from './NotificationPreferences';
+import NotificationRecipients from './NotificationRecipients';
 import { usePWA } from '@/hooks/usePWA';
 import { useVersionInfo } from '@/hooks/useVersionInfo';
 import { formatDateTimeIST } from '@/lib/dateUtils';
@@ -126,12 +127,18 @@ const Settings = () => {
       </div>
 
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="notifications" className="flex items-center gap-2">
             <Bell className="h-4 w-4" />
             Notifications
           </TabsTrigger>
+          {(userDesignation === 'admin' || userDesignation === 'super_admin') && (
+            <TabsTrigger value="email-recipients" className="flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              Email Alerts
+            </TabsTrigger>
+          )}
           <TabsTrigger value="access" className="flex items-center gap-2">
             <Users className="h-4 w-4" />
             User Access
@@ -517,6 +524,14 @@ const Settings = () => {
         <TabsContent value="notifications">
           <NotificationPreferences />
         </TabsContent>
+
+        {(userDesignation === 'admin' || userDesignation === 'super_admin') && (
+          <TabsContent value="email-recipients">
+            <NotificationRecipients />
+          </TabsContent>
+        )}
+
+
 
         <TabsContent value="access">
           <UserAccessManagement />

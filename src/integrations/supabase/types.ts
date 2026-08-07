@@ -804,6 +804,36 @@ export type Database = {
         }
         Relationships: []
       }
+      email_notification_recipients: {
+        Row: {
+          created_at: string
+          digest_enabled: boolean
+          email: string
+          id: string
+          is_active: boolean
+          label: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          digest_enabled?: boolean
+          email: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          digest_enabled?: boolean
+          email?: string
+          id?: string
+          is_active?: boolean
+          label?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       email_send_log: {
         Row: {
           created_at: string

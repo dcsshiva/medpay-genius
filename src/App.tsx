@@ -13,6 +13,7 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import Install from "./pages/Install";
 import PublicUserGuide from "./pages/PublicUserGuide";
+import Unsubscribe from "./pages/Unsubscribe";
 
 const queryClient = new QueryClient();
 
@@ -47,6 +48,7 @@ const App = () => {
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/install" element={<Install />} />
                   <Route path="/help-guide" element={<PublicUserGuide />} />
+                  <Route path="/unsubscribe" element={<Unsubscribe />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </ErrorBoundary>
