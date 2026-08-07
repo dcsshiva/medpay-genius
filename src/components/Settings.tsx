@@ -525,6 +525,14 @@ const Settings = () => {
           <NotificationPreferences />
         </TabsContent>
 
+        {(userDesignation === 'admin' || userDesignation === 'super_admin') && (
+          <TabsContent value="email-recipients">
+            <NotificationRecipients />
+          </TabsContent>
+        )}
+
+
+
         <TabsContent value="access">
           <UserAccessManagement />
         </TabsContent>
