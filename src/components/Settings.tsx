@@ -25,6 +25,7 @@ import { AuthEmailSync } from './AuthEmailSync';
 import QuickAccessConfig from './QuickAccessConfig';
 import MenuVisibilitySettings from './MenuVisibilitySettings';
 import NotificationPreferences from './NotificationPreferences';
+import NotificationRecipients from './NotificationRecipients';
 import { usePWA } from '@/hooks/usePWA';
 import { useVersionInfo } from '@/hooks/useVersionInfo';
 import { formatDateTimeIST } from '@/lib/dateUtils';
