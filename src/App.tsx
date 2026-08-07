@@ -47,7 +47,8 @@ const App = () => {
                   <Route path="/dashboard" element={<Index />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/install" element={<Install />} />
-                  <Route path="/help-guide" element={<PublicUserGuide />} />
+                  <Route path="/unsubscribe" element={<Unsubscribe />} />
+                  <Route path="*" element={<NotFound />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </ErrorBoundary>
