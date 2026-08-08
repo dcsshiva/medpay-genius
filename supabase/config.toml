@@ -31,3 +31,5 @@ project_id = "zallnyrcsarecttjecrg"
     verify_jwt = false
   [functions.daily-ops-digest]
     verify_jwt = false
+  [functions.notify-doctor-event]
+    verify_jwt = false
