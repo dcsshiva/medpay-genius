@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
       title,
       count: rows.length,
       total: total !== null ? inr(total) : undefined,
-      rows: rows.slice(0, MAX_ROWS_PER_SECTION).map(mapRow),
+      rows: rows.map(mapRow),
     })
   }
 
