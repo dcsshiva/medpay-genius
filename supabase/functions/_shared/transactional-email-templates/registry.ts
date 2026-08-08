@@ -16,4 +16,6 @@ export interface TemplateEntry {
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
   'daily-ops-digest': dailyOpsDigest,
+  'doctor-visit-recorded': doctorVisitRecorded,
+  'doctor-bank-advice': doctorBankAdvice,
 }
