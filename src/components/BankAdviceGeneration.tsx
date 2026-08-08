@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { formatCurrency } from '@/lib/currency';
 import { formatDateIST, toIST } from '@/lib/dateUtils';
 import { PaymentModeDialog, PaymentMode, ChequeDetails } from '@/components/PaymentModeDialog';
+import { notifyDoctorBankAdvice } from '@/lib/doctorNotifications';
 
 interface UnifiedBankAdvicePayment {
   id: string;
@@ -528,6 +529,13 @@ const BankAdviceGeneration = () => {
           });
 
         if (historyInsertError) throw historyInsertError;
+
+        // Notify each doctor with a valid email on their profile
+        void notifyDoctorBankAdvice({
+          paymentIds: doctorPaymentIds,
+          reference: filename || `${mode.toUpperCase()}-${dd}${mm}${yy}`,
+          mode,
+        });
       }
 
       // Update quick_payments table

@@ -12,6 +12,7 @@ import { BetaGeneratedAdviceTab } from './bank-advice-beta/BetaGeneratedAdviceTa
 import { PaymentModeDialog, PaymentMode, ChequeDetails } from './PaymentModeDialog';
 import { Building2, Sparkles } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
+import { notifyDoctorBankAdvice } from '@/lib/doctorNotifications';
 
 const BankAdviceGenerationBeta = () => {
   const { user, userRole } = useAuth();
@@ -272,6 +273,13 @@ const BankAdviceGenerationBeta = () => {
           .in('id', doctorPaymentIds);
         
         if (doctorError) throw doctorError;
+
+        // Notify each doctor with a valid email on their profile
+        void notifyDoctorBankAdvice({
+          paymentIds: doctorPaymentIds,
+          reference: `${mode.toUpperCase()}-${now}`,
+          mode,
+        });
       }
 
       // Update quick payments
