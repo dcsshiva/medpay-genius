@@ -29,6 +29,7 @@ import { FilterChips } from '@/components/ui/filter-chip';
 import { PaginationControls } from '@/components/ui/pagination-controls';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import { notifyDoctorVisitCreated } from '@/lib/doctorNotifications';
 
 interface Visit {
   id: string;
