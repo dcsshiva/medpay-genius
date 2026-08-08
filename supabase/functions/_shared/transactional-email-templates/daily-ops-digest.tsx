@@ -174,5 +174,5 @@ const rowAmount = {
   margin: '8px 0 0',
 }
 const rowDate = { fontSize: '12px', color: 'hsl(155, 12%, 55%)', margin: '2px 0 8px' }
-const moreNote = { fontSize: '12px', color: 'hsl(155, 12%, 55%)', margin: '10px 0 0' }
+
 const footer = { fontSize: '12px', color: 'hsl(155, 12%, 60%)', margin: '28px 0 0' }
