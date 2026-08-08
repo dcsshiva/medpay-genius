@@ -836,11 +836,18 @@ const VisitManagement = ({ initialSubTab }: VisitManagementProps = {}) => {
         });
       } else {
         // Create new visit
-        const { error } = await supabase
+        const { data: createdVisit, error } = await supabase
           .from('visits')
-          .insert([visitData]);
+          .insert([visitData])
+          .select('id')
+          .single();
 
         if (error) throw error;
+
+        // Notify the doctor (only if their profile has a valid email)
+        if (createdVisit?.id) {
+          void notifyDoctorVisitCreated(createdVisit.id);
+        }
 
         toast({
           title: "Success",
