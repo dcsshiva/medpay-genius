@@ -12,6 +12,7 @@ import { BetaGeneratedAdviceTab } from './bank-advice-beta/BetaGeneratedAdviceTa
 import { PaymentModeDialog, PaymentMode, ChequeDetails } from './PaymentModeDialog';
 import { Building2, Sparkles } from 'lucide-react';
 import { formatCurrency } from '@/lib/currency';
+import { notifyDoctorBankAdvice } from '@/lib/doctorNotifications';
 
 const BankAdviceGenerationBeta = () => {
   const { user, userRole } = useAuth();
