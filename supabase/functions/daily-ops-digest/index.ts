@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
       title: 'Bank advices generated',
       count: adviceRows.length,
       total: inr(adviceTotal),
-      rows: adviceRows.slice(0, MAX_ROWS_PER_SECTION),
+      rows: adviceRows,
     })
   }
 
