@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { formatCurrency } from '@/lib/currency';
 import { formatDateIST, toIST } from '@/lib/dateUtils';
 import { PaymentModeDialog, PaymentMode, ChequeDetails } from '@/components/PaymentModeDialog';
+import { notifyDoctorBankAdvice } from '@/lib/doctorNotifications';
 
 interface UnifiedBankAdvicePayment {
   id: string;
