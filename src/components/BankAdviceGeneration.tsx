@@ -529,6 +529,13 @@ const BankAdviceGeneration = () => {
           });
 
         if (historyInsertError) throw historyInsertError;
+
+        // Notify each doctor with a valid email on their profile
+        void notifyDoctorBankAdvice({
+          paymentIds: doctorPaymentIds,
+          reference: filename || `${mode.toUpperCase()}-${dd}${mm}${yy}`,
+          mode,
+        });
       }
 
       // Update quick_payments table
