@@ -1,7 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 
-const MAX_ROWS_PER_SECTION = 10
+
 
 const inr = (n: number) =>
   `₹${Math.round(Number(n) || 0).toLocaleString('en-IN')}`
@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
       title,
       count: rows.length,
       total: total !== null ? inr(total) : undefined,
-      rows: rows.slice(0, MAX_ROWS_PER_SECTION).map(mapRow),
+      rows: rows.map(mapRow),
     })
   }
 
@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
       title: 'Bank advices generated',
       count: adviceRows.length,
       total: inr(adviceTotal),
-      rows: adviceRows.slice(0, MAX_ROWS_PER_SECTION),
+      rows: adviceRows,
     })
   }
 
