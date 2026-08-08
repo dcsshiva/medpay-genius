@@ -273,6 +273,13 @@ const BankAdviceGenerationBeta = () => {
           .in('id', doctorPaymentIds);
         
         if (doctorError) throw doctorError;
+
+        // Notify each doctor with a valid email on their profile
+        void notifyDoctorBankAdvice({
+          paymentIds: doctorPaymentIds,
+          reference: `${mode.toUpperCase()}-${now}`,
+          mode,
+        });
       }
 
       // Update quick payments
