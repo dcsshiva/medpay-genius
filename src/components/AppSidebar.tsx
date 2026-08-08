@@ -34,12 +34,6 @@ import { NotificationCenter } from '@/components/NotificationCenter';
 import { usePaymentStatsColors } from '@/hooks/usePaymentStatsColors';
 import { cn } from '@/lib/utils';
 
-interface NavigationStats {
-  paidAmount: number;
-  unpaidAmount: number;
-  totalAmount: number;
-}
-
 interface AppSidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
@@ -50,48 +44,12 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
   const { open } = useSidebar();
   const { trackNavigation } = useNavigationTracking();
   const { isItemVisible } = useMenuVisibility();
-  const { paidColor, unpaidColor, totalColor } = usePaymentStatsColors();
-  const [stats, setStats] = useState<NavigationStats>({
-    paidAmount: 0,
-    unpaidAmount: 0,
-    totalAmount: 0
-  });
 
   const handleNavigationClick = (item: { id: string; label: string }) => {
     trackNavigation(item.id, item.label);
     onTabChange(item.id);
   };
 
-  const fetchStats = useCallback(async () => {
-    if (!(userRole === 'manager' || userRole === 'admin' || userDesignation === 'super_admin' || userDesignation === 'admin' || userDesignation === 'manager')) return;
-    
-    try {
-      const [paymentsRes, visitsRes] = await Promise.all([
-        supabase.from('payments').select('net_amount').eq('bank_advice_generated', true),
-        supabase.from('visits').select('visit_payment').eq('is_processed', false)
-      ]);
-
-      const paidAmount = (paymentsRes.data || []).reduce((sum: number, p: any) => 
-        sum + (Number(p.net_amount) || 0), 0);
-      
-      const unpaidAmount = (visitsRes.data || []).reduce((sum: number, v: any) => 
-        sum + (Number(v.visit_payment) || 0), 0);
-
-      setStats({
-        paidAmount,
-        unpaidAmount,
-        totalAmount: paidAmount + unpaidAmount
-      });
-    } catch (error) {
-      console.error('Error fetching stats:', error);
-    }
-  }, [userRole, userDesignation]);
-
-  useEffect(() => {
-    fetchStats();
-    const interval = setInterval(fetchStats, 30000);
-    return () => clearInterval(interval);
-  }, [fetchStats]);
 
   const { items: allNavigationItems, loading: navItemsLoading } = useNavigationItems();
   const navLoading = authLoading || navItemsLoading;
