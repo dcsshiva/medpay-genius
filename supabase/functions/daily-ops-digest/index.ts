@@ -1,7 +1,7 @@
 import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 
-const MAX_ROWS_PER_SECTION = 10
+
 
 const inr = (n: number) =>
   `₹${Math.round(Number(n) || 0).toLocaleString('en-IN')}`
