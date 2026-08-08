@@ -61,11 +61,6 @@ const formatSection = (section: DigestSection) => (
         </Column>
       </Row>
     ))}
-    {section.count > (section.rows?.length ?? 0) ? (
-      <Text style={moreNote}>
-        + {section.count - (section.rows?.length ?? 0)} more in the app
-      </Text>
-    ) : null}
   </Section>
 )
 
