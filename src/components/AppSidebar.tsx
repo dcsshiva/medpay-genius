@@ -1,10 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { 
-  Wallet, 
-  Clock,
-  CheckCircle,
-  Sparkles,
-} from 'lucide-react';
+import React from 'react';
+import { Sparkles } from 'lucide-react';
 import westmedLogo from '@/assets/westmed-logo.png';
 import VersionDisplay from '@/components/VersionDisplay';
 import { useNavigationItems } from '@/lib/navigationItems';
@@ -21,18 +16,12 @@ import {
   SidebarFooter,
   useSidebar,
 } from '@/components/ui/sidebar';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
-import { supabase } from '@/integrations/supabase/client';
-import { formatCurrency } from '@/lib/currency';
-import { isStaffRole } from '@/lib/staffUtils';
 import { useNavigationTracking } from '@/hooks/useNavigationTracking';
 import { useQuickAccessItems } from '@/hooks/useQuickAccessItems';
 import { useMenuVisibility } from '@/hooks/useMenuVisibility';
 import { NotificationCenter } from '@/components/NotificationCenter';
-import { usePaymentStatsColors } from '@/hooks/usePaymentStatsColors';
-import { cn } from '@/lib/utils';
+
 
 interface AppSidebarProps {
   activeTab: string;
