@@ -95,10 +95,11 @@ const Auth: React.FC = () => {
 
   // Redirect already-authenticated users to dashboard
   useEffect(() => {
-    if (!authLoading && user) {
+    // Skip while a login handler is running — it performs role-based routing itself.
+    if (!authLoading && user && !formLoading) {
       navigate("/dashboard");
     }
-  }, [authLoading, user, navigate]);
+  }, [authLoading, user, formLoading, navigate]);
 
   // DNS connectivity check
   useEffect(() => {
@@ -178,6 +179,33 @@ const Auth: React.FC = () => {
     } else {
       navigate("/dashboard");
     }
+  };
+
+  // Resolve the signed-in user's type/role and route exactly like the Email OTP flow
+  const routeAfterAuth = async () => {
+    try {
+      const result = await supabase.auth.getUser();
+      const authUser = result?.data?.user;
+      if (authUser) {
+        const { data: designation } = await supabase
+          .from("user_designations")
+          .select("designation")
+          .eq("user_id", authUser.id)
+          .maybeSingle();
+
+        const { data: doctorData } = await supabase
+          .from("doctors")
+          .select("id")
+          .eq("user_id", authUser.id)
+          .maybeSingle();
+
+        navigateByRole(doctorData ? "doctor" : "staff", designation?.designation || "staff");
+        return;
+      }
+    } catch (err) {
+      console.error("Post-login routing failed", err);
+    }
+    navigate("/dashboard");
   };
 
   // ========== EMERGENCY LOGIN HANDLER ==========
@@ -306,31 +334,7 @@ const Auth: React.FC = () => {
 
       // Small delay to let auth state propagate, then navigate
       // We read from auth context indirectly via getUser + our profile
-      const result = await supabase.auth.getUser();
-      const authUser = result?.data?.user;
-
-      if (authUser) {
-        // Check designation for routing
-        const { data: designation } = await supabase
-          .from("user_designations")
-          .select("designation")
-          .eq("user_id", authUser.id)
-          .maybeSingle();
-
-        // Check if doctor
-        const { data: doctorData } = await supabase
-          .from("doctors")
-          .select("id")
-          .eq("user_id", authUser.id)
-          .maybeSingle();
-
-        const userType = doctorData ? "doctor" : "staff";
-        const role = designation?.designation || "staff";
-        navigateByRole(userType, role);
-        return;
-      }
-
-      navigate("/dashboard");
+      await routeAfterAuth();
     } catch (err: any) {
       console.error("Error determining user type:", err);
       toast({
@@ -493,7 +497,8 @@ const Auth: React.FC = () => {
         toast({ variant: "destructive", title: "Sign-in Failed", description: error.message || "Invalid credentials" });
         return;
       }
-      toast({ title: "Signed In", description: "Welcome back!" });
+      toast({ title: "Welcome!", description: "Successfully signed in." });
+      await routeAfterAuth();
     } catch (err: any) {
       toast({ variant: "destructive", title: "Error", description: err?.message || "Sign-in failed." });
     } finally {
