@@ -115,19 +115,104 @@ const StaffAttendanceManagement: React.FC = () => {
   };
 
   const downloadTemplate = () => {
-    const rows = staffList.map(s => ({
+    const sample = {
+      staff_code: '⚠️ SAMPLE ROW - ignored on import',
+      full_name: 'John Smith (sample)',
+      attendance_status: 'present | late | absent | half_day | leave',
+      shift_start_time: '09:00',
+      shift_end_time: '17:30',
+    };
+    const rows = [sample, ...staffList.map(s => ({
       staff_code: s.staff_code,
       full_name: s.full_name,
       attendance_status: '',
       shift_start_time: '',
       shift_end_time: '',
-    }));
+    }))];
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 12 }, { wch: 25 }, { wch: 18 }, { wch: 14 }, { wch: 14 }];
+    ws['!cols'] = [{ wch: 34 }, { wch: 26 }, { wch: 40 }, { wch: 14 }, { wch: 14 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
     XLSX.writeFile(wb, `attendance_template_${selectedDate}.xlsx`);
-    toast.success('Template downloaded');
+    toast.success('Template downloaded (first row is a sample and is skipped on import)');
+  };
+
+  const isSampleRow = (row: any) => {
+    const text = Object.values(row || {}).map(v => String(v ?? '')).join(' ').toLowerCase();
+    return text.includes('⚠️') || text.includes('sample row') || text.includes('(sample)');
+  };
+
+  const norm = (v: any) => String(v ?? '').trim().toLowerCase().replace(/^(mr|mrs|ms|dr)\.?\s+/i, '').replace(/\s+/g, ' ');
+
+  const excelDateToISO = (raw: any): string | null => {
+    if (raw == null || raw === '') return null;
+    if (typeof raw === 'number') {
+      const d = XLSX.SSF.parse_date_code(raw);
+      if (!d) return null;
+      return `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}`;
+    }
+    const s = String(raw).trim();
+    const m = s.match(/(\d{1,2})[-/\s]([A-Za-z]{3,}|\d{1,2})[-/\s](\d{2,4})/);
+    if (m) {
+      const months = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'];
+      const monRaw = m[2].toLowerCase();
+      const mon = /^\d+$/.test(monRaw) ? parseInt(monRaw, 10) : months.indexOf(monRaw.slice(0, 3)) + 1;
+      if (!mon) return null;
+      const year = m[3].length === 2 ? 2000 + parseInt(m[3], 10) : parseInt(m[3], 10);
+      return `${year}-${String(mon).padStart(2, '0')}-${String(parseInt(m[1], 10)).padStart(2, '0')}`;
+    }
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? null : format(d, 'yyyy-MM-dd');
+  };
+
+  /** Detects and parses a biometric "Employee Punch Monitor" export. */
+  const parsePunchSheet = (grid: any[][]) => {
+    let headerIdx = -1;
+    let empCol = -1, nameCol = -1, punchCol = -1, statusCol = -1, lastPunchCol = -1;
+
+    for (let r = 0; r < Math.min(grid.length, 40); r++) {
+      const row = grid[r] || [];
+      const idx = row.findIndex(c => norm(c) === 'emp code');
+      if (idx >= 0) {
+        headerIdx = r;
+        empCol = idx;
+        row.forEach((c, i) => {
+          const label = norm(c);
+          if (label === 'name') nameCol = i;
+          else if (label === 'punch records') punchCol = i;
+          else if (label === 'status') statusCol = i;
+          else if (label === 'last punch') lastPunchCol = i;
+        });
+        break;
+      }
+    }
+    if (headerIdx === -1) return null;
+
+    // Date lives in a header cell above the table ("Date  06-Aug-2026")
+    let punchDate: string | null = null;
+    for (let r = 0; r < headerIdx; r++) {
+      const row = grid[r] || [];
+      const labelIdx = row.findIndex(c => norm(c) === 'date');
+      if (labelIdx >= 0) {
+        for (let c = labelIdx + 1; c < row.length; c++) {
+          const iso = excelDateToISO(row[c]);
+          if (iso) { punchDate = iso; break; }
+        }
+      }
+      if (punchDate) break;
+    }
+
+    const records = grid.slice(headerIdx + 1)
+      .map(row => ({
+        empCode: String(row?.[empCol] ?? '').trim(),
+        name: String(row?.[nameCol] ?? '').trim(),
+        punches: String(row?.[punchCol] ?? '').split(',').map(p => p.trim()).filter(p => /^\d{1,2}:\d{2}/.test(p)),
+        lastPunch: String(row?.[lastPunchCol] ?? '').trim(),
+        status: norm(row?.[statusCol]),
+      }))
+      .filter(r => r.empCode);
+
+    return records.length ? { punchDate, records } : null;
   };
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -139,29 +224,75 @@ const StaffAttendanceManagement: React.FC = () => {
       const data = await file.arrayBuffer();
       const wb = XLSX.read(data);
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows: any[] = XLSX.utils.sheet_to_json(ws);
+      const grid: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false, defval: '' });
 
-      const staffCodeMap: Record<string, string> = {};
-      staffList.forEach(s => { staffCodeMap[s.staff_code.toLowerCase()] = s.id; });
+      const punch = parsePunchSheet(grid);
+      const upserts: any[] = [];
+      let skipped = 0;
+      const unmatched: string[] = [];
+      let targetDate = selectedDate;
 
-      let success = 0, skipped = 0;
-      for (const row of rows) {
-        const code = String(row.staff_code || '').trim().toLowerCase();
-        const staffId = staffCodeMap[code];
-        if (!staffId) { skipped++; continue; }
+      if (punch) {
+        // ---- Biometric punch file ----
+        if (punch.punchDate) targetDate = punch.punchDate;
 
-        const status = String(row.attendance_status || '').trim().toLowerCase();
-        if (!['present', 'late', 'absent', 'half_day', 'leave'].includes(status)) { skipped++; continue; }
+        const byBiometric: Record<string, string> = {};
+        const byName: Record<string, string> = {};
+        staffList.forEach(s => {
+          const bio = String(s.biometric_code ?? '').trim().toLowerCase();
+          if (bio) byBiometric[bio] = s.id;
+          byName[norm(s.full_name)] = s.id;
+        });
 
-        const record: any = {
-          staff_id: staffId,
-          activity_date: selectedDate,
-          attendance_status: status,
-          shift_start_time: row.shift_start_time ? String(row.shift_start_time) : null,
-          shift_end_time: row.shift_end_time ? String(row.shift_end_time) : null,
-          recorded_by: user?.id,
-        };
+        for (const rec of punch.records) {
+          const staffId = byBiometric[rec.empCode.toLowerCase()] || byName[norm(rec.name)];
+          if (!staffId) { skipped++; if (unmatched.length < 8) unmatched.push(`${rec.empCode} ${rec.name}`.trim()); continue; }
 
+          const start = rec.punches[0] || null;
+          const end = rec.punches.length > 1 ? rec.punches[rec.punches.length - 1] : (rec.lastPunch || null);
+          let status: string;
+          if (rec.punches.length || rec.lastPunch) {
+            status = start && start > LATE_AFTER ? 'late' : 'present';
+          } else {
+            status = 'absent';
+          }
+
+          upserts.push({
+            staff_id: staffId,
+            activity_date: targetDate,
+            attendance_status: status,
+            shift_start_time: start ? start.slice(0, 5) : null,
+            shift_end_time: end ? end.slice(0, 5) : null,
+            recorded_by: user?.id,
+          });
+        }
+      } else {
+        // ---- Standard template ----
+        const rows: any[] = XLSX.utils.sheet_to_json(ws);
+        const staffCodeMap: Record<string, string> = {};
+        staffList.forEach(s => { staffCodeMap[s.staff_code.toLowerCase()] = s.id; });
+
+        for (const row of rows) {
+          if (isSampleRow(row)) continue; // omit sample row
+          const staffId = staffCodeMap[String(row.staff_code || '').trim().toLowerCase()];
+          if (!staffId) { skipped++; continue; }
+
+          const status = String(row.attendance_status || '').trim().toLowerCase();
+          if (!['present', 'late', 'absent', 'half_day', 'leave'].includes(status)) { skipped++; continue; }
+
+          upserts.push({
+            staff_id: staffId,
+            activity_date: selectedDate,
+            attendance_status: status,
+            shift_start_time: row.shift_start_time ? String(row.shift_start_time).slice(0, 5) : null,
+            shift_end_time: row.shift_end_time ? String(row.shift_end_time).slice(0, 5) : null,
+            recorded_by: user?.id,
+          });
+        }
+      }
+
+      let success = 0;
+      for (const record of upserts) {
         const { error } = await supabase.from('staff_daily_activities').upsert(record, {
           onConflict: 'staff_id,activity_date',
         });
@@ -169,7 +300,12 @@ const StaffAttendanceManagement: React.FC = () => {
         success++;
       }
 
-      toast.success(`Imported ${success} records${skipped ? `, ${skipped} skipped` : ''}`);
+      if (punch && targetDate !== selectedDate) setSelectedDate(targetDate);
+
+      toast.success(
+        `${punch ? 'Punch file' : 'Template'} imported: ${success} record(s) for ${targetDate}${skipped ? `, ${skipped} skipped` : ''}`,
+        unmatched.length ? { description: `Unmatched biometric codes: ${unmatched.join(', ')}${skipped > unmatched.length ? '…' : ''}` } : undefined
+      );
       fetchData();
     } catch (err: any) {
       toast.error('Import failed: ' + err.message);
@@ -178,6 +314,7 @@ const StaffAttendanceManagement: React.FC = () => {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
