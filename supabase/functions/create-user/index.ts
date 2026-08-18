@@ -246,6 +246,8 @@ serve(async (req) => {
           account_holder_name: staffData.account_holder_name || null,
           bank_name: staffData.bank_name || null,
           branch_name: staffData.branch_name || null,
+          biometric_code: staffData.biometric_code || null,
+          biometric_device: staffData.biometric_device || null,
           is_active: true
         })
         .select()

@@ -47,6 +47,8 @@ interface Staff {
   account_holder_name?: string;
   bank_name?: string;
   branch_name?: string;
+  biometric_code?: string;
+  biometric_device?: string;
 }
 
 interface StaffManagementProps {
@@ -84,7 +86,9 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
     ifsc_code: '',
     account_holder_name: '',
     bank_name: '',
-    branch_name: ''
+    branch_name: '',
+    biometric_code: '',
+    biometric_device: ''
   });
   const [emailError, setEmailError] = useState('');
   const [importing, setImporting] = useState(false);
@@ -263,6 +267,39 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
       return;
     }
 
+    // Biometric code is mandatory for new and edited staff (existing records may be blank until edited)
+    if (!formData.biometric_code.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Biometric Code is required (employee code from the punch machine)"
+      });
+      setSubmitting(false);
+      return;
+    }
+
+    {
+      const biometricQuery = supabase
+        .from('staff')
+        .select('id, full_name, staff_code')
+        .ilike('biometric_code', formData.biometric_code.trim());
+      const { data: dupBiometric } = await (editingStaff
+        ? biometricQuery.neq('id', editingStaff.id)
+        : biometricQuery
+      ).maybeSingle();
+      if (dupBiometric) {
+        toast({
+          variant: "destructive",
+          title: "Validation Error",
+          description: `Biometric code "${formData.biometric_code.trim()}" is already assigned to ${(dupBiometric as any).full_name}`
+        });
+        setSubmitting(false);
+        return;
+      }
+    }
+
+
+
     // Validate bank details if provided
     if (formData.bank_account_number.trim() && !formData.ifsc_code.trim()) {
       toast({
@@ -352,7 +389,9 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
             ifsc_code: formData.ifsc_code.trim().toUpperCase() || null,
             account_holder_name: formData.account_holder_name.trim() || null,
             bank_name: formData.bank_name.trim() || null,
-            branch_name: formData.branch_name.trim() || null
+            branch_name: formData.branch_name.trim() || null,
+            biometric_code: formData.biometric_code.trim() || null,
+            biometric_device: formData.biometric_device.trim() || null
           })
           .eq('id', editingStaff.id);
 
@@ -514,7 +553,9 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
             ifsc_code: formData.ifsc_code.trim().toUpperCase() || null,
             account_holder_name: formData.account_holder_name.trim() || null,
             bank_name: formData.bank_name.trim() || null,
-            branch_name: formData.branch_name.trim() || null
+            branch_name: formData.branch_name.trim() || null,
+            biometric_code: formData.biometric_code.trim() || null,
+            biometric_device: formData.biometric_device.trim() || null
           }
         },
         headers: getSessionAuthHeaders()
@@ -549,7 +590,9 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
                 ifsc_code: formData.ifsc_code.trim().toUpperCase() || null,
                 account_holder_name: formData.account_holder_name.trim() || null,
                 bank_name: formData.bank_name.trim() || null,
-                branch_name: formData.branch_name.trim() || null
+                branch_name: formData.branch_name.trim() || null,
+                biometric_code: formData.biometric_code.trim() || null,
+                biometric_device: formData.biometric_device.trim() || null
               }
             },
             headers: getSessionAuthHeaders()
@@ -674,7 +717,9 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
       ifsc_code: '',
       account_holder_name: '',
       bank_name: '',
-      branch_name: ''
+      branch_name: '',
+      biometric_code: '',
+      biometric_device: ''
     });
     setEditingStaff(null);
   };
@@ -700,7 +745,9 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
       ifsc_code: fresh.ifsc_code || '',
       account_holder_name: fresh.account_holder_name || '',
       bank_name: fresh.bank_name || '',
-      branch_name: fresh.branch_name || ''
+      branch_name: fresh.branch_name || '',
+      biometric_code: (fresh as any).biometric_code || '',
+      biometric_device: (fresh as any).biometric_device || ''
     });
     setDialogOpen(true);
   };
@@ -1170,6 +1217,32 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
                               Leave blank to keep current password
                             </p>
                           )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="biometric_code">Biometric Code *</Label>
+                          <Input
+                            id="biometric_code"
+                            value={formData.biometric_code}
+                            onChange={(e) => setFormData({ ...formData, biometric_code: e.target.value })}
+                            placeholder="e.g. 2100122"
+                            required
+                            className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Employee code from the punch machine (used for attendance import)
+                          </p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="biometric_device">Biometric Device</Label>
+                          <Input
+                            id="biometric_device"
+                            value={formData.biometric_device}
+                            onChange={(e) => setFormData({ ...formData, biometric_device: e.target.value })}
+                            placeholder="Optional — device / location"
+                            className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                          />
                         </div>
                       </div>
                     </div>
