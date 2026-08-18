@@ -46,6 +46,8 @@ const StaffAttendanceManagement: React.FC = () => {
   const [attendanceMap, setAttendanceMap] = useState<Record<string, AttendanceRecord>>({});
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
+  const [lateAfter, setLateAfter] = useState('09:15');
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
