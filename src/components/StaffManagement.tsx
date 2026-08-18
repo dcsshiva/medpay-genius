@@ -86,7 +86,9 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
     ifsc_code: '',
     account_holder_name: '',
     bank_name: '',
-    branch_name: ''
+    branch_name: '',
+    biometric_code: '',
+    biometric_device: ''
   });
   const [emailError, setEmailError] = useState('');
   const [importing, setImporting] = useState(false);
@@ -354,7 +356,9 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
             ifsc_code: formData.ifsc_code.trim().toUpperCase() || null,
             account_holder_name: formData.account_holder_name.trim() || null,
             bank_name: formData.bank_name.trim() || null,
-            branch_name: formData.branch_name.trim() || null
+            branch_name: formData.branch_name.trim() || null,
+            biometric_code: formData.biometric_code.trim() || null,
+            biometric_device: formData.biometric_device.trim() || null
           })
           .eq('id', editingStaff.id);
 
@@ -516,7 +520,9 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
             ifsc_code: formData.ifsc_code.trim().toUpperCase() || null,
             account_holder_name: formData.account_holder_name.trim() || null,
             bank_name: formData.bank_name.trim() || null,
-            branch_name: formData.branch_name.trim() || null
+            branch_name: formData.branch_name.trim() || null,
+            biometric_code: formData.biometric_code.trim() || null,
+            biometric_device: formData.biometric_device.trim() || null
           }
         },
         headers: getSessionAuthHeaders()
@@ -551,7 +557,9 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
                 ifsc_code: formData.ifsc_code.trim().toUpperCase() || null,
                 account_holder_name: formData.account_holder_name.trim() || null,
                 bank_name: formData.bank_name.trim() || null,
-                branch_name: formData.branch_name.trim() || null
+                branch_name: formData.branch_name.trim() || null,
+                biometric_code: formData.biometric_code.trim() || null,
+                biometric_device: formData.biometric_device.trim() || null
               }
             },
             headers: getSessionAuthHeaders()
@@ -676,7 +684,9 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
       ifsc_code: '',
       account_holder_name: '',
       bank_name: '',
-      branch_name: ''
+      branch_name: '',
+      biometric_code: '',
+      biometric_device: ''
     });
     setEditingStaff(null);
   };
@@ -702,7 +712,9 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
       ifsc_code: fresh.ifsc_code || '',
       account_holder_name: fresh.account_holder_name || '',
       bank_name: fresh.bank_name || '',
-      branch_name: fresh.branch_name || ''
+      branch_name: fresh.branch_name || '',
+      biometric_code: (fresh as any).biometric_code || '',
+      biometric_device: (fresh as any).biometric_device || ''
     });
     setDialogOpen(true);
   };
