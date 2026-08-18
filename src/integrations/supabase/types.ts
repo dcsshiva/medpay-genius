@@ -2176,6 +2176,8 @@ export type Database = {
           account_holder_name: string | null
           bank_account_number: string | null
           bank_name: string | null
+          biometric_code: string | null
+          biometric_device: string | null
           branch_name: string | null
           created_at: string
           department: string | null
@@ -2199,6 +2201,8 @@ export type Database = {
           account_holder_name?: string | null
           bank_account_number?: string | null
           bank_name?: string | null
+          biometric_code?: string | null
+          biometric_device?: string | null
           branch_name?: string | null
           created_at?: string
           department?: string | null
@@ -2222,6 +2226,8 @@ export type Database = {
           account_holder_name?: string | null
           bank_account_number?: string | null
           bank_name?: string | null
+          biometric_code?: string | null
+          biometric_device?: string | null
           branch_name?: string | null
           created_at?: string
           department?: string | null
