@@ -22,7 +22,9 @@ import {
   generateStaffCodeByRole, 
   validateStaffCode,
   analyzeStaffImport,
+  stripSampleRows,
   type ImportResults
+
 } from '@/lib/excelImportUtils';
 import { getSessionAuthHeaders } from '@/lib/sessionAuth';
 import { handleCreateUserError } from '@/lib/utils';
@@ -785,14 +787,16 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
     try {
       const rows = await parseExcelFile(file);
       
-      // Skip the first row (sample data)
-      const dataRows = rows.slice(1);
+      // Omit the instructional sample row(s) if still present
+      const skippedSampleRows = rows.length - stripSampleRows(rows).length;
+      const dataRows = stripSampleRows(rows);
       
       const { data: existingStaff } = await supabase.from('staff').select('*');
       
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
-        const rowNumber = i + 3; // Excel row (1=header, 2=sample, 3+=data)
+        const rowNumber = i + 2 + skippedSampleRows; // Excel row (1=header)
+
         
         try {
           if (!row.username || !row.full_name || !row.role) {
@@ -849,7 +853,10 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
                 email: row.email || null,
                 phone: row.phone || null,
                 role: row.role,
-                department: row.department || null
+                department: row.department || null,
+                ...(row.biometric_code ? { biometric_code: String(row.biometric_code).trim() } : {}),
+                ...(row.biometric_device ? { biometric_device: String(row.biometric_device).trim() } : {})
+
               })
               .eq('staff_code', staffCode);
             
@@ -900,7 +907,10 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
                   ifsc_code: row.ifsc_code || null,
                   account_holder_name: row.account_holder_name || null,
                   bank_name: row.bank_name || null,
-                  branch_name: row.branch_name || null
+                  branch_name: row.branch_name || null,
+                  biometric_code: row.biometric_code ? String(row.biometric_code).trim() : null,
+                  biometric_device: row.biometric_device ? String(row.biometric_device).trim() : null
+
                 }
               },
               headers: getSessionAuthHeaders()
