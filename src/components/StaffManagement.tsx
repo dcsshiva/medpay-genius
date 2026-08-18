@@ -22,7 +22,9 @@ import {
   generateStaffCodeByRole, 
   validateStaffCode,
   analyzeStaffImport,
+  stripSampleRows,
   type ImportResults
+
 } from '@/lib/excelImportUtils';
 import { getSessionAuthHeaders } from '@/lib/sessionAuth';
 import { handleCreateUserError } from '@/lib/utils';
