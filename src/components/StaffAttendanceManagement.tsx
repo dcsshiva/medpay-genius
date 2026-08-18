@@ -364,6 +364,15 @@ const StaffAttendanceManagement: React.FC = () => {
                   <Button variant="outline" size="sm" onClick={downloadTemplate}>
                     <Download className="h-4 w-4 mr-1" /> Template
                   </Button>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-muted-foreground whitespace-nowrap">Late after</span>
+                    <Input
+                      type="time"
+                      value={lateAfter}
+                      onChange={e => setLateAfter(e.target.value)}
+                      className="w-[110px] h-9 text-xs"
+                    />
+                  </div>
                   <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={importing}>
                     {importing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}
                     Import
@@ -371,7 +380,12 @@ const StaffAttendanceManagement: React.FC = () => {
                   <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
                 </div>
               </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Import accepts our template (first sample row is ignored) or a biometric “Employee Punch Monitor” export —
+                the punch date, first/last punch and Present/Late/Absent status are detected automatically using each staff member's biometric code.
+              </p>
             </CardHeader>
+
             <CardContent>
               {/* Summary chips */}
               <div className="flex flex-wrap gap-2 mb-4">
