@@ -907,7 +907,10 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
                   ifsc_code: row.ifsc_code || null,
                   account_holder_name: row.account_holder_name || null,
                   bank_name: row.bank_name || null,
-                  branch_name: row.branch_name || null
+                  branch_name: row.branch_name || null,
+                  biometric_code: row.biometric_code ? String(row.biometric_code).trim() : null,
+                  biometric_device: row.biometric_device ? String(row.biometric_device).trim() : null
+
                 }
               },
               headers: getSessionAuthHeaders()
