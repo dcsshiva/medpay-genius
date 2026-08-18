@@ -1219,6 +1219,32 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
                           )}
                         </div>
                       </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="biometric_code">Biometric Code *</Label>
+                          <Input
+                            id="biometric_code"
+                            value={formData.biometric_code}
+                            onChange={(e) => setFormData({ ...formData, biometric_code: e.target.value })}
+                            placeholder="e.g. 2100122"
+                            required
+                            className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Employee code from the punch machine (used for attendance import)
+                          </p>
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="biometric_device">Biometric Device</Label>
+                          <Input
+                            id="biometric_device"
+                            value={formData.biometric_device}
+                            onChange={(e) => setFormData({ ...formData, biometric_device: e.target.value })}
+                            placeholder="Optional — device / location"
+                            className="hover:border-primary/50 focus-visible:border-primary transition-colors"
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
 
