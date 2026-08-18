@@ -853,7 +853,10 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
                 email: row.email || null,
                 phone: row.phone || null,
                 role: row.role,
-                department: row.department || null
+                department: row.department || null,
+                ...(row.biometric_code ? { biometric_code: String(row.biometric_code).trim() } : {}),
+                ...(row.biometric_device ? { biometric_device: String(row.biometric_device).trim() } : {})
+
               })
               .eq('staff_code', staffCode);
             
