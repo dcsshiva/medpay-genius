@@ -19,7 +19,9 @@ interface StaffRow {
   full_name: string;
   role: string;
   department: string | null;
+  biometric_code?: string | null;
 }
+
 
 interface AttendanceRecord {
   id?: string;
