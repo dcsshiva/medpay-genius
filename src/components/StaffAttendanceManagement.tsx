@@ -252,7 +252,7 @@ const StaffAttendanceManagement: React.FC = () => {
           const end = rec.punches.length > 1 ? rec.punches[rec.punches.length - 1] : (rec.lastPunch || null);
           let status: string;
           if (rec.punches.length || rec.lastPunch) {
-            status = start && start > LATE_AFTER ? 'late' : 'present';
+            status = start && start > lateAfter ? 'late' : 'present';
           } else {
             status = 'absent';
           }
