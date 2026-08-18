@@ -6,16 +6,19 @@ export const generateStaffTemplate = () => {
   const workbook = utils.book_new();
   
   // Sample data with clear instructions for optional fields
+  // NOTE: this first row is a SAMPLE and is automatically skipped on import
   const sampleData = [
     {
-      staff_code: '⚠️ Optional - Auto-generated (NUR001, ADM001...)',
+      staff_code: '⚠️ SAMPLE ROW - ignored on import. Optional - Auto-generated (NUR001, ADM001...)',
       username: 'john.smith',
       full_name: 'John Smith',
       email: 'Optional - Auto from username@gmail.com',
       phone: 'Optional - +1234567890',
       role: 'nurse',
       department: 'Optional - Administration',
-      password: 'Optional - Defaults to "SecurePass789"'
+      password: 'Optional - Defaults to "SecurePass789"',
+      biometric_code: 'Required - punch machine Emp Code e.g. 2100122',
+      biometric_device: 'Optional - device / location name'
     }
   ];
   
@@ -23,15 +26,18 @@ export const generateStaffTemplate = () => {
   
   // Set column widths (wider for instruction columns)
   worksheet['!cols'] = [
-    { wch: 45 }, // staff_code (wider for instruction)
+    { wch: 55 }, // staff_code (wider for instruction)
     { wch: 15 }, // username
     { wch: 20 }, // full_name
     { wch: 40 }, // email (wider for instruction)
     { wch: 25 }, // phone
     { wch: 15 }, // role
     { wch: 30 }, // department
-    { wch: 40 }  // password (wider for instruction)
+    { wch: 40 }, // password (wider for instruction)
+    { wch: 42 }, // biometric_code
+    { wch: 30 }  // biometric_device
   ];
+
   
   // Add data validation for role column (dropdown)
   const roleOptions = ['admin', 'manager', 'nurse', 'doctor', 'technician', 'receptionist', 'pharmacist', 'cleaner', 'security'];
