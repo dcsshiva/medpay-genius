@@ -148,6 +148,34 @@ export const parseExcelFile = async (file: File): Promise<any[]> => {
   });
 };
 
+/**
+ * Detects the instructional sample row shipped in our templates so it can be
+ * omitted during import (whether the user left it in place or deleted it).
+ */
+export const isSampleRow = (row: any): boolean => {
+  if (!row) return true;
+  const text = Object.values(row).map(v => String(v ?? '')).join(' ').toLowerCase();
+  if (!text.trim()) return true;
+  return (
+    text.includes('⚠️') ||
+    text.includes('sample row') ||
+    text.includes('optional -') ||
+    text.includes('required -') ||
+    text.includes('auto-generated') ||
+    text.includes('john smith') ||
+    text.includes('dr. sarah wilson')
+  );
+};
+
+/** Removes the leading sample row(s) from parsed template rows. */
+export const stripSampleRows = <T,>(rows: T[]): T[] => {
+  let start = 0;
+  while (start < rows.length && isSampleRow(rows[start])) start++;
+  return rows.slice(start);
+};
+
+
+
 // ==================== Code Generation ====================
 
 export const generateStaffCodeByRole = (role: string): string => {
