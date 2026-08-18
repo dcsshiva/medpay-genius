@@ -47,6 +47,8 @@ interface Staff {
   account_holder_name?: string;
   bank_name?: string;
   branch_name?: string;
+  biometric_code?: string;
+  biometric_device?: string;
 }
 
 interface StaffManagementProps {
