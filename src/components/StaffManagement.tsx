@@ -267,6 +267,39 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
       return;
     }
 
+    // Biometric code is mandatory for new and edited staff (existing records may be blank until edited)
+    if (!formData.biometric_code.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Biometric Code is required (employee code from the punch machine)"
+      });
+      setSubmitting(false);
+      return;
+    }
+
+    {
+      const biometricQuery = supabase
+        .from('staff')
+        .select('id, full_name, staff_code')
+        .ilike('biometric_code', formData.biometric_code.trim());
+      const { data: dupBiometric } = await (editingStaff
+        ? biometricQuery.neq('id', editingStaff.id)
+        : biometricQuery
+      ).maybeSingle();
+      if (dupBiometric) {
+        toast({
+          variant: "destructive",
+          title: "Validation Error",
+          description: `Biometric code "${formData.biometric_code.trim()}" is already assigned to ${(dupBiometric as any).full_name}`
+        });
+        setSubmitting(false);
+        return;
+      }
+    }
+
+
+
     // Validate bank details if provided
     if (formData.bank_account_number.trim() && !formData.ifsc_code.trim()) {
       toast({
