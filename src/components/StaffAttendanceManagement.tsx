@@ -56,14 +56,15 @@ const StaffAttendanceManagement: React.FC = () => {
     setLoading(true);
     try {
       const [staffRes, attendanceRes] = await Promise.all([
-        supabase.from('staff').select('id, staff_code, full_name, role, department, biometric_code').eq('is_active', true).not('role', 'in', '(doctor,admin)').order('staff_code'),
+        (supabase.from('staff') as any).select('id, staff_code, full_name, role, department, biometric_code').eq('is_active', true).not('role', 'in', '(doctor,admin)').order('staff_code'),
         supabase.from('staff_daily_activities').select('id, staff_id, attendance_status, shift_start_time, shift_end_time').eq('activity_date', selectedDate),
       ]);
 
       if (staffRes.error) throw staffRes.error;
       if (attendanceRes.error) throw attendanceRes.error;
 
-      setStaffList(staffRes.data || []);
+      setStaffList((staffRes.data || []) as StaffRow[]);
+
       const map: Record<string, AttendanceRecord> = {};
       (attendanceRes.data || []).forEach((r: any) => {
         map[r.staff_id] = {
