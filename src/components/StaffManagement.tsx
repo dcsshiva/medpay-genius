@@ -1702,8 +1702,48 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
              </AlertDialogAction>
            </AlertDialogFooter>
          </AlertDialogContent>
-       </AlertDialog>
-    </div>
+        </AlertDialog>
+
+        <Dialog open={showImportResults} onOpenChange={setShowImportResults}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Import Results</DialogTitle>
+              <DialogDescription>Summary of the last staff Excel import.</DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-4 gap-2 text-center">
+              <div className="rounded-md border p-2">
+                <div className="text-lg font-semibold">{importResults?.inserted ?? 0}</div>
+                <div className="text-xs text-muted-foreground">Inserted</div>
+              </div>
+              <div className="rounded-md border p-2">
+                <div className="text-lg font-semibold">{importResults?.updated ?? 0}</div>
+                <div className="text-xs text-muted-foreground">Updated</div>
+              </div>
+              <div className="rounded-md border p-2">
+                <div className="text-lg font-semibold">{importResults?.skipped ?? 0}</div>
+                <div className="text-xs text-muted-foreground">Skipped</div>
+              </div>
+              <div className="rounded-md border p-2">
+                <div className="text-lg font-semibold text-destructive">{importResults?.errors.length ?? 0}</div>
+                <div className="text-xs text-muted-foreground">Errors</div>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {staff.filter(s => !s.biometric_code).length} staff member(s) still have no biometric code — attendance punch files cannot match them.
+            </p>
+            {!!importResults?.errors.length && (
+              <div className="max-h-64 overflow-y-auto rounded-md border divide-y">
+                {importResults.errors.map((e, i) => (
+                  <div key={i} className="p-2 text-sm">
+                    <span className="font-medium">Row {e.row}:</span> {e.message}
+                  </div>
+                ))}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+     </div>
+
   );
 };
 
