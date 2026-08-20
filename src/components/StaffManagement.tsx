@@ -806,6 +806,38 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
             });
             continue;
           }
+
+          // Biometric code is mandatory and must be unique (needed for attendance import)
+          const bioCode = String(row.biometric_code ?? '').trim();
+          if (!bioCode) {
+            results.errors.push({
+              row: rowNumber,
+              message: 'Missing biometric_code (punch machine Emp Code) — required to match attendance imports'
+            });
+            continue;
+          }
+          const bioKey = bioCode.toLowerCase();
+          if (seenBiometric.has(bioKey)) {
+            results.errors.push({
+              row: rowNumber,
+              message: `Duplicate biometric_code "${bioCode}" appears more than once in this file`
+            });
+            continue;
+          }
+          seenBiometric.add(bioKey);
+          const bioOwner = (existingStaff || []).find(
+            (s: any) => String(s.biometric_code ?? '').trim().toLowerCase() === bioKey
+          );
+          const rowStaffCode = String(row.staff_code ?? '').trim();
+          if (bioOwner && bioOwner.staff_code !== rowStaffCode) {
+            results.errors.push({
+              row: rowNumber,
+              message: `Biometric code "${bioCode}" is already assigned to ${bioOwner.full_name} (${bioOwner.staff_code})`
+            });
+            continue;
+          }
+          row.biometric_code = bioCode;
+
           
           // Auto-generate email from username if missing
           if (!row.email) {
