@@ -18,6 +18,7 @@ import { formatDateIST } from '@/lib/dateUtils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
   generateStaffTemplate, 
+  generateStaffMappingExport,
   parseExcelFile, 
   generateStaffCodeByRole, 
   validateStaffCode,
@@ -26,6 +27,7 @@ import {
   type ImportResults
 
 } from '@/lib/excelImportUtils';
+
 import { getSessionAuthHeaders } from '@/lib/sessionAuth';
 import { handleCreateUserError } from '@/lib/utils';
 import { PaginationControls } from '@/components/ui/pagination-controls';
