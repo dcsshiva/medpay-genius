@@ -339,6 +339,8 @@ export const analyzeStaffImport = (
     return { action: 'insert', reason: 'New staff member' };
   }
   
+  const norm = (v: any) => String(v ?? '').trim().toLowerCase() || null;
+
   // Check if ALL fields match (Rule 1)
   const fieldsMatch = (
     existing.username === importRow.username &&
@@ -346,7 +348,9 @@ export const analyzeStaffImport = (
     existing.email === (importRow.email || null) &&
     existing.phone === (importRow.phone || null) &&
     existing.role === importRow.role &&
-    existing.department === (importRow.department || null)
+    existing.department === (importRow.department || null) &&
+    norm(existing.biometric_code) === norm(importRow.biometric_code) &&
+    norm(existing.biometric_device) === norm(importRow.biometric_device)
   );
   
   if (fieldsMatch) {
@@ -365,6 +369,9 @@ export const analyzeStaffImport = (
   if (existing.phone !== (importRow.phone || null)) changedFields.push('phone');
   if (existing.role !== importRow.role) changedFields.push('role');
   if (existing.department !== (importRow.department || null)) changedFields.push('department');
+  if (norm(existing.biometric_code) !== norm(importRow.biometric_code)) changedFields.push('biometric_code');
+  if (norm(existing.biometric_device) !== norm(importRow.biometric_device)) changedFields.push('biometric_device');
+
   
   return {
     action: 'update',
