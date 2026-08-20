@@ -1606,6 +1606,12 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
                     <TableCell className="font-medium">{member.staff_code}</TableCell>
                     <TableCell>{member.full_name}</TableCell>
                     <TableCell className="font-mono text-sm">{member.username}</TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {member.biometric_code
+                        ? member.biometric_code
+                        : <Badge variant="outline" className="text-muted-foreground">Not mapped</Badge>}
+                    </TableCell>
+
                     <TableCell>
                       <Badge variant={getRoleBadgeVariant(member.role)}>
                         {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
