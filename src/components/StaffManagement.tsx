@@ -18,6 +18,7 @@ import { formatDateIST } from '@/lib/dateUtils';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
   generateStaffTemplate, 
+  generateStaffMappingExport,
   parseExcelFile, 
   generateStaffCodeByRole, 
   validateStaffCode,
@@ -26,6 +27,7 @@ import {
   type ImportResults
 
 } from '@/lib/excelImportUtils';
+
 import { getSessionAuthHeaders } from '@/lib/sessionAuth';
 import { handleCreateUserError } from '@/lib/utils';
 import { PaginationControls } from '@/components/ui/pagination-controls';
@@ -792,6 +794,8 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
       const dataRows = stripSampleRows(rows);
       
       const { data: existingStaff } = await supabase.from('staff').select('*');
+      const seenBiometric = new Set<string>();
+
       
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
@@ -806,6 +810,38 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
             });
             continue;
           }
+
+          // Biometric code is mandatory and must be unique (needed for attendance import)
+          const bioCode = String(row.biometric_code ?? '').trim();
+          if (!bioCode) {
+            results.errors.push({
+              row: rowNumber,
+              message: 'Missing biometric_code (punch machine Emp Code) — required to match attendance imports'
+            });
+            continue;
+          }
+          const bioKey = bioCode.toLowerCase();
+          if (seenBiometric.has(bioKey)) {
+            results.errors.push({
+              row: rowNumber,
+              message: `Duplicate biometric_code "${bioCode}" appears more than once in this file`
+            });
+            continue;
+          }
+          seenBiometric.add(bioKey);
+          const bioOwner = (existingStaff || []).find(
+            (s: any) => String(s.biometric_code ?? '').trim().toLowerCase() === bioKey
+          );
+          const rowStaffCode = String(row.staff_code ?? '').trim();
+          if (bioOwner && bioOwner.staff_code !== rowStaffCode) {
+            results.errors.push({
+              row: rowNumber,
+              message: `Biometric code "${bioCode}" is already assigned to ${bioOwner.full_name} (${bioOwner.staff_code})`
+            });
+            continue;
+          }
+          row.biometric_code = bioCode;
+
           
           // Auto-generate email from username if missing
           if (!row.email) {
@@ -1097,6 +1133,17 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
             <Download className="h-4 w-4 mr-2" />
             Download Template
           </Button>
+
+          <Button
+            variant="outline"
+            onClick={() => generateStaffMappingExport(staff as any)}
+            disabled={staff.length === 0}
+            title="Export existing staff in template format to fill biometric codes and re-import"
+          >
+            <IdCard className="h-4 w-4 mr-2" />
+            Export for Biometric Mapping
+          </Button>
+
           
           <Button
             variant="outline"
@@ -1542,6 +1589,8 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
                     Full Name <SortIcon field="full_name" />
                   </TableHead>
                   <TableHead>Username</TableHead>
+                  <TableHead>Biometric Code</TableHead>
+
                   <TableHead className="cursor-pointer" onClick={() => handleSort('role')}>
                     Role <SortIcon field="role" />
                   </TableHead>
@@ -1557,6 +1606,12 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
                     <TableCell className="font-medium">{member.staff_code}</TableCell>
                     <TableCell>{member.full_name}</TableCell>
                     <TableCell className="font-mono text-sm">{member.username}</TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {member.biometric_code
+                        ? member.biometric_code
+                        : <Badge variant="outline" className="text-muted-foreground">Not mapped</Badge>}
+                    </TableCell>
+
                     <TableCell>
                       <Badge variant={getRoleBadgeVariant(member.role)}>
                         {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
@@ -1647,8 +1702,48 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
              </AlertDialogAction>
            </AlertDialogFooter>
          </AlertDialogContent>
-       </AlertDialog>
-    </div>
+        </AlertDialog>
+
+        <Dialog open={showImportResults} onOpenChange={setShowImportResults}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Import Results</DialogTitle>
+              <DialogDescription>Summary of the last staff Excel import.</DialogDescription>
+            </DialogHeader>
+            <div className="grid grid-cols-4 gap-2 text-center">
+              <div className="rounded-md border p-2">
+                <div className="text-lg font-semibold">{importResults?.inserted ?? 0}</div>
+                <div className="text-xs text-muted-foreground">Inserted</div>
+              </div>
+              <div className="rounded-md border p-2">
+                <div className="text-lg font-semibold">{importResults?.updated ?? 0}</div>
+                <div className="text-xs text-muted-foreground">Updated</div>
+              </div>
+              <div className="rounded-md border p-2">
+                <div className="text-lg font-semibold">{importResults?.skipped ?? 0}</div>
+                <div className="text-xs text-muted-foreground">Skipped</div>
+              </div>
+              <div className="rounded-md border p-2">
+                <div className="text-lg font-semibold text-destructive">{importResults?.errors.length ?? 0}</div>
+                <div className="text-xs text-muted-foreground">Errors</div>
+              </div>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              {staff.filter(s => !s.biometric_code).length} staff member(s) still have no biometric code — attendance punch files cannot match them.
+            </p>
+            {!!importResults?.errors.length && (
+              <div className="max-h-64 overflow-y-auto rounded-md border divide-y">
+                {importResults.errors.map((e, i) => (
+                  <div key={i} className="p-2 text-sm">
+                    <span className="font-medium">Row {e.row}:</span> {e.message}
+                  </div>
+                ))}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+     </div>
+
   );
 };
 

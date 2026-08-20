@@ -67,7 +67,27 @@ export const generateStaffTemplate = () => {
   }
   
   utils.book_append_sheet(workbook, worksheet, 'Staff Template');
-  
+
+  // Instructions sheet
+  const instructions = [
+    { Field: 'staff_code', Required: 'Optional', Notes: 'Format: 3 letters + 3 digits (e.g. NUR001). Auto-generated when blank.' },
+    { Field: 'username', Required: 'Required', Notes: 'Login username. Must be unique.' },
+    { Field: 'full_name', Required: 'Required', Notes: 'Staff member full name.' },
+    { Field: 'email', Required: 'Optional', Notes: 'Auto-generated from username when blank.' },
+    { Field: 'phone', Required: 'Optional', Notes: 'Mobile number with country code.' },
+    { Field: 'role', Required: 'Required', Notes: 'One of: admin, manager, nurse, doctor, technician, receptionist, pharmacist, cleaner, security' },
+    { Field: 'department', Required: 'Optional', Notes: 'Department name as in Masters.' },
+    { Field: 'password', Required: 'Optional', Notes: 'Defaults to SecurePass789 when blank.' },
+    { Field: 'biometric_code', Required: 'Required', Notes: 'Emp Code from the punch machine (e.g. 2100122). Used to match attendance imports. Must be unique.' },
+    { Field: 'biometric_device', Required: 'Optional', Notes: 'Punch device / location name.' },
+    { Field: '', Required: '', Notes: '' },
+    { Field: 'NOTE', Required: '', Notes: 'The first sample row on the "Staff Template" sheet is ignored on import — you may keep or delete it.' },
+    { Field: 'NOTE', Required: '', Notes: 'Rows without a biometric_code are rejected. Duplicate biometric codes (in the file or already in the system) are reported and skipped.' }
+  ];
+  const instructionSheet = utils.json_to_sheet(instructions);
+  instructionSheet['!cols'] = [{ wch: 20 }, { wch: 12 }, { wch: 110 }];
+  utils.book_append_sheet(workbook, instructionSheet, 'Instructions');
+
   // Generate filename with current date (DDMM format)
   const now = new Date();
   const day = String(now.getDate()).padStart(2, '0');
@@ -76,6 +96,51 @@ export const generateStaffTemplate = () => {
   
   writeFile(workbook, filename);
 };
+
+/**
+ * Exports existing staff in the exact template column order so biometric codes
+ * can be filled in bulk and re-imported.
+ */
+export const generateStaffMappingExport = (
+  rows: Array<{
+    staff_code?: string | null;
+    username?: string | null;
+    full_name?: string | null;
+    email?: string | null;
+    phone?: string | null;
+    role?: string | null;
+    department?: string | null;
+    biometric_code?: string | null;
+    biometric_device?: string | null;
+  }>
+) => {
+  const workbook = utils.book_new();
+  const data = rows.map(r => ({
+    staff_code: r.staff_code || '',
+    username: r.username || '',
+    full_name: r.full_name || '',
+    email: r.email || '',
+    phone: r.phone || '',
+    role: r.role || '',
+    department: r.department || '',
+    password: '',
+    biometric_code: r.biometric_code || '',
+    biometric_device: r.biometric_device || ''
+  }));
+
+  const worksheet = utils.json_to_sheet(data);
+  worksheet['!cols'] = [
+    { wch: 14 }, { wch: 18 }, { wch: 24 }, { wch: 30 }, { wch: 18 },
+    { wch: 14 }, { wch: 22 }, { wch: 14 }, { wch: 18 }, { wch: 22 }
+  ];
+  utils.book_append_sheet(workbook, worksheet, 'Staff Template');
+
+  const now = new Date();
+  const day = String(now.getDate()).padStart(2, '0');
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  writeFile(workbook, `staff_biometric_mapping_${day}${month}_westmed.xlsx`);
+};
+
 
 export const generateDoctorTemplate = () => {
   const workbook = utils.book_new();
@@ -274,6 +339,8 @@ export const analyzeStaffImport = (
     return { action: 'insert', reason: 'New staff member' };
   }
   
+  const norm = (v: any) => String(v ?? '').trim().toLowerCase() || null;
+
   // Check if ALL fields match (Rule 1)
   const fieldsMatch = (
     existing.username === importRow.username &&
@@ -281,7 +348,9 @@ export const analyzeStaffImport = (
     existing.email === (importRow.email || null) &&
     existing.phone === (importRow.phone || null) &&
     existing.role === importRow.role &&
-    existing.department === (importRow.department || null)
+    existing.department === (importRow.department || null) &&
+    norm(existing.biometric_code) === norm(importRow.biometric_code) &&
+    norm(existing.biometric_device) === norm(importRow.biometric_device)
   );
   
   if (fieldsMatch) {
@@ -300,6 +369,9 @@ export const analyzeStaffImport = (
   if (existing.phone !== (importRow.phone || null)) changedFields.push('phone');
   if (existing.role !== importRow.role) changedFields.push('role');
   if (existing.department !== (importRow.department || null)) changedFields.push('department');
+  if (norm(existing.biometric_code) !== norm(importRow.biometric_code)) changedFields.push('biometric_code');
+  if (norm(existing.biometric_device) !== norm(importRow.biometric_device)) changedFields.push('biometric_device');
+
   
   return {
     action: 'update',
