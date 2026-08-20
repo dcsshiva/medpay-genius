@@ -1133,6 +1133,17 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
             <Download className="h-4 w-4 mr-2" />
             Download Template
           </Button>
+
+          <Button
+            variant="outline"
+            onClick={() => generateStaffMappingExport(staff as any)}
+            disabled={staff.length === 0}
+            title="Export existing staff in template format to fill biometric codes and re-import"
+          >
+            <IdCard className="h-4 w-4 mr-2" />
+            Export for Biometric Mapping
+          </Button>
+
           
           <Button
             variant="outline"
