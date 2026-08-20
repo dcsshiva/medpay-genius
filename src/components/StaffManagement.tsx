@@ -1589,6 +1589,8 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
                     Full Name <SortIcon field="full_name" />
                   </TableHead>
                   <TableHead>Username</TableHead>
+                  <TableHead>Biometric Code</TableHead>
+
                   <TableHead className="cursor-pointer" onClick={() => handleSort('role')}>
                     Role <SortIcon field="role" />
                   </TableHead>
