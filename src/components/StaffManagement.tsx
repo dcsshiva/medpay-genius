@@ -792,6 +792,8 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
       const dataRows = stripSampleRows(rows);
       
       const { data: existingStaff } = await supabase.from('staff').select('*');
+      const seenBiometric = new Set<string>();
+
       
       for (let i = 0; i < dataRows.length; i++) {
         const row = dataRows[i];
