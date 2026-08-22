@@ -206,7 +206,7 @@ const DoctorManagement = () => {
             'get-user-emails',
             {
               body: { userIds },
-              headers: getSessionAuthHeaders()
+              headers: await getSessionAuthHeaders()
             }
           );
           
@@ -361,7 +361,7 @@ const DoctorManagement = () => {
           
           const { data: credUpdateData, error: credUpdateError } = await supabase.functions.invoke('update-user-credentials', {
             body: updateBody,
-            headers: getSessionAuthHeaders()
+            headers: await getSessionAuthHeaders()
           });
 
           // Check both error object AND response data for errors
@@ -434,7 +434,7 @@ const DoctorManagement = () => {
               ifsc_code: formData.ifsc_code
             }
           },
-          headers: getSessionAuthHeaders()
+          headers: await getSessionAuthHeaders()
         });
 
         console.log('Create user response:', result, createUserError);
@@ -519,7 +519,7 @@ const DoctorManagement = () => {
               'get-user-emails',
               {
                 body: { userIds: [data.user_id] },
-                headers: getSessionAuthHeaders()
+                headers: await getSessionAuthHeaders()
               }
             );
             const found = emailData?.emails?.find(
@@ -756,7 +756,7 @@ const DoctorManagement = () => {
                     userId: decision.existingRecord.profiles.user_id,
                     password: row.password
                   },
-                  headers: getSessionAuthHeaders()
+                  headers: await getSessionAuthHeaders()
                 });
               }
             }
@@ -793,7 +793,7 @@ const DoctorManagement = () => {
                   ifsc_code: row.ifsc_code || null
                 }
               },
-              headers: getSessionAuthHeaders()
+              headers: await getSessionAuthHeaders()
             });
             
             if (authError || !authResult?.success) {

@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0';
+import { resolveRequester, isAdminOrManager } from '../_shared/requester-auth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -25,35 +26,18 @@ Deno.serve(async (req) => {
     // Create client for user_sessions validation
     const supabaseClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Validate session using custom session token. Avoid Authorization here so
-    // Supabase gateway auth does not confuse custom sessions with JWTs.
-    const sessionToken = req.headers.get('X-Session-Token') ||
-      req.headers.get('Authorization')?.replace('Bearer ', '');
-    if (!sessionToken) {
+    // Accepts legacy custom sessions (X-Session-Token) or real Supabase JWTs
+    let requester;
+    try {
+      requester = await resolveRequester(req, supabaseClient);
+    } catch (authErr) {
       return new Response(
-        JSON.stringify({ error: 'Missing session token' }),
+        JSON.stringify({ error: (authErr as Error).message }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Validate session token
-    const { data: session, error: sessionError } = await supabaseClient
-      .from('user_sessions')
-      .select('user_id, role')
-      .eq('session_token', sessionToken)
-      .eq('is_active', true)
-      .single();
-
-    if (sessionError || !session) {
-      console.error('Session validation error:', sessionError);
-      return new Response(
-        JSON.stringify({ error: 'Invalid or expired session' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Check if user has admin or manager role
-    if (!['admin', 'manager'].includes(session.role)) {
+    if (!isAdminOrManager(requester.role)) {
       return new Response(
         JSON.stringify({ error: 'Insufficient permissions' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
