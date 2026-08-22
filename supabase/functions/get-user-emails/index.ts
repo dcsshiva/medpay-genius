@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.0';
+import { resolveRequester, isAdminOrManager } from '../_shared/requester-auth.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
