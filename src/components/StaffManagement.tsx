@@ -438,7 +438,7 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
             
             const { error: credUpdateError } = await supabase.functions.invoke('update-user-credentials', {
               body: updateBody,
-              headers: getSessionAuthHeaders()
+              headers: await getSessionAuthHeaders()
             });
 
             if (credUpdateError) {
@@ -562,7 +562,7 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
             biometric_device: formData.biometric_device.trim() || null
           }
         },
-        headers: getSessionAuthHeaders()
+        headers: await getSessionAuthHeaders()
       });
 
       if (createUserError || !result?.success) {
@@ -599,7 +599,7 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
                 biometric_device: formData.biometric_device.trim() || null
               }
             },
-            headers: getSessionAuthHeaders()
+            headers: await getSessionAuthHeaders()
           });
           if (retry.error || !retry.data?.success) {
             throw new Error(await handleCreateUserError(retry.error, retry.data, retryEmail));
@@ -910,7 +910,7 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
                     userId: decision.existingRecord.user_id,
                     password: row.password
                   },
-                  headers: getSessionAuthHeaders()
+                  headers: await getSessionAuthHeaders()
                 });
               }
             }
@@ -949,7 +949,7 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
 
                 }
               },
-              headers: getSessionAuthHeaders()
+              headers: await getSessionAuthHeaders()
             });
             
             if (authError || !authResult?.success) {
