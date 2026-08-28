@@ -118,9 +118,14 @@ serve(async (req) => {
 
     const userId = created.user.id;
 
-    const { error: desError } = await admin
+    const { data: existingDes } = await admin
       .from("user_designations")
-      .upsert({ user_id: userId, designation: "staff" }, { onConflict: "user_id" });
+      .select("user_id")
+      .eq("user_id", userId)
+      .maybeSingle();
+    const { error: desError } = existingDes
+      ? await admin.from("user_designations").update({ designation: "staff" }).eq("user_id", userId)
+      : await admin.from("user_designations").insert({ user_id: userId, designation: "staff" });
     if (desError) {
       await admin.auth.admin.deleteUser(userId);
       results.push({ full_name: row.full_name, status: "error", reason: `Designation: ${desError.message}` });
