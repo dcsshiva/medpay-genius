@@ -4560,6 +4560,21 @@ export type Database = {
         | "security"
         | "ns1"
         | "de"
+        | "staff_nurse"
+        | "nursing_asst"
+        | "nursing_superitendent"
+        | "pharmacy_incharge"
+        | "front_office_executive"
+        | "front_office_incharge"
+        | "lab_technician"
+        | "x_ray_technician"
+        | "x_ray_incharge"
+        | "ct_xray_typist"
+        | "ot_technician"
+        | "out_patient_coordinator"
+        | "duty_medical_officer"
+        | "house_keeping"
+        | "electrician"
       task_status:
         | "pending"
         | "in_progress"
@@ -4814,6 +4829,21 @@ export const Constants = {
         "security",
         "ns1",
         "de",
+        "staff_nurse",
+        "nursing_asst",
+        "nursing_superitendent",
+        "pharmacy_incharge",
+        "front_office_executive",
+        "front_office_incharge",
+        "lab_technician",
+        "x_ray_technician",
+        "x_ray_incharge",
+        "ct_xray_typist",
+        "ot_technician",
+        "out_patient_coordinator",
+        "duty_medical_officer",
+        "house_keeping",
+        "electrician",
       ],
       task_status: [
         "pending",
