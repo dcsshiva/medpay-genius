@@ -1755,6 +1755,74 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
          </AlertDialogContent>
         </AlertDialog>
 
+        {/* Delete Staff Dialog (admin only, no-activity records) */}
+        <AlertDialog
+          open={deleteDialog.open}
+          onOpenChange={(open) => !open && !deleteDialog.deleting &&
+            setDeleteDialog({ open: false, staff: null, activity: null, checking: false, deleting: false })}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete Staff Master Record</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-3">
+                  <p>
+                    {deleteDialog.staff?.full_name} ({deleteDialog.staff?.staff_code}) will be permanently removed
+                    from the staff master. This cannot be undone.
+                  </p>
+                  {deleteDialog.checking && (
+                    <p className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin" /> Checking activity records...
+                    </p>
+                  )}
+                  {!deleteDialog.checking && deleteDialog.activity && (
+                    (deleteDialog.activity.total || 0) > 0 ? (
+                      <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm">
+                        <p className="font-medium text-destructive mb-1">This staff member has activity and cannot be deleted.</p>
+                        <ul className="list-disc pl-5 text-muted-foreground">
+                          {Object.entries(deleteDialog.activity)
+                            .filter(([k, v]) => k !== 'total' && Number(v) > 0)
+                            .map(([k, v]) => (
+                              <li key={k}>{k.replace(/_/g, ' ')}: {v}</li>
+                            ))}
+                        </ul>
+                        <p className="mt-2">Deactivate the staff member instead to block system access.</p>
+                      </div>
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No activity records found — safe to delete.</p>
+                    )
+                  )}
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deleteDialog.deleting}>Cancel</AlertDialogCancel>
+              {deleteDialog.staff?.is_active && (
+                <Button
+                  variant="secondary"
+                  disabled={deleteDialog.deleting}
+                  onClick={async () => {
+                    const target = deleteDialog.staff!;
+                    setDeleteDialog({ open: false, staff: null, activity: null, checking: false, deleting: false });
+                    await toggleStaffStatus(target.id, true);
+                  }}
+                >
+                  Deactivate Instead
+                </Button>
+              )}
+              <AlertDialogAction
+                onClick={(e) => { e.preventDefault(); confirmDeleteStaff(); }}
+                disabled={deleteDialog.checking || deleteDialog.deleting || !deleteDialog.activity || (deleteDialog.activity.total || 0) > 0}
+                className="bg-destructive hover:bg-destructive/90"
+              >
+                {deleteDialog.deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Trash2 className="h-4 w-4 mr-2" />}
+                Delete Permanently
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+
         <Dialog open={showImportResults} onOpenChange={setShowImportResults}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
