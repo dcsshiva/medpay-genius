@@ -1692,6 +1692,17 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
                         >
                           {member.is_active ? 'Deactivate' : 'Activate'}
                         </Button>
+                        {canDeleteStaff && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                            onClick={() => openDeleteDialog(member)}
+                            title="Delete staff master record (only if no activity)"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
