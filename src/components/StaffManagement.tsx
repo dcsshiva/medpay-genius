@@ -73,6 +73,13 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
     staff: Staff | null;
     action: 'activate' | 'deactivate' | null;
   }>({ open: false, staff: null, action: null });
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    staff: Staff | null;
+    activity: Record<string, number> | null;
+    checking: boolean;
+    deleting: boolean;
+  }>({ open: false, staff: null, activity: null, checking: false, deleting: false });
   const [sortField, setSortField] = useState<'staff_code' | 'full_name' | 'role'>('staff_code');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [currentPage, setCurrentPage] = useState(1);
