@@ -683,6 +683,39 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
     }
   };
 
+  const canDeleteStaff =
+    userRole === 'admin' || userRole === 'super_admin' ||
+    userDesignation === 'admin' || userDesignation === 'super_admin';
+
+  const openDeleteDialog = async (member: Staff) => {
+    setDeleteDialog({ open: true, staff: member, activity: null, checking: true, deleting: false });
+    try {
+      const { data, error } = await (supabase as any).rpc('get_staff_activity_summary', { _staff_id: member.id });
+      if (error) throw error;
+      setDeleteDialog((prev) => ({ ...prev, activity: data, checking: false }));
+    } catch (error: any) {
+      setDeleteDialog((prev) => ({ ...prev, checking: false }));
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'Failed to check staff activity' });
+    }
+  };
+
+  const confirmDeleteStaff = async () => {
+    if (!deleteDialog.staff) return;
+    setDeleteDialog((prev) => ({ ...prev, deleting: true }));
+    try {
+      const { data, error } = await (supabase as any).rpc('delete_staff_member', { _staff_id: deleteDialog.staff.id });
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || 'Failed to delete staff member');
+
+      toast({ title: 'Staff Deleted', description: `${deleteDialog.staff.full_name} (${deleteDialog.staff.staff_code}) was permanently removed.` });
+      setDeleteDialog({ open: false, staff: null, activity: null, checking: false, deleting: false });
+      fetchStaff();
+    } catch (error: any) {
+      setDeleteDialog((prev) => ({ ...prev, deleting: false }));
+      toast({ variant: 'destructive', title: 'Cannot Delete', description: error.message || 'Failed to delete staff member' });
+    }
+  };
+
   const toggleStaffStatus = async (staffId: string, currentStatus: boolean) => {
     try {
       const { error } = await supabase
