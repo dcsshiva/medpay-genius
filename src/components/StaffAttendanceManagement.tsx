@@ -232,6 +232,8 @@ const StaffAttendanceManagement: React.FC = () => {
       const upserts: any[] = [];
       let skipped = 0;
       const unmatched: string[] = [];
+      const createdStaff: string[] = [];
+
       let targetDate = selectedDate;
 
       if (punch) {
