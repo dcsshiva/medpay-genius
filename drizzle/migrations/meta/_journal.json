@@ -8,6 +8,13 @@
       "when": 1788045132066,
       "tag": "0000_staff_delete_if_no_activity",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788181939621,
+      "tag": "0001_create_placeholder_staff_from_biometric",
+      "breakpoints": true
     }
   ]
 }

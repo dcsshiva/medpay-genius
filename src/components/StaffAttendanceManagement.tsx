@@ -232,6 +232,8 @@ const StaffAttendanceManagement: React.FC = () => {
       const upserts: any[] = [];
       let skipped = 0;
       const unmatched: string[] = [];
+      const createdStaff: string[] = [];
+
       let targetDate = selectedDate;
 
       if (punch) {
@@ -247,8 +249,25 @@ const StaffAttendanceManagement: React.FC = () => {
         });
 
         for (const rec of punch.records) {
-          const staffId = byBiometric[rec.empCode.toLowerCase()] || byName[norm(rec.name)];
-          if (!staffId) { skipped++; if (unmatched.length < 8) unmatched.push(`${rec.empCode} ${rec.name}`.trim()); continue; }
+          let staffId = byBiometric[rec.empCode.toLowerCase()] || byName[norm(rec.name)];
+
+          // Biometric code present in the file but no staff record yet →
+          // create a placeholder staff record so attendance is never lost.
+          if (!staffId) {
+            const { data: newId, error: createErr } = await supabase.rpc(
+              'create_placeholder_staff_from_biometric',
+              { _biometric_code: rec.empCode, _full_name: rec.name || null },
+            );
+            if (createErr || !newId) {
+              skipped++;
+              if (unmatched.length < 8) unmatched.push(`${rec.empCode} ${rec.name}`.trim());
+              continue;
+            }
+            staffId = newId as string;
+            byBiometric[rec.empCode.toLowerCase()] = staffId;
+            createdStaff.push(`${rec.empCode} ${rec.name}`.trim());
+          }
+
 
           const start = rec.punches[0] || null;
           const end = rec.punches.length > 1 ? rec.punches[rec.punches.length - 1] : (rec.lastPunch || null);
@@ -304,10 +323,21 @@ const StaffAttendanceManagement: React.FC = () => {
 
       if (punch && targetDate !== selectedDate) setSelectedDate(targetDate);
 
+      const descParts: string[] = [];
+      if (createdStaff.length) {
+        descParts.push(
+          `${createdStaff.length} new staff record(s) created from biometric codes (${createdStaff.slice(0, 6).join(', ')}${createdStaff.length > 6 ? '…' : ''}) — complete their details in Staff Master.`
+        );
+      }
+      if (unmatched.length) {
+        descParts.push(`Could not map: ${unmatched.join(', ')}${skipped > unmatched.length ? '…' : ''}`);
+      }
+
       toast.success(
         `${punch ? 'Punch file' : 'Template'} imported: ${success} record(s) for ${targetDate}${skipped ? `, ${skipped} skipped` : ''}`,
-        unmatched.length ? { description: `Unmatched biometric codes: ${unmatched.join(', ')}${skipped > unmatched.length ? '…' : ''}` } : undefined
+        descParts.length ? { description: descParts.join(' ') } : undefined
       );
+
       fetchData();
     } catch (err: any) {
       toast.error('Import failed: ' + err.message);

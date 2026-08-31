@@ -3985,6 +3985,14 @@ export type Database = {
       cleanup_expired_otps: { Args: never; Returns: number }
       cleanup_expired_sessions: { Args: never; Returns: undefined }
       cleanup_expired_user_sessions: { Args: never; Returns: number }
+      create_placeholder_staff_from_biometric: {
+        Args: {
+          _biometric_code: string
+          _biometric_device?: string
+          _full_name: string
+        }
+        Returns: string
+      }
       create_validated_session: {
         Args: {
           _expires_at: string
