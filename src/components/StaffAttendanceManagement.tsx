@@ -247,8 +247,25 @@ const StaffAttendanceManagement: React.FC = () => {
         });
 
         for (const rec of punch.records) {
-          const staffId = byBiometric[rec.empCode.toLowerCase()] || byName[norm(rec.name)];
-          if (!staffId) { skipped++; if (unmatched.length < 8) unmatched.push(`${rec.empCode} ${rec.name}`.trim()); continue; }
+          let staffId = byBiometric[rec.empCode.toLowerCase()] || byName[norm(rec.name)];
+
+          // Biometric code present in the file but no staff record yet →
+          // create a placeholder staff record so attendance is never lost.
+          if (!staffId) {
+            const { data: newId, error: createErr } = await supabase.rpc(
+              'create_placeholder_staff_from_biometric',
+              { _biometric_code: rec.empCode, _full_name: rec.name || null },
+            );
+            if (createErr || !newId) {
+              skipped++;
+              if (unmatched.length < 8) unmatched.push(`${rec.empCode} ${rec.name}`.trim());
+              continue;
+            }
+            staffId = newId as string;
+            byBiometric[rec.empCode.toLowerCase()] = staffId;
+            createdStaff.push(`${rec.empCode} ${rec.name}`.trim());
+          }
+
 
           const start = rec.punches[0] || null;
           const end = rec.punches.length > 1 ? rec.punches[rec.punches.length - 1] : (rec.lastPunch || null);
