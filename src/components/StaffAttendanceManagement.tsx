@@ -323,10 +323,21 @@ const StaffAttendanceManagement: React.FC = () => {
 
       if (punch && targetDate !== selectedDate) setSelectedDate(targetDate);
 
+      const descParts: string[] = [];
+      if (createdStaff.length) {
+        descParts.push(
+          `${createdStaff.length} new staff record(s) created from biometric codes (${createdStaff.slice(0, 6).join(', ')}${createdStaff.length > 6 ? '…' : ''}) — complete their details in Staff Master.`
+        );
+      }
+      if (unmatched.length) {
+        descParts.push(`Could not map: ${unmatched.join(', ')}${skipped > unmatched.length ? '…' : ''}`);
+      }
+
       toast.success(
         `${punch ? 'Punch file' : 'Template'} imported: ${success} record(s) for ${targetDate}${skipped ? `, ${skipped} skipped` : ''}`,
-        unmatched.length ? { description: `Unmatched biometric codes: ${unmatched.join(', ')}${skipped > unmatched.length ? '…' : ''}` } : undefined
+        descParts.length ? { description: descParts.join(' ') } : undefined
       );
+
       fetchData();
     } catch (err: any) {
       toast.error('Import failed: ' + err.message);
