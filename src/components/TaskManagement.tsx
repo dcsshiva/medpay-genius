@@ -596,10 +596,11 @@ const TaskManagement = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 md:space-y-6 p-3 md:p-0 pb-20 md:pb-0">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Task Management</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">Task Management</h1>
+
           <p className="text-muted-foreground">
             {userRole === 'admin' || userRole === 'manager' 
               ? 'Assign and manage tasks for hospital staff'
