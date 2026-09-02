@@ -215,9 +215,11 @@ const LeaveApplicationsTable = ({
             );
           })}
         </TableBody>
-      </Table>
-    </div>
+        </Table>
+      </div>
+    </>
   );
 };
+
 
 export default LeaveApplicationsTable;
