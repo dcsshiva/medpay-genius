@@ -3982,6 +3982,10 @@ export type Database = {
       }
     }
     Functions: {
+      apply_staff_manager_defaults: {
+        Args: { _staff_id: string }
+        Returns: undefined
+      }
       cleanup_expired_otps: { Args: never; Returns: number }
       cleanup_expired_sessions: { Args: never; Returns: undefined }
       cleanup_expired_user_sessions: { Args: never; Returns: number }
@@ -4419,6 +4423,7 @@ export type Database = {
         Returns: Json
       }
       simple_hash: { Args: { password: string }; Returns: string }
+      staff_manager_default_screens: { Args: never; Returns: string[] }
       update_session_activity: { Args: { _token: string }; Returns: undefined }
       update_session_warning: {
         Args: { _token: string }
@@ -4585,6 +4590,7 @@ export type Database = {
         | "duty_medical_officer"
         | "house_keeping"
         | "electrician"
+        | "staff_manager"
       task_status:
         | "pending"
         | "in_progress"
@@ -4854,6 +4860,7 @@ export const Constants = {
         "duty_medical_officer",
         "house_keeping",
         "electrician",
+        "staff_manager",
       ],
       task_status: [
         "pending",

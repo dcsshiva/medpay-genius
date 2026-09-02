@@ -15,6 +15,13 @@
       "when": 1788181939621,
       "tag": "0001_create_placeholder_staff_from_biometric",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788309019504,
+      "tag": "0002_staff_manager_default_screen_access",
+      "breakpoints": true
     }
   ]
 }
