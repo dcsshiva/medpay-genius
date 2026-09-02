@@ -578,7 +578,7 @@ const TaskManagement = () => {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl font-bold text-foreground">Task Management</h1>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
           {[1, 2, 3].map((i) => (
             <Card key={i}>
               <CardContent className="p-6">
@@ -610,7 +610,7 @@ const TaskManagement = () => {
         </div>
         
         {(userRole === 'admin' || userRole === 'manager') && (
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <ReportGeneration
               title="Task Management"
               data={filteredTasks}
@@ -976,17 +976,17 @@ const TaskManagement = () => {
       </Dialog>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 md:gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-6">
         <Card
           className={`cursor-pointer transition-all hover:shadow-md ${statusFilter === 'pending' ? 'ring-2 ring-primary border-primary' : ''}`}
           onClick={() => setStatusFilter(prev => prev === 'pending' ? 'all' : 'pending')}
         >
-          <CardContent className="p-6">
+          <CardContent className="p-3 md:p-6">
             <div className="flex items-center">
-              <Clock className="h-8 w-8 text-westmed-teal" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Pending</p>
-                <p className="text-2xl font-bold">{tasks.filter(t => t.status === 'pending').length}</p>
+              <Clock className="h-6 w-6 md:h-8 md:w-8 text-westmed-teal shrink-0" />
+              <div className="ml-2 md:ml-4 min-w-0">
+                <p className="text-xs md:text-sm font-medium text-muted-foreground truncate">Pending</p>
+                <p className="text-xl md:text-2xl font-bold">{tasks.filter(t => t.status === 'pending').length}</p>
               </div>
             </div>
           </CardContent>
@@ -996,12 +996,12 @@ const TaskManagement = () => {
           className={`cursor-pointer transition-all hover:shadow-md ${statusFilter === 'in_progress' ? 'ring-2 ring-warning border-warning' : ''}`}
           onClick={() => setStatusFilter(prev => prev === 'in_progress' ? 'all' : 'in_progress')}
         >
-          <CardContent className="p-6">
+          <CardContent className="p-3 md:p-6">
             <div className="flex items-center">
-              <AlertCircle className="h-8 w-8 text-warning" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">In Progress</p>
-                <p className="text-2xl font-bold">{tasks.filter(t => t.status === 'in_progress').length}</p>
+              <AlertCircle className="h-6 w-6 md:h-8 md:w-8 text-warning shrink-0" />
+              <div className="ml-2 md:ml-4 min-w-0">
+                <p className="text-xs md:text-sm font-medium text-muted-foreground truncate">In Progress</p>
+                <p className="text-xl md:text-2xl font-bold">{tasks.filter(t => t.status === 'in_progress').length}</p>
               </div>
             </div>
           </CardContent>
@@ -1011,12 +1011,12 @@ const TaskManagement = () => {
           className={`cursor-pointer transition-all hover:shadow-md ${statusFilter === 'completed' ? 'ring-2 ring-success border-success' : ''}`}
           onClick={() => setStatusFilter(prev => prev === 'completed' ? 'all' : 'completed')}
         >
-          <CardContent className="p-6">
+          <CardContent className="p-3 md:p-6">
             <div className="flex items-center">
-              <CheckCircle className="h-8 w-8 text-success" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Completed</p>
-                <p className="text-2xl font-bold">{tasks.filter(t => t.status === 'completed').length}</p>
+              <CheckCircle className="h-6 w-6 md:h-8 md:w-8 text-success shrink-0" />
+              <div className="ml-2 md:ml-4 min-w-0">
+                <p className="text-xs md:text-sm font-medium text-muted-foreground truncate">Completed</p>
+                <p className="text-xl md:text-2xl font-bold">{tasks.filter(t => t.status === 'completed').length}</p>
               </div>
             </div>
           </CardContent>
@@ -1026,12 +1026,12 @@ const TaskManagement = () => {
           className={`cursor-pointer transition-all hover:shadow-md ${statusFilter === 'overdue' ? 'ring-2 ring-destructive border-destructive' : ''}`}
           onClick={() => setStatusFilter(prev => prev === 'overdue' ? 'all' : 'overdue')}
         >
-          <CardContent className="p-6">
+          <CardContent className="p-3 md:p-6">
             <div className="flex items-center">
-              <AlertTriangle className="h-8 w-8 text-destructive" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Overdue</p>
-                <p className="text-2xl font-bold">{overdueTaskIds.size}</p>
+              <AlertTriangle className="h-6 w-6 md:h-8 md:w-8 text-destructive shrink-0" />
+              <div className="ml-2 md:ml-4 min-w-0">
+                <p className="text-xs md:text-sm font-medium text-muted-foreground truncate">Overdue</p>
+                <p className="text-xl md:text-2xl font-bold">{overdueTaskIds.size}</p>
               </div>
             </div>
           </CardContent>
@@ -1041,12 +1041,12 @@ const TaskManagement = () => {
           className={`cursor-pointer transition-all hover:shadow-md ${statusFilter === 'cancelled' ? 'ring-2 ring-muted-foreground border-muted-foreground' : ''}`}
           onClick={() => setStatusFilter(prev => prev === 'cancelled' ? 'all' : 'cancelled')}
         >
-          <CardContent className="p-6">
+          <CardContent className="p-3 md:p-6">
             <div className="flex items-center">
-              <XCircle className="h-8 w-8 text-muted-foreground" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-muted-foreground">Cancelled</p>
-                <p className="text-2xl font-bold">{tasks.filter(t => t.status === 'cancelled').length}</p>
+              <XCircle className="h-6 w-6 md:h-8 md:w-8 text-muted-foreground shrink-0" />
+              <div className="ml-2 md:ml-4 min-w-0">
+                <p className="text-xs md:text-sm font-medium text-muted-foreground truncate">Cancelled</p>
+                <p className="text-xl md:text-2xl font-bold">{tasks.filter(t => t.status === 'cancelled').length}</p>
               </div>
             </div>
           </CardContent>
@@ -1054,14 +1054,14 @@ const TaskManagement = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4 items-center">
+      <div className="flex flex-wrap gap-2 md:gap-4 items-center">
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4" />
           <span className="text-sm font-medium">Filters:</span>
         </div>
         
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-[calc(50%-0.5rem)] md:w-40 min-h-[44px]">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -1075,7 +1075,7 @@ const TaskManagement = () => {
         </Select>
         
         <Select value={priorityFilter} onValueChange={setPriorityFilter}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-[calc(50%-0.5rem)] md:w-40 min-h-[44px]">
             <SelectValue placeholder="Priority" />
           </SelectTrigger>
           <SelectContent>
@@ -1089,7 +1089,7 @@ const TaskManagement = () => {
       </div>
 
       {/* Tasks List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
         {sortedTasks.map((task) => {
           const isOverdue = overdueTaskIds.has(task.id);
           const isAwaitingVerification = task.status === 'completed' && !task.actual_completed_at;
