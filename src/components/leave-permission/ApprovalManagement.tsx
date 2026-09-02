@@ -203,7 +203,7 @@ const ApprovalManagement = () => {
 
   return (
     <>
-      <div className="container mx-auto p-4 md:p-6 space-y-6">
+      <div className="container mx-auto p-3 md:p-6 space-y-4 md:space-y-6 pb-20 md:pb-6">
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold mb-1">Leave Management Dashboard</h1>
@@ -211,7 +211,7 @@ const ApprovalManagement = () => {
               Review, manage and audit all leave and permission applications
             </p>
           </div>
-          <Button variant="outline" size="sm" onClick={loadApplications} disabled={loading}>
+          <Button variant="outline" size="sm" className="w-full md:w-auto min-h-[40px]" onClick={loadApplications} disabled={loading}>
             <RefreshCw className={`h-4 w-4 mr-1 ${loading ? "animate-spin" : ""}`} />
             Refresh
           </Button>
@@ -227,10 +227,10 @@ const ApprovalManagement = () => {
                 <CardDescription>Filtered results across all applications</CardDescription>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={handleExport}>
+                <Button variant="outline" size="sm" className="flex-1 md:flex-none min-h-[40px]" onClick={handleExport}>
                   <Download className="h-4 w-4 mr-1" />Excel
                 </Button>
-                <Button variant="outline" size="sm" onClick={handlePrint}>
+                <Button variant="outline" size="sm" className="flex-1 md:flex-none min-h-[40px]" onClick={handlePrint}>
                   <Printer className="h-4 w-4 mr-1" />Print
                 </Button>
               </div>
@@ -238,14 +238,16 @@ const ApprovalManagement = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="flex flex-wrap h-auto">
-                <TabsTrigger value="pending">Pending</TabsTrigger>
-                <TabsTrigger value="approved">Approved</TabsTrigger>
-                <TabsTrigger value="rejected">Rejected</TabsTrigger>
-                <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
-                <TabsTrigger value="onleave">On Leave Today</TabsTrigger>
-                <TabsTrigger value="all">All</TabsTrigger>
-              </TabsList>
+              <div className="-mx-2 px-2 overflow-x-auto">
+                <TabsList className="inline-flex md:flex md:flex-wrap h-auto w-max md:w-auto">
+                  <TabsTrigger value="pending" className="min-h-[40px] whitespace-nowrap">Pending</TabsTrigger>
+                  <TabsTrigger value="approved" className="min-h-[40px] whitespace-nowrap">Approved</TabsTrigger>
+                  <TabsTrigger value="rejected" className="min-h-[40px] whitespace-nowrap">Rejected</TabsTrigger>
+                  <TabsTrigger value="cancelled" className="min-h-[40px] whitespace-nowrap">Cancelled</TabsTrigger>
+                  <TabsTrigger value="onleave" className="min-h-[40px] whitespace-nowrap">On Leave Today</TabsTrigger>
+                  <TabsTrigger value="all" className="min-h-[40px] whitespace-nowrap">All</TabsTrigger>
+                </TabsList>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mt-4">
                 <div className="relative md:col-span-2">
@@ -265,7 +267,7 @@ const ApprovalManagement = () => {
                     <SelectItem value="permission">Permission</SelectItem>
                   </SelectContent>
                 </Select>
-                <div className="flex items-center gap-2">
+                <div className="grid grid-cols-2 gap-2 items-center">
                   <Input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} title="Applied from" />
                   <Input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} title="Applied to" />
                 </div>
