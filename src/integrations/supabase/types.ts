@@ -4585,6 +4585,7 @@ export type Database = {
         | "duty_medical_officer"
         | "house_keeping"
         | "electrician"
+        | "staff_manager"
       task_status:
         | "pending"
         | "in_progress"
@@ -4854,6 +4855,7 @@ export const Constants = {
         "duty_medical_officer",
         "house_keeping",
         "electrician",
+        "staff_manager",
       ],
       task_status: [
         "pending",
