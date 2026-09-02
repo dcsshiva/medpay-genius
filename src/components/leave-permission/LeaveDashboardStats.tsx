@@ -43,11 +43,11 @@ const LeaveDashboardStats = ({ stats, activeTab, onSelect }: Props) => (
             active && "ring-2 ring-primary"
           )}
         >
-          <CardContent className="p-4">
+          <CardContent className="p-3 md:p-4">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground truncate">{it.label}</p>
-                <p className="text-2xl font-bold mt-1">{stats[it.key as keyof LeaveStats]}</p>
+                <p className="text-xl md:text-2xl font-bold mt-1">{stats[it.key as keyof LeaveStats]}</p>
               </div>
               <div className={cn("p-2 rounded-md shrink-0", it.tone)}>
                 <Icon className="h-4 w-4" />
