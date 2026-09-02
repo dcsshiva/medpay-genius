@@ -497,7 +497,7 @@ const ComplaintManagement = () => {
     return (
       <div className="space-y-6">
         <h1 className="text-3xl font-bold text-foreground">Complaint Management</h1>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
           {[1, 2, 3].map((i) => (
             <Card key={i}>
               <CardContent className="p-6">
@@ -515,10 +515,10 @@ const ComplaintManagement = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 md:space-y-6 p-3 md:p-0 pb-20 md:pb-0">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Complaint Management</h1>
+          <h1 className="text-2xl md:text-3xl font-bold text-foreground">Complaint Management</h1>
           <p className="text-muted-foreground">
             {userRole === 'admin' 
               ? 'Manage and respond to staff complaints'
@@ -529,13 +529,13 @@ const ComplaintManagement = () => {
         
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button onClick={resetForm}>
+            <Button onClick={resetForm} className="w-full md:w-auto min-h-[44px]">
               <Plus className="h-4 w-4 mr-2" />
               Submit Complaint
             </Button>
           </DialogTrigger>
           <DialogContent 
-            className="max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
+            className="max-w-[95vw] md:max-w-2xl max-h-[90vh] md:max-h-[85vh] flex flex-col overflow-hidden"
             hasUnsavedChanges={formData.complaint_title.trim() !== '' || formData.complaint_description.trim() !== '' || formData.submitted_to !== ''}
             onConfirmClose={() => { resetForm(); setDialogOpen(false); }}
           >
@@ -709,86 +709,86 @@ const ComplaintManagement = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 md:gap-4">
         <Card className={`border-orange-200 bg-orange-50 cursor-pointer transition-all hover:shadow-md ${statusFilter === 'open' ? 'ring-2 ring-orange-400' : ''}`} onClick={() => setStatusFilter(prev => prev === 'open' ? 'all' : 'open')}>
-          <CardContent className="p-4">
+          <CardContent className="p-3 md:p-4">
             <div className="flex items-center">
-              <AlertTriangle className="h-7 w-7 text-orange-600" />
-              <div className="ml-3">
-                <p className="text-xs font-medium text-orange-700">Open</p>
-                <p className="text-xl font-bold text-orange-800">{complaints.filter(c => c.status === 'open').length}</p>
+              <AlertTriangle className="h-5 w-5 md:h-7 md:w-7 text-orange-600 shrink-0" />
+              <div className="ml-2 md:ml-3 min-w-0">
+                <p className="text-[11px] md:text-xs font-medium text-orange-700 truncate">Open</p>
+                <p className="text-lg md:text-xl font-bold text-orange-800">{complaints.filter(c => c.status === 'open').length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
         <Card className={`border-blue-200 bg-blue-50 cursor-pointer transition-all hover:shadow-md ${statusFilter === 'taken' ? 'ring-2 ring-blue-400' : ''}`} onClick={() => setStatusFilter(prev => prev === 'taken' ? 'all' : 'taken')}>
-          <CardContent className="p-4">
+          <CardContent className="p-3 md:p-4">
             <div className="flex items-center">
-              <User className="h-7 w-7 text-blue-600" />
-              <div className="ml-3">
-                <p className="text-xs font-medium text-blue-700">Action Taken</p>
-                <p className="text-xl font-bold text-blue-800">{complaints.filter(c => c.status === 'taken').length}</p>
+              <User className="h-5 w-5 md:h-7 md:w-7 text-blue-600 shrink-0" />
+              <div className="ml-2 md:ml-3 min-w-0">
+                <p className="text-[11px] md:text-xs font-medium text-blue-700 truncate">Action Taken</p>
+                <p className="text-lg md:text-xl font-bold text-blue-800">{complaints.filter(c => c.status === 'taken').length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
         <Card className={`border-yellow-200 bg-yellow-50 cursor-pointer transition-all hover:shadow-md ${statusFilter === 'in_progress' ? 'ring-2 ring-yellow-400' : ''}`} onClick={() => setStatusFilter(prev => prev === 'in_progress' ? 'all' : 'in_progress')}>
-          <CardContent className="p-4">
+          <CardContent className="p-3 md:p-4">
             <div className="flex items-center">
-              <Clock className="h-7 w-7 text-yellow-600" />
-              <div className="ml-3">
-                <p className="text-xs font-medium text-yellow-700">In Progress</p>
-                <p className="text-xl font-bold text-yellow-800">{complaints.filter(c => c.status === 'in_progress').length}</p>
+              <Clock className="h-5 w-5 md:h-7 md:w-7 text-yellow-600 shrink-0" />
+              <div className="ml-2 md:ml-3 min-w-0">
+                <p className="text-[11px] md:text-xs font-medium text-yellow-700 truncate">In Progress</p>
+                <p className="text-lg md:text-xl font-bold text-yellow-800">{complaints.filter(c => c.status === 'in_progress').length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
         <Card className={`border-green-200 bg-green-50 cursor-pointer transition-all hover:shadow-md ${statusFilter === 'solved' ? 'ring-2 ring-green-400' : ''}`} onClick={() => setStatusFilter(prev => prev === 'solved' ? 'all' : 'solved')}>
-          <CardContent className="p-4">
+          <CardContent className="p-3 md:p-4">
             <div className="flex items-center">
-              <CheckCircle className="h-7 w-7 text-green-600" />
-              <div className="ml-3">
-                <p className="text-xs font-medium text-green-700">Solved</p>
-                <p className="text-xl font-bold text-green-800">{complaints.filter(c => c.status === 'solved').length}</p>
+              <CheckCircle className="h-5 w-5 md:h-7 md:w-7 text-green-600 shrink-0" />
+              <div className="ml-2 md:ml-3 min-w-0">
+                <p className="text-[11px] md:text-xs font-medium text-green-700 truncate">Solved</p>
+                <p className="text-lg md:text-xl font-bold text-green-800">{complaints.filter(c => c.status === 'solved').length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className={`border-emerald-200 bg-emerald-50 cursor-pointer transition-all hover:shadow-md ${statusFilter === 'closed' ? 'ring-2 ring-emerald-400' : ''}`} onClick={() => setStatusFilter(prev => prev === 'closed' ? 'all' : 'closed')}>
-          <CardContent className="p-4">
+          <CardContent className="p-3 md:p-4">
             <div className="flex items-center">
-              <Lock className="h-7 w-7 text-emerald-600" />
-              <div className="ml-3">
-                <p className="text-xs font-medium text-emerald-700">Closed</p>
-                <p className="text-xl font-bold text-emerald-800">{complaints.filter(c => c.status === 'closed').length}</p>
+              <Lock className="h-5 w-5 md:h-7 md:w-7 text-emerald-600 shrink-0" />
+              <div className="ml-2 md:ml-3 min-w-0">
+                <p className="text-[11px] md:text-xs font-medium text-emerald-700 truncate">Closed</p>
+                <p className="text-lg md:text-xl font-bold text-emerald-800">{complaints.filter(c => c.status === 'closed').length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
         
         <Card className={`border-gray-200 bg-gray-50 cursor-pointer transition-all hover:shadow-md ${statusFilter === 'in_review' ? 'ring-2 ring-gray-400' : ''}`} onClick={() => setStatusFilter(prev => prev === 'in_review' ? 'all' : 'in_review')}>
-          <CardContent className="p-4">
+          <CardContent className="p-3 md:p-4">
             <div className="flex items-center">
-              <MessageCircle className="h-7 w-7 text-gray-600" />
-              <div className="ml-3">
-                <p className="text-xs font-medium text-gray-700">Under Review</p>
-                <p className="text-xl font-bold text-gray-800">{complaints.filter(c => c.status === 'in_review').length}</p>
+              <MessageCircle className="h-5 w-5 md:h-7 md:w-7 text-gray-600 shrink-0" />
+              <div className="ml-2 md:ml-3 min-w-0">
+                <p className="text-[11px] md:text-xs font-medium text-gray-700 truncate">Under Review</p>
+                <p className="text-lg md:text-xl font-bold text-gray-800">{complaints.filter(c => c.status === 'in_review').length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card className={`border-purple-200 bg-purple-50 cursor-pointer transition-all hover:shadow-md ${statusFilter === 'resolved' ? 'ring-2 ring-purple-400' : ''}`} onClick={() => setStatusFilter(prev => prev === 'resolved' ? 'all' : 'resolved')}>
-          <CardContent className="p-4">
+          <CardContent className="p-3 md:p-4">
             <div className="flex items-center">
-              <CheckCircle className="h-7 w-7 text-purple-600" />
-              <div className="ml-3">
-                <p className="text-xs font-medium text-purple-700">Resolved</p>
-                <p className="text-xl font-bold text-purple-800">{complaints.filter(c => c.status === 'resolved').length}</p>
+              <CheckCircle className="h-5 w-5 md:h-7 md:w-7 text-purple-600 shrink-0" />
+              <div className="ml-2 md:ml-3 min-w-0">
+                <p className="text-[11px] md:text-xs font-medium text-purple-700 truncate">Resolved</p>
+                <p className="text-lg md:text-xl font-bold text-purple-800">{complaints.filter(c => c.status === 'resolved').length}</p>
               </div>
             </div>
           </CardContent>
@@ -796,7 +796,7 @@ const ComplaintManagement = () => {
       </div>
 
       {/* Filters */}
-      <div className="flex gap-4 items-center flex-wrap">
+      <div className="flex gap-2 md:gap-4 items-center flex-wrap">
         <div className="flex items-center gap-2">
           <Filter className="h-4 w-4" />
           <span className="text-sm font-medium">Filters:</span>
@@ -827,7 +827,7 @@ const ComplaintManagement = () => {
         />
         
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-[calc(50%-0.5rem)] md:w-40 min-h-[44px]">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
@@ -843,7 +843,7 @@ const ComplaintManagement = () => {
         </Select>
         
         <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-[calc(50%-0.5rem)] md:w-40 min-h-[44px]">
             <SelectValue placeholder="Category" />
           </SelectTrigger>
           <SelectContent>
@@ -858,7 +858,7 @@ const ComplaintManagement = () => {
       </div>
 
       {/* Complaints List */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-6">
         {filteredComplaints.map((complaint) => (
           <Card key={complaint.id} className={`transition-all ${complaint.status === 'closed' ? 'opacity-75' : ''}`}>
             <CardHeader className="pb-3">
