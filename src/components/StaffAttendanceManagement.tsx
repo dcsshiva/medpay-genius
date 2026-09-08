@@ -443,15 +443,27 @@ const StaffAttendanceManagement: React.FC = () => {
       }
 
       let success = 0;
-      for (const record of upserts) {
-        const { error } = await supabase.from('staff_daily_activities').upsert(record, {
-          onConflict: 'staff_id,activity_date',
-        });
-        if (error) { skipped++; continue; }
-        success++;
+      if (range) {
+        // batch upserts — a month × 60 staff is ~1,800 rows
+        for (let i = 0; i < upserts.length; i += 200) {
+          const chunk = upserts.slice(i, i + 200);
+          const { error } = await supabase.from('staff_daily_activities').upsert(chunk, {
+            onConflict: 'staff_id,activity_date',
+          });
+          if (error) { skipped += chunk.length; continue; }
+          success += chunk.length;
+        }
+      } else {
+        for (const record of upserts) {
+          const { error } = await supabase.from('staff_daily_activities').upsert(record, {
+            onConflict: 'staff_id,activity_date',
+          });
+          if (error) { skipped++; continue; }
+          success++;
+        }
       }
 
-      if (punch && targetDate !== selectedDate) setSelectedDate(targetDate);
+      if ((punch || range) && targetDate !== selectedDate) setSelectedDate(targetDate);
 
       const descParts: string[] = [];
       if (createdStaff.length) {
@@ -464,9 +476,12 @@ const StaffAttendanceManagement: React.FC = () => {
       }
 
       toast.success(
-        `${punch ? 'Punch file' : 'Template'} imported: ${success} record(s) for ${targetDate}${skipped ? `, ${skipped} skipped` : ''}`,
+        range
+          ? `Range report imported: ${success} record(s) for ${range.length} staff (${rangeFrom} to ${rangeTo})${skipped ? `, ${skipped} skipped` : ''}`
+          : `${punch ? 'Punch file' : 'Template'} imported: ${success} record(s) for ${targetDate}${skipped ? `, ${skipped} skipped` : ''}`,
         descParts.length ? { description: descParts.join(' ') } : undefined
       );
+
 
       fetchData();
     } catch (err: any) {
