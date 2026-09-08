@@ -556,8 +556,9 @@ const StaffAttendanceManagement: React.FC = () => {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                Import accepts our template (first sample row is ignored) or a biometric “Employee Punch Monitor” export —
-                the punch date, first/last punch and Present/Late/Absent status are detected automatically using each staff member's biometric code.
+                Import accepts our template (first sample row is ignored), a single-day biometric “Employee Punch Monitor” export,
+                or a multi-day “Daily Attendance Report (Summary Report)” covering a full week or month — the format is detected
+                automatically and staff are matched by their biometric code, then by name.
               </p>
             </CardHeader>
 
