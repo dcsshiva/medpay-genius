@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/lib/auth';
+import { isManagerLike } from '@/lib/accessLevels';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { getStaffId } from '@/lib/staffUtils';
@@ -79,7 +80,8 @@ interface StaffMember {
 }
 
 const ComplaintManagement = () => {
-  const { userRole, user } = useAuth();
+  const { userRole, userDesignation, user } = useAuth();
+  const canManageComplaints = isManagerLike(userRole, userDesignation);
   const { toast } = useToast();
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
@@ -355,11 +357,11 @@ const ComplaintManagement = () => {
   const handleStatusChangeConfirm = async () => {
     if (!statusChangeTarget || !statusChangeNotes.trim() || submitting) return;
     
-    if (!['admin', 'manager'].includes(userRole || '')) {
+    if (!canManageComplaints) {
       toast({
         variant: "destructive",
         title: "Access Denied",
-        description: "Only admins and managers can update complaint status"
+        description: "You do not have permission to update complaint status"
       });
       return;
     }
@@ -520,7 +522,7 @@ const ComplaintManagement = () => {
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-foreground">Complaint Management</h1>
           <p className="text-muted-foreground">
-            {userRole === 'admin' 
+            {canManageComplaints 
               ? 'Manage and respond to staff complaints'
               : 'Submit and track your complaints'
             }
@@ -592,7 +594,7 @@ const ComplaintManagement = () => {
                       </SelectTrigger>
                       <SelectContent>
                         {staffList
-                          .filter(s => ['admin', 'manager'].includes(s.role))
+                          .filter(s => ['admin', 'manager', 'staff_manager'].includes(s.role))
                           .map((staff) => (
                             <SelectItem key={staff.id} value={staff.id}>
                               {staff.full_name} ({staff.staff_code}) - {staff.role}
@@ -950,7 +952,7 @@ const ComplaintManagement = () => {
               )}
 
               {/* Admin/Manager Actions - All go through status change dialog with required notes */}
-              {(userRole === 'admin' || userRole === 'manager') && (
+              {canManageComplaints && (
                 <div className="flex flex-wrap gap-2">
                   {complaint.status === 'open' && (
                     <>
