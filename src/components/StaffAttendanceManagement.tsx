@@ -311,15 +311,63 @@ const StaffAttendanceManagement: React.FC = () => {
       const grid: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false, defval: '' });
 
       const punch = parsePunchSheet(grid);
+      const range = punch ? null : parseRangeSummarySheet(grid);
       const upserts: any[] = [];
       let skipped = 0;
       const unmatched: string[] = [];
       const createdStaff: string[] = [];
 
       let targetDate = selectedDate;
+      let rangeFrom = '';
+      let rangeTo = '';
 
-      if (punch) {
+      if (range) {
+        // ---- Multi-day summary report ----
+        const byBiometric: Record<string, string> = {};
+        const byName: Record<string, string> = {};
+        staffList.forEach(s => {
+          const bio = String(s.biometric_code ?? '').trim().toLowerCase();
+          if (bio) byBiometric[bio] = s.id;
+          byName[norm(s.full_name)] = s.id;
+        });
+
+        for (const block of range) {
+          let staffId = byBiometric[block.empCode.toLowerCase()] || byName[norm(block.name)];
+
+          if (!staffId) {
+            const { data: newId, error: createErr } = await supabase.rpc(
+              'create_placeholder_staff_from_biometric',
+              { _biometric_code: block.empCode, _full_name: block.name || null },
+            );
+            if (createErr || !newId) {
+              skipped += block.days.length;
+              if (unmatched.length < 8) unmatched.push(`${block.empCode} ${block.name}`.trim());
+              continue;
+            }
+            staffId = newId as string;
+            byBiometric[block.empCode.toLowerCase()] = staffId;
+            createdStaff.push(`${block.empCode} ${block.name}`.trim());
+          }
+
+          for (const day of block.days) {
+            if (!rangeFrom || day.date < rangeFrom) rangeFrom = day.date;
+            if (!rangeTo || day.date > rangeTo) rangeTo = day.date;
+            const start = /^\d{1,2}:\d{2}/.test(day.inTime) ? day.inTime.slice(0, 5) : null;
+            const end = /^\d{1,2}:\d{2}/.test(day.outTime) ? day.outTime.slice(0, 5) : null;
+            upserts.push({
+              staff_id: staffId,
+              activity_date: day.date,
+              attendance_status: mapRangeStatus(day.status, day.inTime),
+              shift_start_time: start,
+              shift_end_time: end,
+              recorded_by: user?.id,
+            });
+          }
+        }
+        if (rangeTo) targetDate = rangeTo;
+      } else if (punch) {
         // ---- Biometric punch file ----
+
         if (punch.punchDate) targetDate = punch.punchDate;
 
         const byBiometric: Record<string, string> = {};
