@@ -21,3 +21,16 @@ export const hasFullAccess = (
   role?: string | null,
   designation?: string | null,
 ): boolean => isSuperAdmin(role, designation) || isAdminTier(role, designation);
+
+/**
+ * People-management tier: manager, supervisor and staff_manager.
+ * Grants tasks / complaints / leave-approval powers (NOT payment screens).
+ * Admin tiers are included since they always have full access.
+ */
+export const isManagerLike = (
+  role?: string | null,
+  designation?: string | null,
+): boolean =>
+  hasFullAccess(role, designation) ||
+  ['manager', 'supervisor', 'staff_manager'].includes(role || '') ||
+  ['manager', 'supervisor'].includes(designation || '');

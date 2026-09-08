@@ -128,7 +128,7 @@ const StaffAttendanceReports: React.FC = () => {
             .select('staff_id, attendance_status, activity_date, shift_start_time, shift_end_time')
             .gte('activity_date', fromDate)
             .lte('activity_date', toDate)
-            .order('activity_date')
+            .order('activity_date') as any
         ),
       ]);
 
