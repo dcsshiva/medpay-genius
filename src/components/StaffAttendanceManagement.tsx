@@ -216,6 +216,88 @@ const StaffAttendanceManagement: React.FC = () => {
 
     return records.length ? { punchDate, records } : null;
   };
+  /**
+   * Detects and parses a multi-day "Daily Attendance Report (Summary Report)" export.
+   * Layout: repeated blocks of
+   *   Employee Code: <code>  Employee Name : <name>
+   *   Date | InTime | OutTime | Shift | Total Duration | Status
+   *   <one row per date …>
+   *   Total Duration=… , PresentDays=… (block footer)
+   */
+  const parseRangeSummarySheet = (grid: any[][]) => {
+    type Day = { date: string; inTime: string; outTime: string; status: string };
+    const blocks: { empCode: string; name: string; days: Day[] }[] = [];
+
+    const cells = (r: number) => (grid[r] || []).map(c => String(c ?? '').trim());
+
+    for (let r = 0; r < grid.length; r++) {
+      const row = cells(r);
+      const codeIdx = row.findIndex(c => /^employee\s*code\s*:?$/i.test(c));
+      if (codeIdx < 0) continue;
+
+      // employee code = first non-empty cell to the right
+      let empCode = '';
+      let nameLabelIdx = -1;
+      for (let c = codeIdx + 1; c < row.length; c++) {
+        if (/^employee\s*name\s*:?$/i.test(row[c])) { nameLabelIdx = c; break; }
+        if (!empCode && row[c]) empCode = row[c];
+      }
+      let name = '';
+      if (nameLabelIdx >= 0) {
+        for (let c = nameLabelIdx + 1; c < row.length; c++) {
+          if (row[c]) { name = row[c]; break; }
+        }
+      }
+      if (!empCode) continue;
+
+      // locate the column header row for this block
+      let headerIdx = -1;
+      for (let h = r + 1; h < Math.min(r + 5, grid.length); h++) {
+        if (cells(h).some(c => /^date$/i.test(c))) { headerIdx = h; break; }
+      }
+      if (headerIdx === -1) continue;
+
+      const hdr = cells(headerIdx);
+      const col = (re: RegExp) => hdr.findIndex(c => re.test(c));
+      const dateCol = col(/^date$/i);
+      const inCol = col(/^in\s*time$/i);
+      const outCol = col(/^out\s*time$/i);
+      const statusCol = col(/^status$/i);
+
+      const days: Day[] = [];
+      let rr = headerIdx + 1;
+      for (; rr < grid.length; rr++) {
+        const dr = cells(rr);
+        const joined = dr.join(' ');
+        if (/employee\s*code\s*:?/i.test(joined)) break;
+        if (/total\s*duration\s*=/i.test(joined)) break;
+        const iso = excelDateToISO(dr[dateCol]);
+        if (!iso) continue;
+        days.push({
+          date: iso,
+          inTime: inCol >= 0 ? dr[inCol] : '',
+          outTime: outCol >= 0 ? dr[outCol] : '',
+          status: statusCol >= 0 ? dr[statusCol] : '',
+        });
+      }
+
+      if (days.length) blocks.push({ empCode, name, days });
+      r = rr - 1;
+    }
+
+    return blocks.length ? blocks : null;
+  };
+
+  /** Maps a summary-report status + punch times to our attendance status. */
+  const mapRangeStatus = (rawStatus: string, inTime: string): string => {
+    const s = rawStatus.toLowerCase();
+    const punched = /^\d{1,2}:\d{2}/.test(inTime);
+    if (s.includes('half')) return 'half_day';
+    if (s.includes('holiday') || s.includes('leave')) return 'leave';
+    if (punched) return inTime.slice(0, 5) > lateAfter ? 'late' : 'present';
+    return 'absent';
+  };
+
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -229,15 +311,63 @@ const StaffAttendanceManagement: React.FC = () => {
       const grid: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false, defval: '' });
 
       const punch = parsePunchSheet(grid);
+      const range = punch ? null : parseRangeSummarySheet(grid);
       const upserts: any[] = [];
       let skipped = 0;
       const unmatched: string[] = [];
       const createdStaff: string[] = [];
 
       let targetDate = selectedDate;
+      let rangeFrom = '';
+      let rangeTo = '';
 
-      if (punch) {
+      if (range) {
+        // ---- Multi-day summary report ----
+        const byBiometric: Record<string, string> = {};
+        const byName: Record<string, string> = {};
+        staffList.forEach(s => {
+          const bio = String(s.biometric_code ?? '').trim().toLowerCase();
+          if (bio) byBiometric[bio] = s.id;
+          byName[norm(s.full_name)] = s.id;
+        });
+
+        for (const block of range) {
+          let staffId = byBiometric[block.empCode.toLowerCase()] || byName[norm(block.name)];
+
+          if (!staffId) {
+            const { data: newId, error: createErr } = await supabase.rpc(
+              'create_placeholder_staff_from_biometric',
+              { _biometric_code: block.empCode, _full_name: block.name || null },
+            );
+            if (createErr || !newId) {
+              skipped += block.days.length;
+              if (unmatched.length < 8) unmatched.push(`${block.empCode} ${block.name}`.trim());
+              continue;
+            }
+            staffId = newId as string;
+            byBiometric[block.empCode.toLowerCase()] = staffId;
+            createdStaff.push(`${block.empCode} ${block.name}`.trim());
+          }
+
+          for (const day of block.days) {
+            if (!rangeFrom || day.date < rangeFrom) rangeFrom = day.date;
+            if (!rangeTo || day.date > rangeTo) rangeTo = day.date;
+            const start = /^\d{1,2}:\d{2}/.test(day.inTime) ? day.inTime.slice(0, 5) : null;
+            const end = /^\d{1,2}:\d{2}/.test(day.outTime) ? day.outTime.slice(0, 5) : null;
+            upserts.push({
+              staff_id: staffId,
+              activity_date: day.date,
+              attendance_status: mapRangeStatus(day.status, day.inTime),
+              shift_start_time: start,
+              shift_end_time: end,
+              recorded_by: user?.id,
+            });
+          }
+        }
+        if (rangeTo) targetDate = rangeTo;
+      } else if (punch) {
         // ---- Biometric punch file ----
+
         if (punch.punchDate) targetDate = punch.punchDate;
 
         const byBiometric: Record<string, string> = {};
@@ -313,15 +443,27 @@ const StaffAttendanceManagement: React.FC = () => {
       }
 
       let success = 0;
-      for (const record of upserts) {
-        const { error } = await supabase.from('staff_daily_activities').upsert(record, {
-          onConflict: 'staff_id,activity_date',
-        });
-        if (error) { skipped++; continue; }
-        success++;
+      if (range) {
+        // batch upserts — a month × 60 staff is ~1,800 rows
+        for (let i = 0; i < upserts.length; i += 200) {
+          const chunk = upserts.slice(i, i + 200);
+          const { error } = await supabase.from('staff_daily_activities').upsert(chunk, {
+            onConflict: 'staff_id,activity_date',
+          });
+          if (error) { skipped += chunk.length; continue; }
+          success += chunk.length;
+        }
+      } else {
+        for (const record of upserts) {
+          const { error } = await supabase.from('staff_daily_activities').upsert(record, {
+            onConflict: 'staff_id,activity_date',
+          });
+          if (error) { skipped++; continue; }
+          success++;
+        }
       }
 
-      if (punch && targetDate !== selectedDate) setSelectedDate(targetDate);
+      if ((punch || range) && targetDate !== selectedDate) setSelectedDate(targetDate);
 
       const descParts: string[] = [];
       if (createdStaff.length) {
@@ -334,9 +476,12 @@ const StaffAttendanceManagement: React.FC = () => {
       }
 
       toast.success(
-        `${punch ? 'Punch file' : 'Template'} imported: ${success} record(s) for ${targetDate}${skipped ? `, ${skipped} skipped` : ''}`,
+        range
+          ? `Range report imported: ${success} record(s) for ${range.length} staff (${rangeFrom} to ${rangeTo})${skipped ? `, ${skipped} skipped` : ''}`
+          : `${punch ? 'Punch file' : 'Template'} imported: ${success} record(s) for ${targetDate}${skipped ? `, ${skipped} skipped` : ''}`,
         descParts.length ? { description: descParts.join(' ') } : undefined
       );
+
 
       fetchData();
     } catch (err: any) {
@@ -411,8 +556,9 @@ const StaffAttendanceManagement: React.FC = () => {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
-                Import accepts our template (first sample row is ignored) or a biometric “Employee Punch Monitor” export —
-                the punch date, first/last punch and Present/Late/Absent status are detected automatically using each staff member's biometric code.
+                Import accepts our template (first sample row is ignored), a single-day biometric “Employee Punch Monitor” export,
+                or a multi-day “Daily Attendance Report (Summary Report)” covering a full week or month — the format is detected
+                automatically and staff are matched by their biometric code, then by name.
               </p>
             </CardHeader>
 
