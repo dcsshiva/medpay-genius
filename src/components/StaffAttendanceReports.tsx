@@ -121,7 +121,7 @@ const StaffAttendanceReports: React.FC = () => {
     setLoading(true);
     try {
       const [staffRes, attRows] = await Promise.all([
-        supabase.from('staff').select('id, staff_code, full_name, role, department').eq('is_active', true).order('staff_code'),
+        supabase.from('staff').select('id, staff_code, full_name, role, department').eq('is_active', true).not('biometric_code', 'is', null).order('staff_code'),
         fetchAllPaginated<AttendanceRow>(() =>
           supabase
             .from('staff_daily_activities')
