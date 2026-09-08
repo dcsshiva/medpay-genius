@@ -80,7 +80,7 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
         .single();
       if (staffError) throw staffError;
       setStaffId(staffData.id);
-      const isManager = staffData.role === "manager";
+      const isManager = ["manager", "staff_manager", "admin"].includes(staffData.role as string);
       setIsManagerRole(isManager);
 
       const { data: managersData, error: managersError } = await supabase.rpc("get_available_managers" as any);
