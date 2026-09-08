@@ -4362,6 +4362,7 @@ export type Database = {
         Args: { _token: string }
         Returns: undefined
       }
+      is_staff_manager: { Args: { _user_id: string }; Returns: boolean }
       link_profile_to_user: {
         Args: {
           _auth_user_id: string

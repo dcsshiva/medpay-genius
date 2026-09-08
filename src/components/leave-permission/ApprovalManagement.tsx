@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
+import { isManagerLike } from "@/lib/accessLevels";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,9 +29,9 @@ const TAB_LABELS: Record<string, string> = {
 };
 
 const ApprovalManagement = () => {
-  const { userDesignation } = useAuth();
-  const isAdmin = userDesignation === "admin" || userDesignation === "super_admin";
-  const isManager = userDesignation === "manager" || userDesignation === "supervisor";
+  const { userDesignation, userRole } = useAuth();
+  const isAdmin = userDesignation === "admin" || userDesignation === "super_admin" || userRole === "admin";
+  const isManager = !isAdmin && isManagerLike(userRole, userDesignation);
   const canAccess = isAdmin || isManager;
 
   const [applications, setApplications] = useState<LeaveRow[]>([]);

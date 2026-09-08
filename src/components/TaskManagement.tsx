@@ -12,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { getStaffId, isStaffRole, getStaffTasks } from '@/lib/staffUtils';
+import { isManagerLike } from '@/lib/accessLevels';
 import ReportGeneration from '@/components/ReportGeneration';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import ActivityTimeline from '@/components/ActivityTimeline';
@@ -65,7 +66,8 @@ interface Staff {
 }
 
 const TaskManagement = () => {
-  const { userRole, user } = useAuth();
+  const { userRole, userDesignation, user } = useAuth();
+  const canManageTasks = isManagerLike(userRole, userDesignation);
   const { toast } = useToast();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
@@ -158,16 +160,16 @@ const TaskManagement = () => {
 
   useEffect(() => {
     fetchTasks();
-    if (userRole === 'admin' || userRole === 'manager') {
+    if (canManageTasks) {
       fetchStaff();
     }
-  }, [userRole]);
+  }, [userRole, canManageTasks]);
 
   const fetchTasks = async () => {
     try {
       let data: Task[] = [];
 
-      if (isStaffRole(userRole)) {
+      if (!canManageTasks && isStaffRole(userRole)) {
         const staffId = await getStaffId(user);
         if (staffId) {
           data = await getStaffTasks(staffId);
@@ -234,7 +236,7 @@ const TaskManagement = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting) return;
-    if (userRole !== 'admin' && userRole !== 'manager') {
+    if (!canManageTasks) {
       toast({
         variant: "destructive",
         title: "Access Denied",
@@ -602,14 +604,14 @@ const TaskManagement = () => {
           <h1 className="text-2xl md:text-3xl font-bold text-foreground">Task Management</h1>
 
           <p className="text-muted-foreground">
-            {userRole === 'admin' || userRole === 'manager' 
+            {canManageTasks 
               ? 'Assign and manage tasks for hospital staff'
               : 'View and update your assigned tasks'
             }
           </p>
         </div>
         
-        {(userRole === 'admin' || userRole === 'manager') && (
+        {(canManageTasks) && (
           <div className="flex flex-wrap gap-2">
             <ReportGeneration
               title="Task Management"
@@ -824,7 +826,7 @@ const TaskManagement = () => {
                     <SelectValue placeholder="Select status" />
                   </SelectTrigger>
                   <SelectContent>
-                    {isStaffRole(userRole) ? (
+                    {(!canManageTasks && isStaffRole(userRole)) ? (
                       <>
                         <SelectItem value="in_progress">In Progress</SelectItem>
                         <SelectItem value="completed">Completed</SelectItem>
@@ -1175,7 +1177,7 @@ const TaskManagement = () => {
                 <div className="flex gap-2 flex-wrap">
                   {task.status !== 'cancelled' && (
                     <>
-                      {userRole === 'admin' || userRole === 'manager' ? (
+                      {canManageTasks ? (
                         <>
                           {task.status === 'pending' && (
                             <Button 
@@ -1216,7 +1218,7 @@ const TaskManagement = () => {
                         </>
                       ) : (
                         (() => {
-                          const staffAlreadyUpdated = isStaffRole(userRole) && task.status === 'completed' && task.updated_at;
+                          const staffAlreadyUpdated = !canManageTasks && isStaffRole(userRole) && task.status === 'completed' && task.updated_at;
                           return staffAlreadyUpdated ? (
                             <Button size="sm" disabled>
                               Updated
@@ -1235,7 +1237,7 @@ const TaskManagement = () => {
                   )}
 
                   {/* Verify Completion - only for admin/manager on completed tasks without actual_completed_at */}
-                  {isAwaitingVerification && (userRole === 'admin' || userRole === 'manager') && (
+                  {isAwaitingVerification && (canManageTasks) && (
                     <Button 
                       size="sm" 
                       variant="outline"
@@ -1274,7 +1276,7 @@ const TaskManagement = () => {
                 : "No tasks match your current filters."
               }
             </p>
-            {(userRole === 'admin' || userRole === 'manager') && tasks.length === 0 && (
+            {(canManageTasks) && tasks.length === 0 && (
               <Button onClick={() => setDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Create First Task
