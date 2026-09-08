@@ -216,6 +216,88 @@ const StaffAttendanceManagement: React.FC = () => {
 
     return records.length ? { punchDate, records } : null;
   };
+  /**
+   * Detects and parses a multi-day "Daily Attendance Report (Summary Report)" export.
+   * Layout: repeated blocks of
+   *   Employee Code: <code>  Employee Name : <name>
+   *   Date | InTime | OutTime | Shift | Total Duration | Status
+   *   <one row per date …>
+   *   Total Duration=… , PresentDays=… (block footer)
+   */
+  const parseRangeSummarySheet = (grid: any[][]) => {
+    type Day = { date: string; inTime: string; outTime: string; status: string };
+    const blocks: { empCode: string; name: string; days: Day[] }[] = [];
+
+    const cells = (r: number) => (grid[r] || []).map(c => String(c ?? '').trim());
+
+    for (let r = 0; r < grid.length; r++) {
+      const row = cells(r);
+      const codeIdx = row.findIndex(c => /^employee\s*code\s*:?$/i.test(c));
+      if (codeIdx < 0) continue;
+
+      // employee code = first non-empty cell to the right
+      let empCode = '';
+      let nameLabelIdx = -1;
+      for (let c = codeIdx + 1; c < row.length; c++) {
+        if (/^employee\s*name\s*:?$/i.test(row[c])) { nameLabelIdx = c; break; }
+        if (!empCode && row[c]) empCode = row[c];
+      }
+      let name = '';
+      if (nameLabelIdx >= 0) {
+        for (let c = nameLabelIdx + 1; c < row.length; c++) {
+          if (row[c]) { name = row[c]; break; }
+        }
+      }
+      if (!empCode) continue;
+
+      // locate the column header row for this block
+      let headerIdx = -1;
+      for (let h = r + 1; h < Math.min(r + 5, grid.length); h++) {
+        if (cells(h).some(c => /^date$/i.test(c))) { headerIdx = h; break; }
+      }
+      if (headerIdx === -1) continue;
+
+      const hdr = cells(headerIdx);
+      const col = (re: RegExp) => hdr.findIndex(c => re.test(c));
+      const dateCol = col(/^date$/i);
+      const inCol = col(/^in\s*time$/i);
+      const outCol = col(/^out\s*time$/i);
+      const statusCol = col(/^status$/i);
+
+      const days: Day[] = [];
+      let rr = headerIdx + 1;
+      for (; rr < grid.length; rr++) {
+        const dr = cells(rr);
+        const joined = dr.join(' ');
+        if (/employee\s*code\s*:?/i.test(joined)) break;
+        if (/total\s*duration\s*=/i.test(joined)) break;
+        const iso = excelDateToISO(dr[dateCol]);
+        if (!iso) continue;
+        days.push({
+          date: iso,
+          inTime: inCol >= 0 ? dr[inCol] : '',
+          outTime: outCol >= 0 ? dr[outCol] : '',
+          status: statusCol >= 0 ? dr[statusCol] : '',
+        });
+      }
+
+      if (days.length) blocks.push({ empCode, name, days });
+      r = rr - 1;
+    }
+
+    return blocks.length ? blocks : null;
+  };
+
+  /** Maps a summary-report status + punch times to our attendance status. */
+  const mapRangeStatus = (rawStatus: string, inTime: string): string => {
+    const s = rawStatus.toLowerCase();
+    const punched = /^\d{1,2}:\d{2}/.test(inTime);
+    if (s.includes('half')) return 'half_day';
+    if (s.includes('holiday') || s.includes('leave')) return 'leave';
+    if (punched) return inTime.slice(0, 5) > lateAfter ? 'late' : 'present';
+    return 'absent';
+  };
+
 
   const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
