@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { isManagerLike } from "@/lib/accessLevels";
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, ClipboardCheck, CalendarCheck, Wallet, Receipt, History, Layers, Building2 } from "lucide-react";
