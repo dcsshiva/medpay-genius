@@ -7,6 +7,7 @@ import RolesTab from '@/components/masters/RolesTab';
 import DepartmentsTab from '@/components/masters/DepartmentsTab';
 import BranchesTab from '@/components/masters/BranchesTab';
 import LeaveReasonsTab from '@/components/masters/LeaveReasonsTab';
+import ShiftsTab from '@/components/masters/ShiftsTab';
 import PermissionReasonsTab from '@/components/masters/PermissionReasonsTab';
 import VisitReasonsTab from '@/components/masters/VisitReasonsTab';
 import InsuranceCompaniesTab from '@/components/masters/InsuranceCompaniesTab';
@@ -49,6 +50,7 @@ const MasterDataManagement = () => {
             <TabsTrigger value="roles" className="text-xs sm:text-sm">Roles</TabsTrigger>
             <TabsTrigger value="departments" className="text-xs sm:text-sm">Departments</TabsTrigger>
             <TabsTrigger value="branches" className="text-xs sm:text-sm">Branches</TabsTrigger>
+            <TabsTrigger value="shifts" className="text-xs sm:text-sm">Shifts</TabsTrigger>
             <TabsTrigger value="leave-reasons" className="text-xs sm:text-sm">Leave Reasons</TabsTrigger>
             <TabsTrigger value="permission-reasons" className="text-xs sm:text-sm">Permission Reasons</TabsTrigger>
             <TabsTrigger value="visit-reasons" className="text-xs sm:text-sm">Visit Reasons</TabsTrigger>
@@ -71,6 +73,9 @@ const MasterDataManagement = () => {
         </TabsContent>
         <TabsContent value="branches" className="mt-6">
           <BranchesTab searchTerm={searchTerm} />
+        </TabsContent>
+        <TabsContent value="shifts" className="mt-6">
+          <ShiftsTab searchTerm={searchTerm} />
         </TabsContent>
         <TabsContent value="leave-reasons" className="mt-6">
           <LeaveReasonsTab searchTerm={searchTerm} />

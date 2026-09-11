@@ -12,6 +12,7 @@ import { Calendar, Download, Upload, Loader2, BarChart3 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import StaffAttendanceReports from './StaffAttendanceReports';
+import { useShiftDefinitions, resolveShift } from '@/lib/attendanceShifts';
 
 interface StaffRow {
   id: string;
@@ -27,6 +28,7 @@ interface AttendanceRecord {
   id?: string;
   staff_id: string;
   attendance_status: string;
+  shift_name?: string | null;
   shift_start_time: string | null;
   shift_end_time: string | null;
 }
@@ -46,7 +48,7 @@ const StaffAttendanceManagement: React.FC = () => {
   const [attendanceMap, setAttendanceMap] = useState<Record<string, AttendanceRecord>>({});
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
-  const [lateAfter, setLateAfter] = useState('09:15');
+  const { shifts } = useShiftDefinitions();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -59,7 +61,7 @@ const StaffAttendanceManagement: React.FC = () => {
     try {
       const [staffRes, attendanceRes] = await Promise.all([
         (supabase.from('staff') as any).select('*').eq('is_active', true).not('role', 'in', '(doctor,admin)').order('staff_code'),
-        supabase.from('staff_daily_activities').select('id, staff_id, attendance_status, shift_start_time, shift_end_time').eq('activity_date', selectedDate),
+        supabase.from('staff_daily_activities').select('id, staff_id, attendance_status, shift_name, shift_start_time, shift_end_time').eq('activity_date', selectedDate),
       ]);
 
       if (staffRes.error) throw staffRes.error;
@@ -73,6 +75,7 @@ const StaffAttendanceManagement: React.FC = () => {
           id: r.id,
           staff_id: r.staff_id,
           attendance_status: r.attendance_status,
+          shift_name: (r as any).shift_name,
           shift_start_time: r.shift_start_time,
           shift_end_time: r.shift_end_time,
         };
@@ -289,13 +292,19 @@ const StaffAttendanceManagement: React.FC = () => {
   };
 
   /** Maps a summary-report status + punch times to our attendance status. */
-  const mapRangeStatus = (rawStatus: string, inTime: string): string => {
+  const mapRangeStatus = (
+    rawStatus: string,
+    inTime: string,
+  ): { status: string; shiftName: string | null } => {
     const s = rawStatus.toLowerCase();
     const punched = /^\d{1,2}:\d{2}/.test(inTime);
-    if (s.includes('half')) return 'half_day';
-    if (s.includes('holiday') || s.includes('leave')) return 'leave';
-    if (punched) return inTime.slice(0, 5) > lateAfter ? 'late' : 'present';
-    return 'absent';
+    if (s.includes('half')) return { status: 'half_day', shiftName: null };
+    if (s.includes('holiday') || s.includes('leave')) return { status: 'leave', shiftName: null };
+    if (punched) {
+      const r = resolveShift(inTime, shifts);
+      return { status: r.isLate ? 'late' : 'present', shiftName: r.shiftName };
+    }
+    return { status: 'absent', shiftName: null };
   };
 
 
@@ -354,10 +363,12 @@ const StaffAttendanceManagement: React.FC = () => {
             if (!rangeTo || day.date > rangeTo) rangeTo = day.date;
             const start = /^\d{1,2}:\d{2}/.test(day.inTime) ? day.inTime.slice(0, 5) : null;
             const end = /^\d{1,2}:\d{2}/.test(day.outTime) ? day.outTime.slice(0, 5) : null;
+            const mapped = mapRangeStatus(day.status, day.inTime);
             upserts.push({
               staff_id: staffId,
               activity_date: day.date,
-              attendance_status: mapRangeStatus(day.status, day.inTime),
+              attendance_status: mapped.status,
+              shift_name: mapped.shiftName,
               shift_start_time: start,
               shift_end_time: end,
               recorded_by: user?.id,
@@ -402,8 +413,11 @@ const StaffAttendanceManagement: React.FC = () => {
           const start = rec.punches[0] || null;
           const end = rec.punches.length > 1 ? rec.punches[rec.punches.length - 1] : (rec.lastPunch || null);
           let status: string;
+          let shiftName: string | null = null;
           if (rec.punches.length || rec.lastPunch) {
-            status = start && start > lateAfter ? 'late' : 'present';
+            const r = resolveShift(start, shifts);
+            shiftName = r.shiftName;
+            status = r.isLate ? 'late' : 'present';
           } else {
             status = 'absent';
           }
@@ -412,6 +426,7 @@ const StaffAttendanceManagement: React.FC = () => {
             staff_id: staffId,
             activity_date: targetDate,
             attendance_status: status,
+            shift_name: shiftName,
             shift_start_time: start ? start.slice(0, 5) : null,
             shift_end_time: end ? end.slice(0, 5) : null,
             recorded_by: user?.id,
@@ -539,15 +554,21 @@ const StaffAttendanceManagement: React.FC = () => {
                   <Button variant="outline" size="sm" onClick={downloadTemplate}>
                     <Download className="h-4 w-4 mr-1" /> Template
                   </Button>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">Late after</span>
-                    <Input
-                      type="time"
-                      value={lateAfter}
-                      onChange={e => setLateAfter(e.target.value)}
-                      className="w-[110px] h-9 text-xs"
-                    />
-                  </div>
+                  {shifts.filter(s => s.is_active).length > 0 && (
+                    <div className="text-xs text-muted-foreground whitespace-nowrap">
+                      Late after:{' '}
+                      {shifts
+                        .filter(s => s.is_active)
+                        .map(s => {
+                          const [h, m] = s.start_time.slice(0, 5).split(':').map(Number);
+                          const t = (h * 60 + m + (s.grace_minutes || 0)) % 1440;
+                          const hh = String(Math.floor(t / 60)).padStart(2, '0');
+                          const mm = String(t % 60).padStart(2, '0');
+                          return `${s.shift_name.replace(/ shift$/i, '')} ${hh}:${mm}`;
+                        })
+                        .join(' · ')}
+                    </div>
+                  )}
                   <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={importing}>
                     {importing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}
                     Import
@@ -558,7 +579,8 @@ const StaffAttendanceManagement: React.FC = () => {
               <p className="text-xs text-muted-foreground mt-2">
                 Import accepts our template (first sample row is ignored), a single-day biometric “Employee Punch Monitor” export,
                 or a multi-day “Daily Attendance Report (Summary Report)” covering a full week or month — the format is detected
-                automatically and staff are matched by their biometric code, then by name.
+                automatically and staff are matched by their biometric code, then by name. The shift (morning / second / night)
+                is detected from the first punch using the shift timings set in Masters → Shifts.
               </p>
             </CardHeader>
 
@@ -586,6 +608,7 @@ const StaffAttendanceManagement: React.FC = () => {
                         <TableHead className="hidden md:table-cell">Role</TableHead>
                         <TableHead className="hidden md:table-cell">Department</TableHead>
                         <TableHead className="w-[150px]">Status</TableHead>
+                        <TableHead className="w-[120px] hidden md:table-cell">Shift</TableHead>
                         <TableHead className="w-[120px] hidden sm:table-cell">Shift Start</TableHead>
                         <TableHead className="w-[120px] hidden sm:table-cell">Shift End</TableHead>
                       </TableRow>
@@ -613,6 +636,9 @@ const StaffAttendanceManagement: React.FC = () => {
                                   ))}
                                 </SelectContent>
                               </Select>
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell text-xs">
+                              {att?.shift_name || '-'}
                             </TableCell>
                             <TableCell className="hidden sm:table-cell">
                               <Input

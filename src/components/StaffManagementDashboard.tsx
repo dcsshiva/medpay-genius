@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/lib/auth";
+import { isManagerLike } from "@/lib/accessLevels";
+
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, ClipboardCheck, CalendarCheck, Wallet, Receipt, History, Layers, Building2 } from "lucide-react";
@@ -22,14 +24,12 @@ const TAB_ITEMS = [
 ];
 
 export default function StaffManagementDashboard() {
-  const { userRole, userDesignation } = useAuth();
+  const { userRole, userDesignation, userProfile } = useAuth();
   const [activeTab, setActiveTab] = useState("directory");
   const [visited, setVisited] = useState<Set<string>>(new Set(["directory"]));
 
-  const isAllowed =
-    userRole === "admin" || userRole === "manager" ||
-    userDesignation === "admin" || userDesignation === "manager" ||
-    userRole === "super_admin" || userDesignation === "super_admin";
+  const isAllowed = isManagerLike(userRole, userDesignation, (userProfile as any)?.role);
+
 
   if (!isAllowed) {
     return (

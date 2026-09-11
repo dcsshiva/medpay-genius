@@ -2144,6 +2144,48 @@ export type Database = {
         }
         Relationships: []
       }
+      shift_definitions: {
+        Row: {
+          created_at: string
+          end_time: string
+          grace_minutes: number
+          id: string
+          is_active: boolean
+          shift_name: string
+          sort_order: number
+          start_time: string
+          updated_at: string
+          window_from: string
+          window_to: string
+        }
+        Insert: {
+          created_at?: string
+          end_time: string
+          grace_minutes?: number
+          id?: string
+          is_active?: boolean
+          shift_name: string
+          sort_order?: number
+          start_time: string
+          updated_at?: string
+          window_from: string
+          window_to: string
+        }
+        Update: {
+          created_at?: string
+          end_time?: string
+          grace_minutes?: number
+          id?: string
+          is_active?: boolean
+          shift_name?: string
+          sort_order?: number
+          start_time?: string
+          updated_at?: string
+          window_from?: string
+          window_to?: string
+        }
+        Relationships: []
+      }
       sidebar_menu_config: {
         Row: {
           display_order: number
@@ -2529,6 +2571,7 @@ export type Database = {
           patients_handled: number | null
           recorded_by: string | null
           shift_end_time: string | null
+          shift_name: string | null
           shift_start_time: string | null
           special_notes: string | null
           staff_id: string
@@ -2544,6 +2587,7 @@ export type Database = {
           patients_handled?: number | null
           recorded_by?: string | null
           shift_end_time?: string | null
+          shift_name?: string | null
           shift_start_time?: string | null
           special_notes?: string | null
           staff_id: string
@@ -2559,6 +2603,7 @@ export type Database = {
           patients_handled?: number | null
           recorded_by?: string | null
           shift_end_time?: string | null
+          shift_name?: string | null
           shift_start_time?: string | null
           special_notes?: string | null
           staff_id?: string
