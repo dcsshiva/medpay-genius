@@ -28,6 +28,7 @@ interface AttendanceRecord {
   id?: string;
   staff_id: string;
   attendance_status: string;
+  shift_name?: string | null;
   shift_start_time: string | null;
   shift_end_time: string | null;
 }
@@ -60,7 +61,7 @@ const StaffAttendanceManagement: React.FC = () => {
     try {
       const [staffRes, attendanceRes] = await Promise.all([
         (supabase.from('staff') as any).select('*').eq('is_active', true).not('role', 'in', '(doctor,admin)').order('staff_code'),
-        supabase.from('staff_daily_activities').select('id, staff_id, attendance_status, shift_start_time, shift_end_time').eq('activity_date', selectedDate),
+        supabase.from('staff_daily_activities').select('id, staff_id, attendance_status, shift_name, shift_start_time, shift_end_time').eq('activity_date', selectedDate),
       ]);
 
       if (staffRes.error) throw staffRes.error;
@@ -74,6 +75,7 @@ const StaffAttendanceManagement: React.FC = () => {
           id: r.id,
           staff_id: r.staff_id,
           attendance_status: r.attendance_status,
+          shift_name: (r as any).shift_name,
           shift_start_time: r.shift_start_time,
           shift_end_time: r.shift_end_time,
         };
@@ -606,6 +608,7 @@ const StaffAttendanceManagement: React.FC = () => {
                         <TableHead className="hidden md:table-cell">Role</TableHead>
                         <TableHead className="hidden md:table-cell">Department</TableHead>
                         <TableHead className="w-[150px]">Status</TableHead>
+                        <TableHead className="w-[120px] hidden md:table-cell">Shift</TableHead>
                         <TableHead className="w-[120px] hidden sm:table-cell">Shift Start</TableHead>
                         <TableHead className="w-[120px] hidden sm:table-cell">Shift End</TableHead>
                       </TableRow>
@@ -633,6 +636,9 @@ const StaffAttendanceManagement: React.FC = () => {
                                   ))}
                                 </SelectContent>
                               </Select>
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell text-xs">
+                              {att?.shift_name || '-'}
                             </TableCell>
                             <TableCell className="hidden sm:table-cell">
                               <Input
