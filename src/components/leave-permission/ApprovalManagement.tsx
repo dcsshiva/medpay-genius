@@ -29,9 +29,9 @@ const TAB_LABELS: Record<string, string> = {
 };
 
 const ApprovalManagement = () => {
-  const { userDesignation, userRole } = useAuth();
+  const { userDesignation, userRole, userProfile } = useAuth();
   const isAdmin = userDesignation === "admin" || userDesignation === "super_admin" || userRole === "admin";
-  const isManager = !isAdmin && isManagerLike(userRole, userDesignation);
+  const isManager = !isAdmin && isManagerLike(userRole, userDesignation, (userProfile as any)?.role);
   const canAccess = isAdmin || isManager;
 
   const [applications, setApplications] = useState<LeaveRow[]>([]);

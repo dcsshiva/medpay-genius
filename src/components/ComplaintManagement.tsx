@@ -80,8 +80,8 @@ interface StaffMember {
 }
 
 const ComplaintManagement = () => {
-  const { userRole, userDesignation, user } = useAuth();
-  const canManageComplaints = isManagerLike(userRole, userDesignation);
+  const { userRole, userDesignation, user, userProfile } = useAuth();
+  const canManageComplaints = isManagerLike(userRole, userDesignation, (userProfile as any)?.role);
   const { toast } = useToast();
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);

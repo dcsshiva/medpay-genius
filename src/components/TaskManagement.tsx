@@ -66,8 +66,8 @@ interface Staff {
 }
 
 const TaskManagement = () => {
-  const { userRole, userDesignation, user } = useAuth();
-  const canManageTasks = isManagerLike(userRole, userDesignation);
+  const { userRole, userDesignation, user, userProfile } = useAuth();
+  const canManageTasks = isManagerLike(userRole, userDesignation, (userProfile as any)?.role);
   const { toast } = useToast();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [staff, setStaff] = useState<Staff[]>([]);
