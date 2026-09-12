@@ -8,10 +8,10 @@ on:
       version_type:
         description: 'Version bump type'
         required: true
-        default: 'patch'
+        default: 'release'
         type: choice
         options:
-        - patch
+        - release
         - minor
         - major
 
@@ -52,12 +52,12 @@ jobs:
           elif git log --format=%B -n 1 | grep -E "^feat" -q; then
             VERSION_TYPE="minor"
           else
-            VERSION_TYPE="patch"
+            VERSION_TYPE="release"
           fi
         fi
         
         echo "Bumping $VERSION_TYPE version"
-        NEW_VERSION=$(npm version $VERSION_TYPE --no-git-tag-version)
+        NEW_VERSION=$(node scripts/bump-release.cjs "$VERSION_TYPE")
         echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
         echo "version_type=$VERSION_TYPE" >> $GITHUB_OUTPUT
 

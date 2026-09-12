@@ -23,7 +23,7 @@ function getBuildInfo() {
   }
 
   const buildInfo = {
-    version: packageJson.version,
+    version: `${packageJson.version}.${String(packageJson.releaseNumber || '01').padStart(2, '0')}`,
     timestamp: new Date().toISOString(),
     commit: gitCommit,
     branch: gitBranch,
