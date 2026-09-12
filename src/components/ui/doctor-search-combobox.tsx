@@ -31,6 +31,14 @@ interface DoctorSearchComboboxProps {
   placeholder?: string
 }
 
+const stripDoctorTitle = (value: string): string =>
+  value.trim().replace(/^dr(?:\.|\b)\s*/i, "").trim()
+
+const formatDoctorName = (value: string): string => {
+  const nameWithoutTitle = stripDoctorTitle(value)
+  return nameWithoutTitle ? `Dr. ${nameWithoutTitle}` : "Dr."
+}
+
 export function DoctorSearchCombobox({
   doctors,
   value,
@@ -41,20 +49,9 @@ export function DoctorSearchCombobox({
   const [open, setOpen] = React.useState(false)
   const [searchQuery, setSearchQuery] = React.useState("")
 
-  // Normalize search term by stripping "Dr." or "Dr " prefix
-  const normalizeSearchTerm = (term: string): string => {
-    let normalized = term.trim()
-    if (normalized.toLowerCase().startsWith('dr.')) {
-      normalized = normalized.slice(3).trim()
-    } else if (normalized.toLowerCase().startsWith('dr ')) {
-      normalized = normalized.slice(2).trim()
-    }
-    return normalized
-  }
-
   // Filter doctors based on search query (minimum 3 characters)
   const filteredDoctors = React.useMemo(() => {
-    const normalized = normalizeSearchTerm(searchQuery)
+    const normalized = stripDoctorTitle(searchQuery)
     
     // Show all if search is empty or less than 3 characters
     if (normalized.length < 3) {
@@ -62,7 +59,7 @@ export function DoctorSearchCombobox({
     }
 
     return doctors.filter(doctor => {
-      const fullName = doctor.profiles.full_name.toLowerCase()
+      const fullName = stripDoctorTitle(doctor.profiles.full_name).toLowerCase()
       const code = doctor.doctor_code.toLowerCase()
       const search = normalized.toLowerCase()
       
@@ -86,7 +83,7 @@ export function DoctorSearchCombobox({
             <Search className="h-4 w-4 shrink-0 opacity-50" />
             {selectedDoctor ? (
               <span className="truncate">
-                Dr. {selectedDoctor.profiles.full_name} ({selectedDoctor.doctor_code})
+                {formatDoctorName(selectedDoctor.profiles.full_name)} ({selectedDoctor.doctor_code})
               </span>
             ) : (
               <span className="text-muted-foreground truncate">{placeholder}</span>
@@ -132,7 +129,7 @@ export function DoctorSearchCombobox({
                 />
                 <div className="flex flex-col">
                   <span className="font-medium">
-                    Dr. {doctor.profiles.full_name}
+                    {formatDoctorName(doctor.profiles.full_name)}
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {doctor.doctor_code}

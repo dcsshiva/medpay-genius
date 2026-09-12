@@ -52,6 +52,7 @@ import { LoadingScreen } from '@/components/ui/loading-skeleton';
 import { EmptyState } from '@/components/ui/empty-state';
 import { FilterChips } from '@/components/ui/filter-chip';
 import { ProgressBar } from '@/components/ui/progress-bar';
+import { DoctorSearchCombobox } from '@/components/ui/doctor-search-combobox';
 
 interface Payment {
   id: string;
@@ -2801,27 +2802,18 @@ const PaymentManagement = ({ initialSubTab, initialPaymentTypeFilter, paymentTyp
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="doctor_id">Doctor</Label>
-                    <Select 
-                      value={formData.doctor_id} 
+                    <DoctorSearchCombobox
+                      doctors={doctors}
+                      value={formData.doctor_id}
                       onValueChange={(value) => {
                         setFormData({ ...formData, doctor_id: value });
                         // Auto-fetch if payment type is already selected
-                        if (formData.payment_type_filter) {
+                        if (value && formData.payment_type_filter) {
                           fetchUnprocessedVisits(value, formData.payment_type_filter);
                         }
                       }}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a doctor" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {doctors.map((doctor) => (
-                          <SelectItem key={doctor.id} value={doctor.id}>
-                            {doctor.profiles.full_name} ({doctor.doctor_code})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                      placeholder="Search or select a doctor..."
+                    />
                   </div>
 
                   <div className="space-y-1.5">
