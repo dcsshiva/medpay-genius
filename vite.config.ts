@@ -8,10 +8,12 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 // Get build info at build time
 const getBuildInfo = () => {
-  let version = '1.0.0';
+  let version = '1.0.0.01';
   try {
     const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
-    version = pkg.version || '1.0.0';
+    const baseVersion = pkg.version || '1.0.0';
+    const releaseNumber = String(pkg.releaseNumber || '01').padStart(2, '0');
+    version = `${baseVersion}.${releaseNumber}`;
   } catch (e) {
     // fallback version
   }

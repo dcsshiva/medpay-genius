@@ -27,7 +27,7 @@ export const useVersionInfo = () => {
       const buildInfo = __BUILD_INFO__;
       if (buildInfo) {
         return {
-          version: buildInfo.version || '1.0.0',
+          version: buildInfo.version || '1.0.0.01',
           buildDate: buildInfo.timestamp,
           gitCommit: buildInfo.commit,
           environment: buildInfo.environment,
@@ -38,7 +38,7 @@ export const useVersionInfo = () => {
       // Fallback for environments where __BUILD_INFO__ is not defined
     }
     return {
-      version: '1.0.0-dev',
+      version: '1.0.0.01-dev',
       buildDate: toISOStringIST(),
       gitCommit: 'local',
       environment: 'development',
