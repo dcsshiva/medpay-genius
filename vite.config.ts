@@ -5,6 +5,7 @@ import { componentTagger } from "lovable-tagger";
 import { execSync } from 'child_process';
 import { readFileSync } from 'fs';
 import { VitePWA } from 'vite-plugin-pwa';
+import type { Plugin } from 'vite';
 
 // Get build info at build time
 const getBuildInfo = () => {
@@ -39,6 +40,24 @@ const getBuildInfo = () => {
   }
 };
 
+const buildInfoPlugin = (buildInfo: ReturnType<typeof getBuildInfo>): Plugin => ({
+  name: 'westmed-build-info',
+  configureServer(server) {
+    server.middlewares.use('/build-info.json', (_request, response) => {
+      response.setHeader('Content-Type', 'application/json');
+      response.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+      response.end(JSON.stringify(buildInfo));
+    });
+  },
+  generateBundle() {
+    this.emitFile({
+      type: 'asset',
+      fileName: 'build-info.json',
+      source: JSON.stringify(buildInfo, null, 2),
+    });
+  },
+});
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const buildInfo = getBuildInfo();
@@ -51,6 +70,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       mode === 'development' && componentTagger(),
+      buildInfoPlugin(buildInfo),
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['westmed-favicon.png', 'robots.txt'],

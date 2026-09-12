@@ -20,6 +20,7 @@ import DNSHelpBanner from "@/components/DNSHelpBanner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { formatMobileNumber, validateMobileNumber } from "@/lib/validators";
 import { checkSupabaseReachable } from "@/lib/connectivityCheck";
+import { useAppUpdate } from "@/hooks/useAppUpdate";
 
 // Length of the emailed auth OTP code (backend currently issues 8 digits)
 const EMAIL_OTP_LENGTH = 8;
@@ -62,11 +63,14 @@ const Auth: React.FC = () => {
     isInstallable,
     isInstalled,
     installApp,
-    checkForUpdates,
-    isCheckingForUpdates,
-    isUpdateAvailable,
-    applyUpdate,
   } = usePWA();
+  const {
+    checking: isCheckingForUpdates,
+    updateAvailable: isUpdateAvailable,
+    publishedVersion,
+    checkForUpdate,
+    applyUpdate,
+  } = useAppUpdate();
   const versionInfo = useVersionInfo();
   const isMobile = useIsMobile();
   const [formLoading, setFormLoading] = useState(false);
@@ -962,20 +966,23 @@ const Auth: React.FC = () => {
                 size="sm"
                 className="flex-1 bg-white/80 hover:bg-white text-foreground text-xs"
                 onClick={async () => {
-                  const hasUpdate = await checkForUpdates();
-                  if (hasUpdate) {
+                  const result = await checkForUpdate();
+                  if (result.error) {
+                    toast({
+                      title: "Update check unavailable",
+                      description: result.error,
+                      variant: "destructive",
+                    });
+                  } else if (result.updateAvailable) {
                     toast({
                       title: "Update Available!",
-                      description: "Click 'Apply Update' to get the latest version.",
+                      description: `Version ${result.publishedVersion} is ready to apply.`,
                     });
                   } else {
                     toast({
                       title: "You're up to date!",
-                      description: "Running the latest version. Refreshing...",
+                      description: `Running latest published version ${versionInfo.version}.`,
                     });
-                    setTimeout(() => {
-                      window.location.reload();
-                    }, 1500);
                   }
                 }}
                 disabled={isCheckingForUpdates}
@@ -997,7 +1004,7 @@ const Auth: React.FC = () => {
 
             {/* Version Display */}
             <div className="text-center text-white/60 text-xs">
-              <p>Version {versionInfo.version}</p>
+              <p>Version {versionInfo.version}{publishedVersion ? ` · Latest ${publishedVersion}` : ""}</p>
               <p className="text-white/40">Build: {versionInfo.gitCommit.slice(0, 7)}</p>
             </div>
 
