@@ -32,7 +32,7 @@ interface DoctorSearchComboboxProps {
 }
 
 const stripDoctorTitle = (value: string): string =>
-  value.trim().replace(/^dr(?:\.|\b)\s*/i, "").trim()
+  value.trim().replace(/^dr(?=$|[\s.,:-])[\s.,:-]*/i, "").trim()
 
 const formatDoctorName = (value: string): string => {
   const nameWithoutTitle = stripDoctorTitle(value)
@@ -92,7 +92,10 @@ export function DoctorSearchCombobox({
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[400px] p-0" align="start">
+      <PopoverContent
+        className="w-[var(--radix-popover-trigger-width)] min-w-[18rem] max-w-[calc(100vw-2rem)] p-0"
+        align="start"
+      >
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="Type 3+ characters to search..."
