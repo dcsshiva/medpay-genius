@@ -53,6 +53,7 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
   const { userRole, userDesignation, userProfile, user } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({});
   const [loading, setLoading] = useState(true);
+  const [staffId, setStaffId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user && userRole) {
@@ -182,6 +183,7 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
         console.log('Dashboard - Staff user:', user);
         
         const staffId = await getStaffId(user);
+        setStaffId(staffId);
 
         if (staffId) {
           console.log('Dashboard - About to query tasks for staff ID:', staffId);
@@ -596,6 +598,10 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
 
       {isManagerLike(userRole, userDesignation, userProfile?.role) && (
         <DashboardAttendanceCard onOpenReports={() => onTabChange?.('attendance')} />
+      )}
+
+      {staffId && userProfile?.role !== 'staff_manager' && (
+        <DashboardAttendanceCard staffId={staffId} />
       )}
 
       {userRole === 'admin' && renderAdminDashboard()}
