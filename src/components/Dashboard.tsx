@@ -4,6 +4,8 @@ import { useAuth } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/currency';
 import { getStaffId, isStaffRole, getStaffTaskCounts } from '@/lib/staffUtils';
+import { isManagerLike } from '@/lib/accessLevels';
+import DashboardAttendanceCard from '@/components/DashboardAttendanceCard';
 import { 
   Users, 
   Calendar, 
@@ -48,7 +50,7 @@ interface DashboardProps {
 }
 
 const Dashboard = ({ onTabChange }: DashboardProps) => {
-  const { userRole, user } = useAuth();
+  const { userRole, userDesignation, userProfile, user } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({});
   const [loading, setLoading] = useState(true);
 
@@ -592,10 +594,14 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
         <p className="text-muted-foreground">Welcome back! Here's your overview.</p>
       </div>
 
+      {isManagerLike(userRole, userDesignation, userProfile?.role) && (
+        <DashboardAttendanceCard onOpenReports={() => onTabChange?.('attendance')} />
+      )}
+
       {userRole === 'admin' && renderAdminDashboard()}
       {userRole === 'manager' && renderManagerDashboard()}
       {userRole === 'doctor' && renderDoctorDashboard()}
-      {(userRole && !['admin', 'manager', 'doctor'].includes(userRole)) && renderStaffDashboard()}
+      {(userRole && !['admin', 'manager', 'doctor'].includes(userRole) && userProfile?.role !== 'staff_manager') && renderStaffDashboard()}
     </div>
   );
 };
