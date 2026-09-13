@@ -165,7 +165,9 @@ const DashboardAttendanceCard: React.FC<Props> = ({ onOpenReports }) => {
             <Input
               type="date"
               value={selectedDate}
-              onChange={(event) => setSelectedDate(event.target.value)}
+              onChange={(event) => {
+                if (event.target.value) setSelectedDate(event.target.value);
+              }}
               className="h-9 w-[145px]"
               aria-label={mode === 'day' ? 'Attendance date' : 'Attendance week'}
             />
@@ -174,7 +176,9 @@ const DashboardAttendanceCard: React.FC<Props> = ({ onOpenReports }) => {
             <Input
               type="month"
               value={selectedMonth}
-              onChange={(event) => setSelectedMonth(event.target.value)}
+              onChange={(event) => {
+                if (event.target.value) setSelectedMonth(event.target.value);
+              }}
               className="h-9 w-[145px]"
               aria-label="Attendance month"
             />
