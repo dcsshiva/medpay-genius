@@ -231,7 +231,12 @@ const StaffMobileDashboard: React.FC<StaffMobileDashboardProps> = ({ onNavigate 
       {staffId && <StaffPunchInCard staffId={staffId} />}
 
       {/* Personal Attendance Summary */}
-      {staffId && <DashboardAttendanceCard staffId={staffId} />}
+      {staffId && (
+        <DashboardAttendanceCard
+          staffId={staffId}
+          onOpenReports={() => document.getElementById('my-attendance-calendar')?.scrollIntoView({ behavior: 'smooth' })}
+        />
+      )}
 
       {/* Stats Grid - 2 columns */}
       <div className="grid grid-cols-2 gap-3">
@@ -323,7 +328,11 @@ const StaffMobileDashboard: React.FC<StaffMobileDashboardProps> = ({ onNavigate 
       </div>
 
       {/* Attendance Calendar */}
-      {staffId && <StaffAttendanceCalendar staffId={staffId} />}
+      {staffId && (
+        <div id="my-attendance-calendar">
+          <StaffAttendanceCalendar staffId={staffId} />
+        </div>
+      )}
 
       {/* Latest Payslip */}
       {latestPayslip && (
