@@ -513,7 +513,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           const p = await resolveFullProfile(data.user.id);
           const userType = p?.designation === 'doctor' ? 'doctor' : 'staff';
-          const resolvedId = (userType === 'doctor' && p?.id) ? p.id : data.user.id;
+          const resolvedId = p?.id || data.user.id;
           const fullName = p?.full_name || email;
 
           setUserProfile({
@@ -693,7 +693,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           
           setUserProfile({
-            id: (userType === 'doctor' && doctorTableId) ? doctorTableId : data.user.id,
+            id: doctorTableId || data.user.id,
             user_id: data.user.id,
             full_name: fullName,
             role: p?.role || designation.designation,
@@ -704,7 +704,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           try {
             await createUserSession({
               user_type: userType,
-              original_id: (userType === 'doctor' && doctorTableId) ? doctorTableId : data.user.id,
+              original_id: doctorTableId || data.user.id,
               user_id: data.user.id,
               username: email,
               full_name: fullName,
