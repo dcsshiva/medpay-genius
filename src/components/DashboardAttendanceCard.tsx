@@ -63,10 +63,11 @@ const DashboardAttendanceCard: React.FC<Props> = ({ onOpenReports, staffId }) =>
   }, [latestDate, mode, selectedDate, selectedMonth]);
 
   const periodLabel = useMemo(() => {
+    if (mode === 'latest' && !latestDate) return 'No attendance records yet';
     if (!range.from || !range.to) return 'No attendance imported';
     if (range.from === range.to) return format(parseISO(range.from), 'dd MMM yyyy');
     return `${format(parseISO(range.from), 'dd MMM')} – ${format(parseISO(range.to), 'dd MMM yyyy')}`;
-  }, [range]);
+  }, [latestDate, mode, range]);
 
   const loadCounts = useCallback(async () => {
     setLoading(true);
