@@ -233,7 +233,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   id: p.id,
                   user_id: p.user_id,
                   full_name: p.full_name,
-                  role: designation,
+                  role: p.role || designation,
                   user_type: p.designation === 'doctor' ? 'doctor' : 'staff',
                   code: p.code
                 });
@@ -329,7 +329,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 id: p.id,
                 user_id: p.user_id,
                 full_name: p.full_name,
-                role: designation,
+                role: p.role || designation,
                 user_type: p.designation === 'doctor' ? 'doctor' : 'staff',
                 code: p.code
               });
@@ -520,7 +520,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             id: resolvedId,
             user_id: data.user.id,
             full_name: fullName,
-            role: designation.designation,
+            role: p?.role || designation.designation,
             user_type: userType,
             code: p?.code
           });
@@ -696,7 +696,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             id: (userType === 'doctor' && doctorTableId) ? doctorTableId : data.user.id,
             user_id: data.user.id,
             full_name: fullName,
-            role: designation.designation,
+            role: p?.role || designation.designation,
             user_type: userType,
             code: doctorCode
           });
