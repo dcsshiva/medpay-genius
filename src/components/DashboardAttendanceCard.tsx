@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { endOfMonth, endOfWeek, format, parseISO, startOfMonth, startOfWeek } from 'date-fns';
-import { CalendarCheck, ChevronRight, Loader2, Users } from 'lucide-react';
+import { CalendarCheck, ChevronRight, Clock, Loader2, Palmtree, Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,15 +14,26 @@ interface AttendanceCounts {
   present: number;
   absent: number;
   late: number;
+  halfDay: number;
+  leave: number;
 }
 
 interface Props {
   onOpenReports?: () => void;
+  staffId?: string;
 }
 
-const EMPTY_COUNTS: AttendanceCounts = { totalStaff: 0, present: 0, absent: 0, late: 0 };
+const EMPTY_COUNTS: AttendanceCounts = {
+  totalStaff: 0,
+  present: 0,
+  absent: 0,
+  late: 0,
+  halfDay: 0,
+  leave: 0,
+};
 
-const DashboardAttendanceCard: React.FC<Props> = ({ onOpenReports }) => {
+const DashboardAttendanceCard: React.FC<Props> = ({ onOpenReports, staffId }) => {
+  const isPersonal = Boolean(staffId);
   const [mode, setMode] = useState<PeriodMode>('latest');
   const [latestDate, setLatestDate] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -62,25 +73,26 @@ const DashboardAttendanceCard: React.FC<Props> = ({ onOpenReports }) => {
     setError(null);
 
     try {
-      const [{ data: staffRows, error: staffError }, { data: newestRow, error: latestError }] = await Promise.all([
-        supabase
-          .from('staff')
-          .select('id')
-          .eq('is_active', true)
-          .not('biometric_code', 'is', null),
-        supabase
-          .from('staff_daily_activities')
-          .select('activity_date')
-          .order('activity_date', { ascending: false })
-          .limit(1)
-          .maybeSingle(),
+      const staffRequest = staffId
+        ? supabase.from('staff').select('id').eq('id', staffId).eq('is_active', true)
+        : supabase.from('staff').select('id').eq('is_active', true).not('biometric_code', 'is', null);
+      let latestRequest = supabase
+        .from('staff_daily_activities')
+        .select('activity_date')
+        .order('activity_date', { ascending: false })
+        .limit(1);
+      if (staffId) latestRequest = latestRequest.eq('staff_id', staffId);
+
+      const [{ data: staffRows, error: staffError }, { data: newestRows, error: latestError }] = await Promise.all([
+        staffRequest,
+        latestRequest,
       ]);
 
       if (staffError) throw staffError;
       if (latestError) throw latestError;
 
       const activeStaffIds = (staffRows || []).map((staff) => staff.id);
-      const newestDate = newestRow?.activity_date || null;
+      const newestDate = newestRows?.[0]?.activity_date || null;
       setLatestDate(newestDate);
 
       if (newestDate && mode === 'latest' && selectedDate !== newestDate) {
@@ -96,7 +108,7 @@ const DashboardAttendanceCard: React.FC<Props> = ({ onOpenReports }) => {
         return;
       }
 
-      const countStatus = (status: 'present' | 'absent' | 'late') =>
+        const countStatus = (status: 'present' | 'absent' | 'late' | 'half_day' | 'leave') =>
         supabase
           .from('staff_daily_activities')
           .select('id', { count: 'exact', head: true })
@@ -105,13 +117,15 @@ const DashboardAttendanceCard: React.FC<Props> = ({ onOpenReports }) => {
           .gte('activity_date', effectiveFrom)
           .lte('activity_date', effectiveTo);
 
-      const [presentRes, absentRes, lateRes] = await Promise.all([
+        const [presentRes, absentRes, lateRes, halfDayRes, leaveRes] = await Promise.all([
         countStatus('present'),
         countStatus('absent'),
         countStatus('late'),
+          countStatus('half_day'),
+          countStatus('leave'),
       ]);
 
-      const queryError = presentRes.error || absentRes.error || lateRes.error;
+        const queryError = presentRes.error || absentRes.error || lateRes.error || halfDayRes.error || leaveRes.error;
       if (queryError) throw queryError;
 
       setCounts({
@@ -119,6 +133,8 @@ const DashboardAttendanceCard: React.FC<Props> = ({ onOpenReports }) => {
         present: presentRes.count || 0,
         absent: absentRes.count || 0,
         late: lateRes.count || 0,
+          halfDay: halfDayRes.count || 0,
+          leave: leaveRes.count || 0,
       });
     } catch (loadError) {
       console.error('Unable to load dashboard attendance:', loadError);
@@ -127,29 +143,37 @@ const DashboardAttendanceCard: React.FC<Props> = ({ onOpenReports }) => {
     } finally {
       setLoading(false);
     }
-  }, [mode, range.from, range.to, selectedDate]);
+    }, [mode, range.from, range.to, selectedDate, staffId]);
 
   useEffect(() => {
     loadCounts();
   }, [loadCounts]);
 
-  const metrics = [
-    { label: 'Total Staff', value: counts.totalStaff, icon: Users, className: 'text-foreground' },
-    { label: 'Present', value: counts.present, icon: CalendarCheck, className: 'text-success' },
-    { label: 'Absent', value: counts.absent, icon: CalendarCheck, className: 'text-destructive' },
-    { label: 'Late', value: counts.late, icon: CalendarCheck, className: 'text-warning' },
-  ];
+  const metrics = isPersonal
+    ? [
+        { label: 'Present', value: counts.present, icon: CalendarCheck, className: 'text-success' },
+        { label: 'Absent', value: counts.absent, icon: CalendarCheck, className: 'text-destructive' },
+        { label: 'Late', value: counts.late, icon: Clock, className: 'text-warning' },
+        { label: 'Half-day', value: counts.halfDay, icon: Clock, className: 'text-warning' },
+        { label: 'Leave', value: counts.leave, icon: Palmtree, className: 'text-info' },
+      ]
+    : [
+        { label: 'Total Staff', value: counts.totalStaff, icon: Users, className: 'text-foreground' },
+        { label: 'Present', value: counts.present, icon: CalendarCheck, className: 'text-success' },
+        { label: 'Absent', value: counts.absent, icon: CalendarCheck, className: 'text-destructive' },
+        { label: 'Late', value: counts.late, icon: Clock, className: 'text-warning' },
+      ];
 
   return (
     <Card>
       <CardHeader className="space-y-3 pb-3 sm:flex sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
         <div className="min-w-0">
           <CardTitle className="flex items-center gap-2 text-base">
-            <CalendarCheck className="h-5 w-5 text-primary" /> Attendance
+            <CalendarCheck className="h-5 w-5 text-primary" /> {isPersonal ? 'My Attendance' : 'Attendance'}
           </CardTitle>
           <p className="mt-1 text-xs text-muted-foreground">{periodLabel}</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
           <Select value={mode} onValueChange={(value) => setMode(value as PeriodMode)}>
             <SelectTrigger className="h-9 w-[112px]" aria-label="Attendance period">
               <SelectValue />
@@ -183,9 +207,11 @@ const DashboardAttendanceCard: React.FC<Props> = ({ onOpenReports }) => {
               aria-label="Attendance month"
             />
           )}
-          <Button variant="ghost" size="sm" onClick={onOpenReports} className="h-9 px-2">
-            Reports <ChevronRight className="h-4 w-4" />
-          </Button>
+            {onOpenReports && (
+              <Button variant="ghost" size="sm" onClick={onOpenReports} className="h-9 px-2">
+                {isPersonal ? 'Calendar' : 'Reports'} <ChevronRight className="h-4 w-4" />
+              </Button>
+            )}
         </div>
       </CardHeader>
       <CardContent>
@@ -196,7 +222,7 @@ const DashboardAttendanceCard: React.FC<Props> = ({ onOpenReports }) => {
         ) : error ? (
           <div className="min-h-[72px] content-center text-sm text-destructive">{error}</div>
         ) : (
-          <div className="grid grid-cols-2 divide-x divide-y overflow-hidden rounded-md border sm:grid-cols-4 sm:divide-y-0">
+            <div className={`grid grid-cols-2 divide-x divide-y overflow-hidden rounded-md border ${isPersonal ? 'sm:grid-cols-5 sm:divide-y-0' : 'sm:grid-cols-4 sm:divide-y-0'}`}>
             {metrics.map(({ label, value, icon: Icon, className }) => (
               <div key={label} className="min-w-0 p-3 sm:p-4">
                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
