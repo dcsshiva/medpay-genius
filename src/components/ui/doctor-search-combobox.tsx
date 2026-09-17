@@ -8,6 +8,7 @@ import {
   CommandGroup,
   CommandInput,
   CommandItem,
+  CommandList,
 } from "@/components/ui/command"
 import {
   Popover,
@@ -113,34 +114,36 @@ export function DoctorSearchCombobox({
               </div>
             )}
           </CommandEmpty>
-          <CommandGroup className="max-h-[300px] overflow-auto">
-            {filteredDoctors.map((doctor) => (
-              <CommandItem
-                key={doctor.id}
-                value={doctor.id}
-                onSelect={(currentValue) => {
-                  onValueChange(currentValue === value ? "" : currentValue)
-                  setOpen(false)
-                  setSearchQuery("")
-                }}
-              >
-                <Check
-                  className={cn(
-                    "mr-2 h-4 w-4",
-                    value === doctor.id ? "opacity-100" : "opacity-0"
-                  )}
-                />
-                <div className="flex flex-col">
-                  <span className="font-medium">
-                    {formatDoctorName(doctor.profiles.full_name)}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {doctor.doctor_code}
-                  </span>
-                </div>
-              </CommandItem>
-            ))}
-          </CommandGroup>
+          <CommandList className="max-h-[300px] min-h-[80px] overscroll-contain scrollbar-visible">
+            <CommandGroup className="p-1">
+              {filteredDoctors.map((doctor) => (
+                <CommandItem
+                  key={doctor.id}
+                  value={doctor.id}
+                  onSelect={(currentValue) => {
+                    onValueChange(currentValue === value ? "" : currentValue)
+                    setOpen(false)
+                    setSearchQuery("")
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === doctor.id ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  <div className="flex flex-col">
+                    <span className="font-medium">
+                      {formatDoctorName(doctor.profiles.full_name)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {doctor.doctor_code}
+                    </span>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
         </Command>
       </PopoverContent>
     </Popover>

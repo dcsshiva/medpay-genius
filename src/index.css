@@ -31,6 +31,11 @@
 
   .scrollbar-thin::-webkit-scrollbar { height: 4px; width: 4px; }
   .scrollbar-thin::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
+  .scrollbar-visible { scrollbar-width: thin; scrollbar-color: hsl(var(--border) transparent); }
+  .scrollbar-visible::-webkit-scrollbar { height: 8px; width: 8px; }
+  .scrollbar-visible::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-visible::-webkit-scrollbar-thumb { @apply bg-border rounded-full; border: 2px solid transparent; background-clip: padding-box; }
+  .scrollbar-visible::-webkit-scrollbar-thumb:hover { @apply bg-muted-foreground/60; border: 2px solid transparent; background-clip: padding-box; }
 
   /* Prevent iOS zoom on input focus (needs >=16px on mobile) */
   @media (max-width: 767px) {
