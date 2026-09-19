@@ -36,6 +36,13 @@
       "when": 1789085004066,
       "tag": "0004_shift_definitions_and_shift_name",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789777591506,
+      "tag": "0005_attendance_manage_access_for_admin_manager_staffmanager",
+      "breakpoints": true
     }
   ]
 }
