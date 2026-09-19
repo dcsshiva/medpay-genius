@@ -586,11 +586,15 @@ const StaffAttendanceManagement: React.FC = () => {
                         .join(' · ')}
                     </div>
                   )}
-                  <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={importing}>
-                    {importing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}
-                    Import
-                  </Button>
-                  <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
+                  {canImport && (
+                    <>
+                      <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={importing}>
+                        {importing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}
+                        Import
+                      </Button>
+                      <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
+                    </>
+                  )}
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
