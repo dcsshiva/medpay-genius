@@ -460,6 +460,17 @@ const StaffAttendanceManagement: React.FC = () => {
       }
 
       let success = 0;
+      let saveError: string | null = null;
+      let rejected = 0;
+      const noteError = (error: any, count: number) => {
+        rejected += count;
+        if (!saveError) {
+          const msg = String(error?.message || '');
+          saveError = /row-level security|permission denied/i.test(msg)
+            ? 'You do not have permission to save attendance records. Ask an admin to grant attendance access.'
+            : msg || 'Unknown database error';
+        }
+      };
       if (range) {
         // batch upserts — a month × 60 staff is ~1,800 rows
         for (let i = 0; i < upserts.length; i += 200) {
@@ -467,7 +478,7 @@ const StaffAttendanceManagement: React.FC = () => {
           const { error } = await supabase.from('staff_daily_activities').upsert(chunk, {
             onConflict: 'staff_id,activity_date',
           });
-          if (error) { skipped += chunk.length; continue; }
+          if (error) { noteError(error, chunk.length); continue; }
           success += chunk.length;
         }
       } else {
@@ -475,9 +486,13 @@ const StaffAttendanceManagement: React.FC = () => {
           const { error } = await supabase.from('staff_daily_activities').upsert(record, {
             onConflict: 'staff_id,activity_date',
           });
-          if (error) { skipped++; continue; }
+          if (error) { noteError(error, 1); continue; }
           success++;
         }
+      }
+
+      if (saveError) {
+        toast.error(`${rejected} record(s) could not be saved`, { description: saveError });
       }
 
       if ((punch || range) && targetDate !== selectedDate) setSelectedDate(targetDate);
