@@ -13,6 +13,7 @@ import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import StaffAttendanceReports from './StaffAttendanceReports';
 import { useShiftDefinitions, resolveShift } from '@/lib/attendanceShifts';
+import { isManagerLike } from '@/lib/accessLevels';
 
 interface StaffRow {
   id: string;
@@ -42,7 +43,8 @@ const ATTENDANCE_STATUSES = [
 ];
 
 const StaffAttendanceManagement: React.FC = () => {
-  const { user } = useAuth();
+  const { user, userRole, userDesignation, userProfile } = useAuth();
+  const canImport = isManagerLike(userRole, userDesignation, userProfile?.role);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [staffList, setStaffList] = useState<StaffRow[]>([]);
   const [attendanceMap, setAttendanceMap] = useState<Record<string, AttendanceRecord>>({});
