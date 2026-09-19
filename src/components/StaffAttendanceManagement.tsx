@@ -13,6 +13,7 @@ import * as XLSX from 'xlsx';
 import { format } from 'date-fns';
 import StaffAttendanceReports from './StaffAttendanceReports';
 import { useShiftDefinitions, resolveShift } from '@/lib/attendanceShifts';
+import { isManagerLike } from '@/lib/accessLevels';
 
 interface StaffRow {
   id: string;
@@ -42,7 +43,8 @@ const ATTENDANCE_STATUSES = [
 ];
 
 const StaffAttendanceManagement: React.FC = () => {
-  const { user } = useAuth();
+  const { user, userRole, userDesignation, userProfile } = useAuth();
+  const canImport = isManagerLike(userRole, userDesignation, userProfile?.role);
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [staffList, setStaffList] = useState<StaffRow[]>([]);
   const [attendanceMap, setAttendanceMap] = useState<Record<string, AttendanceRecord>>({});
@@ -458,6 +460,17 @@ const StaffAttendanceManagement: React.FC = () => {
       }
 
       let success = 0;
+      let saveError: string | null = null;
+      let rejected = 0;
+      const noteError = (error: any, count: number) => {
+        rejected += count;
+        if (!saveError) {
+          const msg = String(error?.message || '');
+          saveError = /row-level security|permission denied/i.test(msg)
+            ? 'You do not have permission to save attendance records. Ask an admin to grant attendance access.'
+            : msg || 'Unknown database error';
+        }
+      };
       if (range) {
         // batch upserts — a month × 60 staff is ~1,800 rows
         for (let i = 0; i < upserts.length; i += 200) {
@@ -465,7 +478,7 @@ const StaffAttendanceManagement: React.FC = () => {
           const { error } = await supabase.from('staff_daily_activities').upsert(chunk, {
             onConflict: 'staff_id,activity_date',
           });
-          if (error) { skipped += chunk.length; continue; }
+          if (error) { noteError(error, chunk.length); continue; }
           success += chunk.length;
         }
       } else {
@@ -473,9 +486,13 @@ const StaffAttendanceManagement: React.FC = () => {
           const { error } = await supabase.from('staff_daily_activities').upsert(record, {
             onConflict: 'staff_id,activity_date',
           });
-          if (error) { skipped++; continue; }
+          if (error) { noteError(error, 1); continue; }
           success++;
         }
+      }
+
+      if (saveError) {
+        toast.error(`${rejected} record(s) could not be saved`, { description: saveError });
       }
 
       if ((punch || range) && targetDate !== selectedDate) setSelectedDate(targetDate);
@@ -569,11 +586,15 @@ const StaffAttendanceManagement: React.FC = () => {
                         .join(' · ')}
                     </div>
                   )}
-                  <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={importing}>
-                    {importing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}
-                    Import
-                  </Button>
-                  <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
+                  {canImport && (
+                    <>
+                      <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} disabled={importing}>
+                        {importing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}
+                        Import
+                      </Button>
+                      <input ref={fileInputRef} type="file" accept=".xlsx,.xls" className="hidden" onChange={handleImport} />
+                    </>
+                  )}
                 </div>
               </div>
               <p className="text-xs text-muted-foreground mt-2">
