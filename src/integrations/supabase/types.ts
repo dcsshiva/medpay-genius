@@ -2613,13 +2613,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "staff_daily_activities_recorded_by_fkey"
-            columns: ["recorded_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["user_id"]
-          },
-          {
             foreignKeyName: "staff_daily_activities_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
