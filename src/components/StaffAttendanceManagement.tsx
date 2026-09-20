@@ -507,12 +507,14 @@ const StaffAttendanceManagement: React.FC = () => {
         descParts.push(`Could not map: ${unmatched.join(', ')}${skipped > unmatched.length ? '…' : ''}`);
       }
 
-      toast.success(
-        range
-          ? `Range report imported: ${success} record(s) for ${range.length} staff (${rangeFrom} to ${rangeTo})${skipped ? `, ${skipped} skipped` : ''}`
-          : `${punch ? 'Punch file' : 'Template'} imported: ${success} record(s) for ${targetDate}${skipped ? `, ${skipped} skipped` : ''}`,
-        descParts.length ? { description: descParts.join(' ') } : undefined
-      );
+      if (!saveError) {
+        toast.success(
+          range
+            ? `Range report imported: ${success} record(s) for ${range.length} staff (${rangeFrom} to ${rangeTo})${skipped ? `, ${skipped} skipped` : ''}`
+            : `${punch ? 'Punch file' : 'Template'} imported: ${success} record(s) for ${targetDate}${skipped ? `, ${skipped} skipped` : ''}`,
+          descParts.length ? { description: descParts.join(' ') } : undefined
+        );
+      }
 
 
       fetchData();
