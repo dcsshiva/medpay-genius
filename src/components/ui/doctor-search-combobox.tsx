@@ -71,7 +71,7 @@ export function DoctorSearchCombobox({
   const selectedDoctor = doctors.find(doctor => doctor.id === value)
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={setOpen} modal>
       <PopoverTrigger asChild>
         <Button
           variant="outline"
@@ -114,7 +114,10 @@ export function DoctorSearchCombobox({
               </div>
             )}
           </CommandEmpty>
-          <CommandList className="max-h-[300px] min-h-[80px] overscroll-contain scrollbar-visible">
+          <CommandList
+            className="h-[300px] min-h-[80px] overflow-y-scroll overscroll-contain touch-pan-y scrollbar-visible"
+            onWheelCapture={(event) => event.stopPropagation()}
+          >
             <CommandGroup className="p-1">
               {filteredDoctors.map((doctor) => (
                 <CommandItem
