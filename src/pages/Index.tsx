@@ -11,6 +11,7 @@ import { isStaffOnlyScreen, staffOnlyTab } from '@/lib/staffOnlyScreens';
 // Lazy-loaded components
 const Dashboard = lazy(() => import('@/components/Dashboard'));
 const MasterDataManagement = lazy(() => import('@/components/MasterDataManagement'));
+const StaffManagement = lazy(() => import('@/components/StaffManagement'));
 const TaskManagement = lazy(() => import('@/components/TaskManagement'));
 const StaffManagementDashboard = lazy(() => import('@/components/StaffManagementDashboard'));
 const TeamChat = lazy(() => import('@/components/TeamChat'));
@@ -112,7 +113,7 @@ const Index = () => {
         case 'dashboard':
           return <Dashboard onTabChange={handleTabChange} />;
         case 'staff':
-          return <StaffManagementDashboard />;
+          return <StaffManagement />;
         case 'masters':
           return <MasterDataManagement />;
         case 'tasks':
