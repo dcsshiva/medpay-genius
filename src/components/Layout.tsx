@@ -5,8 +5,6 @@ import MobileHeader from '@/components/MobileHeader';
 import { AppSidebar } from '@/components/AppSidebar';
 import VersionDisplay from '@/components/VersionDisplay';
 import Footer from '@/components/Footer';
-import { PaymentStatsColorPicker } from '@/components/PaymentStatsColorPicker';
-import { PaymentStatsColorsProvider } from '@/hooks/usePaymentStatsColors';
 import { 
   SidebarProvider, 
   SidebarInset, 
@@ -43,7 +41,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
   const { items: navigationItems } = useNavigationItems();
 
   return (
-    <PaymentStatsColorsProvider>
       <SidebarProvider>
         <div className="min-h-screen bg-background w-full">
           {/* Mobile Header */}
@@ -81,9 +78,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
                         {userRole}
                       </p>
                     </div>
-                    {(userRole === 'manager' || userRole === 'admin' || userDesignation === 'super_admin' || userDesignation === 'admin' || userDesignation === 'manager') && (
-                      <PaymentStatsColorPicker variant="icon" />
-                    )}
                     <CheckUpdateButton />
                     <Button 
                       variant="outline" 
@@ -142,7 +136,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
           />
         </div>
       </SidebarProvider>
-    </PaymentStatsColorsProvider>
   );
 };
 

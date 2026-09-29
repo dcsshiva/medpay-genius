@@ -13,14 +13,7 @@ const adminSteps: WalkthroughStep[] = [
     id: 'sidebar',
     target: 'sidebar-nav',
     title: 'Navigation Sidebar',
-    description: 'Browse all modules here — Doctor Hub, Staff Management, Payments, Tasks, and more. Click any item to navigate.',
-    position: 'right',
-  },
-  {
-    id: 'doctor-hub',
-    target: 'nav-doctor-hub',
-    title: 'Doctor Hub',
-    description: 'Centralized dashboard for doctor payments, visit summaries, and profiles. Your go-to for doctor management.',
+    description: 'Browse staff management, attendance, tasks, leave, and more. Click any item to navigate.',
     position: 'right',
   },
   {
@@ -58,14 +51,7 @@ const managerSteps: WalkthroughStep[] = [
     id: 'sidebar',
     target: 'sidebar-nav',
     title: 'Navigation Sidebar',
-    description: 'Access all your modules — Doctor Hub, Tasks, Payments, Reports, and more.',
-    position: 'right',
-  },
-  {
-    id: 'doctor-hub',
-    target: 'nav-doctor-hub',
-    title: 'Doctor Hub',
-    description: 'View doctor payment summaries, visit history, and manage doctor profiles.',
+    description: 'Access tasks, attendance, leave, staff reports, and more.',
     position: 'right',
   },
   {
@@ -76,49 +62,11 @@ const managerSteps: WalkthroughStep[] = [
     position: 'right',
   },
   {
-    id: 'payments',
-    target: 'nav-payments',
-    title: 'Payment Approval',
-    description: 'Review and approve doctor payment periods. Multi-stage approval workflow.',
-    position: 'right',
-  },
-  {
     id: 'chat',
     target: 'nav-chat',
     title: 'Team Chat',
     description: 'Communicate with your team in real-time. Moderate messages and search history.',
     position: 'right',
-  },
-];
-
-const doctorSteps: WalkthroughStep[] = [
-  {
-    id: 'doctor-hub',
-    target: 'nav-doctor-hub',
-    title: 'Your Dashboard',
-    description: 'This is your home — view visit history, payment summaries, and your profile all in one place.',
-    position: 'right',
-  },
-  {
-    id: 'visits',
-    target: 'nav-visits',
-    title: 'Visit History',
-    description: 'Browse all recorded patient visits with dates, amounts, and payment status.',
-    position: 'right',
-  },
-  {
-    id: 'payments',
-    target: 'nav-payments',
-    title: 'Payment Summary',
-    description: 'Track your payment periods, approved amounts, and bank advice status.',
-    position: 'right',
-  },
-  {
-    id: 'ai-assistant',
-    target: 'ai-chatbot',
-    title: 'AI Assistant',
-    description: 'Need help? Click this button anytime to ask questions. Supports Tamil voice input!',
-    position: 'top',
   },
 ];
 
@@ -161,7 +109,6 @@ const staffSteps: WalkthroughStep[] = [
 ];
 
 function getStepsForRole(role?: string, designation?: string, userType?: string): WalkthroughStep[] {
-  if (userType === 'doctor' || role === 'doctor') return doctorSteps;
   if (designation === 'super_admin' || designation === 'admin' || role === 'admin') return adminSteps;
   if (designation === 'manager' || role === 'manager') return managerSteps;
   return staffSteps;

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { isStaffRole } from './staffUtils';
 import { hasFullAccess, isSuperAdmin } from './accessLevels';
+import { isStaffOnlyScreen } from './staffOnlyScreens';
 
 export interface NavigationItem {
   id: string;
@@ -108,10 +109,10 @@ export const getNavigationItems = ({
       mk('audit-trail', 'Audit Trail'),
       mk('payroll', 'Payroll'),
       mk('settings', 'Settings'),
-    ];
+    ].filter(item => isStaffOnlyScreen(item.id));
   }
   if (userRole === 'doctor' || userProfile?.user_type === 'doctor') {
-    return [{ id: 'doctor-hub', label: 'My Dashboard', icon: Stethoscope }];
+    return base;
   }
   if (userRole === 'manager' || userDesignation === 'manager') {
     return [
@@ -141,7 +142,7 @@ export const getNavigationItems = ({
       mk('quick-payment-report', 'Quick Payment Report'),
       mk('payroll', 'Payroll'),
       mk('chat', 'Team Chat'),
-    ];
+    ].filter(item => isStaffOnlyScreen(item.id));
   }
   if (userRole === 'admin' || userDesignation === 'admin') {
     return [
@@ -176,7 +177,7 @@ export const getNavigationItems = ({
       mk('audit-trail', 'Audit Trail'),
       mk('payroll', 'Payroll'),
       mk('settings', 'Settings'),
-    ];
+    ].filter(item => isStaffOnlyScreen(item.id));
   }
   if (userRole && isStaffRole(userRole)) {
     return [
@@ -254,6 +255,7 @@ export const useNavigationItems = (): { items: NavigationItem[]; loading: boolea
     if (!fullAccess && !permissionsReady) return { items: [], loading: true };
 
     const permitted = rows
+      .filter((r) => isStaffOnlyScreen(r.screen_key))
       .filter((r) => (r.super_admin_only ? isSuper : true))
       .filter((r) => {
         // super_admin / admin: zero configuration required, everything visible.

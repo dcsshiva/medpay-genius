@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { isStaffOnlyScreen } from '@/lib/staffOnlyScreens';
 
 export interface ScreenRegistryEntry {
   screen_key: string;
@@ -24,7 +25,7 @@ export const useScreenRegistry = () => {
 
   const load = useCallback(async () => {
     const { data: rows, error } = await (supabase.rpc as any)('list_screen_registry');
-    if (!error && rows) setData(rows as ScreenRegistryEntry[]);
+    if (!error && rows) setData((rows as ScreenRegistryEntry[]).filter(row => isStaffOnlyScreen(row.screen_key)));
     setLoading(false);
   }, []);
 

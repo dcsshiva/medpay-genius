@@ -47,61 +47,6 @@ const Settings = () => {
   const [password, setPassword] = useState('');
   const [failedAttempts, setFailedAttempts] = useState(0);
 
-  // Security constants
-  const ERASE_PASSWORD = '9629945305';
-  const MAX_FAILED_ATTEMPTS = 3;
-
-  const handleEraseTransactions = async () => {
-    // First check password
-    if (password !== ERASE_PASSWORD) {
-      const newFailedAttempts = failedAttempts + 1;
-      setFailedAttempts(newFailedAttempts);
-      
-      toast.error(`Incorrect password. Attempt ${newFailedAttempts} of ${MAX_FAILED_ATTEMPTS}`);
-      
-      // Logout after 3 failed attempts
-      if (newFailedAttempts >= MAX_FAILED_ATTEMPTS) {
-        toast.error('Maximum attempts exceeded. Logging out for security.');
-        setTimeout(async () => {
-          await signOut();
-        }, 1500);
-        return;
-      }
-      
-      return;
-    }
-
-    // Then check confirmation text
-    if (confirmationText !== 'DELETE ALL') {
-      toast.error('Please type "DELETE ALL" to confirm');
-      return;
-    }
-
-    setIsErasing(true);
-    try {
-      const { data, error } = await supabase.rpc('erase_all_transactions');
-      
-      if (error) throw error;
-
-      const result = data as { visits_deleted: number; payments_deleted: number; payment_visits_deleted: number; payment_transactions_deleted: number };
-
-      toast.success(
-        `Successfully deleted: ${result.visits_deleted} visits, ${result.payments_deleted} payments, ${result.payment_visits_deleted} payment links, ${result.payment_transactions_deleted} transactions`
-      );
-      
-      // Reset all fields on success
-      setIsEraseDialogOpen(false);
-      setConfirmationText('');
-      setPassword('');
-      setFailedAttempts(0);
-    } catch (error) {
-      console.error('Error erasing transactions:', error);
-      toast.error('Failed to erase transactions. Please try again.');
-    } finally {
-      setIsErasing(false);
-    }
-  };
-
   // Only super admins and admins can access settings (fallback to userRole when designation unavailable)
   if (!((userDesignation === 'super_admin' || userDesignation === 'admin') || (userRole === 'super_admin' || userRole === 'admin'))) {
     return (
@@ -401,7 +346,7 @@ const Settings = () => {
                 <Users className="h-5 w-5 text-secondary" />
                 <div>
                   <h4 className="font-medium">User Management</h4>
-                  <p className="text-sm text-muted-foreground">Admin-only access to manage staff and doctors</p>
+                  <p className="text-sm text-muted-foreground">Admin-only access to manage staff</p>
                 </div>
               </div>
               <Badge variant="destructive">Admin Only</Badge>
@@ -420,105 +365,6 @@ const Settings = () => {
         </CardContent>
       </Card>
 
-      {/* Testing & Development Tools */}
-      <Card className="border-destructive">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-destructive">
-            <Trash2 className="h-5 w-5" />
-            Testing & Development Tools
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="p-4 bg-destructive/10 rounded-lg border border-destructive/20">
-            <div className="flex items-start gap-3 mb-4">
-              <AlertTriangle className="h-5 w-5 text-destructive mt-0.5" />
-              <div>
-                <h4 className="font-medium text-destructive mb-1">Danger Zone</h4>
-                <p className="text-sm text-muted-foreground">
-                  These tools are for testing purposes only. Use with extreme caution.
-                </p>
-              </div>
-            </div>
-
-            <AlertDialog open={isEraseDialogOpen} onOpenChange={setIsEraseDialogOpen}>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" className="w-full">
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Erase All Transactions
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-                    <AlertTriangle className="h-5 w-5" />
-                    Are you absolutely sure?
-                  </AlertDialogTitle>
-                  <AlertDialogDescription className="space-y-3">
-                    <div className="font-semibold text-foreground">
-                      This action cannot be undone. This will permanently delete:
-                    </div>
-                    <ul className="list-disc list-inside space-y-1 text-sm">
-                      <li>All visit records</li>
-                      <li>All payment records</li>
-                      <li>All payment-visit links</li>
-                      <li>All payment transactions</li>
-                    </ul>
-                    <div className="text-destructive font-medium">
-                      All doctors and staff records will remain intact.
-                    </div>
-                    <div className="space-y-2 pt-4">
-                      <Label htmlFor="password-input" className="text-foreground">
-                        Enter the password:
-                      </Label>
-                      <Input
-                        id="password-input"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Enter password"
-                        className="font-mono"
-                        autoComplete="off"
-                      />
-                      {failedAttempts > 0 && (
-                        <p className="text-sm text-destructive">
-                          Failed attempts: {failedAttempts}/{MAX_FAILED_ATTEMPTS}
-                        </p>
-                      )}
-                    </div>
-                    <div className="space-y-2 pt-2">
-                      <Label htmlFor="confirm-text" className="text-foreground">
-                        Type <span className="font-mono font-bold">DELETE ALL</span> to confirm:
-                      </Label>
-                      <Input
-                        id="confirm-text"
-                        value={confirmationText}
-                        onChange={(e) => setConfirmationText(e.target.value)}
-                        placeholder="DELETE ALL"
-                        className="font-mono"
-                      />
-                    </div>
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel onClick={() => {
-                    setConfirmationText('');
-                    setPassword('');
-                  }}>
-                    Cancel
-                  </AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={handleEraseTransactions}
-                    disabled={!password || confirmationText !== 'DELETE ALL' || isErasing}
-                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  >
-                    {isErasing ? 'Erasing...' : 'Erase All Transactions'}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        </CardContent>
-      </Card>
         </TabsContent>
 
         <TabsContent value="notifications">

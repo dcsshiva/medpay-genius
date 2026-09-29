@@ -5,7 +5,6 @@ import { Menu, LogOut } from 'lucide-react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import westmedLogo from '@/assets/westmed-logo.png';
 import { NotificationCenter } from '@/components/NotificationCenter';
-import { PaymentStatsColorPicker } from '@/components/PaymentStatsColorPicker';
 import CheckUpdateButton from '@/components/CheckUpdateButton';
 
 interface MobileHeaderProps {
@@ -87,9 +86,6 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
 
               {/* Accessibility & Logout */}
               <div className="flex-shrink-0 border-t p-6 bg-background space-y-3">
-                {(userRole === 'manager' || userRole === 'admin') && (
-                  <PaymentStatsColorPicker variant="full" />
-                )}
                 <Button 
                   variant="outline" 
                   onClick={() => {

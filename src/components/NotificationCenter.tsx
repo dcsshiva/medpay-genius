@@ -72,7 +72,7 @@ const NotificationItem: React.FC<{
       } else if (notification.type === 'leave_submitted' || notification.type === 'permission_submitted') {
         onNavigate('leave-approval');
       } else if (notification.type === 'payment') {
-        onNavigate('doctor-hub');
+        onNavigate('dashboard');
       } else if (notification.type === 'attendance') {
         onNavigate('attendance');
       } else if (notification.type === 'leave') {
