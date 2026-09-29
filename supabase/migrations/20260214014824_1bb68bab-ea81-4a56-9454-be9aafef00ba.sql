@@ -1,1 +1,0 @@
-INSERT INTO staff (user_id, full_name, username, staff_code, role, phone, password_hash, email) VALUES ('db153c07-9f73-4154-944f-614008ef8ea9', 'Shivan', 'shivan', 'ADM-SHIVAN', 'admin', '9486933892', 'otp-only', 'shivanss@gmail.com');

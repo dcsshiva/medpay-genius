@@ -1,1 +1,0 @@
-ALTER TABLE public.doctors ADD COLUMN mobile_number text;
