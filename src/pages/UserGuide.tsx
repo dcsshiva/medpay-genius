@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { 
-  BookOpen, Search, Home, Users, Stethoscope, Calendar, CreditCard, 
+  BookOpen, Search, Home, Users, 
   ClipboardList, MessageSquare, FileText, Settings, Phone, Mail, Clock,
   Info, AlertCircle, CheckCircle, HelpCircle, Printer
 } from "lucide-react";
@@ -46,20 +46,12 @@ export default function UserGuide() {
     const roleSpecific: Record<string, typeof common> = {
       admin: [
         { id: "staff-mgmt", label: "Staff Management", icon: Users },
-        { id: "doctor-mgmt", label: "Doctor Management", icon: Stethoscope },
-        { id: "payment-mgmt", label: "Payment Management", icon: CreditCard },
         { id: "system-settings", label: "System Settings", icon: Settings }
       ],
       manager: [
         { id: "staff-mgmt", label: "Staff Management", icon: Users },
         { id: "task-mgmt", label: "Task Management", icon: ClipboardList },
-        { id: "payment-approval", label: "Payment Approval", icon: CreditCard },
         { id: "reports", label: "Reports", icon: FileText }
-      ],
-      doctor: [
-        { id: "visit-recording", label: "Recording Visits", icon: Calendar },
-        { id: "payment-tracking", label: "Payment Tracking", icon: CreditCard },
-        { id: "profile", label: "Profile Management", icon: Settings }
       ],
       staff: [
         { id: "tasks", label: "My Tasks", icon: ClipboardList },
@@ -172,10 +164,9 @@ export default function UserGuide() {
             </CardHeader>
             <CardContent>
               <Tabs value={activeRole} onValueChange={setActiveRole}>
-                <TabsList className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <TabsList className="grid grid-cols-2 md:grid-cols-3 gap-2">
                   <TabsTrigger value="admin">Admin</TabsTrigger>
                   <TabsTrigger value="manager">Manager</TabsTrigger>
-                  <TabsTrigger value="doctor">Doctor</TabsTrigger>
                   <TabsTrigger value="staff">Staff</TabsTrigger>
                 </TabsList>
               </Tabs>
@@ -219,8 +210,7 @@ export default function UserGuide() {
                     <>
                       <li>Review system settings and configure hospital information</li>
                       <li>Create staff accounts (use Excel import for bulk creation)</li>
-                      <li>Add doctors with their specializations and bank details</li>
-                      <li>Configure payment approval workflows</li>
+                      <li>Review attendance and leave applications</li>
                       <li>Set up user roles and permissions</li>
                     </>
                   )}
@@ -228,18 +218,8 @@ export default function UserGuide() {
                     <>
                       <li>Review your team members and their roles</li>
                       <li>Create and assign tasks to staff</li>
-                      <li>Monitor visit records and prepare payment periods</li>
-                      <li>Review and approve doctor payments</li>
+                      <li>Review attendance and approve leave applications</li>
                       <li>Generate reports for management review</li>
-                    </>
-                  )}
-                  {activeRole === "doctor" && (
-                    <>
-                      <li>Familiarize yourself with the visit recording interface</li>
-                      <li>Learn about payment types (cash, card, insurance, UPI)</li>
-                      <li>Record patient visits daily with accurate details</li>
-                      <li>Track your payment history and pending amounts</li>
-                      <li>Update your profile and bank account information</li>
                     </>
                   )}
                   {activeRole === "staff" && (
@@ -318,7 +298,7 @@ export default function UserGuide() {
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary">manager</Badge>
-                          <span className="text-sm">Manage staff, approve payments, assign tasks</span>
+                          <span className="text-sm">Manage staff, approve leave, assign tasks</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge variant="outline">nurse</Badge>
