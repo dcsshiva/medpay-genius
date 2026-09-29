@@ -56,7 +56,7 @@ const Unsubscribe = () => {
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
             <Mail className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle>WestMed Hospital emails</CardTitle>
+          <CardTitle>WestMed Payroll emails</CardTitle>
           <CardDescription>
             {state === 'loading' && 'Checking your link…'}
             {state === 'valid' && 'Confirm that you no longer want to receive these emails.'}

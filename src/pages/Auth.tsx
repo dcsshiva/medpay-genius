@@ -536,10 +536,10 @@ const Auth: React.FC = () => {
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
-              <img src={westmedLogo} alt="WestMed Hospital Logo" className="h-16 w-16" />
+              <img src={westmedLogo} alt="WestMed Payroll System logo" className="h-16 w-16" />
             </div>
-            <h1 className="text-3xl font-bold text-white drop-shadow-lg">WestMed Hospital</h1>
-            <p className="text-white/90 drop-shadow-md">Hospital Management System</p>
+            <h1 className="text-3xl font-bold text-white drop-shadow-lg">WestMed</h1>
+            <p className="text-white/90 drop-shadow-md">Payroll System</p>
           </div>
 
           <DNSHelpBanner />
@@ -941,13 +941,13 @@ const Auth: React.FC = () => {
                   if (success) {
                     toast({
                       title: "App Installed!",
-                      description: "WestMed has been added to your home screen.",
+                      description: "WestMed Payroll has been added to your home screen.",
                     });
                   }
                 }}
               >
                 <Download className="h-4 w-4 mr-2" />
-                Install WestMed App
+                Install WestMed Payroll
               </Button>
             )}
 

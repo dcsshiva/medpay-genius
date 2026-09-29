@@ -89,6 +89,9 @@ const warningTypeLabels: Record<string, string> = {
   sleeping_on_duty: 'Sleeping on Duty',
 };
 
+// HRMS: appraisals & warnings are not part of the payroll system
+const SHOW_APPRAISALS = false;
+
 const StaffMobileDashboard: React.FC<StaffMobileDashboardProps> = ({ onNavigate }) => {
   const { user } = useAuth();
   const [stats, setStats] = useState<StaffStats>({
@@ -303,7 +306,7 @@ const StaffMobileDashboard: React.FC<StaffMobileDashboardProps> = ({ onNavigate 
         </Card>
 
         {/* Latest Appraisal Rating */}
-        {latestAppraisal && (
+        {SHOW_APPRAISALS && latestAppraisal && (
           <Card className="cursor-pointer active:scale-95 transition-transform" onClick={() => setShowAppraisalView(true)}>
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
@@ -318,7 +321,7 @@ const StaffMobileDashboard: React.FC<StaffMobileDashboardProps> = ({ onNavigate 
         )}
 
         {/* Active Warnings */}
-        {warningCount > 0 && (
+        {SHOW_APPRAISALS && warningCount > 0 && (
           <Card className="cursor-pointer active:scale-95 transition-transform border-destructive/30">
             <CardContent className="p-4">
               <div className="flex items-center justify-between mb-2">
@@ -360,7 +363,7 @@ const StaffMobileDashboard: React.FC<StaffMobileDashboardProps> = ({ onNavigate 
       )}
 
       {/* My Performance Section */}
-      {latestAppraisal && (
+      {SHOW_APPRAISALS && latestAppraisal && (
         <div>
           <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
             <Star className="h-5 w-5 text-primary" /> My Performance
@@ -395,7 +398,7 @@ const StaffMobileDashboard: React.FC<StaffMobileDashboardProps> = ({ onNavigate 
       )}
 
       {/* Recent Warnings */}
-      {recentWarnings.length > 0 && (
+      {SHOW_APPRAISALS && recentWarnings.length > 0 && (
         <div>
           <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
             <AlertTriangle className="h-5 w-5 text-destructive" /> Recent Warnings
@@ -427,13 +430,15 @@ const StaffMobileDashboard: React.FC<StaffMobileDashboardProps> = ({ onNavigate 
       <div>
         <h2 className="text-lg font-semibold mb-3">Quick Actions</h2>
         <div className="space-y-2">
-          <Button variant="outline" className="w-full justify-between h-14 px-4" onClick={() => setShowAppraisalView(true)}>
-            <div className="flex items-center gap-3">
-              <Award className="h-5 w-5 text-primary" />
-              <span>View My Appraisals</span>
-            </div>
-            <ArrowRight className="h-4 w-4 text-muted-foreground" />
-          </Button>
+          {SHOW_APPRAISALS && (
+            <Button variant="outline" className="w-full justify-between h-14 px-4" onClick={() => setShowAppraisalView(true)}>
+              <div className="flex items-center gap-3">
+                <Award className="h-5 w-5 text-primary" />
+                <span>View My Appraisals</span>
+              </div>
+              <ArrowRight className="h-4 w-4 text-muted-foreground" />
+            </Button>
+          )}
 
           <Button variant="outline" className="w-full justify-between h-14 px-4" onClick={() => onNavigate('leave-permission')}>
             <div className="flex items-center gap-3">

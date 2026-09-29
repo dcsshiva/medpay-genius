@@ -21,7 +21,7 @@ export function printReport(options: PrintReportOptions) {
     data,
     orientation = 'landscape',
     subtitle,
-    companyName = 'WestMed Hospital',
+    companyName = 'WestMed Payroll System',
   } = options;
 
   const now = new Date();

@@ -75,9 +75,9 @@ export default defineConfig(({ mode }) => {
         registerType: 'autoUpdate',
         includeAssets: ['westmed-favicon.png', 'robots.txt'],
         manifest: {
-          name: 'WestMed Hospital - Payment Management System',
-          short_name: 'WestMed',
-          description: 'WestMed Hospital Management System - World-Class Healthcare to All',
+          name: 'WestMed Payroll System',
+          short_name: 'WestMed Payroll',
+          description: 'WestMed Payroll System — attendance, leave, tasks and payroll',
           theme_color: '#e8f3eb',
           background_color: '#ffffff',
           display: 'standalone',

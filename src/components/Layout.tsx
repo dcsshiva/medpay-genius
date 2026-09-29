@@ -15,7 +15,6 @@ import CheckUpdateButton from '@/components/CheckUpdateButton';
 import MobileBottomNav from '@/components/MobileBottomNav';
 import westmedLogo from '@/assets/westmed-logo.png';
 import { useNavigationItems } from '@/lib/navigationItems';
-import AIChatbot from '@/components/AIChatbot';
 import WalkthroughOverlay from '@/components/WalkthroughOverlay';
 import { useWalkthrough } from '@/hooks/useWalkthrough';
 import { useVersionLoginToast } from '@/hooks/useVersionLoginToast';
@@ -61,10 +60,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
                   <div className="flex items-center space-x-3">
                     <SidebarTrigger />
                     <div className="flex items-center space-x-3">
-                      <img src={westmedLogo} alt="WestMed Hospital" className="h-8 w-8" />
+                      <img src={westmedLogo} alt="WestMed Payroll System" className="h-8 w-8" />
                       <div>
-                        <h1 className="text-xl font-bold text-foreground">WestMed Hospital</h1>
-                        <p className="text-sm text-muted-foreground">Hospital Management System</p>
+                        <h1 className="text-xl font-bold text-foreground">WestMed Payroll System</h1>
+                        <p className="text-sm text-muted-foreground">Attendance · Leave · Tasks · Payroll</p>
                       </div>
                     </div>
                   </div>
@@ -119,10 +118,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeTab, onTabChange }) => 
           {/* Footer */}
           <Footer />
           
-          {/* AI Chatbot */}
-          <div data-walkthrough="ai-chatbot">
-            <AIChatbot onTabChange={onTabChange} />
-          </div>
 
           {/* Walkthrough Overlay */}
           <WalkthroughOverlay
