@@ -97,6 +97,15 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const att = ATTENDANCE[empNo];
     if(!emp || !att) return null;
     const records = att.records.filter(r=> r.date>=env.cycle.start && r.date<=env.cycle.end);
+    if(!records.length){
+      const mPerm = staffMonthlyPermissionMin(emp), mCL = staffMonthlyCL(emp);
+      return {emp, rows: [], primaryShift: att.primaryShift, noAttendance: true, summary: {
+        perDay:0, perMinute:0, grossPay:0, monthlyPermissionMin:mPerm, monthlyCL:mCL,
+        permissionRemaining:mPerm, permissionUsed:0, clRemaining:mCL, clUsed:0, totalDeduction:0,
+        pfDeduction:0, esiDeduction:0, ptDeduction:0, otherDeduction:0, statutoryDeduction:0,
+        otMinutesTotal:0, otPay:0, finalNet:0, presentDays:0, lateDays:0, woDays:0, holidayDays:0,
+        clDays:0, absentDays:0, cycleLen:0 }};
+    }
     const cycleLen = (env.cycle.complete ? records.length : env.cycle.dates.length) || 1;
     const perDay = emp.netSalary / cycleLen;
     const perMinute = perDay / 8 / 60;
@@ -562,6 +571,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         (myLeaves.map(l=>leaveRow(l,{showStaff:false, showRouting:true})).join('') || '<tr><td colspan="7" class="note">No requests yet.</td></tr>')+
         '</tbody></table></div>';
       document.getElementById('newLeaveBtn').onclick = ()=> openLeaveForm(currentStaff);
+    } else if(staffTab==='payslip' && result.noAttendance){
+      body.innerHTML = '<div class="card pad payslip"><div class="note">No attendance has been imported for you in this pay cycle ('+CYCLE_LABEL_JS+') yet, so there is no payslip to show. It appears here once your attendance is imported.</div></div>';
     } else if(staffTab==='payslip'){
       const s = result.summary;
       body.innerHTML = ''+
@@ -2081,6 +2092,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     body.innerHTML = ''+
     salaryLockBar()+
     (adminUnitFilter!=='ALL'?'<div class="badge teal" style="margin-bottom:12px;">Scoped to '+unitName(adminUnitFilter)+'</div>':'')+
+    (rows.some(x=>x.r.noAttendance) ? '<div class="hint" style="margin-bottom:10px;">'+rows.filter(x=>x.r.noAttendance).length+' staff have no attendance in this pay cycle yet — shown blank and left out of the totals until their attendance is imported.</div>' : '')+
     '<div class="stats">'+
       stat('Gross payroll', fmtMoney(gross))+
       stat('Lateness / LOP', fmtMoney(lopDeduction), lopDeduction>0.5?'rose':'')+
@@ -2089,7 +2101,10 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       stat('Net payable', fmtMoney(netPayable), 'teal')+
     '</div>'+
     '<div class="tbl-scroll"><table><thead><tr><th>Code</th><th>Name</th><th>Department</th><th>Gross</th><th>Late/LOP</th><th>Statutory</th><th>OT</th><th>Net payable</th><th></th></tr></thead><tbody>'+
-    rows.map(({e,r})=>(
+    rows.map(({e,r})=> r.noAttendance ? (
+      '<tr class="row-wo"><td class="mono">'+e.empNo+'</td><td>'+e.name+'</td><td>'+deptName(e.department)+'</td>'+
+      '<td colspan="5" class="hint">No attendance in this pay cycle</td><td></td></tr>'
+    ) : (
       '<tr><td class="mono">'+e.empNo+'</td><td>'+e.name+'</td><td>'+deptName(e.department)+'</td>'+
       '<td class="mono">'+fmtMoney(r.summary.grossPay)+'</td>'+
       '<td class="mono">'+(r.summary.totalDeduction>0.5?'<span class="late-flag">-'+fmtMoney(r.summary.totalDeduction)+'</span>':'—')+'</td>'+
@@ -2128,7 +2143,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       if(!env.cycle.complete && !confirm('The pay cycle '+CYCLE_LABEL_JS+' has not ended yet. Finalize it anyway?')) return;
       if(!confirm('Finalize '+CYCLE_LABEL_JS+' for all '+STAFF.length+' staff?\n\nEvery payslip is frozen at today\'s figures. You can reopen the cycle later if a correction is needed.')) return;
       fin.disabled = true; fin.textContent = 'Finalizing…';
-      const results = STAFF.map(s=>computeCycle(s.empNo)).filter(r=>r && r.emp && r.summary)
+      const results = STAFF.map(s=>computeCycle(s.empNo)).filter(r=>r && r.emp && r.summary && !r.noAttendance)
         .map(r=>({emp:{empNo:r.emp.empNo, name:r.emp.name, unitCode:r.emp.unitCode}, summary:r.summary, rows:r.rows}));
       try{ await env.finalizeCycle(results, currentAdminAccount.name); }
       catch(e){ alert('Could not finalize: '+((e && e.message) || e)); }
