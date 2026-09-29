@@ -227,6 +227,183 @@ if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
 }""", "")
 
+# ══════════════════════════ Phase 2 (after the prototype) ══════════════════════════
+
+# ── 14. locked (finalized) pay cycles: frozen payslips replace the live calculation ──
+rep("""function computeCycle(empNo){
+  const emp = findStaff(empNo);
+  const att = ATTENDANCE[empNo];""", """function computeCycle(empNo){
+  const frozenSlip = env.data.PAYROLL.payslips[empNo];
+  if(frozenSlip){
+    const fe = findStaff(empNo);
+    return {emp: Object.assign({}, fe, {netSalary: frozenSlip.summary.grossPay}), rows: frozenSlip.rows, summary: frozenSlip.summary, primaryShift: null, frozen: true};
+  }
+  const emp = findStaff(empNo);
+  const att = ATTENDANCE[empNo];""")
+
+rep("""  body.innerHTML = ''+
+  (adminUnitFilter!=='ALL'?'<div class="badge teal" style="margin-bottom:12px;">Scoped to '+unitName(adminUnitFilter)+'</div>':'')+
+  '<div class="stats">'+
+    stat('Gross payroll', fmtMoney(gross))+""", """  body.innerHTML = ''+
+  salaryLockBar()+
+  (adminUnitFilter!=='ALL'?'<div class="badge teal" style="margin-bottom:12px;">Scoped to '+unitName(adminUnitFilter)+'</div>':'')+
+  '<div class="stats">'+
+    stat('Gross payroll', fmtMoney(gross))+""")
+rep(""" Export to bank/PDF formats is a Lovable build-phase item.</div>';
+  body.querySelectorAll('[data-payslip]').forEach(btn=> btn.onclick = ()=> openDrilldown(btn.dataset.payslip));
+}""", """ Once the cycle is complete and checked, <b>Finalize cycle</b> locks every payslip (later attendance, leave or settings edits no longer change it) and unlocks the bank salary file.</div>';
+  body.querySelectorAll('[data-payslip]').forEach(btn=> btn.onclick = ()=> openDrilldown(btn.dataset.payslip));
+  wireSalaryLock();
+}
+
+function salaryLockBar(){
+  const run = env.data.PAYROLL.run;
+  const isAdmin = currentAdminAccount && currentAdminAccount.role==='admin';
+  const box = 'border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface);';
+  if(run){
+    return '<div class="emp-toolbar" style="'+box+'">'+
+      '<div><span class="badge teal">Finalized</span> <span class="hint" style="margin-left:6px;">'+CYCLE_LABEL_JS+' locked on '+fmtDate(String(run.finalized_at).slice(0,10))+(run.finalized_by?' by '+run.finalized_by:'')+'. Payslips are frozen — attendance, leave or settings edits no longer change this cycle.</span></div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;">'+
+        '<button class="btn sm" id="bankFileBtn">Bank salary file (CSV)</button>'+
+        (isAdmin ? '<button class="iconbtn danger" id="reopenCycleBtn">Reopen cycle</button>' : '')+
+      '</div>'+
+    '</div>';
+  }
+  return '<div class="emp-toolbar" style="'+box+'">'+
+    '<div><span class="badge amber">Live — not finalized</span> <span class="hint" style="margin-left:6px;">Figures recalculate as attendance, leave and settings change. Finalize once the cycle is complete and checked.</span></div>'+
+    (isAdmin ? '<button class="btn sm" id="finalizeCycleBtn">Finalize cycle</button>' : '')+
+  '</div>';
+}
+function wireSalaryLock(){
+  const fin = document.getElementById('finalizeCycleBtn');
+  if(fin) fin.onclick = async ()=>{
+    if(!env.cycle.complete && !confirm('The pay cycle '+CYCLE_LABEL_JS+' has not ended yet. Finalize it anyway?')) return;
+    if(!confirm('Finalize '+CYCLE_LABEL_JS+' for all '+STAFF.length+' staff?\\n\\nEvery payslip is frozen at today\\'s figures. You can reopen the cycle later if a correction is needed.')) return;
+    fin.disabled = true; fin.textContent = 'Finalizing…';
+    const results = STAFF.map(s=>computeCycle(s.empNo)).filter(r=>r && r.emp && r.summary)
+      .map(r=>({emp:{empNo:r.emp.empNo, name:r.emp.name, unitCode:r.emp.unitCode}, summary:r.summary, rows:r.rows}));
+    try{ await env.finalizeCycle(results, currentAdminAccount.name); }
+    catch(e){ alert('Could not finalize: '+((e && e.message) || e)); }
+    renderAdmin();
+  };
+  const reo = document.getElementById('reopenCycleBtn');
+  if(reo) reo.onclick = async ()=>{
+    if(!confirm('Reopen '+CYCLE_LABEL_JS+'? Frozen payslips are discarded and figures go back to live calculation.')) return;
+    try{ await env.reopenCycle(); }
+    catch(e){ alert('Could not reopen: '+((e && e.message) || e)); }
+    renderAdmin();
+  };
+  const bank = document.getElementById('bankFileBtn');
+  if(bank) bank.onclick = exportBankFile;
+}
+function exportBankFile(){
+  const rows = STAFF.map(s=>({s, r:computeCycle(s.empNo)})).filter(x=>x.r && x.r.summary && x.r.summary.finalNet>0.5);
+  const missing = rows.filter(x=>!x.s.bankAccountNo || !x.s.bankIfsc);
+  if(missing.length && !confirm(missing.length+' staff have no bank account / IFSC yet (Staff Master → Details): '+missing.slice(0,6).map(x=>x.s.name).join(', ')+(missing.length>6?'…':'')+'\\n\\nThey will be listed with blank account details. Continue?')) return;
+  const narration = 'Salary '+CYCLE_LABEL_JS;
+  const total = rows.reduce((s,x)=>s+Math.round(x.r.summary.finalNet),0);
+  const headers = ['Sr No','Staff Code','Beneficiary Name','Account Number','IFSC','Bank','Amount (Rs)','Narration'];
+  const body = rows.map((x,i)=>[i+1, x.s.empNo, x.s.bankAccountName || x.s.name, x.s.bankAccountNo||'', (x.s.bankIfsc||'').toUpperCase(), x.s.bankName||'', Math.round(x.r.summary.finalNet), narration]);
+  body.push(['','','TOTAL','','','',total,'']);
+  exportCSV('bank_salary_'+env.cycle.key+'.csv', headers, body);
+}""")
+
+# locked cycle: shift changes and imports can't alter a finalized cycle
+rep("""    btn.onclick = ()=>{
+      const emp = btn.dataset.emp, date = btn.dataset.date;
+      const rec = ATTENDANCE[emp].records.find(r=>r.date===date);""", """    btn.onclick = ()=>{
+      if(env.data.PAYROLL.run){ alert('This pay cycle is finalized. Reopen it on the Salary tab to change shifts.'); return; }
+      const emp = btn.dataset.emp, date = btn.dataset.date;
+      const rec = ATTENDANCE[emp].records.find(r=>r.date===date);""")
+rep("""  document.getElementById('attImportBtn').onclick = openAttendanceImportModal;""",
+    """  document.getElementById('attImportBtn').onclick = ()=>{
+    if(env.data.PAYROLL.run && !confirm('This pay cycle is finalized — imported punches will be saved but won\\'t change its frozen payslips unless you reopen the cycle on the Salary tab. Continue?')) return;
+    openAttendanceImportModal();
+  };""")
+
+# frozen cycles: every salary column reads the engine result (gross at finalization), not today's Staff Master value
+rep("  const gross = rows.reduce((s,x)=>s+x.e.netSalary,0);", "  const gross = rows.reduce((s,x)=>s+x.r.summary.grossPay,0);")
+rep("fmtMoney(e.netSalary)", "fmtMoney(r.summary.grossPay)", 4)
+rep("unitName(e.unitCode),e.netSalary,r.summary.totalDeduction", "unitName(e.unitCode),r.summary.grossPay,r.summary.totalDeduction")
+rep("[e.empNo,e.name,e.netSalary,s.pfDeduction", "[e.empNo,e.name,s.grossPay,s.pfDeduction")
+
+# ── 15. direct .xls / .xlsx import from the biometric device software ──
+rep_re(r"      ' Browsers can\\'t open the original binary \.xls file directly.*?convert it automatically\.'\+\n",
+       "      ' Upload the <b>.xls / .xlsx</b> file straight from the device software, or a CSV / text export, or paste the report below.'+\n")
+rep("""      '<div class="form-row"><label>Upload a .csv / .txt file</label><input type="file" id="attImportFile" accept=".csv,.txt,.tsv"></div>'+""",
+    """      '<div class="form-row"><label>Upload the device export (.xls / .xlsx / .csv / .txt)</label><input type="file" id="attImportFile" accept=".xls,.xlsx,.csv,.txt,.tsv"></div>'+""")
+rep("""    const f = e.target.files[0]; if(!f) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{ document.getElementById('attImportText').value = reader.result; };
+    reader.readAsText(f);""", """    const f = e.target.files[0]; if(!f) return;
+    if(/\\.xlsx?$/i.test(f.name)){
+      const ta = document.getElementById('attImportText');
+      ta.value = 'Reading '+f.name+'…';
+      env.excelToCsv(f).then(csv=>{ ta.value = csv; document.getElementById('attImportParseBtn').click(); })
+        .catch(err=>{ ta.value = ''; alert('Could not read '+f.name+': '+((err && err.message) || err)); });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = ()=>{ document.getElementById('attImportText').value = reader.result; };
+    reader.readAsText(f);""")
+
+# ── 16. bank details on the staff record (for the salary bank file) ──
+rep("""      '<button class="btn" style="width:100%;" id="sdSubmit">Save</button>'+""",
+    """      '<div class="section-title">Bank details (salary transfer)</div>'+
+      '<div class="form-grid">'+
+        '<div class="form-row"><label>Account holder name</label><input id="sdBankHolder" value="'+escapeAttr(e.bankAccountName||'')+'" placeholder="'+escapeAttr(e.name)+'"></div>'+
+        '<div class="form-row"><label>Account number</label><input id="sdBankAcc" class="mono" inputmode="numeric" value="'+escapeAttr(e.bankAccountNo||'')+'"></div>'+
+      '</div>'+
+      '<div class="form-grid">'+
+        '<div class="form-row"><label>IFSC</label><input id="sdBankIfsc" class="mono" value="'+escapeAttr(e.bankIfsc||'')+'" placeholder="e.g. SBIN0001234"></div>'+
+        '<div class="form-row"><label>Bank</label><input id="sdBankName" value="'+escapeAttr(e.bankName||'')+'"></div>'+
+      '</div>'+
+      '<div class="error-text" id="sdError"></div>'+
+      '<button class="btn" style="width:100%;" id="sdSubmit">Save</button>'+""")
+rep("""    e.otherDeduction = parseFloat(document.getElementById('sdOtherDed').value) || 0;""",
+    """    const ifsc = document.getElementById('sdBankIfsc').value.trim().toUpperCase();
+    const acc = document.getElementById('sdBankAcc').value.replace(/\\s/g,'');
+    if(ifsc && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)){ document.getElementById('sdError').textContent = 'IFSC should look like SBIN0001234 (11 characters).'; return; }
+    if(acc && !/^\\d{6,18}$/.test(acc)){ document.getElementById('sdError').textContent = 'Account number should be 6–18 digits.'; return; }
+    e.bankAccountName = document.getElementById('sdBankHolder').value.trim();
+    e.bankAccountNo = acc;
+    e.bankIfsc = ifsc;
+    e.bankName = document.getElementById('sdBankName').value.trim();
+    e.otherDeduction = parseFloat(document.getElementById('sdOtherDed').value) || 0;""")
+
+# ── 17. month-on-month trend on the admin Overview ──
+rep("""      return '<div title="'+escapeAttr(s.label+': '+(s.value==null?'no data':s.value+(opts.suffix||'')))+'" style="flex:0 0 auto;width:8px;""",
+    """      return '<div title="'+escapeAttr(s.label+': '+(s.value==null?'no data':s.value+(opts.suffix||'')))+'" style="flex:0 0 auto;width:'+(opts.barWidth||8)+'px;""")
+rep("""    '<div class="footnote">Attendance % and payroll figures are for the current single loaded pay cycle; once real cycle history accumulates in the Lovable build, these can trend across months instead of showing one cycle\\'s breakdown.</div>';
+}""", """    '<div class="section-title" style="margin-top:16px;">Month-on-month trend (last 6 pay cycles, all units)</div>'+
+    '<div id="trendBox"><div class="note" style="padding:8px 0;">Loading trend…</div></div>'+
+    '<div class="footnote">Payroll figures in the trend come from finalized cycles (Salary → Finalize cycle); the current cycle shows its live figures until it is finalized. Attendance % = present days ÷ working days on record (weekly offs and holidays excluded).</div>';
+  renderTrendBox(adminUnitFilter==='ALL' ? {
+    lateDays: cycles.reduce((s,c)=>s+c.summary.lateDays,0), gross: grossTotal, lop: lopTotal,
+    statutory: statTotal, otPay: otTotal, net: netTotal } : null);
+}
+
+function renderTrendBox(live){
+  env.trends(6).then(list=>{
+    const box = document.getElementById('trendBox'); if(!box) return;
+    list.forEach(t=>{ if(live && t.cycle.key===env.cycle.key && !t.finalized) Object.assign(t, live, {live:true}); });
+    const money = v=> v==null ? '—' : fmtMoney(v);
+    box.innerHTML = ''+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" class="stack-mobile">'+
+        '<div><div class="hint" style="margin-bottom:4px;">Attendance %</div>'+miniBarChart(list.map(t=>({label:t.cycle.label, value:t.attendancePct})),{suffix:'%',max:100,barWidth:32})+'</div>'+
+        '<div><div class="hint" style="margin-bottom:4px;">Net payable</div>'+miniBarChart(list.map(t=>({label:t.cycle.label, value:t.net==null?null:Math.round(t.net)})),{color:'var(--amber)',barWidth:32})+'</div>'+
+      '</div>'+
+      '<div class="tbl-scroll" style="margin-top:10px;"><table class="narrow"><thead><tr><th>Pay cycle</th><th>Attendance %</th><th>Late instances</th><th>Gross</th><th>Lateness / LOP</th><th>Statutory</th><th>OT</th><th>Net payable</th><th>Status</th></tr></thead><tbody>'+
+      list.slice().reverse().map(t=>'<tr><td class="mono">'+t.cycle.label+'</td>'+
+        '<td class="mono">'+(t.attendancePct==null?'—':t.attendancePct+'%')+'</td>'+
+        '<td class="mono">'+(t.lateDays==null?'—':t.lateDays)+'</td>'+
+        '<td class="mono">'+money(t.gross)+'</td><td class="mono">'+money(t.lop)+'</td><td class="mono">'+money(t.statutory)+'</td>'+
+        '<td class="mono">'+money(t.otPay)+'</td><td class="mono">'+money(t.net)+'</td>'+
+        '<td>'+(t.finalized?'<span class="badge teal">Finalized</span>':(t.live?'<span class="badge amber">Live</span>':'<span class="hint">—</span>'))+'</td></tr>').join('')+
+      '</tbody></table></div>';
+  }).catch(()=>{ const box = document.getElementById('trendBox'); if(box) box.innerHTML = '<div class="note" style="padding:8px 0;">Trend not available right now.</div>'; });
+}""")
+
 # sanity: nothing left that points at demo data
 for bad in ['DEMO_STAFF_ID', 'admin123', 'Selvantra', '2026-09-25']:
     if bad in script:

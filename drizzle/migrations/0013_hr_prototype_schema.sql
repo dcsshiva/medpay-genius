@@ -227,43 +227,56 @@ BEGIN
 END $$;
 
 -- Staff: admin & managers read all, staff read own row; admin writes
+DROP POLICY IF EXISTS "hr staff read" ON public.hr_staff;
 CREATE POLICY "hr staff read" ON public.hr_staff FOR SELECT TO authenticated
   USING (public.hr_can_manage(auth.uid()) OR user_id = auth.uid());
+DROP POLICY IF EXISTS "hr staff admin write" ON public.hr_staff;
 CREATE POLICY "hr staff admin write" ON public.hr_staff FOR ALL TO authenticated
   USING (public.hr_is_admin(auth.uid())) WITH CHECK (public.hr_is_admin(auth.uid()));
 
 -- Attendance: admin/manager read+write (leave approval writes CL); staff read own
+DROP POLICY IF EXISTS "hr att read" ON public.hr_attendance;
 CREATE POLICY "hr att read" ON public.hr_attendance FOR SELECT TO authenticated
   USING (public.hr_can_manage(auth.uid()) OR emp_no = public.hr_my_emp(auth.uid()));
+DROP POLICY IF EXISTS "hr att manage" ON public.hr_attendance;
 CREATE POLICY "hr att manage" ON public.hr_attendance FOR ALL TO authenticated
   USING (public.hr_can_manage(auth.uid())) WITH CHECK (public.hr_can_manage(auth.uid()));
 
 -- Roster: admin writes; admin/manager read all; staff read own
+DROP POLICY IF EXISTS "hr roster read" ON public.hr_roster;
 CREATE POLICY "hr roster read" ON public.hr_roster FOR SELECT TO authenticated
   USING (public.hr_can_manage(auth.uid()) OR emp_no = public.hr_my_emp(auth.uid()));
+DROP POLICY IF EXISTS "hr roster admin" ON public.hr_roster;
 CREATE POLICY "hr roster admin" ON public.hr_roster FOR ALL TO authenticated
   USING (public.hr_is_admin(auth.uid())) WITH CHECK (public.hr_is_admin(auth.uid()));
 
 -- Tasks: admin/manager everything; staff read + update their own (accept / reject / finish)
+DROP POLICY IF EXISTS "hr tasks read" ON public.hr_tasks;
 CREATE POLICY "hr tasks read" ON public.hr_tasks FOR SELECT TO authenticated
   USING (public.hr_can_manage(auth.uid()) OR assigned_to = public.hr_my_emp(auth.uid()));
+DROP POLICY IF EXISTS "hr tasks manage" ON public.hr_tasks;
 CREATE POLICY "hr tasks manage" ON public.hr_tasks FOR ALL TO authenticated
   USING (public.hr_can_manage(auth.uid())) WITH CHECK (public.hr_can_manage(auth.uid()));
+DROP POLICY IF EXISTS "hr tasks staff update" ON public.hr_tasks;
 CREATE POLICY "hr tasks staff update" ON public.hr_tasks FOR UPDATE TO authenticated
   USING (assigned_to = public.hr_my_emp(auth.uid()))
   WITH CHECK (assigned_to = public.hr_my_emp(auth.uid()));
 
 -- Leave: admin/manager everything; staff read own + ones they cover, and apply for themselves
+DROP POLICY IF EXISTS "hr leaves read" ON public.hr_leaves;
 CREATE POLICY "hr leaves read" ON public.hr_leaves FOR SELECT TO authenticated
   USING (public.hr_can_manage(auth.uid())
          OR emp_no = public.hr_my_emp(auth.uid())
          OR alt_emp_no = public.hr_my_emp(auth.uid()));
+DROP POLICY IF EXISTS "hr leaves manage" ON public.hr_leaves;
 CREATE POLICY "hr leaves manage" ON public.hr_leaves FOR ALL TO authenticated
   USING (public.hr_can_manage(auth.uid())) WITH CHECK (public.hr_can_manage(auth.uid()));
+DROP POLICY IF EXISTS "hr leaves staff apply" ON public.hr_leaves;
 CREATE POLICY "hr leaves staff apply" ON public.hr_leaves FOR INSERT TO authenticated
   WITH CHECK (emp_no = public.hr_my_emp(auth.uid()) AND status = 'Pending');
 
 -- Single active session: each account manages its own row
+DROP POLICY IF EXISTS "hr session own" ON public.hr_active_sessions;
 CREATE POLICY "hr session own" ON public.hr_active_sessions FOR ALL TO authenticated
   USING (account = auth.uid()) WITH CHECK (account = auth.uid());
 ALTER TABLE public.hr_active_sessions REPLICA IDENTITY FULL;

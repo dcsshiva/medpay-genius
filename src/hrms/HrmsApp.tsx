@@ -176,6 +176,44 @@ export default function HrmsApp() {
       },
       ensureAllLogins: () => manageLogin({ action: 'ensure_all' }),
       setStaffPassword: (empNo: string, password: string) => manageLogin({ action: 'set_password', emp_no: empNo, password }),
+
+      // ── Phase 2 ──
+      finalizeCycle: async (results: any[], byName: string) => {
+        await runSync();
+        status('Finalizing…');
+        try {
+          await store.finalizeCycle(cycle, results, byName);
+          status('Cycle finalized', false, 2000);
+        } catch (err: any) {
+          status('Could not finalize — ' + (err?.message || err), true);
+          throw err;
+        }
+      },
+      reopenCycle: async () => {
+        status('Reopening…');
+        try {
+          await store.reopenCycle(cycle);
+          status('Cycle reopened', false, 2000);
+        } catch (err: any) {
+          status('Could not reopen — ' + (err?.message || err), true);
+          throw err;
+        }
+      },
+      trends: async (count: number) => {
+        const [y, m] = cycle.key.split('-').map(Number);
+        const list: HrCycle[] = [];
+        for (let i = count - 1; i >= 0; i--) {
+          const d = new Date(y, m - 1 - i, 1);
+          list.push(cycleForKey(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`, startDay));
+        }
+        return store.loadTrends(list);
+      },
+      excelToCsv: async (file: File) => {
+        const XLSX = await import('xlsx');
+        const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: false, dateNF: 'dd-mmm-yyyy' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        return XLSX.utils.sheet_to_csv(ws, { blankrows: false, rawNumbers: false });
+      },
     };
 
     controller = mountHrms(root, env);

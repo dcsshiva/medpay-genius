@@ -88,6 +88,11 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   function findStaff(empNo){ return STAFF.find(s=>s.empNo===empNo); }
 
   function computeCycle(empNo){
+    const frozenSlip = env.data.PAYROLL.payslips[empNo];
+    if(frozenSlip){
+      const fe = findStaff(empNo);
+      return {emp: Object.assign({}, fe, {netSalary: frozenSlip.summary.grossPay}), rows: frozenSlip.rows, summary: frozenSlip.summary, primaryShift: null, frozen: true};
+    }
     const emp = findStaff(empNo);
     const att = ATTENDANCE[empNo];
     if(!emp || !att) return null;
@@ -1047,6 +1052,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     document.getElementById('plannerSearch').oninput = (e)=>{ plannerQuery = e.target.value; renderShiftPlanner(); };
     body.querySelectorAll('.planner-cell[data-emp]').forEach(btn=>{
       btn.onclick = ()=>{
+        if(env.data.PAYROLL.run){ alert('This pay cycle is finalized. Reopen it on the Salary tab to change shifts.'); return; }
         const emp = btn.dataset.emp, date = btn.dataset.date;
         const rec = ATTENDANCE[emp].records.find(r=>r.date===date);
         const current = effectiveShift(emp, date, toMin(rec.in)).code;
@@ -1078,7 +1084,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     return '<div style="display:flex;align-items:flex-end;gap:3px;height:90px;padding:10px 8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow-x:auto;">'+
       series.map(s=>{
         const h = s.value==null ? 3 : Math.max(4, Math.round((s.value/max)*76));
-        return '<div title="'+escapeAttr(s.label+': '+(s.value==null?'no data':s.value+(opts.suffix||'')))+'" style="flex:0 0 auto;width:8px;height:'+h+'px;background:'+(s.value==null?'var(--line)':(opts.color||'var(--teal)'))+';border-radius:2px 2px 0 0;"></div>';
+        return '<div title="'+escapeAttr(s.label+': '+(s.value==null?'no data':s.value+(opts.suffix||'')))+'" style="flex:0 0 auto;width:'+(opts.barWidth||8)+'px;height:'+h+'px;background:'+(s.value==null?'var(--line)':(opts.color||'var(--teal)'))+';border-radius:2px 2px 0 0;"></div>';
       }).join('')+
     '</div>';
   }
@@ -1164,7 +1170,33 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '<div class="tbl-scroll"><table class="narrow"><thead><tr><th>Department</th><th>Staff</th></tr></thead><tbody>'+
       Object.entries(byDept).sort((a,b)=>b[1]-a[1]).map(([d,c])=>'<tr><td>'+deptName(d)+'</td><td class="mono">'+c+'</td></tr>').join('')+
       '</tbody></table></div>'+
-      '<div class="footnote">Attendance % and payroll figures are for the current single loaded pay cycle; once real cycle history accumulates in the Lovable build, these can trend across months instead of showing one cycle\'s breakdown.</div>';
+      '<div class="section-title" style="margin-top:16px;">Month-on-month trend (last 6 pay cycles, all units)</div>'+
+      '<div id="trendBox"><div class="note" style="padding:8px 0;">Loading trend…</div></div>'+
+      '<div class="footnote">Payroll figures in the trend come from finalized cycles (Salary → Finalize cycle); the current cycle shows its live figures until it is finalized. Attendance % = present days ÷ working days on record (weekly offs and holidays excluded).</div>';
+    renderTrendBox(adminUnitFilter==='ALL' ? {
+      lateDays: cycles.reduce((s,c)=>s+c.summary.lateDays,0), gross: grossTotal, lop: lopTotal,
+      statutory: statTotal, otPay: otTotal, net: netTotal } : null);
+  }
+
+  function renderTrendBox(live){
+    env.trends(6).then(list=>{
+      const box = document.getElementById('trendBox'); if(!box) return;
+      list.forEach(t=>{ if(live && t.cycle.key===env.cycle.key && !t.finalized) Object.assign(t, live, {live:true}); });
+      const money = v=> v==null ? '—' : fmtMoney(v);
+      box.innerHTML = ''+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" class="stack-mobile">'+
+          '<div><div class="hint" style="margin-bottom:4px;">Attendance %</div>'+miniBarChart(list.map(t=>({label:t.cycle.label, value:t.attendancePct})),{suffix:'%',max:100,barWidth:32})+'</div>'+
+          '<div><div class="hint" style="margin-bottom:4px;">Net payable</div>'+miniBarChart(list.map(t=>({label:t.cycle.label, value:t.net==null?null:Math.round(t.net)})),{color:'var(--amber)',barWidth:32})+'</div>'+
+        '</div>'+
+        '<div class="tbl-scroll" style="margin-top:10px;"><table class="narrow"><thead><tr><th>Pay cycle</th><th>Attendance %</th><th>Late instances</th><th>Gross</th><th>Lateness / LOP</th><th>Statutory</th><th>OT</th><th>Net payable</th><th>Status</th></tr></thead><tbody>'+
+        list.slice().reverse().map(t=>'<tr><td class="mono">'+t.cycle.label+'</td>'+
+          '<td class="mono">'+(t.attendancePct==null?'—':t.attendancePct+'%')+'</td>'+
+          '<td class="mono">'+(t.lateDays==null?'—':t.lateDays)+'</td>'+
+          '<td class="mono">'+money(t.gross)+'</td><td class="mono">'+money(t.lop)+'</td><td class="mono">'+money(t.statutory)+'</td>'+
+          '<td class="mono">'+money(t.otPay)+'</td><td class="mono">'+money(t.net)+'</td>'+
+          '<td>'+(t.finalized?'<span class="badge teal">Finalized</span>':(t.live?'<span class="badge amber">Live</span>':'<span class="hint">—</span>'))+'</td></tr>').join('')+
+        '</tbody></table></div>';
+    }).catch(()=>{ const box = document.getElementById('trendBox'); if(box) box.innerHTML = '<div class="note" style="padding:8px 0;">Trend not available right now.</div>'; });
   }
 
   function latestDataDate(){
@@ -1239,7 +1271,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<td class="mono">'+e.empNo+'</td>'+
         '<td>'+e.name+'</td>'+
         '<td>'+deptName(e.department)+'</td>'+
-        '<td class="mono">'+fmtMoney(e.netSalary)+'</td>'+
+        '<td class="mono">'+fmtMoney(r.summary.grossPay)+'</td>'+
         '<td class="mono">'+r.summary.lateDays+'</td>'+
         '<td class="mono">'+r.summary.clUsed+'/'+r.summary.monthlyCL+'</td>'+
         '<td class="mono">'+fmtMin(r.summary.permissionUsed)+'</td>'+
@@ -1250,7 +1282,10 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     '</tbody></table></div>'+
     '<div class="footnote">Click any row to open that staff member\'s day-by-day cycle sheet. Pay cycle runs the 25th to the 24th (set in Admin → Masters → Payroll Settings); the biometric export currently loaded only covers 26 Aug – 21 Sep, so the days just outside that window (25 Aug, 22–24 Sep) have no punch data yet.</div>';
     body.querySelectorAll('tr[data-id]').forEach(tr=> tr.onclick = ()=> openDrilldown(tr.dataset.id));
-    document.getElementById('attImportBtn').onclick = openAttendanceImportModal;
+    document.getElementById('attImportBtn').onclick = ()=>{
+      if(env.data.PAYROLL.run && !confirm('This pay cycle is finalized — imported punches will be saved but won\'t change its frozen payslips unless you reopen the cycle on the Salary tab. Continue?')) return;
+      openAttendanceImportModal();
+    };
   }
 
   /* ================= Attendance import ================= */
@@ -1367,9 +1402,9 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '<div class="modal-head"><h3 style="font-size:15px;">Import attendance</h3><button class="closebtn" id="modalClose">✕</button></div>'+
       '<div class="modal-body">'+
         '<div class="hint" style="margin-bottom:10px;">Recognizes the biometric device\'s <b>Daily Attendance Report (Summary Report)</b> export and <b>Employee Punch Monitor</b> export, saved or copied as CSV/text — plus a plain CSV with Employee Code / Date / Status / In / Out columns.'+
-        ' Browsers can\'t open the original binary .xls file directly — there\'s no built-in way to decode that legacy Excel format client-side without an external library, and this page can\'t load one. Open the .xls in Excel and use <b>File → Save As → CSV</b> (or select the report and copy it), then upload or paste the text below. Once this app runs on a real backend in Lovable, the server can accept the .xls file itself and convert it automatically.'+
+        ' Upload the <b>.xls / .xlsx</b> file straight from the device software, or a CSV / text export, or paste the report below.'+
         '</div>'+
-        '<div class="form-row"><label>Upload a .csv / .txt file</label><input type="file" id="attImportFile" accept=".csv,.txt,.tsv"></div>'+
+        '<div class="form-row"><label>Upload the device export (.xls / .xlsx / .csv / .txt)</label><input type="file" id="attImportFile" accept=".xls,.xlsx,.csv,.txt,.tsv"></div>'+
         '<div class="form-row"><label>...or paste the report text</label><textarea id="attImportText" rows="8" style="width:100%;font-family:monospace;font-size:12px;" placeholder="Paste CSV/text here"></textarea></div>'+
         '<button class="btn" id="attImportParseBtn">Preview import</button>'+
         '<div id="attImportPreview" style="margin-top:12px;"></div>'+
@@ -1379,6 +1414,13 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     document.getElementById('modalBack').addEventListener('click', e=>{ if(e.target.id==='modalBack') modalRoot.innerHTML=''; });
     document.getElementById('attImportFile').addEventListener('change', (e)=>{
       const f = e.target.files[0]; if(!f) return;
+      if(/\.xlsx?$/i.test(f.name)){
+        const ta = document.getElementById('attImportText');
+        ta.value = 'Reading '+f.name+'…';
+        env.excelToCsv(f).then(csv=>{ ta.value = csv; document.getElementById('attImportParseBtn').click(); })
+          .catch(err=>{ ta.value = ''; alert('Could not read '+f.name+': '+((err && err.message) || err)); });
+        return;
+      }
       const reader = new FileReader();
       reader.onload = ()=>{ document.getElementById('attImportText').value = reader.result; };
       reader.readAsText(f);
@@ -1572,6 +1614,16 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
           '<div class="form-row"><label><input type="checkbox" id="sdEsi" '+((e.esiApplicable ?? (e.netSalary<=21000))?'checked':'')+'> ESI applicable</label></div>'+
         '</div>'+
         '<div class="form-row"><label>Other monthly deduction (₹) — TDS, loan recovery, etc.</label><input id="sdOtherDed" type="number" min="0" value="'+(e.otherDeduction||0)+'"></div>'+
+        '<div class="section-title">Bank details (salary transfer)</div>'+
+        '<div class="form-grid">'+
+          '<div class="form-row"><label>Account holder name</label><input id="sdBankHolder" value="'+escapeAttr(e.bankAccountName||'')+'" placeholder="'+escapeAttr(e.name)+'"></div>'+
+          '<div class="form-row"><label>Account number</label><input id="sdBankAcc" class="mono" inputmode="numeric" value="'+escapeAttr(e.bankAccountNo||'')+'"></div>'+
+        '</div>'+
+        '<div class="form-grid">'+
+          '<div class="form-row"><label>IFSC</label><input id="sdBankIfsc" class="mono" value="'+escapeAttr(e.bankIfsc||'')+'" placeholder="e.g. SBIN0001234"></div>'+
+          '<div class="form-row"><label>Bank</label><input id="sdBankName" value="'+escapeAttr(e.bankName||'')+'"></div>'+
+        '</div>'+
+        '<div class="error-text" id="sdError"></div>'+
         '<button class="btn" style="width:100%;" id="sdSubmit">Save</button>'+
       '</div>'+
     '</div></div>';
@@ -1586,6 +1638,14 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       e.otEligible = document.getElementById('sdOt').checked;
       e.pfApplicable = document.getElementById('sdPf').checked;
       e.esiApplicable = document.getElementById('sdEsi').checked;
+      const ifsc = document.getElementById('sdBankIfsc').value.trim().toUpperCase();
+      const acc = document.getElementById('sdBankAcc').value.replace(/\s/g,'');
+      if(ifsc && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)){ document.getElementById('sdError').textContent = 'IFSC should look like SBIN0001234 (11 characters).'; return; }
+      if(acc && !/^\d{6,18}$/.test(acc)){ document.getElementById('sdError').textContent = 'Account number should be 6–18 digits.'; return; }
+      e.bankAccountName = document.getElementById('sdBankHolder').value.trim();
+      e.bankAccountNo = acc;
+      e.bankIfsc = ifsc;
+      e.bankName = document.getElementById('sdBankName').value.trim();
       e.otherDeduction = parseFloat(document.getElementById('sdOtherDed').value) || 0;
       modalRoot.innerHTML='';
       renderAdminStaff();
@@ -1888,12 +1948,13 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   function renderAdminSalary(){
     const body = document.getElementById('adminBody');
     const rows = unitFilterStaff(STAFF).map(e=>({e, r:computeCycle(e.empNo)}));
-    const gross = rows.reduce((s,x)=>s+x.e.netSalary,0);
+    const gross = rows.reduce((s,x)=>s+x.r.summary.grossPay,0);
     const lopDeduction = rows.reduce((s,x)=>s+x.r.summary.totalDeduction,0);
     const statutory = rows.reduce((s,x)=>s+x.r.summary.statutoryDeduction,0);
     const otPay = rows.reduce((s,x)=>s+x.r.summary.otPay,0);
     const netPayable = rows.reduce((s,x)=>s+x.r.summary.finalNet,0);
     body.innerHTML = ''+
+    salaryLockBar()+
     (adminUnitFilter!=='ALL'?'<div class="badge teal" style="margin-bottom:12px;">Scoped to '+unitName(adminUnitFilter)+'</div>':'')+
     '<div class="stats">'+
       stat('Gross payroll', fmtMoney(gross))+
@@ -1905,7 +1966,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     '<div class="tbl-scroll"><table><thead><tr><th>Code</th><th>Name</th><th>Department</th><th>Gross</th><th>Late/LOP</th><th>Statutory</th><th>OT</th><th>Net payable</th><th></th></tr></thead><tbody>'+
     rows.map(({e,r})=>(
       '<tr><td class="mono">'+e.empNo+'</td><td>'+e.name+'</td><td>'+deptName(e.department)+'</td>'+
-      '<td class="mono">'+fmtMoney(e.netSalary)+'</td>'+
+      '<td class="mono">'+fmtMoney(r.summary.grossPay)+'</td>'+
       '<td class="mono">'+(r.summary.totalDeduction>0.5?'<span class="late-flag">-'+fmtMoney(r.summary.totalDeduction)+'</span>':'—')+'</td>'+
       '<td class="mono">'+(r.summary.statutoryDeduction>0.5?'-'+fmtMoney(r.summary.statutoryDeduction):'—')+'</td>'+
       '<td class="mono">'+(r.summary.otPay>0.5?'+'+fmtMoney(r.summary.otPay):'—')+'</td>'+
@@ -1913,8 +1974,61 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '<td><button class="iconbtn" data-payslip="'+e.empNo+'">View payslip</button></td></tr>'
     )).join('')+
     '</tbody></table></div>'+
-    '<div class="footnote">Payroll register for the current cycle, driven by the same engine as Shift Ledger and each staff member\'s Payslip tab. PF/ESI/Professional Tax rates are the indicative defaults set in Admin → Masters → Payroll Settings — confirm actual applicable rates with your accountant before relying on them. Export to bank/PDF formats is a Lovable build-phase item.</div>';
+    '<div class="footnote">Payroll register for the current cycle, driven by the same engine as Shift Ledger and each staff member\'s Payslip tab. PF/ESI/Professional Tax rates are the indicative defaults set in Admin → Masters → Payroll Settings — confirm actual applicable rates with your accountant before relying on them. Once the cycle is complete and checked, <b>Finalize cycle</b> locks every payslip (later attendance, leave or settings edits no longer change it) and unlocks the bank salary file.</div>';
     body.querySelectorAll('[data-payslip]').forEach(btn=> btn.onclick = ()=> openDrilldown(btn.dataset.payslip));
+    wireSalaryLock();
+  }
+
+  function salaryLockBar(){
+    const run = env.data.PAYROLL.run;
+    const isAdmin = currentAdminAccount && currentAdminAccount.role==='admin';
+    const box = 'border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface);';
+    if(run){
+      return '<div class="emp-toolbar" style="'+box+'">'+
+        '<div><span class="badge teal">Finalized</span> <span class="hint" style="margin-left:6px;">'+CYCLE_LABEL_JS+' locked on '+fmtDate(String(run.finalized_at).slice(0,10))+(run.finalized_by?' by '+run.finalized_by:'')+'. Payslips are frozen — attendance, leave or settings edits no longer change this cycle.</span></div>'+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;">'+
+          '<button class="btn sm" id="bankFileBtn">Bank salary file (CSV)</button>'+
+          (isAdmin ? '<button class="iconbtn danger" id="reopenCycleBtn">Reopen cycle</button>' : '')+
+        '</div>'+
+      '</div>';
+    }
+    return '<div class="emp-toolbar" style="'+box+'">'+
+      '<div><span class="badge amber">Live — not finalized</span> <span class="hint" style="margin-left:6px;">Figures recalculate as attendance, leave and settings change. Finalize once the cycle is complete and checked.</span></div>'+
+      (isAdmin ? '<button class="btn sm" id="finalizeCycleBtn">Finalize cycle</button>' : '')+
+    '</div>';
+  }
+  function wireSalaryLock(){
+    const fin = document.getElementById('finalizeCycleBtn');
+    if(fin) fin.onclick = async ()=>{
+      if(!env.cycle.complete && !confirm('The pay cycle '+CYCLE_LABEL_JS+' has not ended yet. Finalize it anyway?')) return;
+      if(!confirm('Finalize '+CYCLE_LABEL_JS+' for all '+STAFF.length+' staff?\n\nEvery payslip is frozen at today\'s figures. You can reopen the cycle later if a correction is needed.')) return;
+      fin.disabled = true; fin.textContent = 'Finalizing…';
+      const results = STAFF.map(s=>computeCycle(s.empNo)).filter(r=>r && r.emp && r.summary)
+        .map(r=>({emp:{empNo:r.emp.empNo, name:r.emp.name, unitCode:r.emp.unitCode}, summary:r.summary, rows:r.rows}));
+      try{ await env.finalizeCycle(results, currentAdminAccount.name); }
+      catch(e){ alert('Could not finalize: '+((e && e.message) || e)); }
+      renderAdmin();
+    };
+    const reo = document.getElementById('reopenCycleBtn');
+    if(reo) reo.onclick = async ()=>{
+      if(!confirm('Reopen '+CYCLE_LABEL_JS+'? Frozen payslips are discarded and figures go back to live calculation.')) return;
+      try{ await env.reopenCycle(); }
+      catch(e){ alert('Could not reopen: '+((e && e.message) || e)); }
+      renderAdmin();
+    };
+    const bank = document.getElementById('bankFileBtn');
+    if(bank) bank.onclick = exportBankFile;
+  }
+  function exportBankFile(){
+    const rows = STAFF.map(s=>({s, r:computeCycle(s.empNo)})).filter(x=>x.r && x.r.summary && x.r.summary.finalNet>0.5);
+    const missing = rows.filter(x=>!x.s.bankAccountNo || !x.s.bankIfsc);
+    if(missing.length && !confirm(missing.length+' staff have no bank account / IFSC yet (Staff Master → Details): '+missing.slice(0,6).map(x=>x.s.name).join(', ')+(missing.length>6?'…':'')+'\n\nThey will be listed with blank account details. Continue?')) return;
+    const narration = 'Salary '+CYCLE_LABEL_JS;
+    const total = rows.reduce((s,x)=>s+Math.round(x.r.summary.finalNet),0);
+    const headers = ['Sr No','Staff Code','Beneficiary Name','Account Number','IFSC','Bank','Amount (Rs)','Narration'];
+    const body = rows.map((x,i)=>[i+1, x.s.empNo, x.s.bankAccountName || x.s.name, x.s.bankAccountNo||'', (x.s.bankIfsc||'').toUpperCase(), x.s.bankName||'', Math.round(x.r.summary.finalNet), narration]);
+    body.push(['','','TOTAL','','','',total,'']);
+    exportCSV('bank_salary_'+env.cycle.key+'.csv', headers, body);
   }
 
   /* ================= Reports ================= */
@@ -1965,10 +2079,10 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     body.innerHTML = reportShell('Payroll register', 'Full pay-cycle register — the same figures as the Salary tab, in exportable form. Confirm PF/ESI/PT rates with your accountant before relying on them for real filing.',
       headers,
       rows.map(({e,r})=>'<tr><td class="mono">'+e.empNo+'</td><td>'+e.name+'</td><td>'+deptName(e.department)+'</td><td>'+unitName(e.unitCode)+'</td>'+
-        '<td class="mono">'+fmtMoney(e.netSalary)+'</td><td class="mono">'+fmtMoney(r.summary.totalDeduction)+'</td><td class="mono">'+fmtMoney(r.summary.statutoryDeduction)+'</td><td class="mono">'+fmtMoney(r.summary.otPay)+'</td><td class="mono">'+fmtMoney(r.summary.finalNet)+'</td></tr>').join('')
+        '<td class="mono">'+fmtMoney(r.summary.grossPay)+'</td><td class="mono">'+fmtMoney(r.summary.totalDeduction)+'</td><td class="mono">'+fmtMoney(r.summary.statutoryDeduction)+'</td><td class="mono">'+fmtMoney(r.summary.otPay)+'</td><td class="mono">'+fmtMoney(r.summary.finalNet)+'</td></tr>').join('')
     );
     document.getElementById('reportExportBtn').onclick = ()=> exportCSV('payroll_register.csv', headers,
-      rows.map(({e,r})=>[e.empNo,e.name,deptName(e.department),unitName(e.unitCode),e.netSalary,r.summary.totalDeduction.toFixed(2),r.summary.statutoryDeduction.toFixed(2),r.summary.otPay.toFixed(2),r.summary.finalNet.toFixed(2)]));
+      rows.map(({e,r})=>[e.empNo,e.name,deptName(e.department),unitName(e.unitCode),r.summary.grossPay,r.summary.totalDeduction.toFixed(2),r.summary.statutoryDeduction.toFixed(2),r.summary.otPay.toFixed(2),r.summary.finalNet.toFixed(2)]));
   }
 
   function renderReportAttendance(){
@@ -2061,10 +2175,10 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '<div class="stats">'+stat('Total PF', fmtMoney(totalPF))+stat('Total ESI', fmtMoney(totalESI))+stat('Total PT', fmtMoney(totalPT))+'</div>'+
       reportShell('Statutory contribution (PF / ESI / PT)', 'Indicative figures from the editable rates in Admin → Masters → Payroll Settings — confirm actual applicable rates and slabs with your accountant before using this for real filing.',
       headers,
-      rows.map(({e,r})=>{ const s=r.summary; return '<tr><td class="mono">'+e.empNo+'</td><td>'+e.name+'</td><td class="mono">'+fmtMoney(e.netSalary)+'</td><td class="mono">'+fmtMoney(s.pfDeduction)+'</td><td class="mono">'+fmtMoney(s.esiDeduction)+'</td><td class="mono">'+fmtMoney(s.ptDeduction)+'</td><td class="mono">'+fmtMoney(s.otherDeduction)+'</td><td class="mono">'+fmtMoney(s.statutoryDeduction)+'</td></tr>'; }).join('')
+      rows.map(({e,r})=>{ const s=r.summary; return '<tr><td class="mono">'+e.empNo+'</td><td>'+e.name+'</td><td class="mono">'+fmtMoney(r.summary.grossPay)+'</td><td class="mono">'+fmtMoney(s.pfDeduction)+'</td><td class="mono">'+fmtMoney(s.esiDeduction)+'</td><td class="mono">'+fmtMoney(s.ptDeduction)+'</td><td class="mono">'+fmtMoney(s.otherDeduction)+'</td><td class="mono">'+fmtMoney(s.statutoryDeduction)+'</td></tr>'; }).join('')
     );
     document.getElementById('reportExportBtn').onclick = ()=> exportCSV('statutory_contributions.csv', headers,
-      rows.map(({e,r})=>{ const s=r.summary; return [e.empNo,e.name,e.netSalary,s.pfDeduction.toFixed(2),s.esiDeduction.toFixed(2),s.ptDeduction.toFixed(2),s.otherDeduction.toFixed(2),s.statutoryDeduction.toFixed(2)]; }));
+      rows.map(({e,r})=>{ const s=r.summary; return [e.empNo,e.name,s.grossPay,s.pfDeduction.toFixed(2),s.esiDeduction.toFixed(2),s.ptDeduction.toFixed(2),s.otherDeduction.toFixed(2),s.statutoryDeduction.toFixed(2)]; }));
   }
 
   function renderReportAudit(){
