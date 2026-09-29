@@ -589,6 +589,41 @@ function wireNewStaffPanel(parsed){
   };
 }""")
 
+# ── 22. staff with no attendance in the selected cycle: no pay figures (blank on Salary, excluded from totals) ──
+rep("""  const records = att.records.filter(r=> r.date>=env.cycle.start && r.date<=env.cycle.end);""",
+    """  const records = att.records.filter(r=> r.date>=env.cycle.start && r.date<=env.cycle.end);
+  if(!records.length){
+    const mPerm = staffMonthlyPermissionMin(emp), mCL = staffMonthlyCL(emp);
+    return {emp, rows: [], primaryShift: att.primaryShift, noAttendance: true, summary: {
+      perDay:0, perMinute:0, grossPay:0, monthlyPermissionMin:mPerm, monthlyCL:mCL,
+      permissionRemaining:mPerm, permissionUsed:0, clRemaining:mCL, clUsed:0, totalDeduction:0,
+      pfDeduction:0, esiDeduction:0, ptDeduction:0, otherDeduction:0, statutoryDeduction:0,
+      otMinutesTotal:0, otPay:0, finalNet:0, presentDays:0, lateDays:0, woDays:0, holidayDays:0,
+      clDays:0, absentDays:0, cycleLen:0 }};
+  }""")
+rep("""  (adminUnitFilter!=='ALL'?'<div class="badge teal" style="margin-bottom:12px;">Scoped to '+unitName(adminUnitFilter)+'</div>':'')+
+  '<div class="stats">'+
+    stat('Gross payroll', fmtMoney(gross))+""", """  (adminUnitFilter!=='ALL'?'<div class="badge teal" style="margin-bottom:12px;">Scoped to '+unitName(adminUnitFilter)+'</div>':'')+
+  (rows.some(x=>x.r.noAttendance) ? '<div class="hint" style="margin-bottom:10px;">'+rows.filter(x=>x.r.noAttendance).length+' staff have no attendance in this pay cycle yet — shown blank and left out of the totals until their attendance is imported.</div>' : '')+
+  '<div class="stats">'+
+    stat('Gross payroll', fmtMoney(gross))+""")
+rep("""  rows.map(({e,r})=>(
+    '<tr><td class="mono">'+e.empNo+'</td><td>'+e.name+'</td><td>'+deptName(e.department)+'</td>'+""",
+    """  rows.map(({e,r})=> r.noAttendance ? (
+    '<tr class="row-wo"><td class="mono">'+e.empNo+'</td><td>'+e.name+'</td><td>'+deptName(e.department)+'</td>'+
+    '<td colspan="5" class="hint">No attendance in this pay cycle</td><td></td></tr>'
+  ) : (
+    '<tr><td class="mono">'+e.empNo+'</td><td>'+e.name+'</td><td>'+deptName(e.department)+'</td>'+""")
+# finalizing and the bank file skip staff with no attendance in the cycle
+rep("""    const results = STAFF.map(s=>computeCycle(s.empNo)).filter(r=>r && r.emp && r.summary)""",
+    """    const results = STAFF.map(s=>computeCycle(s.empNo)).filter(r=>r && r.emp && r.summary && !r.noAttendance)""")
+
+rep("""  } else if(staffTab==='payslip'){
+    const s = result.summary;""", """  } else if(staffTab==='payslip' && result.noAttendance){
+    body.innerHTML = '<div class="card pad payslip"><div class="note">No attendance has been imported for you in this pay cycle ('+CYCLE_LABEL_JS+') yet, so there is no payslip to show. It appears here once your attendance is imported.</div></div>';
+  } else if(staffTab==='payslip'){
+    const s = result.summary;""")
+
 # sanity: nothing left that points at demo data
 for bad in ['DEMO_STAFF_ID', 'admin123', 'Selvantra', '2026-09-25']:
     if bad in script:
