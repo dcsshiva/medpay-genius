@@ -92,6 +92,20 @@
       "when": 1789865822547,
       "tag": "0012_hrms_payroll_engine",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789865823547,
+      "tag": "0013_hr_prototype_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1789865824547,
+      "tag": "0014_hr_seed_prototype_data",
+      "breakpoints": true
     }
   ]
 }

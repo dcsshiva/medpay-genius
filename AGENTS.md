@@ -1,2 +1,4 @@
 # Architecture decisions
 - Keep retired doctor, visit, and non-payroll payment screens behind one shared client-side screen filter in navigation, permissions UI, and tab dispatch; this preserves historical data and backend privileges while making the remix staff-focused.
+- The app UI is the approved Selvantra HRMS prototype, ported verbatim: `scripts/prototype/index.html` → `scripts/port_prototype.py` (asserted text patches) → `src/hrms/prototype.ts`. Change screens/logic by editing the patch script (or the prototype) and regenerating — never hand-edit `prototype.ts`.
+- `src/hrms/HrmsApp.tsx` hosts it (routes `/`, `/dashboard`, `/auth`); data lives in the `hr_*` tables (migration 0013, demo seed 0014) and is saved by diffing the in-memory collections (`src/hrms/data.ts`). Staff sign in as `<code>@staff.westmed.local` via the `hr-manage-login` edge function; admins use their WestMed accounts. Old screens stay at `/classic`.
