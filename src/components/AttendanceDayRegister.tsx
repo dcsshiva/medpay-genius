@@ -33,6 +33,8 @@ const STATUS_META: Record<string, { letter: string; cls: string; label: string }
   late: { letter: 'L', cls: 'bg-yellow-100 text-yellow-700', label: 'Late' },
   half_day: { letter: 'H', cls: 'bg-orange-100 text-orange-700', label: 'Half Day' },
   leave: { letter: 'Lv', cls: 'bg-blue-100 text-blue-700', label: 'Leave' },
+  weekly_off: { letter: 'WO', cls: 'bg-slate-100 text-slate-600', label: 'Weekly Off' },
+  holiday: { letter: 'Ho', cls: 'bg-purple-100 text-purple-700', label: 'Holiday' },
 };
 
 export const registerCellText = (status?: string): string =>

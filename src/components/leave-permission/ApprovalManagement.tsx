@@ -59,7 +59,7 @@ const ApprovalManagement = () => {
 
       let query = supabase
         .from("leave_permission_applications" as any)
-        .select(`*, applicant:applicant_id(full_name, staff_code, role), approved_by_staff:approved_by(full_name, staff_code)`)
+        .select(`*, applicant:applicant_id(full_name, staff_code, role), approved_by_staff:approved_by(full_name, staff_code), covering:covering_staff_id(full_name, staff_code)`)
         .order("created_at", { ascending: false });
 
       // Managers see only apps where they are the approver; admin sees all

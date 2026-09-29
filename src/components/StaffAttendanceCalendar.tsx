@@ -15,6 +15,8 @@ const statusColors: Record<string, string> = {
   late: 'bg-yellow-500',
   half_day: 'bg-orange-500',
   leave: 'bg-blue-500',
+  weekly_off: 'bg-slate-400',
+  holiday: 'bg-purple-500',
 };
 
 const StaffAttendanceCalendar: React.FC<Props> = ({ staffId }) => {

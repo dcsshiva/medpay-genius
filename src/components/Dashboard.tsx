@@ -6,6 +6,8 @@ import { getStaffId, isStaffRole, getStaffTaskCounts } from '@/lib/staffUtils';
 import { isManagerLike } from '@/lib/accessLevels';
 import DashboardAttendanceCard from '@/components/DashboardAttendanceCard';
 import { CheckCircle, ListTodo } from 'lucide-react';
+import TeamTodayCard from '@/components/hrms/TeamTodayCard';
+import StaffCycleSummaryCard from '@/components/hrms/StaffCycleSummaryCard';
 
 interface DashboardStats {
   pendingTasks?: number;
@@ -38,7 +40,7 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
     try {
       if (isManagerLike(userRole, userDesignation, userProfile?.role)) {
         const [pending, completed] = await Promise.all([
-          supabase.from('tasks').select('id', { count: 'exact', head: true }).in('status', ['pending', 'in_progress']),
+          supabase.from('tasks').select('id', { count: 'exact', head: true }).in('status', ['pending', 'accepted', 'in_progress'] as any),
           supabase.from('tasks').select('id', { count: 'exact', head: true }).eq('status', 'completed'),
         ]);
         setStats({ pendingTasks: pending.count || 0, completedTasks: completed.count || 0 });
@@ -155,8 +157,16 @@ const Dashboard = ({ onTabChange }: DashboardProps) => {
         <DashboardAttendanceCard onOpenReports={() => onTabChange?.('attendance')} />
       )}
 
+      {isManagerLike(userRole, userDesignation, userProfile?.role) && (
+        <TeamTodayCard onTabChange={(tab) => onTabChange?.(tab)} />
+      )}
+
       {staffId && userProfile?.role !== 'staff_manager' && (
         <DashboardAttendanceCard staffId={staffId} />
+      )}
+
+      {staffId && !isManagerLike(userRole, userDesignation, userProfile?.role) && (
+        <StaffCycleSummaryCard staffId={staffId} />
       )}
 
       {isManagerLike(userRole, userDesignation, userProfile?.role) && renderManagerDashboard()}

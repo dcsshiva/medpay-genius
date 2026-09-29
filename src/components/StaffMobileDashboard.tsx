@@ -25,6 +25,7 @@ import StaffAppraisalView from './StaffAppraisalView';
 import StaffPunchInCard from './StaffPunchInCard';
 import StaffAttendanceCalendar from './StaffAttendanceCalendar';
 import DashboardAttendanceCard from './DashboardAttendanceCard';
+import StaffCycleSummaryCard from './hrms/StaffCycleSummaryCard';
 
 interface StaffStats {
   pendingTasks: number;
@@ -237,6 +238,9 @@ const StaffMobileDashboard: React.FC<StaffMobileDashboardProps> = ({ onNavigate 
           onOpenReports={() => document.getElementById('my-attendance-calendar')?.scrollIntoView({ behavior: 'smooth' })}
         />
       )}
+
+      {/* HRMS: balances + deduction so far this pay cycle */}
+      {staffId && <StaffCycleSummaryCard staffId={staffId} />}
 
       {/* Stats Grid - 2 columns */}
       <div className="grid grid-cols-2 gap-3">

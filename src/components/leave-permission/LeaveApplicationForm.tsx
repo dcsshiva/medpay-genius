@@ -15,6 +15,8 @@ import { CalendarIcon, Loader2, ArrowRight, Info, UserCheck } from "lucide-react
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import CoverEmployeeSelect from "@/components/hrms/CoverEmployeeSelect";
+import LeaveBalanceBanner from "@/components/hrms/LeaveBalanceBanner";
 import { formatInputDateIST, getMinLeaveDate, getMaxLeaveDate, formatDateIST } from "@/lib/dateUtils";
 
 const formSchema = z.object({
@@ -24,6 +26,7 @@ const formSchema = z.object({
   reason: z.string({ required_error: "Please select a reason" }),
   reasonDetails: z.string().optional(),
   approverId: z.string({ required_error: "Please select an approver" }),
+  coveringStaffId: z.string({ required_error: "Please select who will cover your work" }).min(1, "Please select who will cover your work"),
   notes: z.string().optional(),
 });
 
@@ -37,6 +40,7 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const [loading, setLoading] = useState(false);
+  const [balanceKey, setBalanceKey] = useState(0);
   const [managers, setManagers] = useState<Array<{ id: string; staff_code: string; full_name: string }>>([]);
   const [staffId, setStaffId] = useState<string | null>(null);
   const [isManagerRole, setIsManagerRole] = useState(false);
@@ -148,12 +152,13 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
         is_half_day: values.leaveType === "half",
         reason_details: values.reasonDetails?.trim() || "-",
         notes: values.notes ?? null,
-        approver_id: values.approverId,
+        approver_id: values.approverId, covering_staff_id: values.coveringStaffId,
         status: "pending",
       });
       if (insertError) throw insertError;
       toast({ title: "Success", description: "Leave application submitted successfully" });
       form.reset();
+      setBalanceKey(k => k + 1);
       onSuccess();
     } catch (error: any) {
       console.error("Error submitting leave:", error);
@@ -173,6 +178,8 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+        <LeaveBalanceBanner staffId={staffId} refreshKey={balanceKey} compact={isMobile} />
+
         {/* Section 1: When */}
         <div className="rounded-lg border border-border bg-muted/30 p-3 md:p-4 space-y-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -388,6 +395,22 @@ const LeaveApplicationForm = ({ onSuccess }: LeaveApplicationFormProps) => {
             )}
           />
         </div>
+
+        {/* HRMS: Covering employee */}
+        <FormField
+          control={form.control}
+          name="coveringStaffId"
+          render={({ field }) => (
+            <FormItem className="rounded-lg border border-border p-3 md:p-4">
+              <FormLabel className="text-sm font-semibold">Who will cover your work? *</FormLabel>
+              <FormControl>
+                <CoverEmployeeSelect applicantId={staffId} value={field.value} onChange={field.onChange} />
+              </FormControl>
+              <FormDescription className="text-xs">Required — a colleague from your branch during your leave.</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         {/* Section 4: Approval */}
         <div className="rounded-lg border border-border bg-muted/20 p-3 md:p-4 space-y-3">

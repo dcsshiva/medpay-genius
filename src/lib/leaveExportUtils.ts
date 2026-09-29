@@ -24,6 +24,7 @@ export interface LeaveRow {
   permission_reason: string | null;
   applicant?: { full_name?: string; staff_code?: string; role?: string } | null;
   approved_by_staff?: { full_name?: string; staff_code?: string } | null;
+  covering?: { full_name?: string; staff_code?: string } | null;
 }
 
 const titleCase = (s?: string | null) =>
@@ -42,6 +43,7 @@ const toRow = (a: LeaveRow) => {
       ? `${a.leave_days ?? ''} ${a.is_half_day ? 'half day' : 'day(s)'}`
       : `${a.permission_start_time || ''}-${a.permission_end_time || ''} (${a.permission_duration_minutes || 0} min)`,
     'Reason': titleCase(isLeave ? a.leave_reason : a.permission_reason),
+    'Covering Employee': a.covering?.full_name || '-',
     'Reason Details': a.reason_details || '-',
     'Applicant Notes': a.notes || '-',
     'Status': titleCase(a.status),

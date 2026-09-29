@@ -14,6 +14,7 @@ import { format } from 'date-fns';
 import StaffAttendanceReports from './StaffAttendanceReports';
 import { useShiftDefinitions, resolveShift } from '@/lib/attendanceShifts';
 import { isManagerLike } from '@/lib/accessLevels';
+import { ATTENDANCE_STATUSES, mapStatusText } from '@/lib/hrms/attendanceStatus';
 
 interface StaffRow {
   id: string;
@@ -34,13 +35,7 @@ interface AttendanceRecord {
   shift_end_time: string | null;
 }
 
-const ATTENDANCE_STATUSES = [
-  { value: 'present', label: 'Present' },
-  { value: 'late', label: 'Late' },
-  { value: 'absent', label: 'Absent' },
-  { value: 'half_day', label: 'Half Day' },
-  { value: 'leave', label: 'Leave' },
-];
+
 
 const StaffAttendanceManagement: React.FC = () => {
   const { user, userRole, userDesignation, userProfile } = useAuth();
@@ -125,7 +120,7 @@ const StaffAttendanceManagement: React.FC = () => {
     const sample = {
       staff_code: '⚠️ SAMPLE ROW - ignored on import',
       full_name: 'John Smith (sample)',
-      attendance_status: 'present | late | absent | half_day | leave',
+      attendance_status: 'present | late | absent | half_day | leave | weekly_off | holiday',
       shift_start_time: '09:00',
       shift_end_time: '17:30',
     };
@@ -301,7 +296,9 @@ const StaffAttendanceManagement: React.FC = () => {
     const s = rawStatus.toLowerCase();
     const punched = /^\d{1,2}:\d{2}/.test(inTime);
     if (s.includes('half')) return { status: 'half_day', shiftName: null };
-    if (s.includes('holiday') || s.includes('leave')) return { status: 'leave', shiftName: null };
+    if (s.includes('holiday')) return { status: 'holiday', shiftName: null };
+    if (/week\s*off|weekly\s*off|\bwo\b/.test(s)) return { status: 'weekly_off', shiftName: null };
+    if (s.includes('leave') || /\bcl\b/.test(s)) return { status: 'leave', shiftName: null };
     if (punched) {
       const r = resolveShift(inTime, shifts);
       return { status: r.isLate ? 'late' : 'present', shiftName: r.shiftName };
@@ -421,7 +418,9 @@ const StaffAttendanceManagement: React.FC = () => {
             shiftName = r.shiftName;
             status = r.isLate ? 'late' : 'present';
           } else {
-            status = 'absent';
+            status = mapStatusText(rec.status) && !['present', 'late'].includes(mapStatusText(rec.status)!)
+              ? mapStatusText(rec.status)!
+              : 'absent';
           }
 
           upserts.push({
@@ -445,8 +444,8 @@ const StaffAttendanceManagement: React.FC = () => {
           const staffId = staffCodeMap[String(row.staff_code || '').trim().toLowerCase()];
           if (!staffId) { skipped++; continue; }
 
-          const status = String(row.attendance_status || '').trim().toLowerCase();
-          if (!['present', 'late', 'absent', 'half_day', 'leave'].includes(status)) { skipped++; continue; }
+          const status = mapStatusText(String(row.attendance_status || ''));
+          if (!status) { skipped++; continue; }
 
           upserts.push({
             staff_id: staffId,

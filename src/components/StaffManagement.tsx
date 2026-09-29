@@ -32,6 +32,8 @@ import { getSessionAuthHeaders } from '@/lib/sessionAuth';
 import { handleCreateUserError } from '@/lib/utils';
 import { PaginationControls } from '@/components/ui/pagination-controls';
 import { validateIFSCCode } from '@/lib/validators';
+import StaffHrFieldsSection from '@/components/hrms/StaffHrFieldsSection';
+import { StaffHrFields, emptyStaffHr, staffHrFromRow, saveStaffHrFields } from '@/lib/hrms/staffHr';
 
 interface Staff {
   id: string;
@@ -60,8 +62,9 @@ interface StaffManagementProps {
 }
 
 const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps = {}) => {
-  const { userRole, userDesignation } = useAuth();
+  const { userRole, userDesignation, user } = useAuth();
   const { toast } = useToast();
+  const [hrForm, setHrForm] = useState<StaffHrFields>(emptyStaffHr());
   const [staff, setStaff] = useState<Staff[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -459,6 +462,13 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
           }
         }
 
+        try {
+          await saveStaffHrFields(editingStaff.id, hrForm, (editingStaff as any).work_branch_id, user?.id);
+        } catch (hrErr: any) {
+          toast({ variant: "destructive", title: "HR details not saved", description: hrErr.message });
+          return;
+        }
+
         toast({
           title: "Success",
           description: "Staff member updated successfully"
@@ -623,6 +633,18 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
 
       if (!createdUser?.id) throw new Error('Failed to create staff login');
 
+      // Save HRMS fields on the newly created staff row
+      try {
+        const { data: newStaff } = await supabase
+          .from('staff')
+          .select('id')
+          .eq('username', formData.username.trim())
+          .maybeSingle();
+        if (newStaff?.id) await saveStaffHrFields(newStaff.id, hrForm, null, user?.id);
+      } catch (hrErr: any) {
+        toast({ variant: "destructive", title: "HR details not saved", description: hrErr.message + ' — edit the staff member to retry.' });
+      }
+
       toast({
         title: "Success",
         description: `Staff member created successfully with code: ${staffCode}`
@@ -765,6 +787,7 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
       biometric_code: '',
       biometric_device: ''
     });
+    setHrForm(emptyStaffHr());
     setEditingStaff(null);
   };
 
@@ -793,6 +816,7 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
       biometric_code: (fresh as any).biometric_code || '',
       biometric_device: (fresh as any).biometric_device || ''
     });
+    setHrForm(staffHrFromRow(fresh));
     setDialogOpen(true);
   };
 
@@ -1501,6 +1525,14 @@ const StaffManagement = ({ excludeAdminAndDoctor = false }: StaffManagementProps
                       </div>
                     </div>
                   </div>
+
+                  {/* HRMS: HR & Payroll Section */}
+                  <StaffHrFieldsSection
+                    value={hrForm}
+                    onChange={setHrForm}
+                    staffId={editingStaff?.id}
+                    savedBranchId={(editingStaff as any)?.work_branch_id}
+                  />
                 </div>
               </ScrollArea>
 
