@@ -175,7 +175,7 @@ const Auth: React.FC = () => {
   // Helper for role-based navigation after login
   const navigateByRole = (userType?: string, role?: string) => {
     if (userType === "doctor") {
-      navigate("/dashboard?view=doctor-hub");
+      navigate("/dashboard");
     } else if (role && ["admin", "manager", "super_admin"].includes(role)) {
       navigate("/dashboard");
     } else if (role && ["staff", "nurse"].includes(role)) {

@@ -16,16 +16,11 @@ interface MobileBottomNavProps {
  */
 const PRIORITY_ORDER = [
   'dashboard',
-  'doctor-hub',
   'staff-dashboard',
-  'visits',
-  'quick-payment',
-  'bank-advice-history',
+  'attendance',
   'tasks',
   'leave-permission',
   'complaints',
-  'cash-payments-lite',
-  'insurance-payments-lite',
 ];
 
 const MobileBottomNav: React.FC<MobileBottomNavProps> = ({

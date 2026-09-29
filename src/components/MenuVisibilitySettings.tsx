@@ -19,11 +19,8 @@ interface MenuItemConfig {
 
 const MENU_GROUPS: Record<string, string[]> = {
   'Core': ['dashboard', 'user-guide', 'masters'],
-  'People': ['staff', 'doctors', 'doctor-hub'],
-  'Visits': ['visits'],
-  'Payments': ['cash-payments-lite', 'insurance-payments-lite', 'cash-payments', 'insurance-payments', 'quick-payment'],
-  'Bank Advice': ['bank-advice-generation-beta', 'bank-advice-generation', 'bank-advice-history', 'bank-advice-records', 'bank-advice-payment-report', 'quick-payment-bank-advice-report'],
-  'Reports': ['tds-reports', 'login-reports', 'navigation-analytics'],
+  'People': ['staff', 'attendance', 'payroll'],
+  'Reports': ['login-reports', 'navigation-analytics'],
   'Collaboration': ['tasks', 'appraisals', 'leave-approvals', 'complaints', 'chat'],
   'System': ['version', 'website-settings', 'ai-knowledge-base', 'settings'],
 };

@@ -6,6 +6,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import Layout from '@/components/Layout';
 import { LoadingScreen } from '@/components/ui/loading-skeleton';
 import ForceUpdateGate from '@/components/ForceUpdateGate';
+import { staffOnlyTab } from '@/lib/staffOnlyScreens';
 
 // Lazy-loaded components
 const Dashboard = lazy(() => import('@/components/Dashboard'));
@@ -62,7 +63,7 @@ const Index = () => {
   // Handle navigation from location state and URL parameters
   useEffect(() => {
     if (location.state?.activeTab) {
-      setActiveTab(location.state.activeTab);
+      setActiveTab(staffOnlyTab(location.state.activeTab));
       navigate(location.pathname, { replace: true, state: {} });
     }
     
@@ -70,7 +71,7 @@ const Index = () => {
     const view = params.get('view');
     
     if (view === 'doctor' || view === 'doctor-hub') {
-      setActiveTab('doctor-hub');
+      setActiveTab('dashboard');
     } else if (view === 'staff') {
       setActiveTab('staff-dashboard');
     }
@@ -95,11 +96,6 @@ const Index = () => {
     
     if (activeTab !== 'dashboard') return;
     
-    if (userType === 'doctor' || role === 'doctor') {
-      setActiveTab('doctor-hub');
-      return;
-    }
-    
     // Admin/Manager/Super admin land on the main Dashboard, not Doctor Hub.
 
     
@@ -111,11 +107,11 @@ const Index = () => {
 
   const handleTabChange = (params: string | { tab: string; subTab?: string; paymentTypeFilter?: 'all' | 'cash' | 'insurance' | 'mixed' }) => {
     if (typeof params === 'string') {
-      setActiveTab(params);
+      setActiveTab(staffOnlyTab(params));
       setActiveSubTab(undefined);
       setPaymentTypeFilter('all');
     } else {
-      setActiveTab(params.tab);
+      setActiveTab(staffOnlyTab(params.tab));
       setActiveSubTab(params.subTab);
       setPaymentTypeFilter(params.paymentTypeFilter || 'all');
     }
@@ -137,6 +133,10 @@ const Index = () => {
   }
 
   const renderContent = () => {
+    // Also guard restored navigation state and links that bypass the sidebar.
+    if (!isStaffOnlyScreen(activeTab)) {
+      return <Dashboard onTabChange={handleTabChange} />;
+    }
     const content = (() => {
       switch (activeTab) {
         case 'dashboard':
