@@ -21,14 +21,13 @@ export default function UserGuide() {
   const { user } = useAuth();
   const { data: guideSettings } = useUserGuideSettings();
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeRole, setActiveRole] = useState(user?.role || "staff");
+  const [activeRole, setActiveRole] = useState(['admin', 'manager'].includes(user?.role || '') ? user?.role || 'staff' : 'staff');
 
   const welcomeMessage = useMemo(() => {
     if (!guideSettings) return "";
     const roleMap = {
       admin: guideSettings.welcome_message_admin,
       manager: guideSettings.welcome_message_manager,
-      doctor: guideSettings.welcome_message_doctor,
       staff: guideSettings.welcome_message_staff
     };
     return roleMap[activeRole as keyof typeof roleMap] || "";
@@ -360,64 +359,9 @@ export default function UserGuide() {
                 </CardContent>
               </Card>
 
-              <Card id="payment-approval" className="mb-6">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <CreditCard className="h-5 w-5" />
-                    Payment Approval
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-muted-foreground">Review and approve doctor payments through the multi-stage workflow.</p>
-                  <div className="bg-muted p-3 rounded-md text-sm space-y-1">
-                    <p><strong>Workflow:</strong> Create payment period → Review visits → Manager approves → Admin approves → Bank advice generated</p>
-                    <p><strong>Example:</strong> Create Apr 1-15 period for Dr. {sampleNames.doctors[0].replace('Dr. ', '')} with 45 visits totalling Rs.22,500</p>
-                  </div>
-                </CardContent>
-              </Card>
             </>
           )}
 
-          {activeRole === "doctor" && (
-            <Card id="visit-recording" className="mb-6">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  Recording Patient Visits
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <h3 className="font-semibold mb-2">Visit Information Fields</h3>
-                  <div className="space-y-3">
-                    <div className="border-l-4 border-primary pl-3">
-                      <p className="font-medium">Patient Name <Badge variant="destructive">Required</Badge></p>
-                      <p className="text-sm text-muted-foreground">Full name of the patient (e.g., {sampleNames.patients[0]})</p>
-                    </div>
-                    <div className="border-l-4 border-primary pl-3">
-                      <p className="font-medium">Visit Payment <Badge variant="destructive">Required</Badge></p>
-                      <p className="text-sm text-muted-foreground">Amount in rupees (e.g., 500, 1000)</p>
-                    </div>
-                    <div className="border-l-4 border-primary pl-3">
-                      <p className="font-medium">Payment Type <Badge variant="destructive">Required</Badge></p>
-                      <p className="text-sm text-muted-foreground">Options: cash, card, insurance, upi</p>
-                    </div>
-                    <div className="border-l-4 border-primary pl-3">
-                      <p className="font-medium">Visit Reason <Badge variant="destructive">Required</Badge></p>
-                      <p className="text-sm text-muted-foreground">Options: regular_checkup, emergency, follow_up, consultation</p>
-                    </div>
-                  </div>
-                </div>
-
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertDescription>
-                    Visits are automatically included in payment calculations when managers create payment periods.
-                  </AlertDescription>
-                </Alert>
-              </CardContent>
-            </Card>
-          )}
 
           {activeRole === "staff" && (
             <>
@@ -504,7 +448,6 @@ export default function UserGuide() {
                     <ul className="list-disc ml-6 space-y-1 text-muted-foreground">
                       <li>Task status changes (assigned, completed, verified)</li>
                       <li>Complaint status updates</li>
-                      <li>Payment approvals or rejections</li>
                       <li>Leave/permission decisions</li>
                     </ul>
                     <p className="text-muted-foreground">Configure which notifications you receive in Settings → Notification Preferences.</p>
@@ -515,7 +458,7 @@ export default function UserGuide() {
                   <AccordionContent className="text-sm space-y-2">
                     <p>Click the floating chat icon (bottom-right) for instant help.</p>
                     <ul className="list-disc ml-6 space-y-1 text-muted-foreground">
-                      <li>Ask any question about the system (e.g., "How do I generate bank advice?")</li>
+                      <li>Ask any question about staff workflows (e.g., "How do I review attendance?")</li>
                       <li>Supports Tamil voice input — click the microphone icon</li>
                       <li>Clickable links in responses navigate you directly to the relevant page</li>
                       <li>Rate responses with thumbs up/down to improve accuracy</li>
@@ -567,7 +510,7 @@ export default function UserGuide() {
                 <AccordionItem value="session-timeout">
                   <AccordionTrigger>Why do I get logged out automatically?</AccordionTrigger>
                   <AccordionContent>
-                    For security, sessions expire after 3 minutes of inactivity for staff/doctors and 5 minutes for admin/managers. 
+                    For security, sessions expire after 3 minutes of inactivity for staff and 5 minutes for admin/managers. 
                     You'll receive a warning 30 seconds before timeout.
                   </AccordionContent>
                 </AccordionItem>
