@@ -11,9 +11,7 @@ import { isStaffOnlyScreen, staffOnlyTab } from '@/lib/staffOnlyScreens';
 // Lazy-loaded components
 const Dashboard = lazy(() => import('@/components/Dashboard'));
 const MasterDataManagement = lazy(() => import('@/components/MasterDataManagement'));
-const StaffManagement = lazy(() => import('@/components/StaffManagement'));
 const TaskManagement = lazy(() => import('@/components/TaskManagement'));
-const StaffAppraisalManagement = lazy(() => import('@/components/StaffAppraisalManagement'));
 const StaffManagementDashboard = lazy(() => import('@/components/StaffManagementDashboard'));
 const TeamChat = lazy(() => import('@/components/TeamChat'));
 const ComplaintManagement = lazy(() => import('@/components/ComplaintManagement'));
@@ -22,7 +20,6 @@ const Settings = lazy(() => import('@/components/Settings'));
 const VersionManager = lazy(() => import('@/components/VersionManager'));
 const WebsiteSettings = lazy(() => import('@/components/WebsiteSettings').then(m => ({ default: m.WebsiteSettings })));
 const UserGuide = lazy(() => import('@/pages/UserGuide'));
-const TDSCertificateGenerator = lazy(() => import('@/components/TDSCertificateGenerator').then(m => ({ default: m.TDSCertificateGenerator })));
 const LeavePermissionManagement = lazy(() => import('@/components/leave-permission/LeavePermissionManagement'));
 const ApprovalManagement = lazy(() => import('@/components/leave-permission/ApprovalManagement'));
 const NavigationAnalytics = lazy(() => import('@/components/NavigationAnalytics'));
@@ -50,7 +47,7 @@ const Index = () => {
     const params = new URLSearchParams(location.search);
     const view = params.get('view');
     
-    if (view === 'doctor' || view === 'doctor-hub') {
+    if (view === 'doctor' || (view && !isStaffOnlyScreen(view))) {
       setActiveTab('dashboard');
     } else if (view === 'staff') {
       setActiveTab('staff-dashboard');
@@ -84,7 +81,7 @@ const Index = () => {
     }
   }, [userProfile, loading, activeTab, isMobile]);
 
-  const handleTabChange = (params: string | { tab: string; subTab?: string; paymentTypeFilter?: 'all' | 'cash' | 'insurance' | 'mixed' }) => {
+  const handleTabChange = (params: string | { tab: string; subTab?: string }) => {
     if (typeof params === 'string') {
       setActiveTab(staffOnlyTab(params));
     } else {
@@ -109,15 +106,13 @@ const Index = () => {
 
   const renderContent = () => {
     // Also guard restored navigation state and links that bypass the sidebar.
-    if (!isStaffOnlyScreen(activeTab)) {
-      return <Dashboard onTabChange={handleTabChange} />;
-    }
+    if (!isStaffOnlyScreen(activeTab)) return <Dashboard onTabChange={handleTabChange} />;
     const content = (() => {
       switch (activeTab) {
         case 'dashboard':
           return <Dashboard onTabChange={handleTabChange} />;
         case 'staff':
-          return <StaffManagement />;
+          return <StaffManagementDashboard />;
         case 'masters':
           return <MasterDataManagement />;
         case 'tasks':
