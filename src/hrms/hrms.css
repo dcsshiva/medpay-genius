@@ -173,3 +173,8 @@
 .hrms-root .sync-status.error{color:var(--rose); border-color:var(--rose);}
 .hrms-root .cycle-select{font:inherit; font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--slate); background:transparent; border:1px solid var(--line); border-radius:6px; padding:2px 6px;}
 .hrms-root .loading-shell{display:flex; align-items:center; justify-content:center; min-height:40vh; color:var(--slate);}
+/* Staff Master: show full names and full master values */
+.hrms-root table.staff-master input.editable[data-field="name"]{min-width:210px;}
+.hrms-root table.staff-master select.editable{min-width:150px;}
+.hrms-root table.staff-master select.editable[data-field="role"]{min-width:100px;}
+.hrms-root table.staff-master select.editable[data-field="reportingManager"]{min-width:190px;}

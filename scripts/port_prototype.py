@@ -404,6 +404,81 @@ function renderTrendBox(live){
   }).catch(()=>{ const box = document.getElementById('trendBox'); if(box) box.innerHTML = '<div class="note" style="padding:8px 0;">Trend not available right now.</div>'; });
 }""")
 
+# ── 18. biometric exports: "Not Present" is absent (was matched as present), device "Leave" = CL ──
+rep("""  if(/present/i.test(s)) return 'P';
+  if(/weekly\s*off|week\s*off/i.test(s)) return 'WO';""", """  if(/not\s*present|absent/i.test(s)) return 'A';
+  if(/present/i.test(s)) return 'P';
+  if(/weekly\s*off|week\s*off/i.test(s)) return 'WO';""")
+rep("""  if(/\\bcl\\b|casual\s*leave/i.test(s)) return 'CL';""", """  if(/\\bcl\\b|casual\s*leave|\\bleave\\b/i.test(s)) return 'CL';""")
+# a "present" day with no punch time must not produce NaN lateness
+rep("function toMin(hhmm){ const [h,m]=hhmm.split(':').map(Number); return h*60+m; }",
+    "function toMin(hhmm){ const [h,m]=String(hhmm||'').split(':').map(Number); return (h||0)*60+(m||0); }")
+# only the selected pay cycle's days count (imports may bring in days from other cycles)
+rep("""  if(!emp || !att) return null;
+  const records = att.records;""", """  if(!emp || !att) return null;
+  const records = att.records.filter(r=> r.date>=env.cycle.start && r.date<=env.cycle.end);""")
+rep("""  return [...s].sort();
+}
+function monthsAvailable(){""", """  return [...s].filter(d=> d>=env.cycle.start && d<=env.cycle.end).sort();
+}
+function monthsAvailable(){""")
+# after an import: save, then reload the selected cycle so figures are exact
+rep("""  alert('Import complete: '+added+' new record(s) added, '+updated+' existing record(s) updated.');
+  renderAdminLedger();""", """  alert('Import complete: '+added+' new record(s) added, '+updated+' existing record(s) updated.');
+  renderAdminLedger();
+  env.afterImport();""")
+
+# ── 19. full staff names everywhere; wider selects in Staff Master ──
+rep("""      '<div style="width:130px;font-size:12px;color:var(--slate);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+i.label+'</div>'+""",
+    """      '<div style="min-width:130px;max-width:240px;font-size:12px;color:var(--slate);">'+i.label+'</div>'+""")
+
+# ── 20. Staff Master: select staff and set the reporting manager in bulk ──
+rep("""  '<div class="tbl-scroll"><table><thead><tr><th>Staff Ref</th><th>Code / Login ID</th><th>Name</th>""",
+    """  bulkManagerBar()+
+  '<div class="tbl-scroll"><table class="staff-master"><thead><tr><th><input type="checkbox" id="staffSelAll" title="Select all shown"'+(filtered.length && filtered.every(e=>staffSel.has(e.empNo))?' checked':'')+'></th><th>Staff Ref</th><th>Code / Login ID</th><th>Name</th>""")
+rep("""    '<tr data-id="'+e.empNo+'">'+
+      '<td class="mono hint">'+e.dbRef+'</td>'+""", """    '<tr data-id="'+e.empNo+'">'+
+      '<td><input type="checkbox" class="staff-sel" data-emp="'+e.empNo+'"'+(staffSel.has(e.empNo)?' checked':'')+'></td>'+
+      '<td class="mono hint">'+e.dbRef+'</td>'+""")
+rep("""  document.getElementById('addStaffBtn').onclick = openAddStaffForm;""", """  document.getElementById('addStaffBtn').onclick = openAddStaffForm;
+  wireBulkManager(filtered);""")
+rep("""function openStaffDetailsModal(empNo){""", """let staffSel = new Set();
+function bulkManagerBar(){
+  const managers = STAFF.filter(m=>m.role==='Manager');
+  return '<div class="emp-toolbar" style="border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--surface);">'+
+    '<div class="hint" style="margin:0;"><b id="staffSelCount">'+staffSel.size+'</b> selected &middot; tick staff below (or the header box for everyone shown), then set their Reporting Manager in one go.</div>'+
+    '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'+
+      '<select class="search" id="bulkMgrSel" style="min-width:200px;">'+
+        '<option value="__">Set reporting manager…</option>'+
+        '<option value="">— none (Administrator approves) —</option>'+
+        managers.map(m=>'<option value="'+m.empNo+'">'+m.name+' ('+m.empNo+')</option>').join('')+
+      '</select>'+
+      '<button class="btn sm" id="bulkMgrApply">Apply to selected</button>'+
+      '<button class="iconbtn" id="bulkMgrClear">Clear selection</button>'+
+    '</div>'+
+  '</div>';
+}
+function wireBulkManager(filtered){
+  const count = ()=>{ const c = document.getElementById('staffSelCount'); if(c) c.textContent = staffSel.size; };
+  document.querySelectorAll('.staff-sel').forEach(cb=> cb.onchange = ()=>{ cb.checked ? staffSel.add(cb.dataset.emp) : staffSel.delete(cb.dataset.emp); count(); });
+  const all = document.getElementById('staffSelAll');
+  if(all) all.onchange = ()=>{ filtered.forEach(e=> all.checked ? staffSel.add(e.empNo) : staffSel.delete(e.empNo)); renderAdminStaff(); };
+  document.getElementById('bulkMgrClear').onclick = ()=>{ staffSel.clear(); renderAdminStaff(); };
+  document.getElementById('bulkMgrApply').onclick = ()=>{
+    const v = document.getElementById('bulkMgrSel').value;
+    if(v==='__'){ alert('Choose a reporting manager first.'); return; }
+    if(!staffSel.size){ alert('Tick at least one staff member.'); return; }
+    let n = 0;
+    staffSel.forEach(id=>{ const s = findStaff(id); if(s && s.empNo!==v){ s.reportingManager = v; n++; } });
+    const who = v ? (findStaff(v)||{}).name : 'none';
+    staffSel.clear();
+    renderAdminStaff();
+    alert('Reporting Manager set to '+who+' for '+n+' staff.');
+  };
+}
+
+function openStaffDetailsModal(empNo){""")
+
 # sanity: nothing left that points at demo data
 for bad in ['DEMO_STAFF_ID', 'admin123', 'Selvantra', '2026-09-25']:
     if bad in script:
