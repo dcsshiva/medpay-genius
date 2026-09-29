@@ -1327,7 +1327,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   function parseAttendanceImportText(text){
     const lines = text.split(/\r?\n/).filter(l=>l.trim().length);
     const head = lines.slice(0,6).join(' ');
-    const result = {records:[], unmatchedCodes:new Set(), warnings:[], format:null};
+    const result = {records:[], unmatchedCodes:new Set(), warnings:[], format:null, names:{}};
     if(!lines.length) return result;
     if(/Employee\s*Punch\s*Monitor/i.test(head)){
       result.format = 'Employee Punch Monitor (single day)';
@@ -1343,6 +1343,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         if(headerSeen){
           const code = cells[1];
           if(!code) continue;
+          if(cells[3]) result.names[code] = cells[3];
           const punches = (cells[7]||'').split(',').map(p=>p.trim()).filter(Boolean);
           const status = mapAttStatusText(cells[9]) || (punches.length ? 'P' : 'A');
           if(!reportDate){ result.warnings.push('No report date found in the Punch Monitor header.'); continue; }
@@ -1356,7 +1357,13 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       let curCode = null;
       for(const line of lines){
         const cells = parseCSVLine(line).map(c=>c.trim());
-        if(/^Employee\s*Code:?$/i.test(cells[1]||'')){ curCode = cells[3] || null; continue; }
+        if(/^Employee\s*Code:?$/i.test(cells[1]||'')){
+          curCode = cells[3] || null;
+          const ni = cells.findIndex(c=>/^Employee\s*Name/i.test(c));
+          const nm = ni>=0 ? cells.slice(ni+1).find(c=>c) : '';
+          if(curCode && nm) result.names[curCode] = nm;
+          continue;
+        }
         if(/^Date$/i.test(cells[1]||'')) continue;
         if(/^Total\s*Duration=/i.test(cells[1]||'')) continue;
         const iso = parseDMonY(cells[1]);
@@ -1372,6 +1379,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       result.format = 'Generic CSV';
       const header = parseCSVLine(lines[0]).map(c=>c.trim().toLowerCase());
       const idx = (re)=> header.findIndex(h=>re.test(h));
+      const cName = idx(/name/);
       const cCode = idx(/emp.*code|^code$/), cDate = idx(/date/), cStatus = idx(/status/), cIn = idx(/in.?time|check.?in|^in$/), cOut = idx(/out.?time|check.?out|^out$/);
       if(cCode<0 || cDate<0){
         result.warnings.push('Could not find header columns for employee code and date.');
@@ -1379,6 +1387,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         for(let i=1;i<lines.length;i++){
           const cells = parseCSVLine(lines[i]).map(c=>c.trim());
           const code = cells[cCode]; if(!code) continue;
+          if(cName>=0 && cells[cName]) result.names[code] = cells[cName];
           const dateRaw = cells[cDate];
           let iso = /^\d{4}-\d{2}-\d{2}$/.test(dateRaw) ? dateRaw : parseDMonY(dateRaw);
           if(!iso){ const m=/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/.exec(dateRaw); if(m) iso = m[3]+'-'+m[1].padStart(2,'0')+'-'+m[2].padStart(2,'0'); }
@@ -1449,7 +1458,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         stat('Employees matched', new Set(matched.map(r=>r.empNo)).size)+
         stat('Dates covered', dates.size)+
       '</div>'+
-      (parsed.unmatchedCodes.size ? '<div class="footnote" style="color:var(--rose);">Unrecognized employee code(s) — will be skipped: '+Array.from(parsed.unmatchedCodes).join(', ')+'</div>' : '')+
+      newStaffPanel(parsed)+
       '<div class="tbl-scroll" style="max-height:220px;"><table><thead><tr><th>Code</th><th>Name</th><th>Date</th><th>Status</th><th>In</th><th>Out</th></tr></thead><tbody>'+
         matched.slice(0,25).map(r=>{
           const s = findStaff(r.empNo);
@@ -1457,8 +1466,84 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         }).join('')+
       '</tbody></table></div>'+
       (matched.length>25 ? '<div class="hint">Showing first 25 of '+matched.length+' recognized rows.</div>' : '')+
-      (matched.length ? '<button class="btn" style="margin-top:10px;" id="attImportCommitBtn">Import '+matched.length+' record(s)</button>' : '');
-    if(matched.length) document.getElementById('attImportCommitBtn').onclick = ()=> commitAttendanceImport(matched);
+      '<div class="error-text" id="attImportError"></div>'+
+      '<button class="btn" style="margin-top:10px;" id="attImportCommitBtn">Import</button>';
+    wireNewStaffPanel(parsed);
+  }
+
+  /* New staff found in an import: the only question asked is which unit they belong to.
+     They are added to Staff Master (Role Staff, password = Staff Code); salary, designation
+     and department can be completed later in Staff Master. Existing staff keep their unit —
+     transfers are made in Staff Master (Unit column), which records the transfer history. */
+  function cleanImportedName(n, code){
+    n = String(n||'').replace(/\s+/g,' ').trim();
+    if(!n || n===code) return '';
+    return n.replace(/^(mr|mrs|ms|miss|mst)\.?\s+/i,'').trim().toUpperCase();
+  }
+  function newStaffPanel(parsed){
+    const codes = Array.from(parsed.unmatchedCodes);
+    if(!codes.length) return '';
+    const firstTime = STAFF.length===0;
+    const unitOpts = '<option value="">Select unit…</option>'+UNITS.map(u=>'<option value="'+u.code+'">'+u.name+'</option>').join('');
+    return ''+
+    '<div class="section-title" style="margin-top:14px;">'+(firstTime?'First import — staff found in this file':'New staff found in this file')+' ('+codes.length+')</div>'+
+    '<div class="hint" style="margin-bottom:8px;">These codes are not in Staff Master yet. Choose the <b>unit</b> each one belongs to and they will be added to Staff Master with this import (salary, designation and department can be filled in later). Untick anyone who should not be added — their rows are skipped.</div>'+
+    '<div class="emp-toolbar" style="margin-bottom:8px;"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'+
+      '<span class="hint" style="margin:0;">Set all to</span><select class="search" id="nsAllUnit" style="min-width:200px;">'+unitOpts+'</select>'+
+    '</div></div>'+
+    '<div class="tbl-scroll" style="max-height:280px;"><table class="narrow"><thead><tr><th>Add</th><th>Staff Code</th><th>Name</th><th>Unit *</th><th>Days in file</th></tr></thead><tbody>'+
+    codes.map(code=>{
+      const days = parsed.records.filter(r=>r.empNo===code).length;
+      return '<tr class="ns-row" data-code="'+escapeAttr(code)+'">'+
+        '<td><input type="checkbox" class="ns-inc" checked></td>'+
+        '<td class="mono">'+code+'</td>'+
+        '<td><input class="editable ns-name" style="min-width:200px;" value="'+escapeAttr(cleanImportedName(parsed.names[code], code))+'" placeholder="Full name"></td>'+
+        '<td><select class="editable ns-unit" style="min-width:190px;">'+unitOpts+'</select></td>'+
+        '<td class="mono">'+days+'</td>'+
+      '</tr>';
+    }).join('')+
+    '</tbody></table></div>';
+  }
+  function wireNewStaffPanel(parsed){
+    const btn = document.getElementById('attImportCommitBtn');
+    const rows = ()=> Array.from(document.querySelectorAll('#attImportPreview .ns-row'));
+    const label = ()=>{
+      const add = rows().filter(r=>r.querySelector('.ns-inc').checked);
+      const addSet = new Set(add.map(r=>r.dataset.code));
+      const n = parsed.records.filter(r=>!parsed.unmatchedCodes.has(r.empNo) || addSet.has(r.empNo)).length;
+      btn.textContent = 'Import '+n+' record(s)'+(add.length ? ' + add '+add.length+' new staff' : '');
+      btn.disabled = n===0;
+    };
+    const all = document.getElementById('nsAllUnit');
+    if(all) all.onchange = ()=>{ rows().forEach(r=>{ if(all.value) r.querySelector('.ns-unit').value = all.value; }); };
+    rows().forEach(r=> r.querySelector('.ns-inc').onchange = label);
+    label();
+    btn.onclick = ()=>{
+      const err = document.getElementById('attImportError');
+      const add = rows().filter(r=>r.querySelector('.ns-inc').checked);
+      const missing = add.filter(r=>!r.querySelector('.ns-unit').value);
+      if(missing.length){ err.textContent = 'Choose a unit for every new staff member being added ('+missing.length+' missing), or untick them.'; return; }
+      const noName = add.filter(r=>!r.querySelector('.ns-name').value.trim());
+      if(noName.length){ err.textContent = 'Enter a name for every new staff member being added ('+noName.length+' missing).'; return; }
+      const today = todayISO();
+      const defaultShift = SHIFT_MASTER.length ? SHIFT_MASTER[0].code : '';
+      add.forEach(r=>{
+        const code = r.dataset.code, unitCode = r.querySelector('.ns-unit').value;
+        if(findStaff(code)) return;
+        STAFF.push({
+          dbRef: nextStaffRef(), empNo: code, name: r.querySelector('.ns-name').value.trim(), role: 'Staff',
+          reportingManager: '', designation: '', department: '', unitCode, shiftCode: defaultShift,
+          netSalary: 0, monthlyCL: DEFAULT_MONTHLY_CL, monthlyPermissionHours: DEFAULT_MONTHLY_PERMISSION_MIN/60,
+          phone: '', email: '', doj: '', dob: '', address: '', otEligible: false, pfApplicable: true, esiApplicable: true, otherDeduction: 0,
+          username: code, password: code, active: true,
+          unitHistory: [{unitCode, effectiveFrom: today, note: 'Added from attendance import'}],
+        });
+        if(!ATTENDANCE[code]) ATTENDANCE[code] = {primaryShift: defaultShift || null, records: []};
+      });
+      const records = parsed.records.filter(r=>findStaff(r.empNo));
+      if(add.length) alert(add.length+' new staff added to Staff Master. Complete their salary, designation and department there before running payroll. Their first password is their Staff Code (use "Create missing logins").');
+      commitAttendanceImport(records);
+    };
   }
   function commitAttendanceImport(records){
     let added=0, updated=0;
