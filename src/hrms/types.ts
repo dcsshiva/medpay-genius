@@ -75,6 +75,8 @@ export interface HrEnv {
   reopenCycle(): Promise<void>;
   trends(count: number): Promise<HrTrend[]>;
   excelToCsv(file: File): Promise<string>;
+  /** save an attendance import, then reload the selected cycle */
+  afterImport(): Promise<void>;
 }
 
 /** Handle returned by mountHrms(). */

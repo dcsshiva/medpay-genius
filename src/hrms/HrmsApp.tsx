@@ -208,6 +208,18 @@ export default function HrmsApp() {
         }
         return store.loadTrends(list);
       },
+      afterImport: async () => {
+        if (syncTimer) { clearTimeout(syncTimer); syncTimer = null; }
+        await runSync();
+        status('Refreshing…');
+        try {
+          await store.loadCycleRows(cycle);
+          status('Import saved', false, 2000);
+        } catch (err: any) {
+          status('Could not refresh — ' + (err?.message || err), true);
+        }
+        controller?.rerender();
+      },
       excelToCsv: async (file: File) => {
         const XLSX = await import('xlsx');
         const wb = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: false, dateNF: 'dd-mmm-yyyy' });

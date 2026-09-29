@@ -80,7 +80,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   }
   function isOverridden(empNo, date){ return !!ROSTER[rosterKey(empNo, date)]; }
 
-  function toMin(hhmm){ const [h,m]=hhmm.split(':').map(Number); return h*60+m; }
+  function toMin(hhmm){ const [h,m]=String(hhmm||'').split(':').map(Number); return (h||0)*60+(m||0); }
   function fmtMoney(n){ return '₹' + Math.round(n).toLocaleString('en-IN'); }
   function fmtMin(n){ if(n<=0) return '—'; const h=Math.floor(n/60), m=Math.round(n%60); return h? (h+'h '+(m?m+'m':'')) : m+'m'; }
   function dayName(iso){ return new Date(iso+'T00:00:00').toLocaleDateString('en-IN',{weekday:'short'}); }
@@ -96,7 +96,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const emp = findStaff(empNo);
     const att = ATTENDANCE[empNo];
     if(!emp || !att) return null;
-    const records = att.records;
+    const records = att.records.filter(r=> r.date>=env.cycle.start && r.date<=env.cycle.end);
     const cycleLen = (env.cycle.complete ? records.length : env.cycle.dates.length) || 1;
     const perDay = emp.netSalary / cycleLen;
     const perMinute = perDay / 8 / 60;
@@ -987,7 +987,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   function allCycleDates(){
     const s = new Set();
     Object.values(ATTENDANCE).forEach(a=> a.records.forEach(r=> s.add(r.date)));
-    return [...s].sort();
+    return [...s].filter(d=> d>=env.cycle.start && d<=env.cycle.end).sort();
   }
   function monthsAvailable(){
     return [...new Set(allCycleDates().map(d=>d.slice(0,7)))].sort();
@@ -1094,7 +1094,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const max = Math.max(...items.map(i=>i.value),1);
     return '<div style="display:flex;flex-direction:column;gap:7px;">'+
       items.map(i=>'<div style="display:flex;align-items:center;gap:8px;">'+
-        '<div style="width:130px;font-size:12px;color:var(--slate);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+i.label+'</div>'+
+        '<div style="min-width:130px;max-width:240px;font-size:12px;color:var(--slate);">'+i.label+'</div>'+
         '<div style="flex:1;background:var(--line);border-radius:5px;height:10px;overflow:hidden;"><div style="width:'+Math.max(4,Math.round(i.value/max*100))+'%;height:100%;background:'+(opts.color||'var(--rose)')+';"></div></div>'+
         '<div class="mono" style="width:'+(opts.valueWidth||'30px')+';text-align:right;font-size:12px;">'+i.value+'</div>'+
       '</div>').join('')+
@@ -1316,10 +1316,11 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   }
   function mapAttStatusText(s){
     s = (s||'').trim();
+    if(/not\s*present|absent/i.test(s)) return 'A';
     if(/present/i.test(s)) return 'P';
     if(/weekly\s*off|week\s*off/i.test(s)) return 'WO';
     if(/holiday/i.test(s)) return 'H';
-    if(/\bcl\b|casual\s*leave/i.test(s)) return 'CL';
+    if(/\bcl\b|casual\s*leave|\bleave\b/i.test(s)) return 'CL';
     if(/absent|not\s*present/i.test(s)) return 'A';
     return null;
   }
@@ -1482,6 +1483,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     document.getElementById('modalRoot').innerHTML = '';
     alert('Import complete: '+added+' new record(s) added, '+updated+' existing record(s) updated.');
     renderAdminLedger();
+    env.afterImport();
   }
 
   function openDrilldown(empNo){
@@ -1507,9 +1509,11 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<button class="btn" id="addStaffBtn">+ Add staff</button>'+
       '</div>'+
     '</div>'+
-    '<div class="tbl-scroll"><table><thead><tr><th>Staff Ref</th><th>Code / Login ID</th><th>Name</th><th>Role</th><th>Reporting Manager</th><th>Designation</th><th>Department</th><th>Unit</th><th>Shift Master</th><th>Net salary</th><th>CL / month</th><th>Permission hrs / month</th><th>Password</th><th></th></tr></thead><tbody>'+
+    bulkManagerBar()+
+    '<div class="tbl-scroll"><table class="staff-master"><thead><tr><th><input type="checkbox" id="staffSelAll" title="Select all shown"'+(filtered.length && filtered.every(e=>staffSel.has(e.empNo))?' checked':'')+'></th><th>Staff Ref</th><th>Code / Login ID</th><th>Name</th><th>Role</th><th>Reporting Manager</th><th>Designation</th><th>Department</th><th>Unit</th><th>Shift Master</th><th>Net salary</th><th>CL / month</th><th>Permission hrs / month</th><th>Password</th><th></th></tr></thead><tbody>'+
     filtered.map(e=>(
       '<tr data-id="'+e.empNo+'">'+
+        '<td><input type="checkbox" class="staff-sel" data-emp="'+e.empNo+'"'+(staffSel.has(e.empNo)?' checked':'')+'></td>'+
         '<td class="mono hint">'+e.dbRef+'</td>'+
         '<td class="mono">'+e.empNo+'</td>'+
         '<td><input class="editable" data-field="name" value="'+escapeAttr(e.name)+'"></td>'+
@@ -1544,6 +1548,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
 
     document.getElementById('staffSearch').oninput = (e)=>{ staffQuery = e.target.value; renderAdminStaff(); };
     document.getElementById('addStaffBtn').onclick = openAddStaffForm;
+    wireBulkManager(filtered);
     document.getElementById('createLoginsBtn').onclick = async ()=>{
       const b = document.getElementById('createLoginsBtn'); b.disabled = true; b.textContent = 'Creating…';
       const r = await env.ensureAllLogins();
@@ -1588,6 +1593,41 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         renderAdminStaff();
       };
     });
+  }
+
+  let staffSel = new Set();
+  function bulkManagerBar(){
+    const managers = STAFF.filter(m=>m.role==='Manager');
+    return '<div class="emp-toolbar" style="border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--surface);">'+
+      '<div class="hint" style="margin:0;"><b id="staffSelCount">'+staffSel.size+'</b> selected &middot; tick staff below (or the header box for everyone shown), then set their Reporting Manager in one go.</div>'+
+      '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'+
+        '<select class="search" id="bulkMgrSel" style="min-width:200px;">'+
+          '<option value="__">Set reporting manager…</option>'+
+          '<option value="">— none (Administrator approves) —</option>'+
+          managers.map(m=>'<option value="'+m.empNo+'">'+m.name+' ('+m.empNo+')</option>').join('')+
+        '</select>'+
+        '<button class="btn sm" id="bulkMgrApply">Apply to selected</button>'+
+        '<button class="iconbtn" id="bulkMgrClear">Clear selection</button>'+
+      '</div>'+
+    '</div>';
+  }
+  function wireBulkManager(filtered){
+    const count = ()=>{ const c = document.getElementById('staffSelCount'); if(c) c.textContent = staffSel.size; };
+    document.querySelectorAll('.staff-sel').forEach(cb=> cb.onchange = ()=>{ cb.checked ? staffSel.add(cb.dataset.emp) : staffSel.delete(cb.dataset.emp); count(); });
+    const all = document.getElementById('staffSelAll');
+    if(all) all.onchange = ()=>{ filtered.forEach(e=> all.checked ? staffSel.add(e.empNo) : staffSel.delete(e.empNo)); renderAdminStaff(); };
+    document.getElementById('bulkMgrClear').onclick = ()=>{ staffSel.clear(); renderAdminStaff(); };
+    document.getElementById('bulkMgrApply').onclick = ()=>{
+      const v = document.getElementById('bulkMgrSel').value;
+      if(v==='__'){ alert('Choose a reporting manager first.'); return; }
+      if(!staffSel.size){ alert('Tick at least one staff member.'); return; }
+      let n = 0;
+      staffSel.forEach(id=>{ const s = findStaff(id); if(s && s.empNo!==v){ s.reportingManager = v; n++; } });
+      const who = v ? (findStaff(v)||{}).name : 'none';
+      staffSel.clear();
+      renderAdminStaff();
+      alert('Reporting Manager set to '+who+' for '+n+' staff.');
+    };
   }
 
   function openStaffDetailsModal(empNo){
