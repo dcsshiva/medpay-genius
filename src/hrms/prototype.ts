@@ -450,22 +450,89 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   let staffTab = 'overview';
 
   function renderStaffLogin(errorMsg){
-    staffView.innerHTML = ''+
-    '<div class="login-shell"><div class="card pad login-card">'+
-      '<div class="section-title">Staff sign-in</div>'+
-      '<h2 style="font-size:18px;">WestMed Payroll System</h2>'+
-      '<div style="color:var(--slate);font-size:12.8px;margin-top:4px;">Sign in with your Staff Code and password.</div>'+
-      '<input id="staffIdInput" class="mono" placeholder="Staff Code" inputmode="numeric" />'+
-      '<input id="staffPwInput" class="mono" type="password" placeholder="Password" />'+
-      '<div class="hint">First sign-in: your password is your Staff Code until you change it.</div>'+
-      '<div class="hint">Signing in here signs this account out of any other device it\'s currently active on.</div>'+
-      '<div class="error-text">'+(errorMsg||'')+'</div>'+
-      '<button class="btn" id="staffLoginBtn" style="width:100%;margin-top:4px;">Sign in</button>'+
-    '</div></div>';
+    root.classList.add('hr-auth');
+    staffView.innerHTML = authShell('staff', errorMsg);
+    wireAuthShell();
 
     const doLogin = ()=> tryStaffLogin(document.getElementById('staffIdInput').value.trim(), document.getElementById('staffPwInput').value.trim());
     document.getElementById('staffLoginBtn').onclick = doLogin;
     document.getElementById('staffPwInput').addEventListener('keydown', e=>{ if(e.key==='Enter') doLogin(); });
+  }
+
+  function authShell(kind, errorMsg){
+    const staff = kind==='staff';
+    const field = (id, label, type, attrs)=> '<div class="auth-field">'+
+      '<input id="'+id+'" type="'+type+'" placeholder=" " '+(attrs||'')+'>'+
+      '<label for="'+id+'">'+label+'</label>'+
+      (type==='password' ? '<button type="button" class="auth-eye" data-eye="'+id+'" aria-label="Show password" title="Show password">'+
+        '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>'+
+      '</button>' : '')+
+    '</div>';
+    return ''+
+    '<div class="auth">'+
+      '<aside class="auth-brand">'+
+        '<div class="auth-brand-top">'+
+          '<div class="auth-logo">WM</div>'+
+          '<div><div class="auth-app">WestMed Payroll System</div><div class="auth-app-sub">Attendance &middot; Leave &middot; Tasks &middot; Payroll</div></div>'+
+        '</div>'+
+        '<div class="auth-hero">'+
+          '<div class="auth-kicker">Workforce &amp; payroll platform</div>'+
+          '<h1>Systems That Work.<br><span>Businesses That Scale.</span></h1>'+
+          '<p>Shift attendance, leave and permission, tasks and payroll &mdash; in one secure place for every WestMed unit.</p>'+
+          '<ul class="auth-points">'+
+            '<li>Biometric attendance import</li>'+
+            '<li>Shift-aware lateness &amp; payroll</li>'+
+            '<li>Payslips on any device</li>'+
+          '</ul>'+
+        '</div>'+
+        '<div class="auth-brand-foot">Powered by <a href="https://selvantra.com" target="_blank" rel="noopener">Selvantra Technologies</a></div>'+
+      '</aside>'+
+      '<main class="auth-main">'+
+        '<div class="auth-card">'+
+          '<div class="auth-seg" role="tablist" aria-label="Sign in as">'+
+            '<button type="button" role="tab" data-go="staff" aria-selected="'+staff+'" class="'+(staff?'on':'')+'">Staff</button>'+
+            '<button type="button" role="tab" data-go="admin" aria-selected="'+(!staff)+'" class="'+(!staff?'on':'')+'">Admin / Manager</button>'+
+          '</div>'+
+          '<h2>'+(staff?'Welcome back':'Admin console')+'</h2>'+
+          '<p class="auth-sub">'+(staff?'Sign in with your Staff Code and password.':'Administrators use their username or email; managers use their Staff Code.')+'</p>'+
+          (staff ? field('staffIdInput','Staff Code','text','inputmode="numeric" autocomplete="username" autocapitalize="off"')
+                 : field('adminUserInput','Username, email or Staff Code','text','autocomplete="username" autocapitalize="off"'))+
+          field(staff?'staffPwInput':'adminPwInput','Password','password','autocomplete="current-password"')+
+          '<div class="auth-caps" id="authCaps" hidden>Caps Lock is on</div>'+
+          '<div class="error-text auth-err" role="alert">'+(errorMsg||'')+'</div>'+
+          '<button class="auth-btn" id="'+(staff?'staffLoginBtn':'adminLoginBtn')+'">Sign in'+
+            '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'+
+          '</button>'+
+          '<ul class="auth-notes">'+
+            (staff ? '<li>First sign-in: your password is your Staff Code until you change it.</li>'
+                   : '<li>Managers: Role must be Manager in Staff Master.</li>')+
+            '<li>Signing in here signs this account out of any other device.</li>'+
+          '</ul>'+
+        '</div>'+
+        '<footer class="auth-foot">&copy; 2026&ndash;2030 Selvantra Technologies &middot; <a href="https://selvantra.com" target="_blank" rel="noopener">selvantra.com</a></footer>'+
+      '</main>'+
+    '</div>';
+  }
+  function wireAuthShell(){
+    document.querySelectorAll('.auth-seg [data-go]').forEach(b=> b.onclick = ()=>{
+      const target = document.querySelector('#roleSwitch button[data-role="'+b.dataset.go+'"]');
+      if(target) target.click();
+    });
+    document.querySelectorAll('.auth-eye').forEach(b=> b.onclick = ()=>{
+      const inp = document.getElementById(b.dataset.eye);
+      const show = inp.type==='password';
+      inp.type = show ? 'text' : 'password';
+      b.classList.toggle('on', show);
+      b.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      inp.focus();
+    });
+    const caps = document.getElementById('authCaps');
+    document.querySelectorAll('.auth-field input[type="password"]').forEach(inp=>{
+      const check = (e)=>{ if(caps && e.getModifierState) caps.hidden = !e.getModifierState('CapsLock'); };
+      inp.addEventListener('keydown', check); inp.addEventListener('keyup', check);
+    });
+    const first = document.querySelector('.auth-field input');
+    if(first && !('ontouchstart' in window)) setTimeout(()=> first.focus(), 0);
   }
 
   async function tryStaffLogin(id, pw){
@@ -479,6 +546,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   }
 
   function renderStaffDashboard(){
+    root.classList.remove('hr-auth');
     const result = computeCycle(currentStaff);
     const myTasks = TASKS.filter(t=>t.assignedTo===currentStaff);
     const myLeaves = LEAVES.filter(l=>l.empNo===currentStaff);
@@ -652,17 +720,9 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   let staffQuery = '';
 
   function renderAdminLogin(errorMsg){
-    adminView.innerHTML = ''+
-    '<div class="login-shell"><div class="card pad login-card">'+
-      '<div class="section-title">Admin / Manager sign-in</div>'+
-      '<h2 style="font-size:18px;">HRMS Admin Console</h2>'+
-      '<input id="adminUserInput" placeholder="Username, email or Staff Code" />'+
-      '<input id="adminPwInput" type="password" placeholder="Password" />'+
-      '<div class="hint">Administrator: your WestMed admin username or email. Manager: your Staff Code and password (Role = Manager in Staff Master).</div>'+
-      '<div class="hint">Signing in here signs this account out of any other device it\'s currently active on.</div>'+
-      '<div class="error-text">'+(errorMsg||'')+'</div>'+
-      '<button class="btn" id="adminLoginBtn" style="width:100%;margin-top:4px;">Sign in</button>'+
-    '</div></div>';
+    root.classList.add('hr-auth');
+    adminView.innerHTML = authShell('admin', errorMsg);
+    wireAuthShell();
     const doLogin = async ()=>{
       const u = document.getElementById('adminUserInput').value.trim();
       const p = document.getElementById('adminPwInput').value.trim();
@@ -707,6 +767,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
 
   function renderAdmin(){
     if(!adminLoggedIn || !currentAdminAccount){ renderAdminLogin(); return; }
+    root.classList.remove('hr-auth');
     const role = currentAdminAccount.role;
     const tabs = ADMIN_TABS_BY_ROLE[role];
     if(!tabs.includes(adminTab)) adminTab = tabs[0];
