@@ -4,23 +4,17 @@ import { isManagerLike } from "@/lib/accessLevels";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, ClipboardCheck, CalendarCheck, Wallet, Receipt, History, Layers, Building2 } from "lucide-react";
+import { Users, CalendarCheck, Wallet, Layers, Building2 } from "lucide-react";
 import StaffManagement from "./StaffManagement";
-import StaffAppraisalManagement from "./StaffAppraisalManagement";
 import StaffAttendanceManagement from "./StaffAttendanceManagement";
 import StaffSalaryStructure from "./StaffSalaryStructure";
 import StaffPayrollGeneration from "./StaffPayrollGeneration";
-import { StaffPaymentHistoryTab } from "./quick-payment/StaffPaymentHistoryTab";
-import { StaffBulkPaymentTab } from "./quick-payment/StaffBulkPaymentTab";
 
 const TAB_ITEMS = [
   { value: "directory", label: "Staff Directory", icon: Users },
-  { value: "appraisals", label: "Appraisals & Reviews", icon: ClipboardCheck },
   { value: "attendance", label: "Attendance", icon: CalendarCheck },
   { value: "salary", label: "Salary Structure", icon: Layers },
   { value: "payroll", label: "Payroll", icon: Wallet },
-  { value: "payment-history", label: "Payment History", icon: History },
-  { value: "bulk-payment", label: "Bulk Payment", icon: Receipt },
 ];
 
 export default function StaffManagementDashboard() {
@@ -63,10 +57,10 @@ export default function StaffManagementDashboard() {
         <CardHeader>
           <CardTitle className="text-2xl flex items-center gap-2">
             <Building2 className="h-6 w-6" />
-            Staff Management Dashboard
+            Staff Master
           </CardTitle>
           <CardDescription>
-            All staff records, performance, attendance, and payroll in one place
+            Staff records, attendance, salary structure and payroll
           </CardDescription>
         </CardHeader>
       </Card>
@@ -84,12 +78,9 @@ export default function StaffManagementDashboard() {
         </div>
 
         {renderTab("directory", <StaffManagement excludeAdminAndDoctor />)}
-        {renderTab("appraisals", <StaffAppraisalManagement />)}
         {renderTab("attendance", <StaffAttendanceManagement />)}
         {renderTab("salary", <StaffSalaryStructure />)}
         {renderTab("payroll", <StaffPayrollGeneration />)}
-        {renderTab("payment-history", <StaffPaymentHistoryTab />)}
-        {renderTab("bulk-payment", <StaffBulkPaymentTab />)}
       </Tabs>
     </div>
   );

@@ -136,7 +136,7 @@ const Settings = () => {
               <div>
                 <h4 className="font-medium">App Installation</h4>
                 <p className="text-sm text-muted-foreground">
-                  {isInstalled ? 'WestMed is installed on your device' : 'Install for faster access and offline support'}
+                  {isInstalled ? 'WestMed Payroll is installed on your device' : 'Install for faster access and offline support'}
                 </p>
               </div>
             </div>

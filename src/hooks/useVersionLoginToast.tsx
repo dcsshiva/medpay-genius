@@ -24,7 +24,7 @@ export const useVersionLoginToast = (userId?: string | null) => {
       return;
     }
 
-    toast.success(`HMS v${versionInfo.version}`, {
+    toast.success(`WestMed Payroll v${versionInfo.version}`, {
       description: `Build: ${formatFullDateTimeIST(versionInfo.buildDate)}`,
       duration: 6000,
     });

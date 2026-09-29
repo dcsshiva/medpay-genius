@@ -52,11 +52,11 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
       <SidebarHeader className="border-b p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <img src={westmedLogo} alt="WestMed Hospital" className="h-8 w-8" />
+            <img src={westmedLogo} alt="WestMed Payroll System" className="h-8 w-8" />
             {!isCollapsed && (
               <div>
                 <h1 className="text-lg font-bold leading-tight">WestMed</h1>
-                <p className="text-xs text-muted-foreground leading-tight">Hospital System</p>
+                <p className="text-xs text-muted-foreground leading-tight">Payroll System</p>
                 <div className="mt-1 -ml-2">
                   <VersionDisplay inline />
                 </div>
@@ -136,7 +136,7 @@ export function AppSidebar({ activeTab, onTabChange }: AppSidebarProps) {
       <SidebarFooter className="border-t p-4">
         {!isCollapsed && (
           <div className="text-xs text-muted-foreground text-center">
-            Hospital Management System
+            WestMed Payroll System
           </div>
         )}
       </SidebarFooter>

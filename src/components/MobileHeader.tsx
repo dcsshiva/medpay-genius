@@ -29,10 +29,10 @@ const MobileHeader: React.FC<MobileHeaderProps> = ({
     <header className="bg-card border-b border-border shadow-sm md:hidden pt-safe sticky top-0 z-40">
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center space-x-3">
-          <img src={westmedLogo} alt="WestMed Hospital" className="h-6 w-6" />
+          <img src={westmedLogo} alt="WestMed Payroll System" className="h-6 w-6" />
           <div>
             <h1 className="text-lg font-bold text-foreground">WestMed</h1>
-            <p className="text-xs text-muted-foreground">HMS</p>
+            <p className="text-xs text-muted-foreground">Payroll System</p>
           </div>
         </div>
         

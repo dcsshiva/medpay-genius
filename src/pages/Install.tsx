@@ -31,11 +31,11 @@ const Install = () => {
         <div className="text-center space-y-4">
           <img 
             src={westmedLogo} 
-            alt="WestMed Hospital" 
+            alt="WestMed Payroll System" 
             className="h-20 mx-auto"
           />
           <div>
-            <h1 className="text-2xl font-bold">WestMed Hospital</h1>
+            <h1 className="text-2xl font-bold">WestMed Payroll System</h1>
             <p className="text-muted-foreground">Payment Management System</p>
           </div>
         </div>
@@ -58,8 +58,8 @@ const Install = () => {
             </CardTitle>
             <CardDescription>
               {isInstalled 
-                ? 'WestMed is already installed on your device'
-                : 'Install WestMed for the best experience'
+                ? 'WestMed Payroll is already installed on your device'
+                : 'Install WestMed Payroll for the best experience'
               }
             </CardDescription>
           </CardHeader>

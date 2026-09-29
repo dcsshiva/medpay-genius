@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import { isStaffRole } from './staffUtils';
 import { hasFullAccess, isSuperAdmin } from './accessLevels';
-import { isStaffOnlyScreen } from './staffOnlyScreens';
+import { isStaffOnlyScreen, hrmsLabel, hrmsOrder } from './staffOnlyScreens';
 
 export interface NavigationItem {
   id: string;
@@ -74,8 +74,8 @@ export const getNavigationItems = ({
   userProfile,
 }: LegacyParams): NavigationItem[] => {
   const mk = (id: string, label: string): NavigationItem =>
-    ({ id, label, icon: SCREEN_ICONS[id] || Home });
-  const base = [mk('dashboard', 'Dashboard'), mk('user-guide', 'User Guide')];
+    ({ id, label: hrmsLabel(id, label), icon: SCREEN_ICONS[id] || Home });
+  const base = [mk('dashboard', 'Dashboard')];
 
   if (userDesignation === 'super_admin' || userRole === 'super_admin') {
     return [
@@ -184,8 +184,6 @@ export const getNavigationItems = ({
       ...base,
       mk('leave-permission', 'Leave & Permission'),
       { id: 'tasks', label: 'My Tasks', icon: ClipboardList },
-      mk('complaints', 'Complaints'),
-      mk('chat', 'Team Chat'),
     ];
   }
   return base;
@@ -274,9 +272,10 @@ export const useNavigationItems = (): { items: NavigationItem[]; loading: boolea
 
     const items = permitted
       .filter((r) => !!SCREEN_ICONS[r.screen_key]) // don't render permission-only keys (dashboard variants, delete actions)
+      .sort((a, b) => hrmsOrder(a.screen_key) - hrmsOrder(b.screen_key))
       .map<NavigationItem>((r) => ({
         id: r.screen_key,
-        label: r.screen_name,
+        label: hrmsLabel(r.screen_key, r.screen_name),
         icon: SCREEN_ICONS[r.screen_key] || Home,
       }));
 

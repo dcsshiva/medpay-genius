@@ -55,7 +55,7 @@ export const PWAInstallPrompt = () => {
           <div className="flex items-start justify-between">
             <div className="flex items-center gap-2">
               <Smartphone className="h-5 w-5 text-primary" />
-              <CardTitle className="text-sm">Install WestMed App</CardTitle>
+              <CardTitle className="text-sm">Install WestMed Payroll</CardTitle>
             </div>
             <Button
               variant="ghost"

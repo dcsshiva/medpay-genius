@@ -22,7 +22,7 @@ const VersionDisplay: React.FC<VersionDisplayProps> = ({ inline = false }) => {
       }
     >
       <p className={inline ? 'text-[10px] font-semibold text-muted-foreground leading-tight' : 'text-xs font-medium text-muted-foreground'}>
-        HMS v{versionInfo.version}
+        v{versionInfo.version}
       </p>
       <p className={inline ? 'text-[9px] leading-tight text-muted-foreground/80' : 'text-[10px] leading-tight text-muted-foreground/80'}>
         {formatFullDateTimeIST(versionInfo.buildDate)}
