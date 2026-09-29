@@ -524,25 +524,54 @@ function cleanImportedName(n, code){
   return n.replace(/^(mr|mrs|ms|miss|mst)\\.?\\s+/i,'').trim().toUpperCase();
 }
 function newStaffPanel(parsed){
-  const codes = Array.from(parsed.unmatchedCodes);
-  if(!codes.length) return '';
-  const firstTime = STAFF.length===0;
-  const unitOpts = '<option value="">Select unit…</option>'+UNITS.map(u=>'<option value="'+u.code+'">'+u.name+'</option>').join('');
-  return ''+
-  '<div class="section-title" style="margin-top:14px;">'+(firstTime?'First import — staff found in this file':'New staff found in this file')+' ('+codes.length+')</div>'+
-  '<div class="hint" style="margin-bottom:8px;">These codes are not in Staff Master yet. Choose the <b>unit</b> each one belongs to and they will be added to Staff Master with this import (salary, designation and department can be filled in later). Untick anyone who should not be added — their rows are skipped.</div>'+
-  '<div class="emp-toolbar" style="margin-bottom:8px;"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'+
-    '<span class="hint" style="margin:0;">Set all to</span><select class="search" id="nsAllUnit" style="min-width:200px;">'+unitOpts+'</select>'+
-  '</div></div>'+
-  '<div class="tbl-scroll" style="max-height:280px;"><table class="narrow"><thead><tr><th>Add</th><th>Staff Code</th><th>Name</th><th>Unit *</th><th>Days in file</th></tr></thead><tbody>'+
+  const suspendedCodes = new Set((env.data.SUSPENDED_STAFF||[]).map(s=>s.empNo));
+  const codes = Array.from(parsed.unmatchedCodes).filter(c=>!suspendedCodes.has(c));
+  const skippedSuspended = Array.from(parsed.unmatchedCodes).filter(c=>suspendedCodes.has(c));
+  const note = skippedSuspended.length ? '<div class="footnote">Suspended staff in this file — skipped (reactivate them in Staff Master to include): '+skippedSuspended.join(', ')+'</div>' : '';
+  if(!codes.length) return note;
+  const act = (list)=> list.filter(x=>!x.suspended);
+  const need = [];
+  if(!act(UNITS).length) need.push('a Unit');
+  if(!act(DEPARTMENTS).length) need.push('a Department');
+  if(!act(DESIGNATIONS).length) need.push('a Designation');
+  if(!act(SHIFT_MASTER).length) need.push('a Shift type (Shift Master)');
+  const head = '<div class="section-title" style="margin-top:14px;">'+(STAFF.length===0?'First import — staff found in this file':'New staff found in this file')+' ('+codes.length+')</div>';
+  if(need.length){
+    return note+head+'<div class="error-text" style="margin-bottom:8px;">To add these staff, first create at least '+need.join(', ')+' in Masters / Shift Master. Until then only staff already in Staff Master are imported.</div>'+
+      '<div class="hint">'+codes.map(c=>c+' '+cleanImportedName(parsed.names[c], c)).join(' · ')+'</div>';
+  }
+  const opt = (list, lbl)=> '<option value="">'+lbl+'</option>'+act(list).map(x=>'<option value="'+x.code+'">'+x.name+'</option>').join('');
+  const mgrOpts = '<option value="">— none —</option>'+STAFF.filter(m=>m.role==='Manager').map(m=>'<option value="'+m.empNo+'">'+m.name+'</option>').join('');
+  const allRow = '<tr style="background:var(--surface-2);"><td></td><td class="hint">Apply to all ↓</td><td></td>'+
+    '<td><select class="editable ns-all" data-f="unit" style="min-width:150px;">'+opt(UNITS,'—')+'</select></td>'+
+    '<td><select class="editable ns-all" data-f="dept" style="min-width:150px;">'+opt(DEPARTMENTS,'—')+'</select></td>'+
+    '<td><select class="editable ns-all" data-f="desg" style="min-width:140px;">'+opt(DESIGNATIONS,'—')+'</select></td>'+
+    '<td><select class="editable ns-all" data-f="shift" style="min-width:140px;">'+opt(SHIFT_MASTER,'—')+'</select></td>'+
+    '<td></td><td><select class="editable ns-all" data-f="mgr" style="min-width:150px;">'+mgrOpts+'</select></td>'+
+    '<td></td><td><input class="editable mono ns-all" data-f="doj" type="date"></td>'+
+    '<td><input class="editable mono ns-all" data-f="cl" type="number" min="0" step="0.5" style="width:60px;" placeholder="'+DEFAULT_MONTHLY_CL+'"></td>'+
+    '<td><input class="editable mono ns-all" data-f="perm" type="number" min="0" step="0.5" style="width:60px;" placeholder="'+(DEFAULT_MONTHLY_PERMISSION_MIN/60)+'"></td></tr>';
+  return note+head+
+  '<div class="hint" style="margin-bottom:8px;">These codes are not in Staff Master yet. Staff Code and name come from the file; fill in the rest once — it is saved to Staff Master with this import. <b>Unit, Department, Designation, Shift and Gross salary are required.</b> Untick anyone who should not be added (their rows are skipped). Use the first row to fill a column for everyone.</div>'+
+  '<div class="tbl-scroll" style="max-height:360px;"><table><thead><tr><th>Add</th><th>Staff Code</th><th>Name</th><th>Unit *</th><th>Department *</th><th>Designation *</th><th>Shift *</th><th>Role</th><th>Reporting Manager</th><th>Gross salary ₹ *</th><th>Date of joining</th><th>CL / month</th><th>Perm. hrs / month</th></tr></thead><tbody>'+
+  allRow+
   codes.map(code=>{
-    const days = parsed.records.filter(r=>r.empNo===code).length;
+    const nm = cleanImportedName(parsed.names[code], code);
     return '<tr class="ns-row" data-code="'+escapeAttr(code)+'">'+
       '<td><input type="checkbox" class="ns-inc" checked></td>'+
       '<td class="mono">'+code+'</td>'+
-      '<td><input class="editable ns-name" style="min-width:200px;" value="'+escapeAttr(cleanImportedName(parsed.names[code], code))+'" placeholder="Full name"></td>'+
-      '<td><select class="editable ns-unit" style="min-width:190px;">'+unitOpts+'</select></td>'+
-      '<td class="mono">'+days+'</td>'+
+      '<td>'+(nm ? '<span class="ns-name-fixed">'+nm+'</span><input type="hidden" class="ns-name" value="'+escapeAttr(nm)+'">'
+                 : '<input class="editable ns-name" style="min-width:170px;" placeholder="Name not in file — type it">')+'</td>'+
+      '<td><select class="editable ns-unit" style="min-width:150px;">'+opt(UNITS,'Select…')+'</select></td>'+
+      '<td><select class="editable ns-dept" style="min-width:150px;">'+opt(DEPARTMENTS,'Select…')+'</select></td>'+
+      '<td><select class="editable ns-desg" style="min-width:140px;">'+opt(DESIGNATIONS,'Select…')+'</select></td>'+
+      '<td><select class="editable ns-shift" style="min-width:140px;">'+opt(SHIFT_MASTER,'Select…')+'</select></td>'+
+      '<td><select class="editable ns-role"><option>Staff</option><option>Manager</option></select></td>'+
+      '<td><select class="editable ns-mgr" style="min-width:150px;">'+mgrOpts+'</select></td>'+
+      '<td><input class="editable mono ns-gross" type="number" min="0" style="width:100px;"></td>'+
+      '<td><input class="editable mono ns-doj" type="date"></td>'+
+      '<td><input class="editable mono ns-cl" type="number" min="0" step="0.5" style="width:60px;" value="'+DEFAULT_MONTHLY_CL+'"></td>'+
+      '<td><input class="editable mono ns-perm" type="number" min="0" step="0.5" style="width:60px;" value="'+(DEFAULT_MONTHLY_PERMISSION_MIN/60)+'"></td>'+
     '</tr>';
   }).join('')+
   '</tbody></table></div>';
@@ -553,38 +582,47 @@ function wireNewStaffPanel(parsed){
   const label = ()=>{
     const add = rows().filter(r=>r.querySelector('.ns-inc').checked);
     const addSet = new Set(add.map(r=>r.dataset.code));
-    const n = parsed.records.filter(r=>!parsed.unmatchedCodes.has(r.empNo) || addSet.has(r.empNo)).length;
+    const n = parsed.records.filter(r=>findStaff(r.empNo) || addSet.has(r.empNo)).length;
     btn.textContent = 'Import '+n+' record(s)'+(add.length ? ' + add '+add.length+' new staff' : '');
     btn.disabled = n===0;
   };
-  const all = document.getElementById('nsAllUnit');
-  if(all) all.onchange = ()=>{ rows().forEach(r=>{ if(all.value) r.querySelector('.ns-unit').value = all.value; }); };
+  const cls = {unit:'.ns-unit', dept:'.ns-dept', desg:'.ns-desg', shift:'.ns-shift', mgr:'.ns-mgr', doj:'.ns-doj', cl:'.ns-cl', perm:'.ns-perm'};
+  document.querySelectorAll('#attImportPreview .ns-all').forEach(el=> el.onchange = ()=>{
+    if(el.value==='' && el.tagName==='SELECT' && el.dataset.f!=='mgr') return;
+    rows().forEach(r=>{ const t = r.querySelector(cls[el.dataset.f]); if(t) t.value = el.value; });
+  });
   rows().forEach(r=> r.querySelector('.ns-inc').onchange = label);
   label();
   btn.onclick = ()=>{
     const err = document.getElementById('attImportError');
     const add = rows().filter(r=>r.querySelector('.ns-inc').checked);
-    const missing = add.filter(r=>!r.querySelector('.ns-unit').value);
-    if(missing.length){ err.textContent = 'Choose a unit for every new staff member being added ('+missing.length+' missing), or untick them.'; return; }
-    const noName = add.filter(r=>!r.querySelector('.ns-name').value.trim());
-    if(noName.length){ err.textContent = 'Enter a name for every new staff member being added ('+noName.length+' missing).'; return; }
+    const v = (r, c)=> (r.querySelector(c) ? r.querySelector(c).value.trim() : '');
+    const bad = add.filter(r=> !v(r,'.ns-name') || !v(r,'.ns-unit') || !v(r,'.ns-dept') || !v(r,'.ns-desg') || !v(r,'.ns-shift') || !(parseFloat(v(r,'.ns-gross'))>0));
+    if(bad.length){
+      bad.forEach(r=> r.style.outline = '2px solid var(--rose)');
+      err.textContent = bad.length+' new staff still need Name, Unit, Department, Designation, Shift and Gross salary (marked in red) — or untick them.';
+      return;
+    }
     const today = todayISO();
-    const defaultShift = SHIFT_MASTER.length ? SHIFT_MASTER[0].code : '';
     add.forEach(r=>{
-      const code = r.dataset.code, unitCode = r.querySelector('.ns-unit').value;
+      const code = r.dataset.code;
       if(findStaff(code)) return;
+      const unitCode = v(r,'.ns-unit'), gross = parseFloat(v(r,'.ns-gross'))||0;
       STAFF.push({
-        dbRef: nextStaffRef(), empNo: code, name: r.querySelector('.ns-name').value.trim(), role: 'Staff',
-        reportingManager: '', designation: '', department: '', unitCode, shiftCode: defaultShift,
-        netSalary: 0, monthlyCL: DEFAULT_MONTHLY_CL, monthlyPermissionHours: DEFAULT_MONTHLY_PERMISSION_MIN/60,
-        phone: '', email: '', doj: '', dob: '', address: '', otEligible: false, pfApplicable: true, esiApplicable: true, otherDeduction: 0,
+        dbRef: nextStaffRef(), empNo: code, name: v(r,'.ns-name').toUpperCase(), role: v(r,'.ns-role') || 'Staff',
+        reportingManager: v(r,'.ns-mgr'), designation: v(r,'.ns-desg'), department: v(r,'.ns-dept'), unitCode,
+        shiftCode: v(r,'.ns-shift'), netSalary: gross,
+        monthlyCL: v(r,'.ns-cl')==='' ? DEFAULT_MONTHLY_CL : (parseFloat(v(r,'.ns-cl'))||0),
+        monthlyPermissionHours: v(r,'.ns-perm')==='' ? DEFAULT_MONTHLY_PERMISSION_MIN/60 : (parseFloat(v(r,'.ns-perm'))||0),
+        phone: '', email: '', doj: v(r,'.ns-doj'), dob: '', address: '', otEligible: false, pfApplicable: true,
+        esiApplicable: gross<=PAYROLL_SETTINGS.esi.ceiling, otherDeduction: 0,
         username: code, password: code, active: true,
         unitHistory: [{unitCode, effectiveFrom: today, note: 'Added from attendance import'}],
       });
-      if(!ATTENDANCE[code]) ATTENDANCE[code] = {primaryShift: defaultShift || null, records: []};
+      if(!ATTENDANCE[code]) ATTENDANCE[code] = {primaryShift: v(r,'.ns-shift') || null, records: []};
     });
     const records = parsed.records.filter(r=>findStaff(r.empNo));
-    if(add.length) alert(add.length+' new staff added to Staff Master. Complete their salary, designation and department there before running payroll. Their first password is their Staff Code (use "Create missing logins").');
+    if(add.length) alert(add.length+' new staff added to Staff Master. Their first password is their Staff Code — use "Create missing logins" in Staff Master to give them sign-in accounts.');
     commitAttendanceImport(records);
   };
 }""")
@@ -623,6 +661,190 @@ rep("""  } else if(staffTab==='payslip'){
     body.innerHTML = '<div class="card pad payslip"><div class="note">No attendance has been imported for you in this pay cycle ('+CYCLE_LABEL_JS+') yet, so there is no payslip to show. It appears here once your attendance is imported.</div></div>';
   } else if(staffTab==='payslip'){
     const s = result.summary;""")
+
+# ── 23. masters are suspended, not removed; Staff Master name & code are read-only ──
+rep("""function nextStaffRef(){ return nextMasterCode(STAFF.map(s=>({code:s.dbRef})), 'STF'); }""",
+    """function nextStaffRef(){ return nextMasterCode(STAFF.concat(env.data.SUSPENDED_STAFF||[]).map(s=>({code:s.dbRef})), 'STF'); }
+/* active master items for new choices — a suspended item stays visible only where it is already selected */
+function activeOnly(list, keep){ return list.filter(x=>!x.suspended || (keep!==undefined && x.code===keep)); }
+function suspendBtn(attr, id, suspended){
+  return '<button class="iconbtn'+(suspended?'':' danger')+'" '+attr+'="'+id+'">'+(suspended?'Reactivate':'Suspend')+'</button>';
+}
+function suspendedTag(x){ return x && x.suspended ? ' <span class="badge slate" style="padding:1px 6px;font-size:10px;">Suspended</span>' : ''; }""")
+rep("function isHoliday(date){ return HOLIDAYS.some(h=>h.date===date); }",
+    "function isHoliday(date){ return HOLIDAYS.some(h=>h.date===date && !h.suspended); }")
+rep("function nextShiftCode(code){ const i = SHIFT_MASTER.findIndex(s=>s.code===code); return SHIFT_MASTER[(i+1)%SHIFT_MASTER.length].code; }",
+    "function nextShiftCode(code){ const list = activeOnly(SHIFT_MASTER); if(!list.length) return code; const i = list.findIndex(s=>s.code===code); return list[(i+1)%list.length].code; }")
+rep("""  let best=SHIFT_MASTER[0], bd=Infinity;
+  for(const s of SHIFT_MASTER){""", """  const pool = activeOnly(SHIFT_MASTER).length ? activeOnly(SHIFT_MASTER) : SHIFT_MASTER;
+  let best=pool[0], bd=Infinity;
+  for(const s of pool){""")
+rep("""        HOLIDAYS.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(""", """        HOLIDAYS.filter(h=>!h.suspended).sort((a,b)=>a.date.localeCompare(b.date)).map(""")
+
+# dropdowns: only active items (plus the one already selected)
+rep("""        DESIGNATIONS.map(d=>'<option value="'+d.code+'" '+(e.designation===d.code?'selected':'')+'>'+d.name+'</option>').join('')+""",
+    """        activeOnly(DESIGNATIONS, e.designation).map(d=>'<option value="'+d.code+'" '+(e.designation===d.code?'selected':'')+'>'+d.name+'</option>').join('')+""")
+rep("""        DEPARTMENTS.map(d=>'<option value="'+d.code+'" '+(e.department===d.code?'selected':'')+'>'+d.name+'</option>').join('')+""",
+    """        activeOnly(DEPARTMENTS, e.department).map(d=>'<option value="'+d.code+'" '+(e.department===d.code?'selected':'')+'>'+d.name+'</option>').join('')+""")
+rep("""        UNITS.map(u=>'<option value="'+u.code+'" '+(e.unitCode===u.code?'selected':'')+'>'+u.name+'</option>').join('')+""",
+    """        activeOnly(UNITS, e.unitCode).map(u=>'<option value="'+u.code+'" '+(e.unitCode===u.code?'selected':'')+'>'+u.name+'</option>').join('')+""")
+rep("""        SHIFT_MASTER.map(sm=>'<option value="'+sm.code+'" '+(e.shiftCode===sm.code?'selected':'')+'>'+sm.name+'</option>').join('')+""",
+    """        activeOnly(SHIFT_MASTER, e.shiftCode).map(sm=>'<option value="'+sm.code+'" '+(e.shiftCode===sm.code?'selected':'')+'>'+sm.name+'</option>').join('')+""")
+rep("""          DESIGNATIONS.map(d=>'<option value="'+d.code+'">'+d.name+'</option>').join('')+""",
+    """          activeOnly(DESIGNATIONS).map(d=>'<option value="'+d.code+'">'+d.name+'</option>').join('')+""")
+rep("""          DEPARTMENTS.map(d=>'<option value="'+d.code+'">'+d.name+'</option>').join('')+""",
+    """          activeOnly(DEPARTMENTS).map(d=>'<option value="'+d.code+'">'+d.name+'</option>').join('')+""")
+rep("""          UNITS.map(u=>'<option value="'+u.code+'">'+u.name+'</option>').join('')+""",
+    """          activeOnly(UNITS).map(u=>'<option value="'+u.code+'">'+u.name+'</option>').join('')+""")
+rep("""          SHIFT_MASTER.map(sm=>'<option value="'+sm.code+'">'+sm.name+'</option>').join('')+""",
+    """          activeOnly(SHIFT_MASTER).map(sm=>'<option value="'+sm.code+'">'+sm.name+'</option>').join('')+""")
+rep("""        TASK_TEMPLATES.map(tt=>'<option value="'+tt.id+'">'+tt.title+'</option>').join('')+""",
+    """        TASK_TEMPLATES.filter(tt=>!tt.suspended).map(tt=>'<option value="'+tt.id+'">'+tt.title+'</option>').join('')+""")
+
+# Department / Designation masters
+rep("""  '<div class="tbl-scroll"><table class="narrow"><thead><tr><th>Code</th><th>'+opts.itemLabel+'</th><th>Staff using it</th><th></th></tr></thead><tbody>'+""",
+    """  '<div class="tbl-scroll"><table class="narrow"><thead><tr><th>Code</th><th>'+opts.itemLabel+'</th><th>Staff using it</th><th>Status</th><th></th></tr></thead><tbody>'+""")
+rep("""      '<td class="mono">'+count+'</td>'+
+      '<td><button class="iconbtn danger" data-del-idx="'+i+'" '+(count>0?'title="In use — reassign staff first"':'')+'>Remove</button></td>'+""",
+    """      '<td class="mono">'+count+'</td>'+
+      '<td>'+(v.suspended?'<span class="badge slate">Suspended</span>':'<span class="badge teal">Active</span>')+'</td>'+
+      '<td>'+suspendBtn('data-susp-idx', i, v.suspended)+'</td>'+""")
+rep_re(r"in use by staff can\\'t be removed — reassign those staff first\.</div>';",
+       "can\\\\'t be deleted — <b>Suspend</b> it instead: it stays on staff who already have it but is no longer offered for new staff. Reactivate any time.</div>';")
+rep("""  body.querySelectorAll('[data-del-idx]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const i = parseInt(btn.dataset.delIdx);
+      if(opts.usedCountFn(opts.list[i])>0){ alert('This '+opts.itemLabel.toLowerCase()+' is still assigned to staff — reassign them first.'); return; }
+      opts.onRemove(i);
+    };
+  });""", """  body.querySelectorAll('[data-susp-idx]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const item = opts.list[parseInt(btn.dataset.suspIdx)];
+      const n = opts.usedCountFn(item);
+      if(!item.suspended && n>0 && !confirm('Suspend "'+item.name+'"? '+n+' staff still have it — they keep it, but it will not be offered for new staff.')) return;
+      item.suspended = !item.suspended;
+      renderAdminMasters();
+    };
+  });""")
+
+# Unit master
+rep("""  '<div class="tbl-scroll"><table class="narrow"><thead><tr><th>Code</th><th>Unit / Branch name</th><th>Staff</th><th></th></tr></thead><tbody>'+""",
+    """  '<div class="tbl-scroll"><table class="narrow"><thead><tr><th>Code</th><th>Unit / Branch name</th><th>Staff</th><th>Status</th><th></th></tr></thead><tbody>'+""")
+rep("""      '<td class="mono">'+count+'</td>'+
+      '<td><button class="iconbtn danger" data-del-idx="'+i+'">Remove</button></td>'+""",
+    """      '<td class="mono">'+count+'</td>'+
+      '<td>'+(u.suspended?'<span class="badge slate">Suspended</span>':'<span class="badge teal">Active</span>')+'</td>'+
+      '<td>'+suspendBtn('data-susp-unit', i, u.suspended)+'</td>'+""")
+rep(""" A unit with staff still assigned can\\'t be removed.</div>';""",
+    """ Units can\\'t be deleted — <b>Suspend</b> one to stop offering it for new staff (staff already there keep it until transferred).</div>';""")
+rep("""  body.querySelectorAll('[data-del-idx]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const i = parseInt(btn.dataset.delIdx);
+      if(STAFF.some(s=>s.unitCode===UNITS[i].code)){ alert('This unit still has staff assigned — reassign them first.'); return; }
+      if(UNITS.length<=1){ alert('Keep at least one unit.'); return; }
+      UNITS.splice(i,1);
+      renderAdminMasters();
+    };
+  });""", """  body.querySelectorAll('[data-susp-unit]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const u = UNITS[parseInt(btn.dataset.suspUnit)];
+      if(!u.suspended && activeOnly(UNITS).length<=1){ alert('Keep at least one active unit.'); return; }
+      const n = STAFF.filter(s=>s.unitCode===u.code).length;
+      if(!u.suspended && n>0 && !confirm('Suspend "'+u.name+'"? '+n+' staff are still in this unit — they stay until transferred.')) return;
+      u.suspended = !u.suspended;
+      renderAdminMasters();
+    };
+  });""")
+
+# Shift master
+rep("""      '<td><button class="iconbtn danger" data-del-shift="'+s.code+'">Remove</button></td>'+""",
+    """      '<td>'+suspendBtn('data-susp-shift', s.code, s.suspended)+suspendedTag(s)+'</td>'+""")
+rep("""  body.querySelectorAll('[data-del-shift]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const idx = SHIFT_MASTER.findIndex(s=>s.code===btn.dataset.delShift);
+      if(idx>-1 && SHIFT_MASTER.length>1) SHIFT_MASTER.splice(idx,1);
+      else alert('Keep at least one shift type.');
+      renderShiftMaster();
+    };
+  });""", """  body.querySelectorAll('[data-susp-shift]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const s = shiftByCode(btn.dataset.suspShift);
+      if(!s) return;
+      if(!s.suspended && activeOnly(SHIFT_MASTER).length<=1){ alert('Keep at least one active shift type.'); return; }
+      s.suspended = !s.suspended;
+      renderShiftMaster();
+    };
+  });""")
+
+# Holiday calendar
+rep("""  '<div class="tbl-scroll"><table class="narrow"><thead><tr><th>Date</th><th>Name</th><th></th></tr></thead><tbody>'+
+  (HOLIDAYS.map((h,i)=>(""", """  '<div class="tbl-scroll"><table class="narrow"><thead><tr><th>Date</th><th>Name</th><th>Status</th><th></th></tr></thead><tbody>'+
+  (HOLIDAYS.map((h,i)=>(""")
+rep("""      '<td><button class="iconbtn danger" data-del-hol="'+i+'">Remove</button></td>'+""",
+    """      '<td>'+(h.suspended?'<span class="badge slate">Suspended</span>':'<span class="badge teal">Active</span>')+'</td>'+
+      '<td>'+suspendBtn('data-susp-hol', i, h.suspended)+'</td>'+""")
+rep("""  body.querySelectorAll('[data-del-hol]').forEach(btn=>{
+    btn.onclick = ()=>{ HOLIDAYS.splice(parseInt(btn.dataset.delHol),1); renderAdminMasters(); };
+  });""", """  body.querySelectorAll('[data-susp-hol]').forEach(btn=>{
+    btn.onclick = ()=>{ const h = HOLIDAYS[parseInt(btn.dataset.suspHol)]; h.suspended = !h.suspended; renderAdminMasters(); };
+  });""")
+rep("""      HOLIDAYS.push({date:v.date, name:v.name});""",
+    """      const ex = HOLIDAYS.find(h=>h.date===v.date);
+      if(ex){ ex.name = v.name; ex.suspended = false; } else HOLIDAYS.push({date:v.date, name:v.name});""")
+
+# Task templates
+rep("""            '<td><button class="iconbtn danger" data-del-tt="'+i+'">Remove</button></td>'+""",
+    """            '<td>'+suspendBtn('data-susp-tt', i, tt.suspended)+suspendedTag(tt)+'</td>'+""")
+rep("""    modalRoot.querySelectorAll('[data-del-tt]').forEach(btn=>{
+      btn.onclick = ()=>{ TASK_TEMPLATES.splice(parseInt(btn.dataset.delTt),1); render(); };
+    });""", """    modalRoot.querySelectorAll('[data-susp-tt]').forEach(btn=>{
+      btn.onclick = ()=>{ const t = TASK_TEMPLATES[parseInt(btn.dataset.suspTt)]; t.suspended = !t.suspended; render(); };
+    });""")
+
+# Staff Master: name read-only, Suspend instead of Remove, suspended staff listed with Reactivate
+rep("""      '<td><input class="editable" data-field="name" value="'+escapeAttr(e.name)+'"></td>'+""",
+    """      '<td style="white-space:nowrap;">'+e.name+'</td>'+""")
+rep("""<button class="iconbtn danger" data-del="'+e.empNo+'">Remove</button>""",
+    """<button class="iconbtn danger" data-del="'+e.empNo+'">Suspend</button>""")
+rep("""  body.querySelectorAll('[data-del]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const id = btn.dataset.del;
+      const idx = STAFF.findIndex(x=>x.empNo===id);
+      if(idx>-1) STAFF.splice(idx,1);
+      renderAdminStaff();
+    };
+  });""", """  body.querySelectorAll('[data-del]').forEach(btn=>{
+    btn.onclick = ()=>{
+      const id = btn.dataset.del;
+      const idx = STAFF.findIndex(x=>x.empNo===id);
+      if(idx<0) return;
+      if(!confirm('Suspend '+STAFF[idx].name+' ('+id+')? They drop out of attendance, payroll and sign-in until reactivated. Their records are kept.')) return;
+      const s = STAFF.splice(idx,1)[0];
+      (env.data.SUSPENDED_STAFF = env.data.SUSPENDED_STAFF || []).push(s);
+      renderAdminStaff();
+    };
+  });
+  renderSuspendedStaff(body);""")
+rep("""function openStaffDetailsModal(empNo){""", """function renderSuspendedStaff(body){
+  const list = env.data.SUSPENDED_STAFF || [];
+  if(!list.length) return;
+  body.insertAdjacentHTML('beforeend', ''+
+    '<div class="section-title" style="margin-top:18px;">Suspended staff ('+list.length+')</div>'+
+    '<div class="tbl-scroll"><table class="narrow"><thead><tr><th>Staff Ref</th><th>Code</th><th>Name</th><th>Unit</th><th></th></tr></thead><tbody>'+
+    list.map(s=>'<tr class="row-wo"><td class="mono hint">'+(s.dbRef||'')+'</td><td class="mono">'+s.empNo+'</td><td>'+s.name+'</td><td>'+unitName(s.unitCode)+'</td>'+
+      '<td><button class="iconbtn" data-react="'+s.empNo+'">Reactivate</button></td></tr>').join('')+
+    '</tbody></table></div>');
+  body.querySelectorAll('[data-react]').forEach(btn=> btn.onclick = ()=>{
+    const i = list.findIndex(s=>s.empNo===btn.dataset.react);
+    if(i<0) return;
+    const s = list.splice(i,1)[0];
+    STAFF.push(s);
+    if(!ATTENDANCE[s.empNo]) ATTENDANCE[s.empNo] = {primaryShift: s.shiftCode || null, records: []};
+    renderAdminStaff();
+  });
+}
+
+function openStaffDetailsModal(empNo){""")
 
 # sanity: nothing left that points at demo data
 for bad in ['DEMO_STAFF_ID', 'admin123', 'Selvantra', '2026-09-25']:

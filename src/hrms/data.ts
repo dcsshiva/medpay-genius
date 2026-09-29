@@ -85,12 +85,12 @@ const leaveToRow = (l: any) => ({
 const shiftFromRow = (r: any) => ({
   code: r.code, letter: r.letter, name: r.name, start: time(r.start_time), end: time(r.end_time),
   allowedLateMin: num(r.allowed_late_min, 15), allowedExtraLateMin: num(r.allowed_extra_late_min, 15),
-  extraLateMaxPerMonth: num(r.extra_late_max_per_month, 3),
+  extraLateMaxPerMonth: num(r.extra_late_max_per_month, 3), suspended: r.active === false,
 });
 const shiftToRow = (s: any, i: number) => ({
   code: s.code, name: s.name, letter: s.letter || '', start_time: s.start, end_time: s.end,
   allowed_late_min: num(s.allowedLateMin), allowed_extra_late_min: num(s.allowedExtraLateMin),
-  extra_late_max_per_month: num(s.extraLateMaxPerMonth), sort_order: i,
+  extra_late_max_per_month: num(s.extraLateMaxPerMonth), sort_order: i, active: !s.suspended,
 });
 
 // ─────────────── collections that get synced ───────────────
@@ -107,19 +107,19 @@ interface Collection {
 
 const COLLECTIONS: Collection[] = [
   { name: 'units', table: 'hr_units', pk: ['code'], mode: 'upsert',
-    entries: d => d.UNITS.map((u, i) => ({ key: u.code, row: { code: u.code, name: u.name, sort_order: i } })) },
+    entries: d => d.UNITS.map((u, i) => ({ key: u.code, row: { code: u.code, name: u.name, sort_order: i, active: !u.suspended } })) },
   { name: 'departments', table: 'hr_departments', pk: ['code'], mode: 'upsert',
-    entries: d => d.DEPARTMENTS.map((u, i) => ({ key: u.code, row: { code: u.code, name: u.name, sort_order: i } })) },
+    entries: d => d.DEPARTMENTS.map((u, i) => ({ key: u.code, row: { code: u.code, name: u.name, sort_order: i, active: !u.suspended } })) },
   { name: 'designations', table: 'hr_designations', pk: ['code'], mode: 'upsert',
-    entries: d => d.DESIGNATIONS.map((u, i) => ({ key: u.code, row: { code: u.code, name: u.name, sort_order: i } })) },
+    entries: d => d.DESIGNATIONS.map((u, i) => ({ key: u.code, row: { code: u.code, name: u.name, sort_order: i, active: !u.suspended } })) },
   { name: 'shifts', table: 'hr_shifts', pk: ['code'], mode: 'upsert',
     entries: d => d.SHIFT_MASTER.map((s, i) => ({ key: s.code, row: shiftToRow(s, i) })) },
   { name: 'settings', table: 'hr_settings', pk: ['id'], mode: 'upsert',
     entries: d => [{ key: '1', row: { id: 1, payroll: d.PAYROLL_SETTINGS } }] },
   { name: 'holidays', table: 'hr_holidays', pk: ['date'], mode: 'upsert',
-    entries: d => d.HOLIDAYS.map(h => ({ key: h.date, row: { date: h.date, name: h.name } })) },
+    entries: d => d.HOLIDAYS.map(h => ({ key: h.date, row: { date: h.date, name: h.name, active: !h.suspended } })) },
   { name: 'templates', table: 'hr_task_templates', pk: ['id'], mode: 'upsert',
-    entries: d => d.TASK_TEMPLATES.map((t, i) => ({ key: t.id, row: { id: t.id, title: t.title, description: t.description || '', sort_order: i } })) },
+    entries: d => d.TASK_TEMPLATES.map((t, i) => ({ key: t.id, row: { id: t.id, title: t.title, description: t.description || '', sort_order: i, active: !t.suspended } })) },
   { name: 'staff', table: 'hr_staff', pk: ['emp_no'], mode: 'upsert', softDelete: true,
     entries: d => d.STAFF.map(s => ({ key: s.empNo, row: staffToRow(s), obj: s })) },
   { name: 'attendance', table: 'hr_attendance', pk: ['emp_no', 'date'], mode: 'upsert',
@@ -153,6 +153,7 @@ export function createStore() {
     SHIFT_MASTER: [], PAYROLL_SETTINGS: JSON.parse(JSON.stringify(DEFAULT_PAYROLL_SETTINGS)),
     HOLIDAYS: [], TASK_TEMPLATES: [], ROSTER: {},
     PAYROLL: { run: null, payslips: {} },
+    SUSPENDED_STAFF: [],
   };
   const snapshot: Record<string, Map<string, string>> = {};
   let who: HrWho | null = null;
@@ -179,7 +180,7 @@ export function createStore() {
     replaceArray(data.UNITS, []); replaceArray(data.DEPARTMENTS, []); replaceArray(data.DESIGNATIONS, []);
     replaceArray(data.SHIFT_MASTER, []); replaceArray(data.HOLIDAYS, []); replaceArray(data.TASK_TEMPLATES, []);
     replaceObject(data.ROSTER, {}); replaceObject(data.PAYROLL_SETTINGS, JSON.parse(JSON.stringify(DEFAULT_PAYROLL_SETTINGS)));
-    data.PAYROLL.run = null; replaceObject(data.PAYROLL.payslips, {});
+    data.PAYROLL.run = null; replaceObject(data.PAYROLL.payslips, {}); replaceArray(data.SUSPENDED_STAFF, []);
     takeSnapshot();
   }
 
@@ -305,6 +306,8 @@ export function createStore() {
     let staffRows: any[];
     if (manages) {
       staffRows = await fetchAll(() => db.from('hr_staff').select('*').eq('active', true).order('db_ref'));
+      const off = await fetchAll(() => db.from('hr_staff').select('*').eq('active', false).order('db_ref')).catch(() => []);
+      replaceArray(data.SUSPENDED_STAFF, off.map(staffFromRow));
     } else {
       // staff see colleagues' names only; their own row in full
       const [dir, mine] = await Promise.all([
@@ -315,12 +318,13 @@ export function createStore() {
       staffRows = dir.map((r: any) => own.get(r.emp_no) || r);
     }
 
-    replaceArray(data.UNITS, units.map((u: any) => ({ code: u.code, name: u.name })));
-    replaceArray(data.DEPARTMENTS, depts.map((u: any) => ({ code: u.code, name: u.name })));
-    replaceArray(data.DESIGNATIONS, desgs.map((u: any) => ({ code: u.code, name: u.name })));
+    const off = (r: any) => r.active === false;
+    replaceArray(data.UNITS, units.map((u: any) => ({ code: u.code, name: u.name, suspended: off(u) })));
+    replaceArray(data.DEPARTMENTS, depts.map((u: any) => ({ code: u.code, name: u.name, suspended: off(u) })));
+    replaceArray(data.DESIGNATIONS, desgs.map((u: any) => ({ code: u.code, name: u.name, suspended: off(u) })));
     replaceArray(data.SHIFT_MASTER, shifts.map(shiftFromRow));
-    replaceArray(data.HOLIDAYS, hols.map((h: any) => ({ date: h.date, name: h.name })));
-    replaceArray(data.TASK_TEMPLATES, tts.map((t: any) => ({ id: t.id, title: t.title, description: t.description || '' })));
+    replaceArray(data.HOLIDAYS, hols.map((h: any) => ({ date: h.date, name: h.name, suspended: off(h) })));
+    replaceArray(data.TASK_TEMPLATES, tts.map((t: any) => ({ id: t.id, title: t.title, description: t.description || '', suspended: off(t) })));
     replaceArray(data.TASKS, tasks.map(taskFromRow));
     replaceArray(data.LEAVES, leaves.map(leaveFromRow));
     replaceArray(data.STAFF, staffRows.map(staffFromRow));
