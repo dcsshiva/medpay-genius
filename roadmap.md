@@ -1,5 +1,5 @@
 # Current tasks
 
-- [ ] Open secure update forms for the six remix credentials.
-- [ ] Replace calls to removed legacy email functions with managed email sending where possible; document sender-domain blocker.
+- [ ] Update the six remix credentials — blocked until the secure update form is accepted.
+- [ ] Replace removed email-function calls with managed sending — blocked until this remix has its own configured email domain.
 - [x] Verify `techteam@westmedhospitals.com` and `shivanss@gmail.com` and assign administrator designation without disturbing other accounts.
