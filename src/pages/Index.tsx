@@ -92,7 +92,6 @@ const Index = () => {
     if (loading || !userProfile) return;
     
     const role = userProfile.role || userProfile.designation;
-    const userType = userProfile.user_type;
     
     if (activeTab !== 'dashboard') return;
     
