@@ -47,6 +47,8 @@ const LeaveDetailsDialog = ({ open, onOpenChange, application, isAdmin, onRevoke
           <Field label="Role" value={titleCase(a.applicant?.role)} />
           <Field label="Type" value={titleCase(a.application_type)} />
           <Field label="Applied On" value={formatDateTimeIST(a.created_at)} />
+          <Field label="Covering Employee" value={a.covering ? `${a.covering.full_name} (${a.covering.staff_code})` : "-"} />
+          <div />
 
           {isLeave ? (
             <>

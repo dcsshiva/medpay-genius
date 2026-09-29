@@ -14,6 +14,8 @@ import { Loader2, Clock, ArrowRight, Info, UserCheck } from "lucide-react";
 import { formatInputDateIST, formatLongDateIST } from "@/lib/dateUtils";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import CoverEmployeeSelect from "@/components/hrms/CoverEmployeeSelect";
+import LeaveBalanceBanner from "@/components/hrms/LeaveBalanceBanner";
 
 const formSchema = z.object({
   startTime: z.string({ required_error: "Start time is required" }),
@@ -21,6 +23,7 @@ const formSchema = z.object({
   reason: z.string({ required_error: "Please select a reason" }),
   reasonDetails: z.string().optional(),
   approverId: z.string({ required_error: "Please select an approver" }),
+  coveringStaffId: z.string({ required_error: "Please select who will cover your work" }).min(1, "Please select who will cover your work"),
   notes: z.string().optional(),
 });
 
@@ -34,6 +37,7 @@ const PermissionApplicationForm = ({ onSuccess }: PermissionApplicationFormProps
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const [loading, setLoading] = useState(false);
+  const [balanceKey, setBalanceKey] = useState(0);
   const [managers, setManagers] = useState<Array<{ id: string; staff_code: string; full_name: string }>>([]);
   const [staffId, setStaffId] = useState<string | null>(null);
   const [isManagerRole, setIsManagerRole] = useState(false);
@@ -134,11 +138,12 @@ const PermissionApplicationForm = ({ onSuccess }: PermissionApplicationFormProps
           permission_start_time: values.startTime, permission_end_time: values.endTime,
           permission_duration_minutes: duration, permission_reason: values.reason,
           reason_details: values.reasonDetails?.trim() || '-', notes: values.notes ?? null,
-          approver_id: values.approverId, status: "pending",
+          approver_id: values.approverId, covering_staff_id: values.coveringStaffId, status: "pending",
         });
       if (insertError) throw insertError;
       toast({ title: "Success", description: "Permission application submitted successfully" });
       form.reset();
+      setBalanceKey(k => k + 1);
       setDuration(0);
       onSuccess();
     } catch (error: any) {
@@ -152,6 +157,8 @@ const PermissionApplicationForm = ({ onSuccess }: PermissionApplicationFormProps
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+        <LeaveBalanceBanner staffId={staffId} refreshKey={balanceKey} compact={isMobile} />
+
         {/* Today's date compact banner */}
         <div className="flex items-center gap-2 rounded-lg bg-muted/50 border border-border px-3 py-2">
           <Clock className="h-4 w-4 text-primary shrink-0" />
@@ -262,6 +269,22 @@ const PermissionApplicationForm = ({ onSuccess }: PermissionApplicationFormProps
             )}
           />
         </div>
+
+        {/* HRMS: Covering employee */}
+        <FormField
+          control={form.control}
+          name="coveringStaffId"
+          render={({ field }) => (
+            <FormItem className="rounded-lg border border-border p-3 md:p-4">
+              <FormLabel className="text-sm font-semibold">Who will cover your work? *</FormLabel>
+              <FormControl>
+                <CoverEmployeeSelect applicantId={staffId} value={field.value} onChange={field.onChange} />
+              </FormControl>
+              <FormDescription className="text-xs">Required — a colleague from your branch during your permission.</FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         {/* Approval section */}
         <div className="rounded-lg border border-border bg-muted/20 p-3 md:p-4 space-y-3">

@@ -11,6 +11,14 @@ export interface ShiftDefinition {
   grace_minutes: number;
   is_active: boolean;
   sort_order: number;
+  /** HRMS: short code (S1, S2…) used by Staff Master default shift and the Shift Planner. */
+  shift_code?: string | null;
+  /** HRMS: one-letter badge (G / S / N) shown in grids. */
+  shift_letter?: string | null;
+  /** HRMS: extra band after grace that is forgiven a limited number of times per pay cycle. */
+  extra_late_minutes?: number | null;
+  /** HRMS: how many times per pay cycle the extra-late band may be used. */
+  extra_late_max_per_month?: number | null;
 }
 
 export interface ResolvedShift {

@@ -50,6 +50,48 @@
       "when": 1789865816547,
       "tag": "0006_fix_attendance_import_write_access",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789865817547,
+      "tag": "0007_hrms_shift_master_extra_late",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789865818547,
+      "tag": "0008_hrms_staff_master_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789865819547,
+      "tag": "0009_hrms_attendance_weekly_off_holiday",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789865820547,
+      "tag": "0010_hrms_leave_cover_and_attendance_sync",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789865821547,
+      "tag": "0011_hrms_task_workflow_and_templates",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789865822547,
+      "tag": "0012_hrms_payroll_engine",
+      "breakpoints": true
     }
   ]
 }

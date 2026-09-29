@@ -59,7 +59,7 @@ const ApplicationHistory = () => {
       if (!staffData) return;
       const { data, error } = await supabase
         .from("leave_permission_applications" as any)
-        .select(`*, approver:approver_id(full_name, staff_code), approved_by_staff:approved_by(full_name, staff_code)`)
+        .select(`*, approver:approver_id(full_name, staff_code), approved_by_staff:approved_by(full_name, staff_code), covering:covering_staff_id(full_name, staff_code)`)
         .eq("applicant_id", staffData.id)
         .order("created_at", { ascending: false });
       if (error) throw error;

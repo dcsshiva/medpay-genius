@@ -34,19 +34,25 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { formatDateIST, formatDateTimeIST, toISOStringIST } from '@/lib/dateUtils';
+import TaskTemplatesDialog, { TaskTemplate, fetchTaskTemplates } from '@/components/hrms/TaskTemplatesDialog';
+import TaskNoteDialog, { TaskNoteRequest } from '@/components/hrms/TaskNoteDialog';
+import { Layers, ThumbsUp, ThumbsDown, Send, RotateCcw, CheckCheck } from 'lucide-react';
 
 interface Task {
   id: string;
   task_title: string;
   task_description?: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
-  status: 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'overdue';
+  status: 'pending' | 'accepted' | 'in_progress' | 'rejected' | 'review' | 'completed' | 'cancelled' | 'overdue';
   due_date?: string;
   completed_at?: string;
   actual_completed_at?: string;
   updated_at?: string;
   notes?: string;
   created_at: string;
+  employee_response_note?: string | null;
+  completion_note?: string | null;
+  review_note?: string | null;
   assigned_to_staff: {
     staff_code: string;
     full_name: string;
@@ -93,6 +99,11 @@ const TaskManagement = () => {
     priority: 'medium',
     due_date: ''
   });
+  // HRMS: templates + note-driven workflow actions
+  const [templates, setTemplates] = useState<TaskTemplate[]>([]);
+  const [templateId, setTemplateId] = useState<string>('');
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [noteRequest, setNoteRequest] = useState<TaskNoteRequest | null>(null);
 
   // Status change confirmation dialog state
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
@@ -148,7 +159,7 @@ const TaskManagement = () => {
     const ids = new Set<string>();
     tasks.forEach(task => {
       if (
-        (task.status === 'pending' || task.status === 'in_progress') &&
+        (task.status === 'pending' || task.status === 'in_progress' || task.status === 'accepted') &&
         task.due_date &&
         new Date(task.due_date) < now
       ) {
@@ -162,6 +173,7 @@ const TaskManagement = () => {
     fetchTasks();
     if (canManageTasks) {
       fetchStaff();
+      fetchTaskTemplates().then(setTemplates);
     }
   }, [userRole, canManageTasks]);
 
@@ -189,6 +201,9 @@ const TaskManagement = () => {
             updated_at,
             notes,
             created_at,
+            employee_response_note,
+            completion_note,
+            review_note,
             assigned_to_staff:assigned_to (
               staff_code,
               full_name,
@@ -271,8 +286,9 @@ const TaskManagement = () => {
           assigned_by: currentStaff?.id || null,
           priority: formData.priority as any,
           due_date: formData.due_date || null,
-          status: 'pending'
-        });
+          status: 'pending',
+          template_id: templateId || null
+        } as any);
 
       if (error) throw error;
 
@@ -483,13 +499,19 @@ const TaskManagement = () => {
     try {
       const { error } = await supabase
         .from('tasks')
-        .update({
+        .update(({
           assigned_to: reassignStaffId,
           status: 'pending' as any,
           completed_at: null,
           actual_completed_at: null,
+          employee_response_note: null,
+          responded_at: null,
+          completion_note: null,
+          submitted_at: null,
+          review_note: null,
+          reviewed_at: null,
           updated_at: toISOStringIST()
-        })
+        }) as any)
         .eq('id', reassignTaskId);
 
       if (error) throw error;
@@ -519,6 +541,66 @@ const TaskManagement = () => {
       priority: 'medium',
       due_date: ''
     });
+    setTemplateId('');
+  };
+
+  // ---------------- HRMS workflow actions ----------------
+  const applyTemplate = (id: string) => {
+    setTemplateId(id);
+    const t = templates.find(x => x.id === id);
+    if (t) {
+      setFormData(prev => ({
+        ...prev,
+        task_title: t.title,
+        task_description: t.description || '',
+        priority: t.default_priority || prev.priority,
+      }));
+    }
+  };
+
+  const runStaffAction = async (taskId: string, action: 'accept' | 'reject' | 'submit', note: string) => {
+    const { error } = await (supabase as any).rpc('staff_task_action', { _task_id: taskId, _action: action, _note: note || null });
+    if (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+      throw error;
+    }
+    const label = action === 'accept' ? 'accepted' : action === 'reject' ? 'rejected' : 'submitted for review';
+    toast({ title: 'Done', description: `Task ${label}` });
+    fetchTasks();
+  };
+
+  const askStaffAction = (task: Task, action: 'accept' | 'reject' | 'submit') => {
+    const cfg = {
+      accept: { title: 'Accept task', noteLabel: 'Note to manager', confirmLabel: 'Accept', noteRequired: false, destructive: false },
+      reject: { title: 'Reject task', noteLabel: 'Reason for rejecting', confirmLabel: 'Reject', noteRequired: true, destructive: true },
+      submit: { title: 'Submit for review', noteLabel: 'What was done (completion note)', confirmLabel: 'Submit', noteRequired: false, destructive: false },
+    }[action];
+    setNoteRequest({ ...cfg, description: task.task_title, onConfirm: note => runStaffAction(task.id, action, note) });
+  };
+
+  const reviewTask = async (task: Task, decision: 'close' | 'reopen', note: string) => {
+    const { data: me } = await supabase.from('staff').select('id').eq('user_id', user!.id).maybeSingle();
+    const patch: any = decision === 'close'
+      ? { status: 'completed', review_note: note.trim() || null, reviewed_at: toISOStringIST(), reviewed_by: me?.id || null, actual_completed_at: toISOStringIST(), updated_at: toISOStringIST() }
+      : { status: 'accepted', review_note: note.trim() || null, reviewed_at: toISOStringIST(), reviewed_by: me?.id || null, completed_at: null, updated_at: toISOStringIST() };
+    const { error } = await supabase.from('tasks').update(patch).eq('id', task.id);
+    if (error) {
+      toast({ variant: 'destructive', title: 'Error', description: error.message });
+      throw error;
+    }
+    toast({ title: 'Done', description: decision === 'close' ? 'Task closed' : 'Task reopened for the employee' });
+    fetchTasks();
+  };
+
+  const askReview = (task: Task, decision: 'close' | 'reopen') => {
+    setNoteRequest({
+      title: decision === 'close' ? 'Close task' : 'Reopen task',
+      description: task.task_title,
+      noteLabel: decision === 'close' ? 'Review note' : 'What still needs to be done',
+      confirmLabel: decision === 'close' ? 'Close task' : 'Reopen',
+      noteRequired: decision === 'reopen',
+      onConfirm: note => reviewTask(task, decision, note),
+    });
   };
 
   const getPriorityColor = (priority: string) => {
@@ -535,6 +617,9 @@ const TaskManagement = () => {
     switch (status) {
       case 'completed': return 'default';
       case 'in_progress': return 'secondary';
+      case 'accepted': return 'secondary';
+      case 'review': return 'default';
+      case 'rejected': return 'destructive';
       case 'pending': return 'outline';
       case 'overdue': return 'destructive';
       case 'cancelled': return 'secondary';
@@ -546,6 +631,9 @@ const TaskManagement = () => {
     switch (status) {
       case 'completed': return <CheckCircle className="h-4 w-4" />;
       case 'in_progress': return <Clock className="h-4 w-4" />;
+      case 'accepted': return <ThumbsUp className="h-4 w-4" />;
+      case 'review': return <Send className="h-4 w-4" />;
+      case 'rejected': return <ThumbsDown className="h-4 w-4" />;
       case 'overdue': return <AlertCircle className="h-4 w-4" />;
       case 'cancelled': return <XCircle className="h-4 w-4" />;
       default: return <Clock className="h-4 w-4" />;
@@ -562,10 +650,13 @@ const TaskManagement = () => {
   });
 
   const statusOrder: Record<string, number> = {
-    in_progress: 0,
-    pending: 1,
-    completed: 2,
-    cancelled: 3
+    review: 0,
+    rejected: 0,
+    in_progress: 1,
+    accepted: 1,
+    pending: 2,
+    completed: 3,
+    cancelled: 4
   };
 
   const sortedTasks = [...filteredTasks].sort((a, b) => {
@@ -631,6 +722,15 @@ const TaskManagement = () => {
               ]}
               filename="task_management_report"
             />
+            <Button variant="outline" onClick={() => setTemplatesOpen(true)}>
+              <Layers className="h-4 w-4 mr-2" />
+              Templates
+            </Button>
+            <TaskTemplatesDialog
+              open={templatesOpen}
+              onOpenChange={setTemplatesOpen}
+              onChanged={() => fetchTaskTemplates().then(setTemplates)}
+            />
             <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button onClick={resetForm}>
@@ -656,6 +756,21 @@ const TaskManagement = () => {
                           <ClipboardList className="h-4 w-4 text-primary" />
                           <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Task Details</h3>
                         </div>
+                        {templates.length > 0 && (
+                          <div className="space-y-2">
+                            <Label>From template</Label>
+                            <Select value={templateId || undefined} onValueChange={applyTemplate}>
+                              <SelectTrigger className="hover:border-primary/50 transition-colors">
+                                <SelectValue placeholder="Pick a template (optional)" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {templates.map(t => (
+                                  <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                         <div className="space-y-2">
                           <Label htmlFor="task_title">Task Title *</Label>
                           <Input
@@ -977,6 +1092,26 @@ const TaskManagement = () => {
         </DialogContent>
       </Dialog>
 
+      <TaskNoteDialog request={noteRequest} onClose={() => setNoteRequest(null)} />
+
+      {/* HRMS: items needing manager attention */}
+      {canManageTasks && (tasks.some(t => t.status === 'review') || tasks.some(t => t.status === 'rejected')) && (
+        <div className="flex flex-wrap gap-2">
+          {tasks.some(t => t.status === 'review') && (
+            <Button size="sm" variant={statusFilter === 'review' ? 'default' : 'outline'}
+              onClick={() => setStatusFilter(prev => prev === 'review' ? 'all' : 'review')}>
+              <Send className="h-3.5 w-3.5 mr-1" /> Awaiting review ({tasks.filter(t => t.status === 'review').length})
+            </Button>
+          )}
+          {tasks.some(t => t.status === 'rejected') && (
+            <Button size="sm" variant={statusFilter === 'rejected' ? 'destructive' : 'outline'}
+              onClick={() => setStatusFilter(prev => prev === 'rejected' ? 'all' : 'rejected')}>
+              <ThumbsDown className="h-3.5 w-3.5 mr-1" /> Rejected — reassign ({tasks.filter(t => t.status === 'rejected').length})
+            </Button>
+          )}
+        </div>
+      )}
+
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-6">
         <Card
@@ -1068,8 +1203,11 @@ const TaskManagement = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="pending">Pending</SelectItem>
+            <SelectItem value="pending">Open</SelectItem>
+            <SelectItem value="accepted">Accepted</SelectItem>
             <SelectItem value="in_progress">In Progress</SelectItem>
+            <SelectItem value="review">Awaiting Review</SelectItem>
+            <SelectItem value="rejected">Rejected</SelectItem>
             <SelectItem value="completed">Completed</SelectItem>
             <SelectItem value="overdue">Overdue</SelectItem>
             <SelectItem value="cancelled">Cancelled</SelectItem>
@@ -1179,15 +1317,17 @@ const TaskManagement = () => {
                     <>
                       {canManageTasks ? (
                         <>
-                          {task.status === 'pending' && (
-                            <Button 
-                              size="sm" 
-                              onClick={() => openConfirmDialog(task.id, task.task_title, 'in_progress', 'Start Task')}
-                            >
-                              Start Task
-                            </Button>
+                          {task.status === 'review' && (
+                            <>
+                              <Button size="sm" onClick={() => askReview(task, 'close')} className="gap-1">
+                                <CheckCheck className="h-3 w-3" /> Close
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => askReview(task, 'reopen')} className="gap-1">
+                                <RotateCcw className="h-3 w-3" /> Reopen
+                              </Button>
+                            </>
                           )}
-                          {task.status === 'in_progress' && (
+                          {(task.status === 'in_progress' || task.status === 'accepted') && (
                             <Button 
                               size="sm" 
                               onClick={() => openConfirmDialog(task.id, task.task_title, 'completed', 'Complete')}
@@ -1195,7 +1335,7 @@ const TaskManagement = () => {
                               Complete
                             </Button>
                           )}
-                          {(task.status === 'pending' || task.status === 'in_progress') && (
+                          {(task.status === 'pending' || task.status === 'in_progress' || task.status === 'accepted' || task.status === 'rejected') && (
                             <Button 
                               size="sm" 
                               variant="outline"
@@ -1217,21 +1357,29 @@ const TaskManagement = () => {
                           </Button>
                         </>
                       ) : (
-                        (() => {
-                          const staffAlreadyUpdated = !canManageTasks && isStaffRole(userRole) && task.status === 'completed' && task.updated_at;
-                          return staffAlreadyUpdated ? (
-                            <Button size="sm" disabled>
-                              Updated
+                        <>
+                          {task.status === 'pending' && (
+                            <>
+                              <Button size="sm" onClick={() => askStaffAction(task, 'accept')} className="gap-1">
+                                <ThumbsUp className="h-3 w-3" /> Accept
+                              </Button>
+                              <Button size="sm" variant="outline" onClick={() => askStaffAction(task, 'reject')} className="gap-1 text-destructive hover:text-destructive">
+                                <ThumbsDown className="h-3 w-3" /> Reject
+                              </Button>
+                            </>
+                          )}
+                          {(task.status === 'accepted' || task.status === 'in_progress') && (
+                            <Button size="sm" onClick={() => askStaffAction(task, 'submit')} className="gap-1">
+                              <Send className="h-3 w-3" /> Submit for review
                             </Button>
-                          ) : task.status !== 'completed' ? (
-                            <Button 
-                              size="sm" 
-                              onClick={() => handleUpdateTask(task)}
-                            >
-                              Update Task
-                            </Button>
-                          ) : null;
-                        })()
+                          )}
+                          {task.status === 'review' && (
+                            <Button size="sm" disabled>Waiting for review</Button>
+                          )}
+                          {task.status === 'rejected' && (
+                            <Button size="sm" disabled>Rejected — with manager</Button>
+                          )}
+                        </>
                       )}
                     </>
                   )}
@@ -1250,6 +1398,20 @@ const TaskManagement = () => {
                     </Button>
                   )}
                 </div>
+
+                {(task.employee_response_note || task.completion_note || task.review_note) && (
+                  <div className="mt-2 p-2 bg-muted/60 rounded-sm space-y-1">
+                    {task.employee_response_note && (
+                      <p className="text-xs"><span className="text-muted-foreground">Employee:</span> {task.employee_response_note}</p>
+                    )}
+                    {task.completion_note && (
+                      <p className="text-xs"><span className="text-muted-foreground">Completion:</span> {task.completion_note}</p>
+                    )}
+                    {task.review_note && (
+                      <p className="text-xs"><span className="text-muted-foreground">Review:</span> {task.review_note}</p>
+                    )}
+                  </div>
+                )}
 
                 {task.notes && (
                   <div className="mt-2 p-2 bg-muted rounded-sm">

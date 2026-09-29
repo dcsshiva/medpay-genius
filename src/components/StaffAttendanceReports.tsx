@@ -56,6 +56,7 @@ const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const STATUS_LABELS: Record<string, string> = {
   present: 'Present', absent: 'Absent', late: 'Late', half_day: 'Half Day', leave: 'Leave',
+  weekly_off: 'Weekly Off', holiday: 'Holiday',
 };
 
 const STATUS_BADGE: Record<string, string> = {
@@ -64,6 +65,8 @@ const STATUS_BADGE: Record<string, string> = {
   late: 'bg-yellow-100 text-yellow-700 border-yellow-200',
   half_day: 'bg-orange-100 text-orange-700 border-orange-200',
   leave: 'bg-blue-100 text-blue-700 border-blue-200',
+  weekly_off: 'bg-slate-100 text-slate-600 border-slate-200',
+  holiday: 'bg-purple-100 text-purple-700 border-purple-200',
 };
 
 const fmtTime = (t: string | null) => {

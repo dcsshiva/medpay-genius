@@ -46,18 +46,16 @@ export const isStaffRole = (userRole: string | null): boolean => {
  * @returns object with pending and completed task counts
  */
 export const getStaffTaskCounts = async (staffId: string) => {
-  const { data: taskCounts, error } = await supabase
-    .rpc('get_staff_task_counts', { _staff_id: staffId });
-
-  if (error || !taskCounts || taskCounts.length === 0) {
+  // HRMS: count from the v2 task list so accepted / review / rejected are included
+  const { data, error } = await (supabase as any).rpc('get_staff_tasks_hrms', { _staff_id: staffId });
+  if (error || !data) {
     console.log('No task counts found or error:', error);
     return { pendingTasks: 0, completedTasks: 0 };
   }
-
-  const counts = taskCounts[0];
+  const rows = data as Array<{ status: string }>;
   return {
-    pendingTasks: (counts.pending_count || 0) + (counts.in_progress_count || 0),
-    completedTasks: counts.completed_count || 0,
+    pendingTasks: rows.filter(t => ['pending', 'accepted', 'in_progress'].includes(t.status)).length,
+    completedTasks: rows.filter(t => ['review', 'completed'].includes(t.status)).length,
   };
 };
 
@@ -67,8 +65,9 @@ export const getStaffTaskCounts = async (staffId: string) => {
  * @returns array of tasks assigned to the staff member  
  */
 export const getStaffTasks = async (staffId: string) => {
-  const { data: staffTasks, error } = await supabase
-    .rpc('get_staff_tasks', { _staff_id: staffId });
+  // HRMS: v2 RPC adds the accept / reject / review workflow fields (migration 0011)
+  const { data: staffTasks, error } = await (supabase as any)
+    .rpc('get_staff_tasks_hrms', { _staff_id: staffId });
 
   if (error) {
     console.error('Error fetching staff tasks:', error);
@@ -86,6 +85,11 @@ export const getStaffTasks = async (staffId: string) => {
     completed_at: task.completed_at,
     notes: task.notes,
     created_at: task.created_at,
+    updated_at: task.updated_at,
+    actual_completed_at: task.actual_completed_at,
+    employee_response_note: task.employee_response_note,
+    completion_note: task.completion_note,
+    review_note: task.review_note,
     assigned_to_staff: {
       staff_code: task.assigned_to_staff_code,
       full_name: task.assigned_to_full_name,
