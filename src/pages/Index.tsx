@@ -6,7 +6,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import Layout from '@/components/Layout';
 import { LoadingScreen } from '@/components/ui/loading-skeleton';
 import ForceUpdateGate from '@/components/ForceUpdateGate';
-import { staffOnlyTab } from '@/lib/staffOnlyScreens';
+import { isStaffOnlyScreen, staffOnlyTab } from '@/lib/staffOnlyScreens';
 
 // Lazy-loaded components
 const Dashboard = lazy(() => import('@/components/Dashboard'));

@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
 import { useVoiceInput } from '@/hooks/useVoiceInput';
 import { toast } from 'sonner';
+import { isStaffOnlyScreen } from '@/lib/staffOnlyScreens';
 
 type Message = { role: 'user' | 'assistant'; content: string; id?: string };
 
@@ -82,7 +83,7 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ onTabChange }) => {
   const processContent = useCallback((text: string): string => {
     return text.replace(/\[\[([^\]]+)\]\]/g, (_, label) => {
       const tabId = NAV_LABEL_TO_TAB[label.toLowerCase().trim()];
-      if (tabId) {
+      if (tabId && isStaffOnlyScreen(tabId)) {
         return `[📌 ${label}](nav://${tabId})`;
       }
       return `**${label}**`;
@@ -243,7 +244,7 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ onTabChange }) => {
   const markdownComponents = {
     a: ({ href, children, ...props }: any) => {
       // Handle nav:// protocol links
-      if (href?.startsWith('nav://')) {
+      if (href?.startsWith('nav://') && isStaffOnlyScreen(href.replace('nav://', ''))) {
         const tabId = href.replace('nav://', '');
         return (
           <button
@@ -254,6 +255,7 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ onTabChange }) => {
           </button>
         );
       }
+      if (href?.startsWith('nav://')) return <span>{children}</span>;
       // Handle internal routes (starting with /)
       if (href?.startsWith('/')) {
         return (
@@ -262,7 +264,7 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ onTabChange }) => {
               if (onTabChange) {
                 const segment = href.replace(/^\//, '').split('/')[0];
                 const tabId = NAV_LABEL_TO_TAB[segment] || segment;
-                onTabChange(tabId);
+                if (isStaffOnlyScreen(tabId)) onTabChange(tabId);
                 setIsOpen(false);
               }
             }}
@@ -319,7 +321,7 @@ const AIChatbot: React.FC<AIChatbotProps> = ({ onTabChange }) => {
               <div className="text-center text-muted-foreground text-sm py-8 space-y-2">
                 <Bot className="h-10 w-10 mx-auto opacity-40" />
                 <p className="font-medium">Hi! I'm your WestMed HMS Assistant.</p>
-                <p className="text-xs">Ask me about payments, visits, doctors, staff, reports, or any feature. ({roleLabel})</p>
+                 <p className="text-xs">Ask me about staff, attendance, leave, tasks, payroll or reports. ({roleLabel})</p>
                 {voiceSupported && (
                   <p className="text-xs opacity-70">🎙️ Tamil voice input supported</p>
                 )}

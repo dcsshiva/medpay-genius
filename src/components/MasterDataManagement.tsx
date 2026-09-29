@@ -9,13 +9,9 @@ import BranchesTab from '@/components/masters/BranchesTab';
 import LeaveReasonsTab from '@/components/masters/LeaveReasonsTab';
 import ShiftsTab from '@/components/masters/ShiftsTab';
 import PermissionReasonsTab from '@/components/masters/PermissionReasonsTab';
-import VisitReasonsTab from '@/components/masters/VisitReasonsTab';
-import InsuranceCompaniesTab from '@/components/masters/InsuranceCompaniesTab';
 
 import AppraisalCriteriaTab from '@/components/masters/AppraisalCriteriaTab';
 import ComplaintCategoriesTab from '@/components/masters/ComplaintCategoriesTab';
-import QuickPaymentTypesTab from '@/components/masters/QuickPaymentTypesTab';
-import VendorDetailsTab from '@/components/masters/VendorDetailsTab';
 import DepartmentRoleMappingTab from '@/components/masters/DepartmentRoleMappingTab';
 import RoleAppraisalCriteriaTab from '@/components/masters/RoleAppraisalCriteriaTab';
 
@@ -53,14 +49,10 @@ const MasterDataManagement = () => {
             <TabsTrigger value="shifts" className="text-xs sm:text-sm">Shifts</TabsTrigger>
             <TabsTrigger value="leave-reasons" className="text-xs sm:text-sm">Leave Reasons</TabsTrigger>
             <TabsTrigger value="permission-reasons" className="text-xs sm:text-sm">Permission Reasons</TabsTrigger>
-            <TabsTrigger value="visit-reasons" className="text-xs sm:text-sm">Visit Reasons</TabsTrigger>
-            <TabsTrigger value="insurance-companies" className="text-xs sm:text-sm">Insurance</TabsTrigger>
             <TabsTrigger value="dept-role-mapping" className="text-xs sm:text-sm">Dept-Role Mapping</TabsTrigger>
             <TabsTrigger value="parameter-master" className="text-xs sm:text-sm">Parameter Master</TabsTrigger>
             <TabsTrigger value="appraisal-criteria" className="text-xs sm:text-sm">Appraisal Criteria</TabsTrigger>
             <TabsTrigger value="complaint-categories" className="text-xs sm:text-sm">Complaints</TabsTrigger>
-            <TabsTrigger value="quick-payment-types" className="text-xs sm:text-sm">Quick Pay</TabsTrigger>
-            <TabsTrigger value="vendors" className="text-xs sm:text-sm">Vendors</TabsTrigger>
           </TabsList>
           <ScrollBar orientation="horizontal" />
         </ScrollArea>
@@ -83,12 +75,6 @@ const MasterDataManagement = () => {
         <TabsContent value="permission-reasons" className="mt-6">
           <PermissionReasonsTab searchTerm={searchTerm} />
         </TabsContent>
-        <TabsContent value="visit-reasons" className="mt-6">
-          <VisitReasonsTab searchTerm={searchTerm} />
-        </TabsContent>
-        <TabsContent value="insurance-companies" className="mt-6">
-          <InsuranceCompaniesTab searchTerm={searchTerm} />
-        </TabsContent>
         <TabsContent value="dept-role-mapping" className="mt-6">
           <DepartmentRoleMappingTab searchTerm={searchTerm} />
         </TabsContent>
@@ -100,12 +86,6 @@ const MasterDataManagement = () => {
         </TabsContent>
         <TabsContent value="complaint-categories" className="mt-6">
           <ComplaintCategoriesTab searchTerm={searchTerm} />
-        </TabsContent>
-        <TabsContent value="quick-payment-types" className="mt-6">
-          <QuickPaymentTypesTab searchTerm={searchTerm} />
-        </TabsContent>
-        <TabsContent value="vendors" className="mt-6">
-          <VendorDetailsTab searchTerm={searchTerm} />
         </TabsContent>
       </Tabs>
     </div>
