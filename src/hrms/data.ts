@@ -36,6 +36,7 @@ const staffFromRow = (r: any) => ({
   role: r.role || 'Staff', pfApplicable: r.pf_applicable ?? true, esiApplicable: r.esi_applicable ?? false,
   otEligible: r.ot_eligible ?? false, otherDeduction: num(r.other_deduction), phone: r.phone ?? '', email: r.email ?? '',
   dob: r.dob ?? '', doj: r.doj ?? '', address: r.address ?? '', reportingManager: r.reporting_manager ?? '',
+  bankAccountName: r.bank_account_name ?? '', bankAccountNo: r.bank_account_no ?? '', bankIfsc: r.bank_ifsc ?? '', bankName: r.bank_name ?? '',
 });
 const staffToRow = (s: any) => ({
   emp_no: s.empNo, db_ref: nz(s.dbRef), name: s.name, role: s.role || 'Staff', reporting_manager: s.reportingManager || '',
@@ -44,6 +45,7 @@ const staffToRow = (s: any) => ({
   pf_applicable: !!s.pfApplicable, esi_applicable: !!s.esiApplicable, ot_eligible: !!s.otEligible,
   other_deduction: num(s.otherDeduction), phone: s.phone || '', email: s.email || '', dob: nz(s.dob), doj: nz(s.doj),
   address: s.address || '', unit_history: s.unitHistory || [], active: true, updated_at: new Date().toISOString(),
+  bank_account_name: s.bankAccountName || '', bank_account_no: s.bankAccountNo || '', bank_ifsc: s.bankIfsc || '', bank_name: s.bankName || '',
 });
 const attToRow = (empNo: string, r: any) => ({
   emp_no: empNo, date: r.date, status: r.status, in_time: nz(r.in), out_time: nz(r.out), perm_min: r.permMin ?? null,
@@ -150,6 +152,7 @@ export function createStore() {
     STAFF: [], ATTENDANCE: {}, TASKS: [], LEAVES: [], UNITS: [], DEPARTMENTS: [], DESIGNATIONS: [],
     SHIFT_MASTER: [], PAYROLL_SETTINGS: JSON.parse(JSON.stringify(DEFAULT_PAYROLL_SETTINGS)),
     HOLIDAYS: [], TASK_TEMPLATES: [], ROSTER: {},
+    PAYROLL: { run: null, payslips: {} },
   };
   const snapshot: Record<string, Map<string, string>> = {};
   let who: HrWho | null = null;
@@ -176,6 +179,7 @@ export function createStore() {
     replaceArray(data.UNITS, []); replaceArray(data.DEPARTMENTS, []); replaceArray(data.DESIGNATIONS, []);
     replaceArray(data.SHIFT_MASTER, []); replaceArray(data.HOLIDAYS, []); replaceArray(data.TASK_TEMPLATES, []);
     replaceObject(data.ROSTER, {}); replaceObject(data.PAYROLL_SETTINGS, JSON.parse(JSON.stringify(DEFAULT_PAYROLL_SETTINGS)));
+    data.PAYROLL.run = null; replaceObject(data.PAYROLL.payslips, {});
     takeSnapshot();
   }
 
@@ -205,6 +209,82 @@ export function createStore() {
     roster.forEach(r => { ros[r.emp_no + '|' + r.date] = r.shift_code; });
     replaceObject(data.ROSTER, ros);
     takeSnapshot(['attendance', 'roster']);
+    await loadPayroll(cycle);
+  }
+
+  // ─────────────── Phase 2: finalized (locked) pay cycles ───────────────
+  async function loadPayroll(cycle: HrCycle) {
+    const [{ data: run }, slips] = await Promise.all([
+      db.from('hr_payroll_runs').select('*').eq('cycle_key', cycle.key).maybeSingle(),
+      fetchAll(() => db.from('hr_payslips').select('emp_no, summary, rows').eq('cycle_key', cycle.key).order('emp_no')),
+    ]).catch(() => [{ data: null }, []] as any);
+    data.PAYROLL.run = run || null;
+    const map: Record<string, any> = {};
+    if (run) (slips || []).forEach((p: any) => { map[p.emp_no] = { summary: p.summary, rows: p.rows }; });
+    replaceObject(data.PAYROLL.payslips, map);
+  }
+
+  /** Freezes every staff member's cycle result. `results` = [{emp, summary, rows}] computed live. */
+  async function finalizeCycle(cycle: HrCycle, results: any[], byName: string) {
+    const gross = results.reduce((s, r) => s + num(r.summary.grossPay), 0);
+    const net = results.reduce((s, r) => s + num(r.summary.finalNet), 0);
+    const { error: runErr } = await db.from('hr_payroll_runs').upsert({
+      cycle_key: cycle.key, cycle_start: cycle.start, cycle_end: cycle.end, label: cycle.label,
+      finalized_at: new Date().toISOString(), finalized_by: byName || '', staff_count: results.length,
+      gross: Math.round(gross * 100) / 100, net: Math.round(net * 100) / 100,
+      settings: data.PAYROLL_SETTINGS,
+    }, { onConflict: 'cycle_key' });
+    if (runErr) throw runErr;
+    await db.from('hr_payslips').delete().eq('cycle_key', cycle.key);
+    const rows = results.map(r => ({
+      cycle_key: cycle.key, emp_no: r.emp.empNo, name: r.emp.name, unit_code: r.emp.unitCode || null,
+      gross: num(r.summary.grossPay), lop_deduction: num(r.summary.totalDeduction), pf: num(r.summary.pfDeduction),
+      esi: num(r.summary.esiDeduction), pt: num(r.summary.ptDeduction), other_deduction: num(r.summary.otherDeduction),
+      ot_pay: num(r.summary.otPay), net: num(r.summary.finalNet), present_days: r.summary.presentDays || 0,
+      late_days: r.summary.lateDays || 0,
+      working_days: Math.max(0, (r.rows || []).length - (r.summary.woDays || 0) - (r.summary.holidayDays || 0)),
+      summary: r.summary, rows: r.rows,
+    }));
+    for (let i = 0; i < rows.length; i += 200) {
+      const { error } = await db.from('hr_payslips').insert(rows.slice(i, i + 200));
+      if (error) throw error;
+    }
+    await loadPayroll(cycle);
+  }
+
+  async function reopenCycle(cycle: HrCycle) {
+    const { error } = await db.from('hr_payroll_runs').delete().eq('cycle_key', cycle.key);
+    if (error) throw error;
+    await loadPayroll(cycle);
+  }
+
+  /** Month-on-month figures for the given cycles (oldest → newest). */
+  async function loadTrends(cycles: HrCycle[]) {
+    const keys = cycles.map(c => c.key);
+    const [runs, slips] = await Promise.all([
+      fetchAll(() => db.from('hr_payroll_runs').select('cycle_key, finalized_at, gross, net').in('cycle_key', keys)),
+      fetchAll(() => db.from('hr_payslips').select('cycle_key, lop_deduction, pf, esi, pt, other_deduction, ot_pay, late_days').in('cycle_key', keys)),
+    ]);
+    const stats = await Promise.all(cycles.map(c =>
+      db.rpc('hr_attendance_stats', { _start: c.start, _end: c.end }).then((r: any) => (Array.isArray(r.data) ? r.data[0] : r.data) || null)));
+    return cycles.map((c, i) => {
+      const run = runs.find((r: any) => r.cycle_key === c.key) || null;
+      const mine = slips.filter((p: any) => p.cycle_key === c.key);
+      const sum = (k: string) => mine.reduce((s: number, p: any) => s + num(p[k]), 0);
+      const st = stats[i];
+      const working = num(st?.working);
+      return {
+        cycle: c,
+        finalized: !!run,
+        attendancePct: working ? Math.round(num(st?.present) / working * 100) : null,
+        lateDays: run ? sum('late_days') : null,
+        gross: run ? num(run.gross) : null,
+        lop: run ? sum('lop_deduction') : null,
+        statutory: run ? sum('pf') + sum('esi') + sum('pt') + sum('other_deduction') : null,
+        otPay: run ? sum('ot_pay') : null,
+        net: run ? num(run.net) : null,
+      };
+    });
   }
 
   async function loadAll(user: HrWho, cycle: HrCycle) {
@@ -351,7 +431,10 @@ export function createStore() {
     });
   }
 
-  return { data, clear, loadAll, loadCycleRows, loadSettings, sync, tempId, hasPendingChanges, get who() { return who; } };
+  return {
+    data, clear, loadAll, loadCycleRows, loadSettings, sync, tempId, hasPendingChanges,
+    finalizeCycle, reopenCycle, loadTrends, get who() { return who; },
+  };
 }
 
 export async function latestAttendanceDate(): Promise<string | null> {

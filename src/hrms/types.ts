@@ -34,6 +34,21 @@ export interface HrData {
   HOLIDAYS: { date: string; name: string }[];
   TASK_TEMPLATES: { id: string; title: string; description: string }[];
   ROSTER: Record<string, string>;
+  /** Phase 2: finalized (locked) cycle and its frozen payslips, keyed by emp_no */
+  PAYROLL: { run: any | null; payslips: Record<string, { summary: any; rows: any[] }> };
+}
+
+/** One cycle in the month-on-month trend (null = not finalized / no data). */
+export interface HrTrend {
+  cycle: HrCycle;
+  finalized: boolean;
+  attendancePct: number | null;
+  lateDays: number | null;
+  gross: number | null;
+  lop: number | null;
+  statutory: number | null;
+  otPay: number | null;
+  net: number | null;
 }
 
 export interface HrAuth {
@@ -55,6 +70,11 @@ export interface HrEnv {
   scheduleSync(): void;
   ensureAllLogins(): Promise<any>;
   setStaffPassword(empNo: string, password: string): Promise<any>;
+  /** Phase 2 */
+  finalizeCycle(results: any[], byName: string): Promise<void>;
+  reopenCycle(): Promise<void>;
+  trends(count: number): Promise<HrTrend[]>;
+  excelToCsv(file: File): Promise<string>;
 }
 
 /** Handle returned by mountHrms(). */
