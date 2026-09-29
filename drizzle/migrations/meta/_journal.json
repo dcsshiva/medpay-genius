@@ -113,6 +113,13 @@
       "when": 1789865825547,
       "tag": "0015_hr_phase2_lock_bank_trends",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1789865826547,
+      "tag": "0016_hr_masters_suspend",
+      "breakpoints": true
     }
   ]
 }

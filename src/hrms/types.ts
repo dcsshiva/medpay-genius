@@ -26,16 +26,18 @@ export interface HrData {
   ATTENDANCE: Record<string, { primaryShift: string | null; records: any[] }>;
   TASKS: any[];
   LEAVES: any[];
-  UNITS: { code: string; name: string }[];
-  DEPARTMENTS: { code: string; name: string }[];
-  DESIGNATIONS: { code: string; name: string }[];
+  UNITS: { code: string; name: string; suspended?: boolean }[];
+  DEPARTMENTS: { code: string; name: string; suspended?: boolean }[];
+  DESIGNATIONS: { code: string; name: string; suspended?: boolean }[];
   SHIFT_MASTER: any[];
   PAYROLL_SETTINGS: any;
-  HOLIDAYS: { date: string; name: string }[];
-  TASK_TEMPLATES: { id: string; title: string; description: string }[];
+  HOLIDAYS: { date: string; name: string; suspended?: boolean }[];
+  TASK_TEMPLATES: { id: string; title: string; description: string; suspended?: boolean }[];
   ROSTER: Record<string, string>;
   /** Phase 2: finalized (locked) cycle and its frozen payslips, keyed by emp_no */
   PAYROLL: { run: any | null; payslips: Record<string, { summary: any; rows: any[] }> };
+  /** staff suspended in Staff Master (active = false) — shown there with Reactivate */
+  SUSPENDED_STAFF: any[];
 }
 
 /** One cycle in the month-on-month trend (null = not finalized / no data). */
