@@ -36,6 +36,8 @@ rep_re(r'let PAYROLL_SETTINGS = \{\n.*?\n\};\n', 'let PAYROLL_SETTINGS = env.dat
 rep_re(r'let HOLIDAYS = \[.*?\];\n', 'let HOLIDAYS = env.data.HOLIDAYS;\n')
 rep_re(r'let TASK_TEMPLATES = \[\n.*?\n\];\n', 'let TASK_TEMPLATES = env.data.TASK_TEMPLATES;\n')
 rep('let ROSTER = {}; // admin per-date overrides', 'let ROSTER = env.data.ROSTER; // admin per-date overrides')
+rep("function escapeAttr(s){ return String(s).replace(/\"/g,'&quot;'); }",
+    "function escapeHTML(s){ return String(s).replace(/[&<>\"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[c])); }\nfunction escapeAttr(s){ return escapeHTML(s); }")
 
 # ── 2. local date (IST) instead of UTC for "today" stamps ──
 rep('new Date().toISOString().slice(0,10)', 'todayISO()', 12)
@@ -519,7 +521,7 @@ rep("""    (matched.length ? '<button class="btn" style="margin-top:10px;" id="a
    and department can be completed later in Staff Master. Existing staff keep their unit —
    transfers are made in Staff Master (Unit column), which records the transfer history. */
 function cleanImportedName(n, code){
-  n = String(n||'').replace(/\\s+/g,' ').trim();
+  n = String(n||'').replace(/[\\u0000-\\u001f\\u007f]/g,' ').replace(/\\s+/g,' ').trim().slice(0,100);
   if(!n || n===code) return '';
   return n.replace(/^(mr|mrs|ms|miss|mst)\\.?\\s+/i,'').trim().toUpperCase();
 }
@@ -560,8 +562,8 @@ function newStaffPanel(parsed){
     return '<tr class="ns-row" data-code="'+escapeAttr(code)+'">'+
       '<td><input type="checkbox" class="ns-inc" checked></td>'+
       '<td class="mono">'+code+'</td>'+
-      '<td>'+(nm ? '<span class="ns-name-fixed">'+nm+'</span><input type="hidden" class="ns-name" value="'+escapeAttr(nm)+'">'
-                 : '<input class="editable ns-name" style="min-width:170px;" placeholder="Name not in file — type it">')+'</td>'+
+      '<td>'+(nm ? '<span class="ns-name-fixed">'+escapeHTML(nm)+'</span><input type="hidden" class="ns-name" value="'+escapeAttr(nm)+'">'
+                 : '<input class="editable ns-name" maxlength="100" style="min-width:170px;" placeholder="Name not in file — type it">')+'</td>'+
       '<td><select class="editable ns-unit" style="min-width:150px;">'+opt(UNITS,'Select…')+'</select></td>'+
       '<td><select class="editable ns-dept" style="min-width:150px;">'+opt(DEPARTMENTS,'Select…')+'</select></td>'+
       '<td><select class="editable ns-desg" style="min-width:140px;">'+opt(DESIGNATIONS,'Select…')+'</select></td>'+
@@ -591,7 +593,13 @@ function wireNewStaffPanel(parsed){
     if(el.value==='' && el.tagName==='SELECT' && el.dataset.f!=='mgr') return;
     rows().forEach(r=>{ const t = r.querySelector(cls[el.dataset.f]); if(t) t.value = el.value; });
   });
-  rows().forEach(r=> r.querySelector('.ns-inc').onchange = label);
+  rows().forEach(r=>{
+    r.querySelector('.ns-inc').onchange = label;
+    r.querySelectorAll('input,select').forEach(field=> field.addEventListener('change', ()=>{
+      r.style.outline = '';
+      field.style.borderColor = '';
+    }));
+  });
   label();
   btn.onclick = ()=>{
     const err = document.getElementById('attImportError');
