@@ -251,7 +251,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   function stat(k,v,cls){
     return '<div class="stat"><div class="k">'+k+'</div><div class="v'+(cls?' '+cls:'')+'">'+v+'</div></div>';
   }
-  function escapeAttr(s){ return String(s).replace(/"/g,'&quot;'); }
+  function escapeHTML(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function escapeAttr(s){ return escapeHTML(s); }
 
   function attendanceTable(result){
     const trs = result.rows.map(r=>{
@@ -1563,7 +1564,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
      and department can be completed later in Staff Master. Existing staff keep their unit —
      transfers are made in Staff Master (Unit column), which records the transfer history. */
   function cleanImportedName(n, code){
-    n = String(n||'').replace(/\s+/g,' ').trim();
+    n = String(n||'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().slice(0,100);
     if(!n || n===code) return '';
     return n.replace(/^(mr|mrs|ms|miss|mst)\.?\s+/i,'').trim().toUpperCase();
   }
@@ -1604,13 +1605,13 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       return '<tr class="ns-row" data-code="'+escapeAttr(code)+'">'+
         '<td><input type="checkbox" class="ns-inc" checked></td>'+
         '<td class="mono">'+code+'</td>'+
-        '<td>'+(nm ? '<span class="ns-name-fixed">'+nm+'</span><input type="hidden" class="ns-name" value="'+escapeAttr(nm)+'">'
-                   : '<input class="editable ns-name" style="min-width:170px;" placeholder="Name not in file — type it">')+'</td>'+
+        '<td>'+(nm ? '<span class="ns-name-fixed">'+escapeHTML(nm)+'</span><input type="hidden" class="ns-name" value="'+escapeAttr(nm)+'">'
+                   : '<input class="editable ns-name" maxlength="100" style="min-width:170px;" placeholder="Name not in file — type it">')+'</td>'+
         '<td><select class="editable ns-unit" style="min-width:150px;">'+opt(UNITS,'Select…')+'</select></td>'+
         '<td><select class="editable ns-dept" style="min-width:150px;">'+opt(DEPARTMENTS,'Select…')+'</select></td>'+
         '<td><select class="editable ns-desg" style="min-width:140px;">'+opt(DESIGNATIONS,'Select…')+'</select></td>'+
         '<td><select class="editable ns-shift" style="min-width:140px;">'+opt(SHIFT_MASTER,'Select…')+'</select></td>'+
-        '<td><select class="editable ns-role"><option>Staff</option><option>Manager</option></select></td>'+
+        '<td><select class="editable ns-role" style="min-width:120px;"><option>Staff</option><option>Manager</option></select></td>'+
         '<td><select class="editable ns-mgr" style="min-width:150px;">'+mgrOpts+'</select></td>'+
         '<td><input class="editable mono ns-gross" type="number" min="0" style="width:100px;"></td>'+
         '<td><input class="editable mono ns-doj" type="date"></td>'+
@@ -1635,25 +1636,49 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       if(el.value==='' && el.tagName==='SELECT' && el.dataset.f!=='mgr') return;
       rows().forEach(r=>{ const t = r.querySelector(cls[el.dataset.f]); if(t) t.value = el.value; });
     });
-    rows().forEach(r=> r.querySelector('.ns-inc').onchange = label);
+    rows().forEach(r=>{
+      r.querySelector('.ns-inc').onchange = label;
+      r.querySelectorAll('input,select').forEach(field=> field.addEventListener('change', ()=>{
+        r.style.outline = '';
+        field.style.borderColor = '';
+      }));
+    });
     label();
     btn.onclick = ()=>{
       const err = document.getElementById('attImportError');
       const add = rows().filter(r=>r.querySelector('.ns-inc').checked);
       const v = (r, c)=> (r.querySelector(c) ? r.querySelector(c).value.trim() : '');
-      const bad = add.filter(r=> !v(r,'.ns-name') || !v(r,'.ns-unit') || !v(r,'.ns-dept') || !v(r,'.ns-desg') || !v(r,'.ns-shift') || !(parseFloat(v(r,'.ns-gross'))>0));
-      if(bad.length){
-        bad.forEach(r=> r.style.outline = '2px solid var(--rose)');
-        err.textContent = bad.length+' new staff still need Name, Unit, Department, Designation, Shift and Gross salary (marked in red) — or untick them.';
+      const importedName = r=> cleanImportedName(v(r,'.ns-name') || parsed.names[r.dataset.code], r.dataset.code);
+      const required = [
+        {label:'Name', selector:'.ns-name', missing:r=>!importedName(r)},
+        {label:'Unit', selector:'.ns-unit', missing:r=>!v(r,'.ns-unit')},
+        {label:'Department', selector:'.ns-dept', missing:r=>!v(r,'.ns-dept')},
+        {label:'Designation', selector:'.ns-desg', missing:r=>!v(r,'.ns-desg')},
+        {label:'Shift', selector:'.ns-shift', missing:r=>!v(r,'.ns-shift')},
+        {label:'Gross salary', selector:'.ns-gross', missing:r=>!(parseFloat(v(r,'.ns-gross'))>0)},
+      ];
+      rows().forEach(r=>{
+        r.style.outline = '';
+        required.forEach(f=>{ const field=r.querySelector(f.selector); if(field) field.style.borderColor=''; });
+      });
+      const invalid = add.map(r=>({r, missing:required.filter(f=>f.missing(r))})).filter(x=>x.missing.length);
+      if(invalid.length){
+        invalid.forEach(x=>{
+          x.r.style.outline = '2px solid var(--rose)';
+          x.missing.forEach(f=>{ const field=x.r.querySelector(f.selector); if(field) field.style.borderColor='var(--rose)'; });
+        });
+        const details = invalid.slice(0,8).map(x=>x.r.dataset.code+': '+x.missing.map(f=>f.label).join(', ')).join(' · ');
+        err.textContent = 'Complete the highlighted fields — '+details+(invalid.length>8?' · +'+(invalid.length-8)+' more':'')+'. You can untick staff who should not be added.';
         return;
       }
+      err.textContent = '';
       const today = todayISO();
       add.forEach(r=>{
         const code = r.dataset.code;
         if(findStaff(code)) return;
         const unitCode = v(r,'.ns-unit'), gross = parseFloat(v(r,'.ns-gross'))||0;
         STAFF.push({
-          dbRef: nextStaffRef(), empNo: code, name: v(r,'.ns-name').toUpperCase(), role: v(r,'.ns-role') || 'Staff',
+          dbRef: nextStaffRef(), empNo: code, name: importedName(r), role: v(r,'.ns-role') || 'Staff',
           reportingManager: v(r,'.ns-mgr'), designation: v(r,'.ns-desg'), department: v(r,'.ns-dept'), unitCode,
           shiftCode: v(r,'.ns-shift'), netSalary: gross,
           monthlyCL: v(r,'.ns-cl')==='' ? DEFAULT_MONTHLY_CL : (parseFloat(v(r,'.ns-cl'))||0),
