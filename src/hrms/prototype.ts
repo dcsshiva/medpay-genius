@@ -251,7 +251,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   function stat(k,v,cls){
     return '<div class="stat"><div class="k">'+k+'</div><div class="v'+(cls?' '+cls:'')+'">'+v+'</div></div>';
   }
-  function escapeAttr(s){ return String(s).replace(/"/g,'&quot;'); }
+  function escapeHTML(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  function escapeAttr(s){ return escapeHTML(s); }
 
   function attendanceTable(result){
     const trs = result.rows.map(r=>{
@@ -1563,7 +1564,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
      and department can be completed later in Staff Master. Existing staff keep their unit —
      transfers are made in Staff Master (Unit column), which records the transfer history. */
   function cleanImportedName(n, code){
-    n = String(n||'').replace(/\s+/g,' ').trim();
+    n = String(n||'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().slice(0,100);
     if(!n || n===code) return '';
     return n.replace(/^(mr|mrs|ms|miss|mst)\.?\s+/i,'').trim().toUpperCase();
   }
@@ -1604,8 +1605,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       return '<tr class="ns-row" data-code="'+escapeAttr(code)+'">'+
         '<td><input type="checkbox" class="ns-inc" checked></td>'+
         '<td class="mono">'+code+'</td>'+
-        '<td>'+(nm ? '<span class="ns-name-fixed">'+nm+'</span><input type="hidden" class="ns-name" value="'+escapeAttr(nm)+'">'
-                   : '<input class="editable ns-name" style="min-width:170px;" placeholder="Name not in file — type it">')+'</td>'+
+        '<td>'+(nm ? '<span class="ns-name-fixed">'+escapeHTML(nm)+'</span><input type="hidden" class="ns-name" value="'+escapeAttr(nm)+'">'
+                   : '<input class="editable ns-name" maxlength="100" style="min-width:170px;" placeholder="Name not in file — type it">')+'</td>'+
         '<td><select class="editable ns-unit" style="min-width:150px;">'+opt(UNITS,'Select…')+'</select></td>'+
         '<td><select class="editable ns-dept" style="min-width:150px;">'+opt(DEPARTMENTS,'Select…')+'</select></td>'+
         '<td><select class="editable ns-desg" style="min-width:140px;">'+opt(DESIGNATIONS,'Select…')+'</select></td>'+
@@ -1635,7 +1636,13 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       if(el.value==='' && el.tagName==='SELECT' && el.dataset.f!=='mgr') return;
       rows().forEach(r=>{ const t = r.querySelector(cls[el.dataset.f]); if(t) t.value = el.value; });
     });
-    rows().forEach(r=> r.querySelector('.ns-inc').onchange = label);
+    rows().forEach(r=>{
+      r.querySelector('.ns-inc').onchange = label;
+      r.querySelectorAll('input,select').forEach(field=> field.addEventListener('change', ()=>{
+        r.style.outline = '';
+        field.style.borderColor = '';
+      }));
+    });
     label();
     btn.onclick = ()=>{
       const err = document.getElementById('attImportError');
