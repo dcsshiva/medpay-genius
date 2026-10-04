@@ -5,3 +5,4 @@
 - [x] Verify `techteam@westmedhospitals.com` and `shivanss@gmail.com` and assign administrator designation without disturbing other accounts.
 - [x] Make navigation, dashboards, help, and in-app links staff-only while retaining staff payroll and historical records.
 - [x] Show complete roles and precise missing-field errors when attendance imports add new staff.
+- [ ] Default newly discovered attendance staff to Unit 1 / Front Office / Front Office Executive / General Shift / Staff / no manager, with salary pending edit.
