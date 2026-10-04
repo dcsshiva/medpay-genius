@@ -1585,20 +1585,25 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       return note+head+'<div class="error-text" style="margin-bottom:8px;">To add these staff, first create at least '+need.join(', ')+' in Masters / Shift Master. Until then only staff already in Staff Master are imported.</div>'+
         '<div class="hint">'+codes.map(c=>c+' '+cleanImportedName(parsed.names[c], c)).join(' · ')+'</div>';
     }
-    const opt = (list, lbl)=> '<option value="">'+lbl+'</option>'+act(list).map(x=>'<option value="'+x.code+'">'+x.name+'</option>').join('');
+    const defaultCode = (list, name)=> (act(list).find(x=>x.name.trim().toLowerCase()===name.toLowerCase())||{}).code || '';
+    const defaults = {
+      unit: defaultCode(UNITS,'UNIT 1'), dept: defaultCode(DEPARTMENTS,'Front Office'),
+      desg: defaultCode(DESIGNATIONS,'Front Office Executive'), shift: defaultCode(SHIFT_MASTER,'General Shift')
+    };
+    const opt = (list, lbl, selected='')=> '<option value="">'+lbl+'</option>'+act(list).map(x=>'<option value="'+x.code+'"'+(x.code===selected?' selected':'')+'>'+escapeHTML(x.name)+'</option>').join('');
     const mgrOpts = '<option value="">— none —</option>'+STAFF.filter(m=>m.role==='Manager').map(m=>'<option value="'+m.empNo+'">'+m.name+'</option>').join('');
     const allRow = '<tr style="background:var(--surface-2);"><td></td><td class="hint">Apply to all ↓</td><td></td>'+
-      '<td><select class="editable ns-all" data-f="unit" style="min-width:150px;">'+opt(UNITS,'—')+'</select></td>'+
-      '<td><select class="editable ns-all" data-f="dept" style="min-width:150px;">'+opt(DEPARTMENTS,'—')+'</select></td>'+
-      '<td><select class="editable ns-all" data-f="desg" style="min-width:140px;">'+opt(DESIGNATIONS,'—')+'</select></td>'+
-      '<td><select class="editable ns-all" data-f="shift" style="min-width:140px;">'+opt(SHIFT_MASTER,'—')+'</select></td>'+
-      '<td></td><td><select class="editable ns-all" data-f="mgr" style="min-width:150px;">'+mgrOpts+'</select></td>'+
-      '<td></td><td><input class="editable mono ns-all" data-f="doj" type="date"></td>'+
+      '<td><select class="editable ns-all" data-f="unit" style="min-width:150px;">'+opt(UNITS,'—',defaults.unit)+'</select></td>'+
+      '<td><select class="editable ns-all" data-f="dept" style="min-width:150px;">'+opt(DEPARTMENTS,'—',defaults.dept)+'</select></td>'+
+      '<td><select class="editable ns-all" data-f="desg" style="min-width:140px;">'+opt(DESIGNATIONS,'—',defaults.desg)+'</select></td>'+
+      '<td><select class="editable ns-all" data-f="shift" style="min-width:140px;">'+opt(SHIFT_MASTER,'—',defaults.shift)+'</select></td>'+
+      '<td><select class="editable ns-all" data-f="role" style="min-width:120px;"><option>Staff</option><option>Manager</option></select></td><td><select class="editable ns-all" data-f="mgr" style="min-width:150px;">'+mgrOpts+'</select></td>'+
+      '<td><input class="editable mono ns-all" data-f="gross" type="number" min="0" value="0" style="width:100px;"></td><td><input class="editable mono ns-all" data-f="doj" type="date"></td>'+
       '<td><input class="editable mono ns-all" data-f="cl" type="number" min="0" step="0.5" style="width:60px;" placeholder="'+DEFAULT_MONTHLY_CL+'"></td>'+
       '<td><input class="editable mono ns-all" data-f="perm" type="number" min="0" step="0.5" style="width:60px;" placeholder="'+(DEFAULT_MONTHLY_PERMISSION_MIN/60)+'"></td></tr>';
     return note+head+
-    '<div class="hint" style="margin-bottom:8px;">These codes are not in Staff Master yet. Staff Code and name come from the file; fill in the rest once — it is saved to Staff Master with this import. <b>Unit, Department, Designation, Shift and Gross salary are required.</b> Untick anyone who should not be added (their rows are skipped). Use the first row to fill a column for everyone.</div>'+
-    '<div class="tbl-scroll" style="max-height:360px;"><table><thead><tr><th>Add</th><th>Staff Code</th><th>Name</th><th>Unit *</th><th>Department *</th><th>Designation *</th><th>Shift *</th><th>Role</th><th>Reporting Manager</th><th>Gross salary ₹ *</th><th>Date of joining</th><th>CL / month</th><th>Perm. hrs / month</th></tr></thead><tbody>'+
+     '<div class="hint" style="margin-bottom:8px;">New staff with a name and code are added using Unit 1, Front Office, Front Office Executive, General Shift, Staff and no reporting manager. Gross salary starts at ₹0 until a manager updates Staff Master. You can change values below or untick a row to skip it.</div>'+
+     '<div class="tbl-scroll" style="max-height:360px;"><table><thead><tr><th>Add</th><th>Staff Code</th><th>Name *</th><th>Unit *</th><th>Department *</th><th>Designation *</th><th>Shift *</th><th>Role</th><th>Reporting Manager</th><th>Gross salary ₹</th><th>Date of joining</th><th>CL / month</th><th>Perm. hrs / month</th></tr></thead><tbody>'+
     allRow+
     codes.map(code=>{
       const nm = cleanImportedName(parsed.names[code], code);
@@ -1607,13 +1612,13 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<td class="mono">'+code+'</td>'+
         '<td>'+(nm ? '<span class="ns-name-fixed">'+escapeHTML(nm)+'</span><input type="hidden" class="ns-name" value="'+escapeAttr(nm)+'">'
                    : '<input class="editable ns-name" maxlength="100" style="min-width:170px;" placeholder="Name not in file — type it">')+'</td>'+
-        '<td><select class="editable ns-unit" style="min-width:150px;">'+opt(UNITS,'Select…')+'</select></td>'+
-        '<td><select class="editable ns-dept" style="min-width:150px;">'+opt(DEPARTMENTS,'Select…')+'</select></td>'+
-        '<td><select class="editable ns-desg" style="min-width:140px;">'+opt(DESIGNATIONS,'Select…')+'</select></td>'+
-        '<td><select class="editable ns-shift" style="min-width:140px;">'+opt(SHIFT_MASTER,'Select…')+'</select></td>'+
+         '<td><select class="editable ns-unit" style="min-width:150px;">'+opt(UNITS,'Select…',defaults.unit)+'</select></td>'+
+         '<td><select class="editable ns-dept" style="min-width:150px;">'+opt(DEPARTMENTS,'Select…',defaults.dept)+'</select></td>'+
+         '<td><select class="editable ns-desg" style="min-width:140px;">'+opt(DESIGNATIONS,'Select…',defaults.desg)+'</select></td>'+
+         '<td><select class="editable ns-shift" style="min-width:140px;">'+opt(SHIFT_MASTER,'Select…',defaults.shift)+'</select></td>'+
         '<td><select class="editable ns-role" style="min-width:120px;"><option>Staff</option><option>Manager</option></select></td>'+
         '<td><select class="editable ns-mgr" style="min-width:150px;">'+mgrOpts+'</select></td>'+
-        '<td><input class="editable mono ns-gross" type="number" min="0" style="width:100px;"></td>'+
+         '<td><input class="editable mono ns-gross" type="number" min="0" value="0" style="width:100px;"></td>'+
         '<td><input class="editable mono ns-doj" type="date"></td>'+
         '<td><input class="editable mono ns-cl" type="number" min="0" step="0.5" style="width:60px;" value="'+DEFAULT_MONTHLY_CL+'"></td>'+
         '<td><input class="editable mono ns-perm" type="number" min="0" step="0.5" style="width:60px;" value="'+(DEFAULT_MONTHLY_PERMISSION_MIN/60)+'"></td>'+
@@ -1631,7 +1636,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       btn.textContent = 'Import '+n+' record(s)'+(add.length ? ' + add '+add.length+' new staff' : '');
       btn.disabled = n===0;
     };
-    const cls = {unit:'.ns-unit', dept:'.ns-dept', desg:'.ns-desg', shift:'.ns-shift', mgr:'.ns-mgr', doj:'.ns-doj', cl:'.ns-cl', perm:'.ns-perm'};
+     const cls = {unit:'.ns-unit', dept:'.ns-dept', desg:'.ns-desg', shift:'.ns-shift', role:'.ns-role', mgr:'.ns-mgr', gross:'.ns-gross', doj:'.ns-doj', cl:'.ns-cl', perm:'.ns-perm'};
     document.querySelectorAll('#attImportPreview .ns-all').forEach(el=> el.onchange = ()=>{
       if(el.value==='' && el.tagName==='SELECT' && el.dataset.f!=='mgr') return;
       rows().forEach(r=>{ const t = r.querySelector(cls[el.dataset.f]); if(t) t.value = el.value; });
@@ -1655,7 +1660,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         {label:'Department', selector:'.ns-dept', missing:r=>!v(r,'.ns-dept')},
         {label:'Designation', selector:'.ns-desg', missing:r=>!v(r,'.ns-desg')},
         {label:'Shift', selector:'.ns-shift', missing:r=>!v(r,'.ns-shift')},
-        {label:'Gross salary', selector:'.ns-gross', missing:r=>!(parseFloat(v(r,'.ns-gross'))>0)},
+         {label:'Gross salary', selector:'.ns-gross', missing:r=>v(r,'.ns-gross')!=='' && !(parseFloat(v(r,'.ns-gross'))>=0)},
       ];
       rows().forEach(r=>{
         r.style.outline = '';
