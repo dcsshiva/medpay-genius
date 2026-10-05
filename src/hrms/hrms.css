@@ -137,6 +137,13 @@
 .hrms-root .editable:focus{outline:none; border-color:var(--teal); background:var(--surface-2);}
 .hrms-root select.editable{cursor:pointer;}
 
+.hrms-root .ns-bulk-panel{background:var(--surface-2); border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:12px;}
+.hrms-root .ns-bulk-grid{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px 12px; margin-bottom:12px;}
+.hrms-root .ns-bulk-field{display:flex; flex-direction:column; gap:4px; min-width:0; font-size:12px; font-weight:600; color:var(--slate);}
+.hrms-root .ns-bulk-field select{width:100%; min-width:0; padding:8px; border:1px solid var(--line-strong); border-radius:6px; background:var(--surface); color:var(--ink); font:inherit; font-weight:400;}
+@media(max-width:720px){.hrms-root .ns-bulk-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+@media(max-width:420px){.hrms-root .ns-bulk-grid{grid-template-columns:1fr;}}
+
 .hrms-root .modal-back{position:fixed; inset:0; background:rgba(10,16,14,.5); display:flex; align-items:flex-start; justify-content:center; padding:24px 16px; overflow-y:auto; z-index:20;}
 .hrms-root .modal{background:var(--paper); border-radius:16px; max-width:980px; width:100%; margin-top:20px; box-shadow:var(--shadow); border:1px solid var(--line);}
 .hrms-root .modal.narrow{max-width:520px;}
