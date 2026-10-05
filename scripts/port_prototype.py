@@ -516,10 +516,9 @@ rep("""    (matched.length ? '<button class="btn" style="margin-top:10px;" id="a
   wireNewStaffPanel(parsed);
 }
 
-/* New staff found in an import: the only question asked is which unit they belong to.
-   They are added to Staff Master (Role Staff, password = Staff Code); salary, designation
-   and department can be completed later in Staff Master. Existing staff keep their unit —
-   transfers are made in Staff Master (Unit column), which records the transfer history. */
+ /* New staff found in an import: default master fields can be changed in bulk or per row.
+    Existing staff keep their unit — transfers are made in Staff Master (Unit column),
+    which records the transfer history. */
 function cleanImportedName(n, code){
   n = String(n||'').replace(/[\\u0000-\\u001f\\u007f]/g,' ').replace(/\\s+/g,' ').trim().slice(0,100);
   if(!n || n===code) return '';
@@ -548,20 +547,20 @@ function newStaffPanel(parsed){
     desg: defaultCode(DESIGNATIONS,'Front Office Executive'), shift: defaultCode(SHIFT_MASTER,'General Shift')
   };
   const opt = (list, lbl, selected='')=> '<option value="">'+lbl+'</option>'+act(list).map(x=>'<option value="'+x.code+'"'+(x.code===selected?' selected':'')+'>'+escapeHTML(x.name)+'</option>').join('');
-  const mgrOpts = '<option value="">— none —</option>'+STAFF.filter(m=>m.role==='Manager').map(m=>'<option value="'+m.empNo+'">'+m.name+'</option>').join('');
-  const allRow = '<tr style="background:var(--surface-2);"><td></td><td class="hint">Apply to all ↓</td><td></td>'+
-    '<td><select class="editable ns-all" data-f="unit" style="min-width:150px;">'+opt(UNITS,'—',defaults.unit)+'</select></td>'+
-    '<td><select class="editable ns-all" data-f="dept" style="min-width:150px;">'+opt(DEPARTMENTS,'—',defaults.dept)+'</select></td>'+
-    '<td><select class="editable ns-all" data-f="desg" style="min-width:140px;">'+opt(DESIGNATIONS,'—',defaults.desg)+'</select></td>'+
-    '<td><select class="editable ns-all" data-f="shift" style="min-width:140px;">'+opt(SHIFT_MASTER,'—',defaults.shift)+'</select></td>'+
-    '<td><select class="editable ns-all" data-f="role" style="min-width:120px;"><option>Staff</option><option>Manager</option></select></td><td><select class="editable ns-all" data-f="mgr" style="min-width:150px;">'+mgrOpts+'</select></td>'+
-    '<td><input class="editable mono ns-all" data-f="gross" type="number" min="0" value="0" style="width:100px;"></td><td><input class="editable mono ns-all" data-f="doj" type="date"></td>'+
-    '<td><input class="editable mono ns-all" data-f="cl" type="number" min="0" step="0.5" style="width:60px;" placeholder="'+DEFAULT_MONTHLY_CL+'"></td>'+
-    '<td><input class="editable mono ns-all" data-f="perm" type="number" min="0" step="0.5" style="width:60px;" placeholder="'+(DEFAULT_MONTHLY_PERMISSION_MIN/60)+'"></td></tr>';
+   const mgrOpts = '<option value="">— none —</option>'+STAFF.filter(m=>m.role==='Manager').map(m=>'<option value="'+escapeAttr(m.empNo)+'">'+escapeHTML(m.name)+' ('+escapeHTML(m.empNo)+')</option>').join('');
+   const bulkField = (label, field, options)=> '<label class="ns-bulk-field"><span>'+label+'</span><select data-f="'+field+'" class="ns-bulk">'+options+'</select></label>';
+   const bulk = '<div class="ns-bulk-panel"><div class="section-title">Fill all new staff</div><div class="ns-bulk-grid">'+
+     bulkField('Unit','unit',opt(UNITS,'Select unit…',defaults.unit))+
+     bulkField('Department','dept',opt(DEPARTMENTS,'Select department…',defaults.dept))+
+     bulkField('Designation','desg',opt(DESIGNATIONS,'Select designation…',defaults.desg))+
+     bulkField('Shift','shift',opt(SHIFT_MASTER,'Select shift…',defaults.shift))+
+     bulkField('Role','role','<option>Staff</option><option>Manager</option>')+
+     bulkField('Reporting Manager','mgr',mgrOpts)+
+     '</div><button type="button" class="btn sm" id="attApplyAllBtn">Apply to all selected staff</button></div>';
   return note+head+
    '<div class="hint" style="margin-bottom:8px;">New staff with a name and code are added using Unit 1, Front Office, Front Office Executive, General Shift, Staff and no reporting manager. Gross salary starts at ₹0 until a manager updates Staff Master. You can change values below or untick a row to skip it.</div>'+
+    bulk+
    '<div class="tbl-scroll" style="max-height:360px;"><table><thead><tr><th>Add</th><th>Staff Code</th><th>Name *</th><th>Unit *</th><th>Department *</th><th>Designation *</th><th>Shift *</th><th>Role</th><th>Reporting Manager</th><th>Gross salary ₹</th><th>Date of joining</th><th>CL / month</th><th>Perm. hrs / month</th></tr></thead><tbody>'+
-  allRow+
   codes.map(code=>{
     const nm = cleanImportedName(parsed.names[code], code);
     return '<tr class="ns-row" data-code="'+escapeAttr(code)+'">'+
@@ -593,11 +592,17 @@ function wireNewStaffPanel(parsed){
     btn.textContent = 'Import '+n+' record(s)'+(add.length ? ' + add '+add.length+' new staff' : '');
     btn.disabled = n===0;
   };
-   const cls = {unit:'.ns-unit', dept:'.ns-dept', desg:'.ns-desg', shift:'.ns-shift', role:'.ns-role', mgr:'.ns-mgr', gross:'.ns-gross', doj:'.ns-doj', cl:'.ns-cl', perm:'.ns-perm'};
-  document.querySelectorAll('#attImportPreview .ns-all').forEach(el=> el.onchange = ()=>{
-    if(el.value==='' && el.tagName==='SELECT' && el.dataset.f!=='mgr') return;
-    rows().forEach(r=>{ const t = r.querySelector(cls[el.dataset.f]); if(t) t.value = el.value; });
-  });
+   const cls = {unit:'.ns-unit', dept:'.ns-dept', desg:'.ns-desg', shift:'.ns-shift', role:'.ns-role', mgr:'.ns-mgr'};
+   const applyAll = document.getElementById('attApplyAllBtn');
+   if(applyAll) applyAll.onclick = ()=>{
+     const fields = Array.from(document.querySelectorAll('#attImportPreview .ns-bulk'));
+     rows().filter(r=>r.querySelector('.ns-inc').checked).forEach(r=>{
+       fields.forEach(el=>{
+         const target = r.querySelector(cls[el.dataset.f]);
+         if(target && (el.value || el.dataset.f==='mgr')) target.value = el.value;
+       });
+     });
+   };
   rows().forEach(r=>{
     r.querySelector('.ns-inc').onchange = label;
     r.querySelectorAll('input,select').forEach(field=> field.addEventListener('change', ()=>{
