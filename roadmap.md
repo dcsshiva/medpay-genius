@@ -7,4 +7,5 @@
 - [x] Show complete roles and precise missing-field errors when attendance imports add new staff.
 - [x] Default newly discovered attendance staff to Unit 1 / Front Office / Front Office Executive / General Shift / Staff / no manager, with salary pending edit.
 - [x] Add a visible bulk-fill section for Unit, Department, Designation, Shift, Role and Reporting Manager in attendance import.
+- [x] Match every attendance import to existing HRMS Staff Master records by normalized biometric code and preserve saved staff details.
 - [ ] Verify attendance import in a signed-in preview — blocked until a preview account is signed in; requester account is not available for session minting.

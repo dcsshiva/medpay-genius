@@ -506,6 +506,23 @@ rep("""        const code = cells[cCode]; if(!code) continue;
         const dateRaw = cells[cDate];""", """        const code = cells[cCode]; if(!code) continue;
         if(cName>=0 && cells[cName]) result.names[code] = cells[cName];
         const dateRaw = cells[cDate];""")
+rep("""  const knownCodes = new Set(STAFF.map(s=>s.empNo));
+  result.records.forEach(r=>{ if(!knownCodes.has(r.empNo)) result.unmatchedCodes.add(r.empNo); });""",
+    """  const biometricKey = value=> String(value ?? '').trim().toLowerCase().replace(/\\.0+$/,'');
+  const staffByBiometric = new Map(STAFF.map(s=>[biometricKey(s.empNo),s]));
+  result.records.forEach(r=>{
+    const importedCode = String(r.empNo ?? '').trim();
+    const existing = staffByBiometric.get(biometricKey(importedCode));
+    if(existing){
+      r.empNo = existing.empNo;
+      return;
+    }
+    r.empNo = importedCode;
+    if(result.names[importedCode]===undefined && result.names[String(importedCode).replace(/\\.0+$/,'')]!==undefined){
+      result.names[importedCode] = result.names[String(importedCode).replace(/\\.0+$/,'')];
+    }
+    result.unmatchedCodes.add(importedCode);
+  });""")
 
 rep("""    (parsed.unmatchedCodes.size ? '<div class="footnote" style="color:var(--rose);">Unrecognized employee code(s) — will be skipped: '+Array.from(parsed.unmatchedCodes).join(', ')+'</div>' : '')+""",
     """    newStaffPanel(parsed)+""")
