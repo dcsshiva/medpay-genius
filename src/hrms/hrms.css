@@ -181,6 +181,10 @@
 .hrms-root .cycle-select{font:inherit; font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--slate); background:transparent; border:1px solid var(--line); border-radius:6px; padding:2px 6px;}
 .hrms-root .loading-shell{display:flex; align-items:center; justify-content:center; min-height:40vh; color:var(--slate);}
 /* Staff Master: show full names and full master values */
+.hrms-root .staff-master-top-scroll{overflow-x:scroll; overflow-y:hidden; height:17px; border:1px solid var(--line); border-bottom:0; border-radius:8px 8px 0 0; background:var(--surface-2); scrollbar-gutter:stable;}
+.hrms-root .staff-master-top-scroll > div{height:1px;}
+.hrms-root .staff-master-scroll{max-height:min(68vh,720px); overflow:auto; border-radius:0 0 8px 8px; scrollbar-gutter:stable;}
+.hrms-root .staff-master-scroll thead th{top:0; z-index:2; box-shadow:0 1px 0 var(--line);}
 .hrms-root table.staff-master input.editable[data-field="name"]{min-width:210px;}
 .hrms-root table.staff-master select.editable{min-width:150px;}
 .hrms-root table.staff-master select.editable[data-field="role"]{min-width:100px;}
