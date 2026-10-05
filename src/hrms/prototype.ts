@@ -1489,8 +1489,21 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         }
       }
     }
-    const knownCodes = new Set(STAFF.map(s=>s.empNo));
-    result.records.forEach(r=>{ if(!knownCodes.has(r.empNo)) result.unmatchedCodes.add(r.empNo); });
+    const biometricKey = value=> String(value ?? '').trim().toLowerCase().replace(/\.0+$/,'');
+    const staffByBiometric = new Map(STAFF.map(s=>[biometricKey(s.empNo),s]));
+    result.records.forEach(r=>{
+      const importedCode = String(r.empNo ?? '').trim();
+      const existing = staffByBiometric.get(biometricKey(importedCode));
+      if(existing){
+        r.empNo = existing.empNo;
+        return;
+      }
+      r.empNo = importedCode;
+      if(result.names[importedCode]===undefined && result.names[String(importedCode).replace(/\.0+$/,'')]!==undefined){
+        result.names[importedCode] = result.names[String(importedCode).replace(/\.0+$/,'')];
+      }
+      result.unmatchedCodes.add(importedCode);
+    });
     return result;
   }
   function openAttendanceImportModal(){
