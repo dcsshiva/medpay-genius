@@ -437,12 +437,24 @@ rep("""      '<div style="width:130px;font-size:12px;color:var(--slate);white-sp
 # ── 20. Staff Master: select staff and set the reporting manager in bulk ──
 rep("""  '<div class="tbl-scroll"><table><thead><tr><th>Staff Ref</th><th>Code / Login ID</th><th>Name</th>""",
     """  bulkManagerBar()+
-  '<div class="tbl-scroll"><table class="staff-master"><thead><tr><th><input type="checkbox" id="staffSelAll" title="Select all shown"'+(filtered.length && filtered.every(e=>staffSel.has(e.empNo))?' checked':'')+'></th><th>Staff Ref</th><th>Code / Login ID</th><th>Name</th>""")
+  '<div class="staff-master-top-scroll" aria-label="Staff table horizontal scroll"><div></div></div>'+ 
+  '<div class="tbl-scroll staff-master-scroll"><table class="staff-master"><thead><tr><th><input type="checkbox" id="staffSelAll" title="Select all shown"'+(filtered.length && filtered.every(e=>staffSel.has(e.empNo))?' checked':'')+'></th><th>Staff Ref</th><th>Code / Login ID</th><th>Name</th>""")
 rep("""    '<tr data-id="'+e.empNo+'">'+
       '<td class="mono hint">'+e.dbRef+'</td>'+""", """    '<tr data-id="'+e.empNo+'">'+
       '<td><input type="checkbox" class="staff-sel" data-emp="'+e.empNo+'"'+(staffSel.has(e.empNo)?' checked':'')+'></td>'+
       '<td class="mono hint">'+e.dbRef+'</td>'+""")
-rep("""  document.getElementById('addStaffBtn').onclick = openAddStaffForm;""", """  document.getElementById('addStaffBtn').onclick = openAddStaffForm;
+rep("""  document.getElementById('addStaffBtn').onclick = openAddStaffForm;""", """  const staffTopScroll = body.querySelector('.staff-master-top-scroll');
+  const staffTableScroll = body.querySelector('.staff-master-scroll');
+  const staffTable = body.querySelector('table.staff-master');
+  if(staffTopScroll && staffTableScroll && staffTable){
+    const topScrollInner = staffTopScroll.firstElementChild;
+    const sizeTopScroll = ()=>{ if(topScrollInner) topScrollInner.style.width = staffTable.scrollWidth+'px'; };
+    sizeTopScroll();
+    staffTopScroll.addEventListener('scroll', ()=>{ staffTableScroll.scrollLeft = staffTopScroll.scrollLeft; });
+    staffTableScroll.addEventListener('scroll', ()=>{ staffTopScroll.scrollLeft = staffTableScroll.scrollLeft; });
+    if(typeof ResizeObserver !== 'undefined') new ResizeObserver(sizeTopScroll).observe(staffTable);
+  }
+  document.getElementById('addStaffBtn').onclick = openAddStaffForm;
   wireBulkManager(filtered);""")
 rep("""function openStaffDetailsModal(empNo){""", """let staffSel = new Set();
 function bulkManagerBar(){

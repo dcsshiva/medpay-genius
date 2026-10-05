@@ -1768,7 +1768,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '</div>'+
     '</div>'+
     bulkManagerBar()+
-    '<div class="tbl-scroll"><table class="staff-master"><thead><tr><th><input type="checkbox" id="staffSelAll" title="Select all shown"'+(filtered.length && filtered.every(e=>staffSel.has(e.empNo))?' checked':'')+'></th><th>Staff Ref</th><th>Code / Login ID</th><th>Name</th><th>Role</th><th>Reporting Manager</th><th>Designation</th><th>Department</th><th>Unit</th><th>Shift Master</th><th>Net salary</th><th>CL / month</th><th>Permission hrs / month</th><th>Password</th><th></th></tr></thead><tbody>'+
+    '<div class="staff-master-top-scroll" aria-label="Staff table horizontal scroll"><div></div></div>'+ 
+    '<div class="tbl-scroll staff-master-scroll"><table class="staff-master"><thead><tr><th><input type="checkbox" id="staffSelAll" title="Select all shown"'+(filtered.length && filtered.every(e=>staffSel.has(e.empNo))?' checked':'')+'></th><th>Staff Ref</th><th>Code / Login ID</th><th>Name</th><th>Role</th><th>Reporting Manager</th><th>Designation</th><th>Department</th><th>Unit</th><th>Shift Master</th><th>Net salary</th><th>CL / month</th><th>Permission hrs / month</th><th>Password</th><th></th></tr></thead><tbody>'+
     filtered.map(e=>(
       '<tr data-id="'+e.empNo+'">'+
         '<td><input type="checkbox" class="staff-sel" data-emp="'+e.empNo+'"'+(staffSel.has(e.empNo)?' checked':'')+'></td>'+
@@ -1805,6 +1806,17 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     '<div class="footnote">Staff Ref (STF…) is the permanent internal database key — assigned once, never changes or is reused, and stays fixed even if a staff member is transferred. Code / Login ID is the biometric device number used for front-end login and attendance matching (not editable afterwards, since attendance, tasks and leave records all key off it). Role = Manager lets that staff member sign in to the Admin Console (with their own Staff Code + password) to assign and review tasks — everything else there stays hidden to them. Designation, Department and Unit are picked from their own masters (Admin → Masters). Shift Master sets the staff member\'s default shift for lateness calculations — the Shift Planner can still override it for any specific date. Changing Unit here logs a transfer entry (see the Transfers button) without touching Staff Ref or Login ID. Reporting Manager decides whose Admin Console Leave &amp; Permission tab a staff member\'s requests appear in for approval — a Manager only sees requests from staff who report to them; the Administrator can always see and act on everything. Contact details, overtime eligibility and payroll deduction settings are under the Details button. CL / month and Permission hrs / month set that staff member\'s own monthly allowance. Password: type a new one to reset that staff member\'s sign-in password (it is never displayed). "Create missing logins" gives every staff member without an account a login with their Staff Code as the first password.</div>';
 
     document.getElementById('staffSearch').oninput = (e)=>{ staffQuery = e.target.value; renderAdminStaff(); };
+    const staffTopScroll = body.querySelector('.staff-master-top-scroll');
+    const staffTableScroll = body.querySelector('.staff-master-scroll');
+    const staffTable = body.querySelector('table.staff-master');
+    if(staffTopScroll && staffTableScroll && staffTable){
+      const topScrollInner = staffTopScroll.firstElementChild;
+      const sizeTopScroll = ()=>{ if(topScrollInner) topScrollInner.style.width = staffTable.scrollWidth+'px'; };
+      sizeTopScroll();
+      staffTopScroll.addEventListener('scroll', ()=>{ staffTableScroll.scrollLeft = staffTopScroll.scrollLeft; });
+      staffTableScroll.addEventListener('scroll', ()=>{ staffTopScroll.scrollLeft = staffTableScroll.scrollLeft; });
+      if(typeof ResizeObserver !== 'undefined') new ResizeObserver(sizeTopScroll).observe(staffTable);
+    }
     document.getElementById('addStaffBtn').onclick = openAddStaffForm;
     wireBulkManager(filtered);
     document.getElementById('createLoginsBtn').onclick = async ()=>{
