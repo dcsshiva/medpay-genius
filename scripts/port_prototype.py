@@ -1010,6 +1010,64 @@ function wireAuthShell(){
 
 async function tryStaffLogin(id, pw){""")
 
+# ── 25. staff login: attendance only — salary/deduction/net figures hidden unless the admin
+#        turns on Payroll settings → "Show salary details to staff" (PAYROLL_SETTINGS.staffSalaryVisible) ──
+rep("""function profileAndStats(result){
+  const {emp, summary} = result;""", """function staffSalaryHidden(){ return !PAYROLL_SETTINGS.staffSalaryVisible; }
+function profileAndStats(result, hideSal){
+  const {emp, summary} = result;""")
+rep("""    '<div style="display:flex;gap:8px;flex-wrap:wrap;">'+
+      '<span class="badge teal">Gross Salary '+fmtMoney(emp.netSalary)+'</span>'+
+      ((summary.totalDeduction+summary.statutoryDeduction)>0.5 ? '<span class="badge rose">Net Payable '+fmtMoney(summary.finalNet)+'</span>' : '<span class="badge teal">No deductions this cycle</span>')+
+    '</div>'+""", """    (hideSal ? '' : '<div style="display:flex;gap:8px;flex-wrap:wrap;">'+
+      '<span class="badge teal">Gross Salary '+fmtMoney(emp.netSalary)+'</span>'+
+      ((summary.totalDeduction+summary.statutoryDeduction)>0.5 ? '<span class="badge rose">Net Payable '+fmtMoney(summary.finalNet)+'</span>' : '<span class="badge teal">No deductions this cycle</span>')+
+    '</div>')+""")
+rep("""    stat('Lateness / LOP deduction', fmtMoney(summary.totalDeduction), summary.totalDeduction>0.5?'rose':'')+
+    stat('PF + ESI + PT + other', fmtMoney(summary.statutoryDeduction), summary.statutoryDeduction>0.5?'rose':'')+
+    stat('Overtime pay', fmtMoney(summary.otPay), summary.otPay>0.5?'teal':'')+
+    stat('Net payable', fmtMoney(summary.finalNet), 'teal')+""", """    (hideSal ? '' :
+    stat('Lateness / LOP deduction', fmtMoney(summary.totalDeduction), summary.totalDeduction>0.5?'rose':'')+
+    stat('PF + ESI + PT + other', fmtMoney(summary.statutoryDeduction), summary.statutoryDeduction>0.5?'rose':'')+
+    stat('Overtime pay', fmtMoney(summary.otPay), summary.otPay>0.5?'teal':'')+
+    stat('Net payable', fmtMoney(summary.finalNet), 'teal'))+""")
+rep("""function attendanceTable(result){""", """function attendanceTable(result, hideSal){""")
+rep("""      '<td class="mono">'+ded+'</td>'+
+      '<td class="mono">'+fmtMoney(r.runningNet)+'</td>'+""", """      (hideSal ? '' : '<td class="mono">'+ded+'</td>'+
+      '<td class="mono">'+fmtMoney(r.runningNet)+'</td>')+""")
+rep("""    '<th>Date</th><th>Day</th><th>Status</th><th>Shift</th><th>In</th><th>Out</th><th>Late</th><th>Permission</th><th>OT</th><th>Deduction</th><th>Net to date</th><th>Note</th>'+""",
+    """    '<th>Date</th><th>Day</th><th>Status</th><th>Shift</th><th>In</th><th>Out</th><th>Late</th><th>Permission</th><th>OT</th>'+(hideSal ? '' : '<th>Deduction</th><th>Net to date</th>')+'<th>Note</th>'+""")
+rep("""      ['overview','ledger','tasks','leave','payslip'].map(t=>'<button data-tab="'+t+'" class="'+(staffTab===t?'active':'')+'">'+
+        ({overview:'Overview', ledger:'My Shift & Salary', tasks:'My Tasks', leave:'Leave & Permission', payslip:'Payslip'})[t]+'</button>').join('')+""",
+    """      ['overview','ledger','tasks','leave'].concat(staffSalaryHidden() ? [] : ['payslip']).map(t=>'<button data-tab="'+t+'" class="'+(staffTab===t?'active':'')+'">'+
+        ({overview:'Overview', ledger:(staffSalaryHidden() ? 'My Attendance' : 'My Shift & Salary'), tasks:'My Tasks', leave:'Leave & Permission', payslip:'Payslip'})[t]+'</button>').join('')+""")
+rep("""  staffView.innerHTML = ''+
+  '<div class="card pad">'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;" class="no-print">'+
+      '<div class="section-title" style="margin:0;">My Workspace</div>'+""", """  if(staffTab==='payslip' && staffSalaryHidden()) staffTab = 'overview';
+  staffView.innerHTML = ''+
+  '<div class="card pad">'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;" class="no-print">'+
+      '<div class="section-title" style="margin:0;">My Workspace</div>'+""")
+rep("""  if(staffTab==='overview'){
+    const coveringFor""", """  const hideSal = staffSalaryHidden();
+  if(staffTab==='overview'){
+    const coveringFor""")
+rep("""      profileAndStats(result)+
+      (coveringFor.length""", """      profileAndStats(result, hideSal)+
+      (coveringFor.length""")
+rep("""    body.innerHTML = profileAndStats(result) + attendanceTable(result) +
+      '<div class="footnote">Shift is auto-suggested""", """    body.innerHTML = profileAndStats(result, hideSal) + attendanceTable(result, hideSal) +
+      '<div class="footnote">Shift is auto-suggested""")
+rep("""  '<div class="section-title" style="margin-top:0;">Pay cycle</div>'+""",
+    """  '<div class="section-title" style="margin-top:0;">Staff login</div>'+
+  '<div class="form-row"><label><input type="checkbox" id="psStaffSal" '+(p.staffSalaryVisible?'checked':'')+'> Show salary details to staff (gross, LOP deduction, PF/ESI/PT, overtime pay, net payable, payslip)</label></div>'+
+  '<div class="hint">When off, staff see only their attendance, tasks and leave.</div>'+
+  '<div class="section-title">Pay cycle</div>'+""")
+rep("""    p.ot.graceMin = parseFloat(document.getElementById('psOtGrace').value) || 0;""",
+    """    p.ot.graceMin = parseFloat(document.getElementById('psOtGrace').value) || 0;
+    p.staffSalaryVisible = document.getElementById('psStaffSal').checked;""")
+
 # sanity: nothing left that points at demo data
 # (the Selvantra Technologies credit is allowed only inside the sign-in screen, section 24)
 _outside_auth = re.sub(r'function authShell\(kind, errorMsg\)\{.*?\nfunction wireAuthShell', '', script, flags=re.S)

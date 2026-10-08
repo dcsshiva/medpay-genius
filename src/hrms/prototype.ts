@@ -254,7 +254,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   function escapeHTML(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
   function escapeAttr(s){ return escapeHTML(s); }
 
-  function attendanceTable(result){
+  function attendanceTable(result, hideSal){
     const trs = result.rows.map(r=>{
       const cls = (r.status==='WO'||r.status==='H') ? ' class="row-wo"' : '';
       const shift = r.shift ? (r.shift.name + (r.shiftOverridden ? ' <span class="badge amber" style="padding:1px 6px;font-size:10px;">override</span>' : '')) : '—';
@@ -273,17 +273,18 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<td class="mono">'+late+'</td>'+
         '<td class="mono">'+perm+'</td>'+
         '<td class="mono">'+ot+'</td>'+
-        '<td class="mono">'+ded+'</td>'+
-        '<td class="mono">'+fmtMoney(r.runningNet)+'</td>'+
+        (hideSal ? '' : '<td class="mono">'+ded+'</td>'+
+        '<td class="mono">'+fmtMoney(r.runningNet)+'</td>')+
         '<td class="note">'+r.note+'</td>'+
       '</tr>';
     }).join('');
     return '<div class="tbl-scroll"><table><thead><tr>'+
-      '<th>Date</th><th>Day</th><th>Status</th><th>Shift</th><th>In</th><th>Out</th><th>Late</th><th>Permission</th><th>OT</th><th>Deduction</th><th>Net to date</th><th>Note</th>'+
+      '<th>Date</th><th>Day</th><th>Status</th><th>Shift</th><th>In</th><th>Out</th><th>Late</th><th>Permission</th><th>OT</th>'+(hideSal ? '' : '<th>Deduction</th><th>Net to date</th>')+'<th>Note</th>'+
       '</tr></thead><tbody>'+trs+'</tbody></table></div>';
   }
 
-  function profileAndStats(result){
+  function staffSalaryHidden(){ return !PAYROLL_SETTINGS.staffSalaryVisible; }
+  function profileAndStats(result, hideSal){
     const {emp, summary} = result;
     return ''+
     '<div class="profile-head">'+
@@ -292,20 +293,21 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<div class="profile-meta mono">Staff Code '+emp.empNo+' &middot; '+desgName(emp.designation)+' &middot; '+deptName(emp.department)+' &middot; '+unitName(emp.unitCode)+'</div>'+
         '<div class="profile-meta">Reporting Manager: '+(findStaff(emp.reportingManager)?findStaff(emp.reportingManager).name:'Not assigned — Administrator approves your requests')+'</div>'+
       '</div>'+
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;">'+
+      (hideSal ? '' : '<div style="display:flex;gap:8px;flex-wrap:wrap;">'+
         '<span class="badge teal">Gross Salary '+fmtMoney(emp.netSalary)+'</span>'+
         ((summary.totalDeduction+summary.statutoryDeduction)>0.5 ? '<span class="badge rose">Net Payable '+fmtMoney(summary.finalNet)+'</span>' : '<span class="badge teal">No deductions this cycle</span>')+
-      '</div>'+
+      '</div>')+
     '</div>'+
     '<div class="stats">'+
       stat('Present days', summary.presentDays+' / '+ (summary.cycleLen-summary.woDays-summary.holidayDays))+
       stat('Late instances', summary.lateDays)+
       stat('Permission used', fmtMin(summary.permissionUsed)+' / '+fmtMin(summary.monthlyPermissionMin))+
       stat('CL used', summary.clUsed+' / '+summary.monthlyCL)+
+      (hideSal ? '' :
       stat('Lateness / LOP deduction', fmtMoney(summary.totalDeduction), summary.totalDeduction>0.5?'rose':'')+
       stat('PF + ESI + PT + other', fmtMoney(summary.statutoryDeduction), summary.statutoryDeduction>0.5?'rose':'')+
       stat('Overtime pay', fmtMoney(summary.otPay), summary.otPay>0.5?'teal':'')+
-      stat('Net payable', fmtMoney(summary.finalNet), 'teal')+
+      stat('Net payable', fmtMoney(summary.finalNet), 'teal'))+
     '</div>';
   }
 
@@ -553,6 +555,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const myLeaves = LEAVES.filter(l=>l.empNo===currentStaff);
     const openTasks = myTasks.filter(t=>t.status!=='Done').length;
 
+    if(staffTab==='payslip' && staffSalaryHidden()) staffTab = 'overview';
     staffView.innerHTML = ''+
     '<div class="card pad">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;" class="no-print">'+
@@ -563,8 +566,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '</div>'+
       '</div>'+
       '<div class="tabs no-print">'+
-        ['overview','ledger','tasks','leave','payslip'].map(t=>'<button data-tab="'+t+'" class="'+(staffTab===t?'active':'')+'">'+
-          ({overview:'Overview', ledger:'My Shift & Salary', tasks:'My Tasks', leave:'Leave & Permission', payslip:'Payslip'})[t]+'</button>').join('')+
+        ['overview','ledger','tasks','leave'].concat(staffSalaryHidden() ? [] : ['payslip']).map(t=>'<button data-tab="'+t+'" class="'+(staffTab===t?'active':'')+'">'+
+          ({overview:'Overview', ledger:(staffSalaryHidden() ? 'My Attendance' : 'My Shift & Salary'), tasks:'My Tasks', leave:'Leave & Permission', payslip:'Payslip'})[t]+'</button>').join('')+
       '</div>'+
       '<div id="staffTabBody"></div>'+
     '</div>';
@@ -576,10 +579,11 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const body = document.getElementById('staffTabBody');
     const emp = result.emp;
 
+    const hideSal = staffSalaryHidden();
     if(staffTab==='overview'){
       const coveringFor = LEAVES.filter(l=>l.altEmpNo===currentStaff && l.status==='Approved');
       body.innerHTML = ''+
-        profileAndStats(result)+
+        profileAndStats(result, hideSal)+
         (coveringFor.length ? '<div class="footnote" style="background:#fff8e6;border:1px solid #f0d98c;border-radius:8px;padding:10px 12px;margin-bottom:14px;">'+
           '<b>You are covering for:</b> '+coveringFor.map(l=>{ const p = findStaff(l.empNo); return (p?p.name:l.empNo)+' on '+fmtDate(l.date)+' ('+l.type+')'; }).join('; ')+
         '</div>' : '')+
@@ -593,7 +597,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '</div>'+
         '<div class="footnote">Open tasks: '+openTasks+' &middot; Leave/permission requests filed this cycle: '+myLeaves.length+'</div>';
     } else if(staffTab==='ledger'){
-      body.innerHTML = profileAndStats(result) + attendanceTable(result) +
+      body.innerHTML = profileAndStats(result, hideSal) + attendanceTable(result, hideSal) +
         '<div class="footnote">Shift is auto-suggested from IN time (9-10 AM &middot; 2-3 PM &middot; 8-9 PM), or set by your admin on the Shift Planner (marked "override" above) — lateness is always measured against whichever shift is in effect for that date. Lateness ≤ 15 min is ignored. Beyond that, minutes draw from the 4-hour monthly permission pool, then deduct from pay. 8+ consolidated uncovered hours convert to a leave day, offset by CL when available.</div>';
     } else if(staffTab==='tasks'){
       const taskActions = (t)=>{
@@ -845,7 +849,10 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const body = document.getElementById('mastersBody');
     const p = PAYROLL_SETTINGS;
     body.innerHTML = ''+
-    '<div class="section-title" style="margin-top:0;">Pay cycle</div>'+
+    '<div class="section-title" style="margin-top:0;">Staff login</div>'+
+    '<div class="form-row"><label><input type="checkbox" id="psStaffSal" '+(p.staffSalaryVisible?'checked':'')+'> Show salary details to staff (gross, LOP deduction, PF/ESI/PT, overtime pay, net payable, payslip)</label></div>'+
+    '<div class="hint">When off, staff see only their attendance, tasks and leave.</div>'+
+    '<div class="section-title">Pay cycle</div>'+
     '<div class="form-row" style="max-width:220px;"><label>Cycle start day of month</label><input id="psCycleDay" type="number" min="1" max="28" value="'+p.cycleStartDay+'"></div>'+
     '<div class="hint">Current cycle: '+CYCLE_LABEL_JS+' (a full cycle runs the '+p.cycleStartDay+'th to the day before the '+p.cycleStartDay+'th of the next month).</div>'+
 
@@ -901,6 +908,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       p.ot.enabled = document.getElementById('psOtOn').checked;
       p.ot.multiplier = parseFloat(document.getElementById('psOtMult').value) || 1;
       p.ot.graceMin = parseFloat(document.getElementById('psOtGrace').value) || 0;
+      p.staffSalaryVisible = document.getElementById('psStaffSal').checked;
       renderAdminMasters();
     };
   }
