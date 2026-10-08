@@ -756,6 +756,12 @@ rep("""  let best=SHIFT_MASTER[0], bd=Infinity;
   for(const s of pool){""")
 rep("""        HOLIDAYS.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(""", """        HOLIDAYS.filter(h=>!h.suspended).sort((a,b)=>a.date.localeCompare(b.date)).map(""")
 
+# designation-restricted shifts: planner cycles skip shifts the staff member isn't eligible for
+rep("ROSTER[rosterKey(emp, date)] = nextShiftCode(current);",
+    "ROSTER[rosterKey(emp, date)] = nextShiftCode(current, STAFF.find(x=>x.empNo===emp));")
+rep("Map each staff member to a shift on Staff Master — the Shift Planner can still override any individual date.</div>';",
+    "Map each staff member to a shift on Staff Master — the Shift Planner can still override any individual date. Shifts marked 🔒 (like the 4-Hour Break Shift) can only be assigned to the designations allowed for that shift; the planner simply skips them for everyone else.</div>';")
+
 # dropdowns: only active items (plus the one already selected)
 rep("""        DESIGNATIONS.map(d=>'<option value="'+d.code+'" '+(e.designation===d.code?'selected':'')+'>'+d.name+'</option>').join('')+""",
     """        activeOnly(DESIGNATIONS, e.designation).map(d=>'<option value="'+d.code+'" '+(e.designation===d.code?'selected':'')+'>'+d.name+'</option>').join('')+""")
