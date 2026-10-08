@@ -1041,9 +1041,16 @@ rep("""      ['overview','ledger','tasks','leave','payslip'].map(t=>'<button dat
         ({overview:'Overview', ledger:'My Shift & Salary', tasks:'My Tasks', leave:'Leave & Permission', payslip:'Payslip'})[t]+'</button>').join('')+""",
     """      ['overview','ledger','tasks','leave'].concat(staffSalaryHidden() ? [] : ['payslip']).map(t=>'<button data-tab="'+t+'" class="'+(staffTab===t?'active':'')+'">'+
         ({overview:'Overview', ledger:(staffSalaryHidden() ? 'My Attendance' : 'My Shift & Salary'), tasks:'My Tasks', leave:'Leave & Permission', payslip:'Payslip'})[t]+'</button>').join('')+""")
+rep("""  staffView.innerHTML = ''+
+  '<div class="card pad">'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;" class="no-print">'+
+      '<div class="section-title" style="margin:0;">My Workspace</div>'+""", """  if(staffTab==='payslip' && staffSalaryHidden()) staffTab = 'overview';
+  staffView.innerHTML = ''+
+  '<div class="card pad">'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;" class="no-print">'+
+      '<div class="section-title" style="margin:0;">My Workspace</div>'+""")
 rep("""  if(staffTab==='overview'){
-    const coveringFor""", """  if(staffTab==='payslip' && staffSalaryHidden()) staffTab = 'overview';
-  const hideSal = staffSalaryHidden();
+    const coveringFor""", """  const hideSal = staffSalaryHidden();
   if(staffTab==='overview'){
     const coveringFor""")
 rep("""      profileAndStats(result)+

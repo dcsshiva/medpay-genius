@@ -555,6 +555,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const myLeaves = LEAVES.filter(l=>l.empNo===currentStaff);
     const openTasks = myTasks.filter(t=>t.status!=='Done').length;
 
+    if(staffTab==='payslip' && staffSalaryHidden()) staffTab = 'overview';
     staffView.innerHTML = ''+
     '<div class="card pad">'+
       '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;" class="no-print">'+
@@ -578,7 +579,6 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const body = document.getElementById('staffTabBody');
     const emp = result.emp;
 
-    if(staffTab==='payslip' && staffSalaryHidden()) staffTab = 'overview';
     const hideSal = staffSalaryHidden();
     if(staffTab==='overview'){
       const coveringFor = LEAVES.filter(l=>l.altEmpNo===currentStaff && l.status==='Approved');
