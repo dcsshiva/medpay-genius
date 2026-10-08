@@ -10,3 +10,4 @@
 - [x] Match every attendance import to existing HRMS Staff Master records by normalized biometric code and preserve saved staff details.
 - [ ] Verify attendance import in a signed-in preview — blocked until a preview account is signed in; requester account is not available for session minting.
 - [x] Add designation-restricted 4-Hour Break Shift (S5) with assignment filtering in Staff Master, attendance import, and Shift Planner.
+- [x] Staff Master: drag-to-slide on wide tables, search boxes keep focus while typing, Shift Planner legend and colours cover all Shift Master shifts.
