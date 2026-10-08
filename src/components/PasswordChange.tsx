@@ -101,8 +101,9 @@ const PasswordChange = () => {
 
       // Update password
       const { error: updateError } = await supabase.auth.updateUser({
-        password: formData.newPassword
-      });
+        password: formData.newPassword,
+        current_password: formData.currentPassword,
+      } as any);
 
       if (updateError) throw updateError;
 
