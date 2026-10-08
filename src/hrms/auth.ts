@@ -78,7 +78,8 @@ export async function changePassword(isStaffAccount: boolean, current: string, n
   const wrap = (pw: string) => (isStaffAccount ? authPassword(pw) : pw);
   const check = await supabase.auth.signInWithPassword({ email, password: wrap(current) });
   if (check.error) return { error: 'Current password is incorrect.' };
-  const { error } = await supabase.auth.updateUser({ password: wrap(next) });
+  // The auth service requires the current password alongside the new one ("secure password change").
+  const { error } = await supabase.auth.updateUser({ password: wrap(next), current_password: wrap(current) } as any);
   if (error) return { error: error.message };
 }
 
