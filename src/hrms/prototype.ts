@@ -62,7 +62,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   let ROSTER = env.data.ROSTER; // admin per-date overrides: ROSTER["<empNo>|<date>"] = shift code
   function rosterKey(empNo, date){ return empNo+'|'+date; }
   function shiftByCode(code){ return SHIFT_MASTER.find(s=>s.code===code); }
-  function nextShiftCode(code){ const list = activeOnly(SHIFT_MASTER); if(!list.length) return code; const i = list.findIndex(s=>s.code===code); return list[(i+1)%list.length].code; }
+  function nextShiftCode(code, emp){ const list = activeOnly(SHIFT_MASTER).filter(s=>!emp || shiftAllowedFor(s, emp)); if(!list.length) return code; const i = list.findIndex(s=>s.code===code); return list[(i+1)%list.length].code; }
   function shiftStartMin(s){ return toMin(s.start); }
   function nearestShift(inMin){
     const pool = activeOnly(SHIFT_MASTER).length ? activeOnly(SHIFT_MASTER) : SHIFT_MASTER;
@@ -757,6 +757,16 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   function nextStaffRef(){ return nextMasterCode(STAFF.concat(env.data.SUSPENDED_STAFF||[]).map(s=>({code:s.dbRef})), 'STF'); }
   /* active master items for new choices — a suspended item stays visible only where it is already selected */
   function activeOnly(list, keep){ return list.filter(x=>!x.suspended || (keep!==undefined && x.code===keep)); }
+  /* designation-restricted shifts (e.g. 4-Hour Break Shift): allowedDesignations null/empty = anyone;
+     otherwise the staff member's designation code must be listed, or their role must be Admin when 'ADMIN' is listed */
+  function shiftAllowedFor(shift, emp){
+    const ad = shift && shift.allowedDesignations;
+    if(!ad || !ad.length) return true;
+    if(!emp) return false;
+    if(ad.includes(emp.designation)) return true;
+    if(ad.includes('ADMIN') && (emp.role==='admin' || emp.role==='super_admin')) return true;
+    return false;
+  }
   function suspendBtn(attr, id, suspended){
     return '<button class="iconbtn'+(suspended?'':' danger')+'" '+attr+'="'+id+'">'+(suspended?'Reactivate':'Suspend')+'</button>';
   }
@@ -1034,7 +1044,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '</tr>'
     )).join('')+
     '</tbody></table></div>'+
-    '<div class="footnote">Allowed late = always-forgiven grace for that shift. Allowed extra-late = a further band forgiven only a limited number of times per salary month (once used up, or once late exceeds grace + extra-late, the full late duration is charged against the permission pool and then pay, exactly as on the Shift Ledger). Map each staff member to a shift on Staff Master — the Shift Planner can still override any individual date.</div>';
+    '<div class="footnote">Allowed late = always-forgiven grace for that shift. Allowed extra-late = a further band forgiven only a limited number of times per salary month (once used up, or once late exceeds grace + extra-late, the full late duration is charged against the permission pool and then pay, exactly as on the Shift Ledger). Map each staff member to a shift on Staff Master — the Shift Planner can still override any individual date. Shifts marked 🔒 (like the 4-Hour Break Shift) can only be assigned to the designations allowed for that shift; the planner simply skips them for everyone else.</div>';
 
     document.getElementById('addShiftBtn').onclick = ()=>{
       const nextCode = nextMasterCode(SHIFT_MASTER, 'S');
@@ -1152,7 +1162,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         const emp = btn.dataset.emp, date = btn.dataset.date;
         const rec = ATTENDANCE[emp].records.find(r=>r.date===date);
         const current = effectiveShift(emp, date, toMin(rec.in)).code;
-        ROSTER[rosterKey(emp, date)] = nextShiftCode(current);
+        ROSTER[rosterKey(emp, date)] = nextShiftCode(current, STAFF.find(x=>x.empNo===emp));
         renderShiftPlanner();
       };
     });
@@ -1617,7 +1627,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
        bulkField('Unit','unit',opt(UNITS,'Select unit…',defaults.unit))+
        bulkField('Department','dept',opt(DEPARTMENTS,'Select department…',defaults.dept))+
        bulkField('Designation','desg',opt(DESIGNATIONS,'Select designation…',defaults.desg))+
-       bulkField('Shift','shift',opt(SHIFT_MASTER,'Select shift…',defaults.shift))+
+       bulkField('Shift','shift',opt(SHIFT_MASTER.filter(sm=>!sm.allowedDesignations||!sm.allowedDesignations.length),'Select shift…',defaults.shift))+
        bulkField('Role','role','<option>Staff</option><option>Manager</option>')+
        bulkField('Reporting Manager','mgr',mgrOpts)+
        '</div><button type="button" class="btn sm" id="attApplyAllBtn">Apply to all selected staff</button></div>';
@@ -1635,7 +1645,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
          '<td><select class="editable ns-unit" style="min-width:150px;">'+opt(UNITS,'Select…',defaults.unit)+'</select></td>'+
          '<td><select class="editable ns-dept" style="min-width:150px;">'+opt(DEPARTMENTS,'Select…',defaults.dept)+'</select></td>'+
          '<td><select class="editable ns-desg" style="min-width:140px;">'+opt(DESIGNATIONS,'Select…',defaults.desg)+'</select></td>'+
-         '<td><select class="editable ns-shift" style="min-width:140px;">'+opt(SHIFT_MASTER,'Select…',defaults.shift)+'</select></td>'+
+         '<td><select class="editable ns-shift" style="min-width:140px;">'+opt(SHIFT_MASTER.filter(sm=>!sm.allowedDesignations||!sm.allowedDesignations.length),'Select…',defaults.shift)+'</select></td>'+
         '<td><select class="editable ns-role" style="min-width:120px;"><option>Staff</option><option>Manager</option></select></td>'+
         '<td><select class="editable ns-mgr" style="min-width:150px;">'+mgrOpts+'</select></td>'+
          '<td><input class="editable mono ns-gross" type="number" min="0" value="0" style="width:100px;"></td>'+
@@ -1801,7 +1811,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
           activeOnly(UNITS, e.unitCode).map(u=>'<option value="'+u.code+'" '+(e.unitCode===u.code?'selected':'')+'>'+u.name+'</option>').join('')+
         '</select></td>'+
         '<td><select class="editable" data-field="shiftCode">'+
-          activeOnly(SHIFT_MASTER, e.shiftCode).map(sm=>'<option value="'+sm.code+'" '+(e.shiftCode===sm.code?'selected':'')+'>'+sm.name+'</option>').join('')+
+          activeOnly(SHIFT_MASTER, e.shiftCode).filter(sm=>shiftAllowedFor(sm, e) || sm.code===e.shiftCode).map(sm=>'<option value="'+sm.code+'" '+(e.shiftCode===sm.code?'selected':'')+'>'+sm.name+(sm.allowedDesignations&&sm.allowedDesignations.length?' 🔒':'')+'</option>').join('')+
         '</select></td>'+
         '<td><input class="editable mono" data-field="netSalary" value="'+e.netSalary+'" inputmode="numeric"></td>'+
         '<td><input class="editable mono" data-field="monthlyCL" type="number" min="0" value="'+staffMonthlyCL(e)+'" style="width:56px;"></td>'+
@@ -2025,7 +2035,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
             activeOnly(UNITS).map(u=>'<option value="'+u.code+'">'+u.name+'</option>').join('')+
           '</select></div>'+
           '<div class="form-row"><label>Shift Master</label><select id="asShift">'+
-            activeOnly(SHIFT_MASTER).map(sm=>'<option value="'+sm.code+'">'+sm.name+'</option>').join('')+
+            activeOnly(SHIFT_MASTER).filter(sm=>!sm.allowedDesignations || !sm.allowedDesignations.length).map(sm=>'<option value="'+sm.code+'">'+sm.name+'</option>').join('')+
           '</select></div>'+
         '</div>'+
         '<div class="form-grid">'+
