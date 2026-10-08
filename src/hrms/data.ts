@@ -25,6 +25,8 @@ export const DEFAULT_PAYROLL_SETTINGS = {
     { upto: 60000, amount: 690 }, { upto: 75000, amount: 1025 }, { upto: 99999999, amount: 1250 },
   ] },
   ot: { enabled: true, multiplier: 1.5, graceMin: 15 },
+  /** staff login shows salary/deduction/net figures and the payslip only when an admin turns this on */
+  staffSalaryVisible: false,
 };
 
 // ─────────────── DB row ⇄ prototype object ───────────────
