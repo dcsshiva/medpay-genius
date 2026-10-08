@@ -582,7 +582,7 @@ function newStaffPanel(parsed){
      bulkField('Unit','unit',opt(UNITS,'Select unit…',defaults.unit))+
      bulkField('Department','dept',opt(DEPARTMENTS,'Select department…',defaults.dept))+
      bulkField('Designation','desg',opt(DESIGNATIONS,'Select designation…',defaults.desg))+
-     bulkField('Shift','shift',opt(SHIFT_MASTER,'Select shift…',defaults.shift))+
+     bulkField('Shift','shift',opt(SHIFT_MASTER.filter(sm=>!sm.allowedDesignations||!sm.allowedDesignations.length),'Select shift…',defaults.shift))+
      bulkField('Role','role','<option>Staff</option><option>Manager</option>')+
      bulkField('Reporting Manager','mgr',mgrOpts)+
      '</div><button type="button" class="btn sm" id="attApplyAllBtn">Apply to all selected staff</button></div>';
@@ -600,7 +600,7 @@ function newStaffPanel(parsed){
        '<td><select class="editable ns-unit" style="min-width:150px;">'+opt(UNITS,'Select…',defaults.unit)+'</select></td>'+
        '<td><select class="editable ns-dept" style="min-width:150px;">'+opt(DEPARTMENTS,'Select…',defaults.dept)+'</select></td>'+
        '<td><select class="editable ns-desg" style="min-width:140px;">'+opt(DESIGNATIONS,'Select…',defaults.desg)+'</select></td>'+
-       '<td><select class="editable ns-shift" style="min-width:140px;">'+opt(SHIFT_MASTER,'Select…',defaults.shift)+'</select></td>'+
+       '<td><select class="editable ns-shift" style="min-width:140px;">'+opt(SHIFT_MASTER.filter(sm=>!sm.allowedDesignations||!sm.allowedDesignations.length),'Select…',defaults.shift)+'</select></td>'+
       '<td><select class="editable ns-role" style="min-width:120px;"><option>Staff</option><option>Manager</option></select></td>'+
       '<td><select class="editable ns-mgr" style="min-width:150px;">'+mgrOpts+'</select></td>'+
        '<td><input class="editable mono ns-gross" type="number" min="0" value="0" style="width:100px;"></td>'+
