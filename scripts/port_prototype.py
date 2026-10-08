@@ -759,6 +759,38 @@ rep("""        HOLIDAYS.slice().sort((a,b)=>a.date.localeCompare(b.date)).map(""
 # designation-restricted shifts: planner cycles skip shifts the staff member isn't eligible for
 rep("ROSTER[rosterKey(emp, date)] = nextShiftCode(current);",
     "ROSTER[rosterKey(emp, date)] = nextShiftCode(current, STAFF.find(x=>x.empNo===emp));")
+
+# ── 23b. usability: search boxes keep focus while typing; wide tables drag-slide; planner legend shows every shift ──
+rep("""function suspendedTag(x){ return x && x.suspended ? ' <span class="badge slate" style="padding:1px 6px;font-size:10px;">Suspended</span>' : ''; }""",
+    """function suspendedTag(x){ return x && x.suspended ? ' <span class="badge slate" style="padding:1px 6px;font-size:10px;">Suspended</span>' : ''; }
+/* keep the caret in a search box whose screen re-renders on every keystroke */
+function refocusSearch(id){ const el = document.getElementById(id); if(el){ el.focus(); const v = el.value; try{ el.setSelectionRange(v.length, v.length); }catch(_){} } }
+/* drag-to-slide on wide tables (drag the empty areas / header, not the inputs) */
+(function(){
+  let dragEl = null, startX = 0, startL = 0, moved = false;
+  document.addEventListener('mousedown', e=>{
+    const t = e.target.closest && e.target.closest('.tbl-scroll');
+    if(t && !e.target.closest('input,select,textarea,button,a')){ dragEl = t; startX = e.clientX; startL = t.scrollLeft; moved = false; }
+  });
+  document.addEventListener('mousemove', e=>{
+    if(!dragEl) return;
+    const dx = e.clientX - startX;
+    if(Math.abs(dx) > 3){ moved = true; dragEl.scrollLeft = startL - dx; e.preventDefault(); }
+  });
+  document.addEventListener('mouseup', ()=>{ dragEl = null; });
+  document.addEventListener('click', e=>{ if(moved){ e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
+})();""")
+rep("document.getElementById('staffSearch').oninput = (e)=>{ staffQuery = e.target.value; renderAdminStaff(); };",
+    "document.getElementById('staffSearch').oninput = (e)=>{ staffQuery = e.target.value; renderAdminStaff(); refocusSearch('staffSearch'); };")
+rep("document.getElementById('plannerSearch').oninput = (e)=>{ plannerQuery = e.target.value; renderShiftPlanner(); };",
+    "document.getElementById('plannerSearch').oninput = (e)=>{ plannerQuery = e.target.value; renderShiftPlanner(); refocusSearch('plannerSearch'); };")
+# planner: colour every shift from Shift Master, and list them all in the legend
+rep("const cls = {S1:'planner-g', S2:'planner-s', S3:'planner-n'}[sh.code] || 'planner-x';",
+    "const cls = ['planner-g','planner-s','planner-n','planner-x'][Math.max(0, SHIFT_MASTER.findIndex(x=>x.code===sh.code)) % 4];")
+rep("""      '<span class="planner-cell planner-g" style="pointer-events:none;">G</span> General &nbsp;'+
+      '<span class="planner-cell planner-s" style="pointer-events:none;">S</span> Second &nbsp;'+
+      '<span class="planner-cell planner-n" style="pointer-events:none;">N</span> Night'+""",
+    """      activeOnly(SHIFT_MASTER).map((sm, i)=>'<span class="planner-cell '+['planner-g','planner-s','planner-n','planner-x'][i % 4]+'" style="pointer-events:none;">'+sm.letter+'</span> '+sm.name+' &nbsp;').join('')+""")
 rep("Map each staff member to a shift on Staff Master — the Shift Planner can still override any individual date.</div>';",
     "Map each staff member to a shift on Staff Master — the Shift Planner can still override any individual date. Shifts marked 🔒 (like the 4-Hour Break Shift) can only be assigned to the designations allowed for that shift; the planner simply skips them for everyone else.</div>';")
 
