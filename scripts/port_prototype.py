@@ -732,6 +732,16 @@ rep("""function nextStaffRef(){ return nextMasterCode(STAFF.map(s=>({code:s.dbRe
     """function nextStaffRef(){ return nextMasterCode(STAFF.concat(env.data.SUSPENDED_STAFF||[]).map(s=>({code:s.dbRef})), 'STF'); }
 /* active master items for new choices — a suspended item stays visible only where it is already selected */
 function activeOnly(list, keep){ return list.filter(x=>!x.suspended || (keep!==undefined && x.code===keep)); }
+/* designation-restricted shifts (e.g. 4-Hour Break Shift): allowedDesignations null/empty = anyone;
+   otherwise the staff member's designation code must be listed, or their role must be Admin when 'ADMIN' is listed */
+function shiftAllowedFor(shift, emp){
+  const ad = shift && shift.allowedDesignations;
+  if(!ad || !ad.length) return true;
+  if(!emp) return false;
+  if(ad.includes(emp.designation)) return true;
+  if(ad.includes('ADMIN') && (emp.role==='admin' || emp.role==='super_admin')) return true;
+  return false;
+}
 function suspendBtn(attr, id, suspended){
   return '<button class="iconbtn'+(suspended?'':' danger')+'" '+attr+'="'+id+'">'+(suspended?'Reactivate':'Suspend')+'</button>';
 }
@@ -739,7 +749,7 @@ function suspendedTag(x){ return x && x.suspended ? ' <span class="badge slate" 
 rep("function isHoliday(date){ return HOLIDAYS.some(h=>h.date===date); }",
     "function isHoliday(date){ return HOLIDAYS.some(h=>h.date===date && !h.suspended); }")
 rep("function nextShiftCode(code){ const i = SHIFT_MASTER.findIndex(s=>s.code===code); return SHIFT_MASTER[(i+1)%SHIFT_MASTER.length].code; }",
-    "function nextShiftCode(code){ const list = activeOnly(SHIFT_MASTER); if(!list.length) return code; const i = list.findIndex(s=>s.code===code); return list[(i+1)%list.length].code; }")
+    "function nextShiftCode(code, emp){ const list = activeOnly(SHIFT_MASTER).filter(s=>!emp || shiftAllowedFor(s, emp)); if(!list.length) return code; const i = list.findIndex(s=>s.code===code); return list[(i+1)%list.length].code; }")
 rep("""  let best=SHIFT_MASTER[0], bd=Infinity;
   for(const s of SHIFT_MASTER){""", """  const pool = activeOnly(SHIFT_MASTER).length ? activeOnly(SHIFT_MASTER) : SHIFT_MASTER;
   let best=pool[0], bd=Infinity;
@@ -754,7 +764,7 @@ rep("""        DEPARTMENTS.map(d=>'<option value="'+d.code+'" '+(e.department===
 rep("""        UNITS.map(u=>'<option value="'+u.code+'" '+(e.unitCode===u.code?'selected':'')+'>'+u.name+'</option>').join('')+""",
     """        activeOnly(UNITS, e.unitCode).map(u=>'<option value="'+u.code+'" '+(e.unitCode===u.code?'selected':'')+'>'+u.name+'</option>').join('')+""")
 rep("""        SHIFT_MASTER.map(sm=>'<option value="'+sm.code+'" '+(e.shiftCode===sm.code?'selected':'')+'>'+sm.name+'</option>').join('')+""",
-    """        activeOnly(SHIFT_MASTER, e.shiftCode).map(sm=>'<option value="'+sm.code+'" '+(e.shiftCode===sm.code?'selected':'')+'>'+sm.name+'</option>').join('')+""")
+    """        activeOnly(SHIFT_MASTER, e.shiftCode).filter(sm=>shiftAllowedFor(sm, e) || sm.code===e.shiftCode).map(sm=>'<option value="'+sm.code+'" '+(e.shiftCode===sm.code?'selected':'')+'>'+sm.name+(sm.allowedDesignations&&sm.allowedDesignations.length?' 🔒':'')+'</option>').join('')+""")
 rep("""          DESIGNATIONS.map(d=>'<option value="'+d.code+'">'+d.name+'</option>').join('')+""",
     """          activeOnly(DESIGNATIONS).map(d=>'<option value="'+d.code+'">'+d.name+'</option>').join('')+""")
 rep("""          DEPARTMENTS.map(d=>'<option value="'+d.code+'">'+d.name+'</option>').join('')+""",
@@ -762,7 +772,7 @@ rep("""          DEPARTMENTS.map(d=>'<option value="'+d.code+'">'+d.name+'</opti
 rep("""          UNITS.map(u=>'<option value="'+u.code+'">'+u.name+'</option>').join('')+""",
     """          activeOnly(UNITS).map(u=>'<option value="'+u.code+'">'+u.name+'</option>').join('')+""")
 rep("""          SHIFT_MASTER.map(sm=>'<option value="'+sm.code+'">'+sm.name+'</option>').join('')+""",
-    """          activeOnly(SHIFT_MASTER).map(sm=>'<option value="'+sm.code+'">'+sm.name+'</option>').join('')+""")
+    """          activeOnly(SHIFT_MASTER).filter(sm=>!sm.allowedDesignations || !sm.allowedDesignations.length).map(sm=>'<option value="'+sm.code+'">'+sm.name+'</option>').join('')+""")
 rep("""        TASK_TEMPLATES.map(tt=>'<option value="'+tt.id+'">'+tt.title+'</option>').join('')+""",
     """        TASK_TEMPLATES.filter(tt=>!tt.suspended).map(tt=>'<option value="'+tt.id+'">'+tt.title+'</option>').join('')+""")
 
