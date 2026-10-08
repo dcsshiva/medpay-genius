@@ -771,6 +771,23 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     return '<button class="iconbtn'+(suspended?'':' danger')+'" '+attr+'="'+id+'">'+(suspended?'Reactivate':'Suspend')+'</button>';
   }
   function suspendedTag(x){ return x && x.suspended ? ' <span class="badge slate" style="padding:1px 6px;font-size:10px;">Suspended</span>' : ''; }
+  /* keep the caret in a search box whose screen re-renders on every keystroke */
+  function refocusSearch(id){ const el = document.getElementById(id); if(el){ el.focus(); const v = el.value; try{ el.setSelectionRange(v.length, v.length); }catch(_){} } }
+  /* drag-to-slide on wide tables (drag the empty areas / header, not the inputs) */
+  (function(){
+    let dragEl = null, startX = 0, startL = 0, moved = false;
+    document.addEventListener('mousedown', e=>{
+      const t = e.target.closest && e.target.closest('.tbl-scroll');
+      if(t && !e.target.closest('input,select,textarea,button,a')){ dragEl = t; startX = e.clientX; startL = t.scrollLeft; moved = false; }
+    });
+    document.addEventListener('mousemove', e=>{
+      if(!dragEl) return;
+      const dx = e.clientX - startX;
+      if(Math.abs(dx) > 3){ moved = true; dragEl.scrollLeft = startL - dx; e.preventDefault(); }
+    });
+    document.addEventListener('mouseup', ()=>{ dragEl = null; });
+    document.addEventListener('click', e=>{ if(moved){ e.stopPropagation(); e.preventDefault(); moved = false; } }, true);
+  })();
   function inSelectedUnit(empNo){
     if(adminUnitFilter==='ALL') return true;
     const s = findStaff(empNo);
@@ -1129,7 +1146,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         const overridden = isOverridden(s.empNo, d);
         const late = Math.max(0, inMin - shiftStartMin(sh));
         const grace = sh.allowedLateMin ?? 15;
-        const cls = {S1:'planner-g', S2:'planner-s', S3:'planner-n'}[sh.code] || 'planner-x';
+        const cls = ['planner-g','planner-s','planner-n','planner-x'][Math.max(0, SHIFT_MASTER.findIndex(x=>x.code===sh.code)) % 4];
         return '<td style="text-align:center;">'+
           '<button class="planner-cell '+cls+(overridden?' planner-override':'')+'" data-emp="'+s.empNo+'" data-date="'+d+'" title="'+sh.name+(late>grace?' — '+late+'m late':'')+'">'+
             sh.letter+(late>grace?'<span class="planner-late-dot"></span>':'')+
@@ -1146,16 +1163,14 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<input class="search" id="plannerSearch" placeholder="Search staff..." value="'+escapeAttr(plannerQuery)+'" />'+
       '</div>'+
       '<div style="display:flex;gap:6px;align-items:center;font-size:11.5px;color:var(--slate);">'+
-        '<span class="planner-cell planner-g" style="pointer-events:none;">G</span> General &nbsp;'+
-        '<span class="planner-cell planner-s" style="pointer-events:none;">S</span> Second &nbsp;'+
-        '<span class="planner-cell planner-n" style="pointer-events:none;">N</span> Night'+
+        activeOnly(SHIFT_MASTER).map((sm, i)=>'<span class="planner-cell '+['planner-g','planner-s','planner-n','planner-x'][i % 4]+'" style="pointer-events:none;">'+sm.letter+'</span> '+sm.name+' &nbsp;').join('')+
       '</div>'+
     '</div>'+
     '<div class="tbl-scroll"><table class="narrow"><thead><tr>'+head+'</tr></thead><tbody>'+rows+'</tbody></table></div>'+
     '<div class="footnote">Click any shift badge to change that staff member\'s shift for that exact date — past, current or future, any time before the cycle\'s salary is finalized. A gold ring marks a manual override; a red dot marks a day that\'s late against whichever shift is in effect. Changes apply immediately to Shift Ledger, Salary and the staff member\'s own dashboard.</div>';
 
     document.getElementById('plannerMonthSel').onchange = (e)=>{ plannerMonth = e.target.value; renderShiftPlanner(); };
-    document.getElementById('plannerSearch').oninput = (e)=>{ plannerQuery = e.target.value; renderShiftPlanner(); };
+    document.getElementById('plannerSearch').oninput = (e)=>{ plannerQuery = e.target.value; renderShiftPlanner(); refocusSearch('plannerSearch'); };
     body.querySelectorAll('.planner-cell[data-emp]').forEach(btn=>{
       btn.onclick = ()=>{
         if(env.data.PAYROLL.run){ alert('This pay cycle is finalized. Reopen it on the Salary tab to change shifts.'); return; }
@@ -1823,7 +1838,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     '</tbody></table></div>'+
     '<div class="footnote">Staff Ref (STF…) is the permanent internal database key — assigned once, never changes or is reused, and stays fixed even if a staff member is transferred. Code / Login ID is the biometric device number used for front-end login and attendance matching (not editable afterwards, since attendance, tasks and leave records all key off it). Role = Manager lets that staff member sign in to the Admin Console (with their own Staff Code + password) to assign and review tasks — everything else there stays hidden to them. Designation, Department and Unit are picked from their own masters (Admin → Masters). Shift Master sets the staff member\'s default shift for lateness calculations — the Shift Planner can still override it for any specific date. Changing Unit here logs a transfer entry (see the Transfers button) without touching Staff Ref or Login ID. Reporting Manager decides whose Admin Console Leave &amp; Permission tab a staff member\'s requests appear in for approval — a Manager only sees requests from staff who report to them; the Administrator can always see and act on everything. Contact details, overtime eligibility and payroll deduction settings are under the Details button. CL / month and Permission hrs / month set that staff member\'s own monthly allowance. Password: type a new one to reset that staff member\'s sign-in password (it is never displayed). "Create missing logins" gives every staff member without an account a login with their Staff Code as the first password.</div>';
 
-    document.getElementById('staffSearch').oninput = (e)=>{ staffQuery = e.target.value; renderAdminStaff(); };
+    document.getElementById('staffSearch').oninput = (e)=>{ staffQuery = e.target.value; renderAdminStaff(); refocusSearch('staffSearch'); };
     const staffTopScroll = body.querySelector('.staff-master-top-scroll');
     const staffTableScroll = body.querySelector('.staff-master-scroll');
     const staffTable = body.querySelector('table.staff-master');

@@ -91,7 +91,9 @@
 .hrms-root .badge.rose{background:var(--rose-tint); color:var(--rose);}
 .hrms-root .badge.slate{background:var(--line); color:var(--slate);}
 
-.hrms-root .tbl-scroll{overflow-x:auto; border:1px solid var(--line); border-radius:12px;}
+.hrms-root .tbl-scroll{overflow-x:auto; border:1px solid var(--line); border-radius:12px; cursor:grab;}
+.hrms-root .tbl-scroll:active{cursor:grabbing;}
+.hrms-root .tbl-scroll input, .hrms-root .tbl-scroll select, .hrms-root .tbl-scroll textarea, .hrms-root .tbl-scroll button, .hrms-root .tbl-scroll a{cursor:auto;}
 .hrms-root table{border-collapse:collapse; width:100%; min-width:760px; background:var(--surface);}
 .hrms-root table.narrow{min-width:560px;}
 .hrms-root thead th{position:sticky; top:0; background:var(--surface-2); text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--slate); font-weight:600; padding:9px 10px; border-bottom:1px solid var(--line); white-space:nowrap;}
