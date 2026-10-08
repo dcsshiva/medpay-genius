@@ -1252,6 +1252,7 @@ export type Database = {
       hr_shifts: {
         Row: {
           active: boolean
+          allowed_designations: string[] | null
           allowed_extra_late_min: number
           allowed_late_min: number
           code: string
@@ -1264,6 +1265,7 @@ export type Database = {
         }
         Insert: {
           active?: boolean
+          allowed_designations?: string[] | null
           allowed_extra_late_min?: number
           allowed_late_min?: number
           code: string
@@ -1276,6 +1278,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          allowed_designations?: string[] | null
           allowed_extra_late_min?: number
           allowed_late_min?: number
           code?: string
