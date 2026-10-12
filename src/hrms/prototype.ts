@@ -1214,11 +1214,11 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   }
   function unitAttendanceChart(chart, list){
     const month = new Date(env.cycle.end+'T12:00:00').toLocaleDateString('en-IN',{month:'long',year:'numeric'});
-    return '<div class="attendance-cycle">'+escapeHTML(month+' cycle · '+CYCLE_LABEL_JS)+'</div>'+
+    return '<div class="attendance-cycle">'+escapeHTML(month+' cycle · '+env.cycle.label)+'</div>'+
       '<div class="attendance-scroll"><div class="attendance-columns">'+chart.series.map(day=>{
         const shortDate = new Date(day.date+'T12:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
         const breakdown = day.segments.map(s=>s.name+': '+s.present+'/'+s.total+' present ('+(s.pct==null?'no data':s.pct+'%')+')').join(' · ');
-        const detail = CYCLE_LABEL_JS+' · '+fmtDate(day.date)+' · '+(day.pct==null?'No attendance data':day.pct+'% attendance')+' · '+breakdown;
+        const detail = env.cycle.label+' · '+fmtDate(day.date)+' · '+(day.pct==null?'No attendance data':day.pct+'% attendance')+' · '+breakdown;
         return '<div class="attendance-column" role="button" tabindex="0" aria-label="'+escapeAttr(detail)+'" title="'+escapeAttr(detail)+'"'+xl(()=>xDay(day.date,list))+'>'+
           '<div class="attendance-value mono">'+(day.pct==null?'—':day.pct+'%')+'</div>'+
           '<div class="attendance-plot"><div class="attendance-stack'+(day.pct==null?' no-data':day.pct===0?' zero-data':'')+'">'+
@@ -1303,7 +1303,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '</div>'+
       whosOutBoard(scopedIds)+
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" class="stack-mobile">'+
-        '<div><div class="section-title">Daily attendance % (this cycle) <button class="x-more"'+xl(()=>xDays('Daily attendance', scopedStaff))+'>Explore ›</button></div>'+
+        '<div class="attendance-panel"><div class="section-title">Daily attendance % (this cycle) <button class="x-more"'+xl(()=>xDays('Daily attendance', scopedStaff))+'>Explore ›</button></div>'+
           unitAttendanceChart(attendanceChart, scopedStaff)+'</div>'+
         '<div><div class="section-title">Top late-comers <button class="x-more"'+xl(()=>xRanked('Late-comers', scopedStaff, c=>c.summary.lateDays, 'Late instances', false))+'>All ›</button></div>'+
           topList(topLate,{color:'var(--rose)',links:topLate.map(x=>xl(()=>xStaff(x.empNo)))})+'</div>'+
