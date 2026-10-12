@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -1310,10 +1310,12 @@ export type Database = {
           esi_applicable: boolean
           monthly_cl: number
           monthly_permission_hours: number
+          must_change_password: boolean
           name: string
           net_salary: number
           ot_eligible: boolean
           other_deduction: number
+          password_flag_hash: string | null
           pf_applicable: boolean
           phone: string
           reporting_manager: string
@@ -1342,10 +1344,12 @@ export type Database = {
           esi_applicable?: boolean
           monthly_cl?: number
           monthly_permission_hours?: number
+          must_change_password?: boolean
           name: string
           net_salary?: number
           ot_eligible?: boolean
           other_deduction?: number
+          password_flag_hash?: string | null
           pf_applicable?: boolean
           phone?: string
           reporting_manager?: string
@@ -1374,10 +1378,12 @@ export type Database = {
           esi_applicable?: boolean
           monthly_cl?: number
           monthly_permission_hours?: number
+          must_change_password?: boolean
           name?: string
           net_salary?: number
           ot_eligible?: boolean
           other_deduction?: number
+          password_flag_hash?: string | null
           pf_applicable?: boolean
           phone?: string
           reporting_manager?: string
@@ -5423,14 +5429,17 @@ export type Database = {
         }[]
       }
       hr_can_manage: { Args: { _uid: string }; Returns: boolean }
+      hr_flag_password_change: { Args: { _emp: string }; Returns: undefined }
       hr_is_admin: { Args: { _uid: string }; Returns: boolean }
       hr_is_manager: { Args: { _uid: string }; Returns: boolean }
       hr_latest_attendance_date: { Args: never; Returns: string }
       hr_my_emp: { Args: { _uid: string }; Returns: string }
+      hr_refresh_password_flag: { Args: never; Returns: boolean }
       hr_whoami: {
         Args: never
         Returns: {
           emp_no: string
+          must_change: boolean
           name: string
           role: string
         }[]
