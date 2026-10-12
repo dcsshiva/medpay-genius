@@ -1,6 +1,6 @@
 # Current tasks
 
-- [ ] Add Overview attendance cycle/date labels, stacked unit colours, and a unit legend; verify calculations and signed-in display.
+- [x] Add Overview attendance cycle/date labels, stacked unit colours, and a unit legend; five calculation tests passed; signed-in display, unit filtering, cycle switching and day details verified.
 
 - [ ] Update the six remix credentials — blocked until the secure update form is accepted.
 - [ ] Replace removed email-function calls with managed sending — blocked until this remix has its own configured email domain.
