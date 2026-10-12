@@ -1158,6 +1158,336 @@ rep("""id="sdPf" '+((e.pfApplicable??true)?'checked':'')""", """id="sdPf" '+((e.
 rep("""id="sdEsi" '+((e.esiApplicable ?? (e.netSalary<=21000))?'checked':'')""", """id="sdEsi" '+((e.esiApplicable??false)?'checked':'')""")
 rep("pfApplicable: true, esiApplicable: netSalary<=21000,", "pfApplicable: false, esiApplicable: false,")
 
+# ── 28. Overview explorer: every card, chart bar, bar-list row and table row on the Overview opens a
+#        drill-down window. Each level links deeper (unit → department → staff → day-by-day sheet;
+#        staff → manager / reports / tasks / leave), with a breadcrumb to step back. Managers explore
+#        only their own reports, with salary figures hidden. ──
+rep("""function stat(k,v,cls){
+  return '<div class="stat"><div class="k">'+k+'</div><div class="v'+(cls?' '+cls:'')+'">'+v+'</div></div>';
+}""", """function stat(k,v,cls,link){
+  return '<div class="stat'+(link?' stat-link':'')+'"'+(link?link+' role="button" tabindex="0"':'')+'><div class="k">'+k+'</div><div class="v'+(cls?' '+cls:'')+'">'+v+'</div></div>';
+}""")
+rep("""    series.map(s=>{
+      const h = s.value==null ? 3 : Math.max(4, Math.round((s.value/max)*76));
+      return '<div title="'+escapeAttr(s.label+': '+(s.value==null?'no data':s.value+(opts.suffix||'')))+'" style="flex:0 0 auto;""",
+    """    series.map((s,ix)=>{
+      const h = s.value==null ? 3 : Math.max(4, Math.round((s.value/max)*76));
+      return '<div'+(opts.links?' class="x-bar"'+opts.links[ix]:'')+' title="'+escapeAttr(s.label+': '+(s.value==null?'no data':s.value+(opts.suffix||'')))+'" style="flex:0 0 auto;""")
+rep("""    items.map(i=>'<div style="display:flex;align-items:center;gap:8px;">'+""",
+    """    items.map((i,ix)=>'<div'+(opts.links?' class="x-hover"'+opts.links[ix]:'')+' style="display:flex;align-items:center;gap:8px;">'+""")
+rep("""    segments.map(s=> s.value>0 ? '<div title="'+escapeAttr(s.label+': '+fmtMoney(s.value))+'" style="width:""",
+    """    segments.map(s=> s.value>0 ? '<div'+(s.link?' class="x-bar"'+s.link:'')+' title="'+escapeAttr(s.label+': '+fmtMoney(s.value))+'" style="width:""")
+rep("""    segments.map(s=>'<span style="font-size:11.5px;color:var(--slate);display:flex;align-items:center;gap:5px;">""",
+    """    segments.map(s=>'<span'+(s.link?' class="x-hover"'+s.link:'')+' style="font-size:11.5px;color:var(--slate);display:flex;align-items:center;gap:5px;">""")
+
+# explorer core + nodes
+rep("function renderManagerOverview(){", r"""/* ---- Overview explorer ---- */
+let explorerStack = [];
+let explorerLinks = [];
+/* registers a drill-down target for the HTML being built; returns the attribute to put on the clickable element */
+function xl(make){ explorerLinks.push(make); return ' data-xl="'+(explorerLinks.length-1)+'"'; }
+function xIsManager(){ return !!(currentAdminAccount && currentAdminAccount.role==='manager'); }
+function xCanSee(empNo){
+  if(!xIsManager()) return true;
+  const me = currentAdminAccount.username;
+  const s = findStaff(empNo);
+  return empNo===me || !!(s && s.reportingManager===me);
+}
+function xStaffLink(empNo, fallback){
+  const s = findStaff(empNo);
+  if(!s) return escapeHTML(fallback || empNo || '—');
+  return xCanSee(empNo) ? '<button class="x-link"'+xl(()=>xStaff(empNo))+'>'+escapeHTML(s.name)+'</button>' : escapeHTML(s.name);
+}
+function wireExplore(container, links){
+  container.querySelectorAll('[data-xl]').forEach(el=>{
+    const go = e=>{
+      e.preventDefault(); e.stopPropagation();
+      const node = links[+el.dataset.xl]();
+      if(!node) return;
+      if(container.id==='modalRoot') explorerStack.push(node); else explorerStack = [node];
+      renderExplorer();
+    };
+    el.onclick = go;
+    if(el.getAttribute('tabindex')!==null) el.onkeydown = e=>{ if(e.key==='Enter' || e.key===' ') go(e); };
+  });
+}
+function renderExplorer(){
+  const modalRoot = document.getElementById('modalRoot');
+  if(!explorerStack.length){ modalRoot.innerHTML = ''; return; }
+  explorerLinks = [];
+  const node = explorerStack[explorerStack.length-1];
+  const content = node.build();
+  const last = explorerStack.length-1;
+  const crumbs = explorerStack.map((n,i)=> i===last
+    ? '<span class="x-crumb current">'+escapeHTML(n.title)+'</span>'
+    : '<button class="x-crumb" data-crumb="'+i+'">'+escapeHTML(n.title)+'</button>').join('<span class="x-sep">›</span>');
+  modalRoot.innerHTML = ''+
+  '<div class="modal-back" id="modalBack"><div class="modal">'+
+    '<div class="modal-head"><div class="x-crumbs">'+(last>0?'<button class="iconbtn" id="xBack">← Back</button>':'')+crumbs+'</div><button class="closebtn" id="modalClose">✕</button></div>'+
+    '<div class="modal-body">'+content+'</div>'+
+  '</div></div>';
+  const close = ()=>{ explorerStack = []; modalRoot.innerHTML = ''; };
+  document.getElementById('modalClose').onclick = close;
+  document.getElementById('modalBack').addEventListener('click', e=>{ if(e.target.id==='modalBack') close(); });
+  const back = document.getElementById('xBack');
+  if(back) back.onclick = ()=>{ explorerStack.pop(); renderExplorer(); };
+  modalRoot.querySelectorAll('[data-crumb]').forEach(b=> b.onclick = ()=>{ explorerStack.length = +b.dataset.crumb+1; renderExplorer(); });
+  wireExplore(modalRoot, explorerLinks);
+  document.getElementById('modalBack').scrollTop = 0;
+}
+function xHint(t){ return '<div class="hint" style="margin-bottom:10px;">'+t+'</div>'; }
+function xTable(head, rows, empty){
+  return '<div class="tbl-scroll"><table class="narrow"><thead><tr>'+head.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+
+    (rows.join('') || '<tr><td colspan="'+head.length+'" class="note">'+(empty||'Nothing here.')+'</td></tr>')+'</tbody></table></div>';
+}
+function xRow(link, cells){ return '<tr'+(link?' class="clickable-row"'+link:'')+'>'+cells.map(c=>'<td>'+c+'</td>').join('')+'</tr>'; }
+const xMono = v=> '<span class="mono">'+v+'</span>';
+function xGroup(list, keyFn){
+  const out = {};
+  list.forEach(s=>{ const k = keyFn(s) || ''; (out[k] = out[k] || []).push(s); });
+  return Object.entries(out).sort((a,b)=>b[1].length-a[1].length);
+}
+function xSum(list, fn){ return list.reduce((t,s)=>{ const c = computeCycle(s.empNo); return t + (c ? fn(c) : 0); }, 0); }
+
+/* staff grouped Unit → Department → staff */
+function xStaffTree(title, list, hint){
+  return {title, build: ()=>{
+    const hideSal = xIsManager();
+    const rows = xGroup(list, s=>s.unitCode).map(([code, members])=> xRow(xl(()=>xDeptTree(unitName(code)||'No unit', members)), [
+      escapeHTML(unitName(code)||'No unit'), xMono(members.length), xMono(xSum(members, c=>c.summary.presentDays)),
+      xMono(xSum(members, c=>c.summary.lateDays))].concat(hideSal ? [] : [xMono(fmtMoney(xSum(members, c=>c.emp.netSalary)))])));
+    return (hint ? xHint(hint) : '')+
+      xTable(['Unit','Staff','Present days','Late instances'].concat(hideSal ? [] : ['Payroll cost']), rows, 'No staff.')+
+      '<div style="margin-top:10px;"><button class="iconbtn"'+xl(()=>xStaffList('All '+list.length+' staff', list))+'>Show all '+list.length+' as one list ›</button></div>';
+  }};
+}
+function xDeptTree(title, list){
+  return {title, build: ()=>{
+    const hideSal = xIsManager();
+    const rows = xGroup(list, s=>s.department).map(([code, members])=> xRow(xl(()=>xStaffList(deptName(code)||'No department', members)), [
+      escapeHTML(deptName(code)||'No department'), xMono(members.length), xMono(xSum(members, c=>c.summary.presentDays)),
+      xMono(xSum(members, c=>c.summary.lateDays))].concat(hideSal ? [] : [xMono(fmtMoney(xSum(members, c=>c.emp.netSalary)))])));
+    return xTable(['Department','Staff','Present days','Late instances'].concat(hideSal ? [] : ['Payroll cost']), rows, 'No staff.')+
+      '<div style="margin-top:10px;"><button class="iconbtn"'+xl(()=>xStaffList(title+' · all staff', list))+'>Show all '+list.length+' as one list ›</button></div>';
+  }};
+}
+function xStaffList(title, list, hint){
+  return {title, build: ()=>{
+    const hideSal = xIsManager();
+    const rows = list.slice().sort((a,b)=>a.name.localeCompare(b.name)).map(s=>{
+      const c = computeCycle(s.empNo); const sm = c ? c.summary : {};
+      return xRow(xCanSee(s.empNo) ? xl(()=>xStaff(s.empNo)) : '', [xMono(s.empNo), escapeHTML(s.name), escapeHTML(deptName(s.department)||'—'),
+        escapeHTML(desgName(s.designation)||'—'), escapeHTML(unitName(s.unitCode)||'—'), xMono(sm.presentDays||0), xMono(sm.absentDays||0), xMono(sm.lateDays||0)]
+        .concat(hideSal ? [] : [xMono(fmtMoney((sm.totalDeduction||0)+(sm.statutoryDeduction||0)))]));
+    });
+    return (hint ? xHint(hint) : '')+
+      xTable(['Code','Name','Department','Designation','Unit','Present','Absent','Late'].concat(hideSal ? [] : ['Deduction']), rows, 'No staff.');
+  }};
+}
+/* staff ranked by one figure (late days, LOP, PF …) — zero rows left out */
+function xRanked(title, list, valueFn, label, money, hint){
+  return {title, build: ()=>{
+    const ranked = list.map(s=>{ const c = computeCycle(s.empNo); return {s, v: c ? valueFn(c) : 0}; }).filter(x=>x.v>0.004).sort((a,b)=>b.v-a.v);
+    const total = ranked.reduce((t,x)=>t+x.v,0);
+    const rows = ranked.map(x=> xRow(xCanSee(x.s.empNo) ? xl(()=>xStaff(x.s.empNo)) : '', [xMono(x.s.empNo), escapeHTML(x.s.name),
+      escapeHTML(deptName(x.s.department)||'—'), escapeHTML(unitName(x.s.unitCode)||'—'), xMono(money ? fmtMoney(x.v) : x.v)]));
+    return xHint((hint ? hint+' ' : '')+ranked.length+' staff &middot; total '+(money ? fmtMoney(total) : total)+'.')+
+      xTable(['Code','Name','Department','Unit',label], rows, 'Nobody has any for this cycle.');
+  }};
+}
+function xStaff(empNo){
+  const s = findStaff(empNo);
+  if(!s || !xCanSee(empNo)) return null;
+  return {title: s.name, build: ()=>{
+    const hideSal = xIsManager();
+    const r = computeCycle(empNo);
+    const mgr = findStaff(s.reportingManager);
+    const reports = STAFF.filter(x=>x.reportingManager===empNo);
+    const tasks = TASKS.filter(t=>t.assignedTo===empNo);
+    const leaves = LEAVES.filter(l=>l.empNo===empNo);
+    const sh = shiftByCode(s.shiftCode);
+    const btn = (label, link)=> link ? '<button class="iconbtn"'+link+'>'+label+' ›</button>' : '';
+    return ''+
+      '<div class="x-links">'+
+        '<span class="badge slate">'+escapeHTML(unitName(s.unitCode)||'No unit')+'</span>'+
+        '<span class="badge slate">'+escapeHTML(deptName(s.department)||'No department')+'</span>'+
+        '<span class="badge slate">'+escapeHTML(desgName(s.designation)||'No designation')+'</span>'+
+        '<span class="badge slate">'+escapeHTML(sh ? sh.name : 'No shift')+'</span>'+
+        (mgr ? btn('Reporting manager: '+escapeHTML(mgr.name), xCanSee(mgr.empNo) ? xl(()=>xStaff(mgr.empNo)) : '') || '<span class="badge slate">Manager: '+escapeHTML(mgr.name)+'</span>' : '<span class="badge rose">No reporting manager</span>')+
+        (reports.length ? btn(reports.length+' report'+(reports.length>1?'s':''), xl(()=>xStaffList('Reports of '+s.name, reports))) : '')+
+        btn(tasks.length+' task'+(tasks.length===1?'':'s'), xl(()=>xTaskList('Tasks · '+s.name, tasks)))+
+        btn(leaves.length+' leave / permission request'+(leaves.length===1?'':'s'), xl(()=>xLeaveList('Leave · '+s.name, leaves)))+
+      '</div>'+
+      (r ? profileAndStats(r, hideSal) + attendanceTable(r, hideSal) : '<div class="note">No attendance in this pay cycle.</div>');
+  }};
+}
+function xTaskList(title, tasks, hint){
+  return {title, build: ()=> (hint ? xHint(hint) : '')+
+    xTable(['Task','Assigned to','Assigned by','Due','Priority','Status'], tasks.map(t=>{
+      const b = findStaff(t.assignedBy);
+      return xRow(xl(()=>xTask(t.id)), [escapeHTML(t.title), escapeHTML((findStaff(t.assignedTo)||{}).name || t.assignedTo || '—'),
+        escapeHTML(b ? b.name : (t.assignedBy || 'Admin')), xMono(t.dueDate ? fmtDate(t.dueDate) : '—'), escapeHTML(t.priority||'—'), statusPill(t.status)]);
+    }), 'No tasks.')};
+}
+function xTaskGroups(title, tasks, hint){
+  return {title, build: ()=>{
+    const groups = xGroup(tasks, t=>t.status);
+    return (hint ? xHint(hint) : '')+
+      xTable(['Status','Tasks'], groups.map(([st, list])=> xRow(xl(()=>xTaskList(statusPill(st).replace(/<[^>]+>/g,''), list)), [statusPill(st), xMono(list.length)])), 'No tasks.')+
+      '<div class="section-title" style="margin-top:16px;">All '+tasks.length+'</div>'+xTaskList(title, tasks).build();
+  }};
+}
+function xTask(id){
+  const t = TASKS.find(x=>x.id===id);
+  if(!t) return null;
+  return {title: t.title, build: ()=>{
+    const kv = (k,v)=> '<tr><th style="width:190px;">'+k+'</th><td>'+v+'</td></tr>';
+    const text = v=> v ? escapeHTML(v).replace(/\n/g,'<br>') : '—';
+    return '<div class="tbl-scroll"><table class="narrow"><tbody>'+
+      kv('Status', statusPill(t.status))+
+      kv('Priority', escapeHTML(t.priority||'—'))+
+      kv('Assigned to', xStaffLink(t.assignedTo))+
+      kv('Assigned by', xStaffLink(t.assignedBy, t.assignedBy || 'Admin'))+
+      kv('Created', xMono(t.createdDate ? fmtDate(t.createdDate) : '—'))+
+      kv('Due', xMono(t.dueDate ? fmtDate(t.dueDate) : '—'))+
+      kv('Description', text(t.description))+
+      kv('Staff response', text(t.employeeResponseNote))+
+      kv('Completion note', text(t.completionNote)+(t.completionDate ? ' <span class="hint">('+fmtDate(t.completionDate)+')</span>' : ''))+
+      kv('Review note', text(t.reviewNote))+
+    '</tbody></table></div>'+
+    '<div class="footnote">Act on this task from the Tasks tab.</div>';
+  }};
+}
+function xLeaveList(title, leaves, hint){
+  return {title, build: ()=> (hint ? xHint(hint) : '')+
+    xTable(['Staff','Type','Date','Reason','Covering','Status'], leaves.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(l=>
+      xRow('', [xStaffLink(l.empNo), escapeHTML(l.type)+(l.hours ? ' &middot; '+l.hours+'h' : ''), xMono(fmtDate(l.date)),
+        '<span class="note">'+escapeHTML(l.reason||'—')+'</span>', l.altEmpNo ? xStaffLink(l.altEmpNo) : '—', statusPill(l.status)])), 'No requests.')+
+    '<div class="footnote">Approve or reject from the Leave &amp; Permission tab.</div>'};
+}
+/* one day: every staff member's status, punch, shift and lateness (from the payroll engine) */
+function xDay(date, list){
+  return {title: fmtDate(date)+' ('+dayName(date)+')', build: ()=>{
+    const order = {P:0, CL:1, A:2, WO:3, H:4};
+    const items = list.map(s=>{ const c = computeCycle(s.empNo); return {s, r: c ? c.rows.find(x=>x.date===date) : null}; });
+    const late = items.filter(x=>x.r && x.r.status==='P' && x.r.lateMin>(x.r.shift ? (x.r.shift.allowedLateMin??15) : 15));
+    const count = st=> items.filter(x=>x.r && x.r.status===st).length;
+    const rows = items.sort((a,b)=> (a.r ? order[a.r.status]??5 : 6)-(b.r ? order[b.r.status]??5 : 6) || ((b.r&&b.r.lateMin)||0)-((a.r&&a.r.lateMin)||0))
+      .map(({s, r})=>{
+        const g = r && r.shift ? (r.shift.allowedLateMin??15) : 15;
+        return xRow(xCanSee(s.empNo) ? xl(()=>xStaff(s.empNo)) : '', [escapeHTML(s.name), escapeHTML(deptName(s.department)||'—'),
+          r ? statusPill(r.status) : '<span class="hint">No record</span>', xMono(r && r.inTime ? r.inTime : '—'), xMono(r && r.outTime ? r.outTime : '—'),
+          escapeHTML(r && r.shift ? r.shift.name : '—'), r && r.status==='P' && r.lateMin>g ? '<span class="late-flag">'+fmtMin(r.lateMin)+'</span>' : '—']);
+      });
+    return '<div class="stats">'+stat('Present', count('P'), 'teal')+stat('Late', late.length, late.length?'rose':'')+stat('Absent', count('A'), count('A')?'rose':'')+
+      stat('Casual leave', count('CL'))+stat('Weekly off / holiday', count('WO')+count('H'))+'</div>'+
+      xTable(['Staff','Department','Status','In','Out','Shift','Late'], rows, 'No staff.');
+  }};
+}
+function xDays(title, list){
+  return {title, build: ()=>{
+    const byEmp = list.map(s=>{ const c = computeCycle(s.empNo); const m = {}; (c ? c.rows : []).forEach(r=>{ m[r.date] = r; }); return m; });
+    const rows = allCycleDates().map(d=>{
+      let p=0, a=0, l=0, work=0;
+      byEmp.forEach(m=>{ const r = m[d]; if(!r || r.status==='WO' || r.status==='H') return; work++;
+        if(r.status==='P'){ p++; if(r.lateMin>(r.shift ? (r.shift.allowedLateMin??15) : 15)) l++; } else if(r.status==='A') a++; });
+      return xRow(xl(()=>xDay(d, list)), [xMono(fmtDate(d)+' '+dayName(d)), xMono(work ? Math.round(p/work*100)+'%' : '—'), xMono(p), xMono(a), xMono(l)]);
+    });
+    return xHint('Attendance % = present ÷ staff on record that day (weekly offs and holidays excluded). Click a day for everyone\'s punches.')+
+      xTable(['Date','Attendance','Present','Absent','Late'], rows, 'No attendance in this pay cycle yet.');
+  }};
+}
+/* payroll money: each figure opens the staff behind it */
+function xPayroll(title, list){
+  return {title, build: ()=>{
+    const parts = [
+      ['Gross salary', c=>c.emp.netSalary], ['Lateness / LOP deduction', c=>c.summary.totalDeduction], ['PF', c=>c.summary.pfDeduction],
+      ['ESI', c=>c.summary.esiDeduction], ['Professional tax', c=>c.summary.ptDeduction], ['Other deduction', c=>c.summary.otherDeduction],
+      ['Overtime pay', c=>c.summary.otPay], ['Net payable', c=>c.summary.finalNet],
+    ];
+    return xTable(['Figure','Total','Staff'], parts.map(([label, fn])=>{
+      const n = list.filter(s=>{ const c = computeCycle(s.empNo); return c && fn(c)>0.004; }).length;
+      return xRow(xl(()=>xRanked(label, list, fn, label, true)), [label, xMono(fmtMoney(xSum(list, fn))), xMono(n)]);
+    }))+
+    '<div class="section-title" style="margin-top:16px;">Deduction by unit</div>'+
+    xTable(['Unit','Staff','Lateness / LOP','Statutory (PF/ESI/PT/other)','Total'], xGroup(list, s=>s.unitCode).map(([code, members])=>
+      xRow(xl(()=>xRanked('Deduction · '+(unitName(code)||'No unit'), members, c=>c.summary.totalDeduction+c.summary.statutoryDeduction, 'Total deduction', true)),
+        [escapeHTML(unitName(code)||'No unit'), xMono(members.length), xMono(fmtMoney(xSum(members, c=>c.summary.totalDeduction))),
+         xMono(fmtMoney(xSum(members, c=>c.summary.statutoryDeduction))), xMono(fmtMoney(xSum(members, c=>c.summary.totalDeduction+c.summary.statutoryDeduction)))])));
+  }};
+}
+
+function renderManagerOverview(){""")
+
+# admin overview: cards, charts and tables become entry points
+rep("""function renderAdminOverview(){
+  const body = document.getElementById('adminBody');""", """function renderAdminOverview(){
+  const body = document.getElementById('adminBody');
+  explorerLinks = [];""")
+rep("""  const attendanceSeries = dailyAttendanceSeries(scopedIds).map(x=>({label:fmtDate(x.date), value:x.pct}));""",
+    """  const attendanceSeries = dailyAttendanceSeries(scopedIds).map(x=>({label:fmtDate(x.date), value:x.pct, date:x.date}));""")
+rep("""    .map(x=>({label:x.s.name, value:x.cyc.summary.lateDays}));""",
+    """    .map(x=>({label:x.s.name, value:x.cyc.summary.lateDays, empNo:x.s.empNo}));""")
+rep("""      stat('Total staff', scopedStaff.length)+
+      stat('Open tasks', openTasks)+
+      stat('Pending leave requests', pendingLeave, pendingLeave>0?'rose':'')+
+      stat('Total deduction (cycle)', fmtMoney(totalDeduction), totalDeduction>0.5?'rose':'')+
+      stat('Rejected tasks to reassign', rejectedTasks, rejectedTasks>0?'rose':'')+
+      stat('Reviews awaiting close', reviewsAwaiting, reviewsAwaiting>0?'rose':'')+
+      stat('Staff with no Reporting Manager', noManager, noManager>0?'rose':'')+""",
+    """      stat('Total staff', scopedStaff.length, '', xl(()=>xStaffTree('Total staff', scopedStaff, 'By unit, then department. Click a row to go deeper.')))+
+      stat('Open tasks', openTasks, '', xl(()=>xTaskGroups('Open tasks', TASKS.filter(t=>t.status!=='Done' && scopedIds.has(t.assignedTo)), 'Every task not marked Done, by status.')))+
+      stat('Pending leave requests', pendingLeave, pendingLeave>0?'rose':'', xl(()=>xLeaveList('Pending leave requests', LEAVES.filter(l=>l.status==='Pending' && scopedIds.has(l.empNo)))))+
+      stat('Total deduction (cycle)', fmtMoney(totalDeduction), totalDeduction>0.5?'rose':'', xl(()=>xPayroll('Total deduction', scopedStaff)))+
+      stat('Rejected tasks to reassign', rejectedTasks, rejectedTasks>0?'rose':'', xl(()=>xTaskList('Rejected tasks', TASKS.filter(t=>t.status==='Rejected' && scopedIds.has(t.assignedTo)))))+
+      stat('Reviews awaiting close', reviewsAwaiting, reviewsAwaiting>0?'rose':'', xl(()=>xTaskList('Reviews awaiting close', TASKS.filter(t=>t.status==='Review' && scopedIds.has(t.assignedTo)))))+
+      stat('Staff with no Reporting Manager', noManager, noManager>0?'rose':'', xl(()=>xStaffTree('No reporting manager', scopedStaff.filter(s=>!s.reportingManager || !findStaff(s.reportingManager)), 'Set the manager in Staff Master (one by one, or select several and use the bulk bar).')))+""")
+rep("""      '<div><div class="section-title">Daily attendance % (this cycle)</div>'+miniBarChart(attendanceSeries,{suffix:'%',max:100})+'</div>'+
+      '<div><div class="section-title">Top late-comers</div>'+topList(topLate,{color:'var(--rose)'})+'</div>'+""",
+    """      '<div><div class="section-title">Daily attendance % (this cycle) <button class="x-more"'+xl(()=>xDays('Daily attendance', scopedStaff))+'>Explore ›</button></div>'+
+        miniBarChart(attendanceSeries,{suffix:'%',max:100,links:attendanceSeries.map(x=>xl(()=>xDay(x.date, scopedStaff)))})+'</div>'+
+      '<div><div class="section-title">Top late-comers <button class="x-more"'+xl(()=>xRanked('Late-comers', scopedStaff, c=>c.summary.lateDays, 'Late instances', false))+'>All ›</button></div>'+
+        topList(topLate,{color:'var(--rose)',links:topLate.map(x=>xl(()=>xStaff(x.empNo)))})+'</div>'+""")
+rep("""    '<div class="section-title" style="margin-top:16px;">Payroll cost breakdown (this cycle)</div>'+
+    stackedBar([
+      {label:'Net payable', value:netTotal, color:'var(--teal)'},
+      {label:'Lateness / LOP', value:lopTotal, color:'var(--rose)'},
+      {label:'Statutory (PF/ESI/PT)', value:statTotal, color:'var(--amber)'},
+    ])+""", """    '<div class="section-title" style="margin-top:16px;">Payroll cost breakdown (this cycle) <button class="x-more"'+xl(()=>xPayroll('Payroll cost', scopedStaff))+'>Explore ›</button></div>'+
+    stackedBar([
+      {label:'Net payable', value:netTotal, color:'var(--teal)', link:xl(()=>xRanked('Net payable', scopedStaff, c=>c.summary.finalNet, 'Net payable', true))},
+      {label:'Lateness / LOP', value:lopTotal, color:'var(--rose)', link:xl(()=>xRanked('Lateness / LOP', scopedStaff, c=>c.summary.totalDeduction, 'Lateness / LOP', true))},
+      {label:'Statutory (PF/ESI/PT)', value:statTotal, color:'var(--amber)', link:xl(()=>xRanked('Statutory', scopedStaff, c=>c.summary.statutoryDeduction, 'PF + ESI + PT + other', true))},
+    ])+""")
+rep("""    unitStats.map(x=>'<tr><td>'+x.u.name+'</td>""",
+    """    unitStats.map(x=>'<tr class="clickable-row"'+xl(()=>xDeptTree(x.u.name, STAFF.filter(s=>s.unitCode===x.u.code)))+'><td>'+x.u.name+'</td>""")
+rep("""    Object.entries(byDept).sort((a,b)=>b[1]-a[1]).map(([d,c])=>'<tr><td>'+deptName(d)+'</td>""",
+    """    Object.entries(byDept).sort((a,b)=>b[1]-a[1]).map(([d,c])=>'<tr class="clickable-row"'+xl(()=>xStaffList(deptName(d)||'No department', scopedStaff.filter(s=>s.department===d)))+'><td>'+deptName(d)+'</td>""")
+rep("""  renderTrendBox(adminUnitFilter==='ALL' ? {""", """  wireExplore(body, explorerLinks);
+  renderTrendBox(adminUnitFilter==='ALL' ? {""")
+
+# manager overview: same explorer, scoped to their reports (salary hidden)
+rep("""  const body = document.getElementById('adminBody');
+  const me = currentAdminAccount.username;""", """  const body = document.getElementById('adminBody');
+  explorerLinks = [];
+  const me = currentAdminAccount.username;""")
+rep("""      stat('My reports', myReports.length)+
+      stat('Present today', presentToday+' / '+myReports.length, 'teal')+
+      stat('Pending leave approvals', pendingLeave.length, pendingLeave.length>0?'rose':'')+
+      stat('Tasks awaiting review', tasksAwaitingReview.length, tasksAwaitingReview.length>0?'rose':'')+
+      stat('Rejected tasks to reassign', rejectedTasks.length, rejectedTasks.length>0?'rose':'')+""",
+    """      stat('My reports', myReports.length, '', xl(()=>xStaffList('My reports', myReports)))+
+      stat('Present today', presentToday+' / '+myReports.length, 'teal', today ? xl(()=>xDay(today, myReports)) : '')+
+      stat('Pending leave approvals', pendingLeave.length, pendingLeave.length>0?'rose':'', xl(()=>xLeaveList('Pending leave approvals', pendingLeave)))+
+      stat('Tasks awaiting review', tasksAwaitingReview.length, tasksAwaitingReview.length>0?'rose':'', xl(()=>xTaskList('Tasks awaiting review', tasksAwaitingReview)))+
+      stat('Rejected tasks to reassign', rejectedTasks.length, rejectedTasks.length>0?'rose':'', xl(()=>xTaskList('Rejected tasks', rejectedTasks)))+""")
+rep("""    (todaySnapshot.map(({s,rec})=>'<tr><td>'+s.name+'</td>""",
+    """    (todaySnapshot.map(({s,rec})=>'<tr class="clickable-row"'+xl(()=>xStaff(s.empNo))+'><td>'+s.name+'</td>""")
+rep("""all happen there.</div>';
+}""", """all happen there.</div>';
+  wireExplore(body, explorerLinks);
+}""")
+
 # sanity: nothing left that points at demo data
 # (the Selvantra Technologies credit is allowed only inside the sign-in screen, section 24)
 _outside_auth = re.sub(r'function authShell\(kind, errorMsg\)\{.*?\nfunction wireAuthShell', '', script, flags=re.S)
