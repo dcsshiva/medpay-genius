@@ -70,14 +70,23 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     for(const s of pool){ const d=Math.abs(inMin-shiftStartMin(s)); if(d<bd){ bd=d; best=s; } }
     return best;
   }
-  /* Resolution order for a given staff+date: (1) Shift Planner override, (2) the staff's
-     Shift Master mapping from Staff Master, (3) auto-detect nearest shift from IN time. */
+  /* Resolution order for a given staff+date: (1) Shift Planner override, (2) staff whose
+     Staff Master shift is the General Shift stay on it, (3) everyone else: the active shift
+     (other than General) they're eligible for whose start is nearest the IN punch. With no
+     IN punch, their Staff Master shift applies. */
+  function isGeneralShift(s){ return !!s && /general/i.test(s.name || ''); }
   function effectiveShift(empNo, date, inMin){
     const override = ROSTER[rosterKey(empNo, date)];
-    if(override) return shiftByCode(override);
+    if(override && shiftByCode(override)) return shiftByCode(override);
     const emp = findStaff(empNo);
-    if(emp && emp.shiftCode && shiftByCode(emp.shiftCode)) return shiftByCode(emp.shiftCode);
-    return nearestShift(inMin);
+    const own = emp && emp.shiftCode ? shiftByCode(emp.shiftCode) : null;
+    if(isGeneralShift(own)) return own;
+    if(!(inMin > 0) && own) return own;
+    const pool = activeOnly(SHIFT_MASTER).filter(s=>!isGeneralShift(s) && shiftAllowedFor(s, emp));
+    if(!pool.length) return own || nearestShift(inMin);
+    let best=pool[0], bd=Infinity;
+    for(const s of pool){ const d=Math.abs(inMin-shiftStartMin(s)); if(d<bd){ bd=d; best=s; } }
+    return best;
   }
   function isOverridden(empNo, date){ return !!ROSTER[rosterKey(empNo, date)]; }
 
@@ -212,8 +221,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     }
 
     const grossPay = emp.netSalary;
-    const pfDeduction = (PAYROLL_SETTINGS.pf.enabled && (emp.pfApplicable??true)) ? grossPay*PAYROLL_SETTINGS.pf.rate/100 : 0;
-    const esiEligible = emp.esiApplicable ?? (grossPay<=PAYROLL_SETTINGS.esi.ceiling);
+    const pfDeduction = (PAYROLL_SETTINGS.pf.enabled && (emp.pfApplicable??false)) ? grossPay*PAYROLL_SETTINGS.pf.rate/100 : 0;
+    const esiEligible = emp.esiApplicable ?? false;
     const esiDeduction = (PAYROLL_SETTINGS.esi.enabled && esiEligible && grossPay<=PAYROLL_SETTINGS.esi.ceiling) ? grossPay*PAYROLL_SETTINGS.esi.rate/100 : 0;
     const ptDeduction = ptFor(grossPay);
     const otherDeduction = emp.otherDeduction || 0;
@@ -598,7 +607,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<div class="footnote">Open tasks: '+openTasks+' &middot; Leave/permission requests filed this cycle: '+myLeaves.length+'</div>';
     } else if(staffTab==='ledger'){
       body.innerHTML = profileAndStats(result, hideSal) + attendanceTable(result, hideSal) +
-        '<div class="footnote">Shift is auto-suggested from IN time (9-10 AM &middot; 2-3 PM &middot; 8-9 PM), or set by your admin on the Shift Planner (marked "override" above) — lateness is always measured against whichever shift is in effect for that date. Lateness ≤ 15 min is ignored. Beyond that, minutes draw from the 4-hour monthly permission pool, then deduct from pay. 8+ consolidated uncovered hours convert to a leave day, offset by CL when available.</div>';
+        '<div class="footnote">Shift is the General Shift if that is your assigned shift; otherwise the shift whose start is nearest your IN time. It can also be set by your admin on the Shift Planner (marked "override" above) — lateness is always measured against whichever shift is in effect for that date. Lateness ≤ 15 min is ignored. Beyond that, minutes draw from the 4-hour monthly permission pool, then deduct from pay. 8+ consolidated uncovered hours convert to a leave day, offset by CL when available.</div>';
     } else if(staffTab==='tasks'){
       const taskActions = (t)=>{
         if(t.status==='Open') return '<button class="btn sm" data-accept="'+t.id+'">Accept</button> <button class="iconbtn danger" data-reject="'+t.id+'">Reject</button>';
@@ -1167,7 +1176,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '</div>'+
     '</div>'+
     '<div class="tbl-scroll"><table class="narrow"><thead><tr>'+head+'</tr></thead><tbody>'+rows+'</tbody></table></div>'+
-    '<div class="footnote">Click any shift badge to change that staff member\'s shift for that exact date — past, current or future, any time before the cycle\'s salary is finalized. A gold ring marks a manual override; a red dot marks a day that\'s late against whichever shift is in effect. Changes apply immediately to Shift Ledger, Salary and the staff member\'s own dashboard.</div>';
+    '<div class="footnote">Click any shift badge to change that staff member\'s shift for that exact date — past, current or future, any time before the cycle\'s salary is finalized. Without an override, General Shift staff are checked against the General Shift and everyone else against the shift nearest their IN punch. A gold ring marks a manual override; a red dot marks a day that\'s late against whichever shift is in effect. Changes apply immediately to Shift Ledger, Salary and the staff member\'s own dashboard.</div>';
 
     document.getElementById('plannerMonthSel').onchange = (e)=>{ plannerMonth = e.target.value; renderShiftPlanner(); };
     document.getElementById('plannerSearch').oninput = (e)=>{ plannerQuery = e.target.value; renderShiftPlanner(); refocusSearch('plannerSearch'); };
@@ -1739,8 +1748,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
           shiftCode: v(r,'.ns-shift'), netSalary: gross,
           monthlyCL: v(r,'.ns-cl')==='' ? DEFAULT_MONTHLY_CL : (parseFloat(v(r,'.ns-cl'))||0),
           monthlyPermissionHours: v(r,'.ns-perm')==='' ? DEFAULT_MONTHLY_PERMISSION_MIN/60 : (parseFloat(v(r,'.ns-perm'))||0),
-          phone: '', email: '', doj: v(r,'.ns-doj'), dob: '', address: '', otEligible: false, pfApplicable: true,
-          esiApplicable: gross<=PAYROLL_SETTINGS.esi.ceiling, otherDeduction: 0,
+          phone: '', email: '', doj: v(r,'.ns-doj'), dob: '', address: '', otEligible: false, pfApplicable: false,
+          esiApplicable: false, otherDeduction: 0,
           username: code, password: code, active: true,
           unitHistory: [{unitCode, effectiveFrom: today, note: 'Added from attendance import'}],
         });
@@ -1976,8 +1985,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<div class="section-title">Overtime &amp; payroll deductions</div>'+
         '<div class="form-row"><label><input type="checkbox" id="sdOt" '+(e.otEligible?'checked':'')+'> Eligible for overtime pay</label></div>'+
         '<div class="form-grid">'+
-          '<div class="form-row"><label><input type="checkbox" id="sdPf" '+((e.pfApplicable??true)?'checked':'')+'> PF applicable</label></div>'+
-          '<div class="form-row"><label><input type="checkbox" id="sdEsi" '+((e.esiApplicable ?? (e.netSalary<=21000))?'checked':'')+'> ESI applicable</label></div>'+
+          '<div class="form-row"><label><input type="checkbox" id="sdPf" '+((e.pfApplicable??false)?'checked':'')+'> PF applicable</label></div>'+
+          '<div class="form-row"><label><input type="checkbox" id="sdEsi" '+((e.esiApplicable??false)?'checked':'')+'> ESI applicable</label></div>'+
         '</div>'+
         '<div class="form-row"><label>Other monthly deduction (₹) — TDS, loan recovery, etc.</label><input id="sdOtherDed" type="number" min="0" value="'+(e.otherDeduction||0)+'"></div>'+
         '<div class="section-title">Bank details (salary transfer)</div>'+
@@ -2101,7 +2110,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         email: document.getElementById('asEmail').value.trim(),
         doj: document.getElementById('asDoj').value,
         dob: document.getElementById('asDob').value,
-        address: '', otEligible: false, pfApplicable: true, esiApplicable: netSalary<=21000, otherDeduction: 0,
+        address: '', otEligible: false, pfApplicable: false, esiApplicable: false, otherDeduction: 0,
         username: code, password, active: true,
         unitHistory: [{unitCode, effectiveFrom: todayISO(), note: 'Initial assignment'}],
       };
