@@ -405,7 +405,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       const cf = document.getElementById('cpConfirm').value;
       const err = document.getElementById('cpError');
       if(!cur){ err.textContent = 'Enter your current password.'; return; }
-      if(!nw || nw.length < 4){ err.textContent = 'New password must be at least 4 characters.'; return; }
+      if(!nw || nw.length < 6){ err.textContent = 'New password must be at least 6 characters.'; return; }
       if(nw !== cf){ err.textContent = 'New password and confirmation do not match.'; return; }
       const isStaffAccount = kind==='staff' || (currentAdminAccount && currentAdminAccount.role==='manager');
       const res = await env.auth.changePassword(isStaffAccount, cur, nw);

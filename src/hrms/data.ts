@@ -308,18 +308,22 @@ export function createStore() {
     await loadSettings();
 
     let staffRows: any[];
-    if (manages) {
+    if (user.role === 'admin') {
       staffRows = await fetchAll(() => db.from('hr_staff').select('*').eq('active', true).order('db_ref'));
       const off = await fetchAll(() => db.from('hr_staff').select('*').eq('active', false).order('db_ref')).catch(() => []);
       replaceArray(data.SUSPENDED_STAFF, off.map(staffFromRow));
     } else {
-      // staff see colleagues' names only; their own row in full
-      const [dir, mine] = await Promise.all([
+      // colleagues' names from the directory; full rows only where the database allows
+      // (a manager: their reports and themselves; staff: their own row)
+      const [dir, full] = await Promise.all([
         fetchAll(() => db.from('hr_staff_directory').select('*').order('db_ref')),
-        fetchAll(() => db.from('hr_staff').select('*').eq('emp_no', user.empNo || '')),
+        manages
+          ? fetchAll(() => db.from('hr_staff').select('*').eq('active', true).order('db_ref'))
+          : fetchAll(() => db.from('hr_staff').select('*').eq('emp_no', user.empNo || '')),
       ]);
-      const own = new Map(mine.map((r: any) => [r.emp_no, r]));
+      const own = new Map(full.map((r: any) => [r.emp_no, r]));
       staffRows = dir.map((r: any) => own.get(r.emp_no) || r);
+      replaceArray(data.SUSPENDED_STAFF, []);
     }
 
     const off = (r: any) => r.active === false;
@@ -361,12 +365,18 @@ export function createStore() {
       const removed = [...before.keys()].filter(k => !seen.has(k));
       if (!changed.length && !added.length && !removed.length) continue;
 
+      // The snapshot records exactly what reached the database (rows as captured above, before any
+      // await): an edit made while this save runs stays pending, and a half-finished batch of
+      // inserts is not repeated on the next save.
+      const saved = new Map(before);
       try {
         if (c.mode === 'upsert') {
-          const rows = [...added, ...changed].map(e => e.row);
-          for (let i = 0; i < rows.length; i += 500) {
-            const { error } = await db.from(c.table).upsert(rows.slice(i, i + 500), { onConflict: c.pk.join(',') });
+          const written = [...added, ...changed];
+          for (let i = 0; i < written.length; i += 500) {
+            const batch = written.slice(i, i + 500);
+            const { error } = await db.from(c.table).upsert(batch.map(e => e.row), { onConflict: c.pk.join(',') });
             if (error) throw error;
+            batch.forEach(e => { if (!e.key.startsWith(TEMP)) saved.set(e.key, comparable(e.row)); });
           }
           for (const key of removed) {
             const parts = key.split('|');
@@ -376,6 +386,7 @@ export function createStore() {
             c.pk.forEach((col, i) => { q = q.eq(col, c.pk.length > 1 ? parts[i] : key); });
             const { error } = await q;
             if (error) throw error;
+            saved.delete(key);
           }
           if (c.name === 'staff') {
             for (const e of added) {
@@ -389,20 +400,23 @@ export function createStore() {
             const { data: ins, error } = await db.from(c.table).insert(e.row).select('id').single();
             if (error) throw error;
             if (e.obj && ins?.id) { e.obj.id = ins.id; idsChanged = true; }
+            if (ins?.id) saved.set(String(ins.id), comparable(e.row));
           }
           for (const e of changed) {
             const { error } = await db.from(c.table).update(e.row).eq('id', e.key);
             if (error) throw error;
+            saved.set(e.key, comparable(e.row));
           }
           for (const key of removed) {
             const { error } = await db.from(c.table).delete().eq('id', key);
             if (error) throw error;
+            saved.delete(key);
           }
         }
-        snapshot[c.name] = new Map(c.entries(data).filter(e => !e.key.startsWith(TEMP)).map(e => [e.key, comparable(e.row)]));
       } catch (err: any) {
         errors.push(`${c.name}: ${err?.message || err}`);
       }
+      snapshot[c.name] = saved;
     }
     // sign-in accounts for staff added in Staff Master
     for (const [empNo, pw] of [...loginsPending]) {

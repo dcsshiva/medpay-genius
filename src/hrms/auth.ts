@@ -16,7 +16,7 @@ export async function whoami(): Promise<HrWho | null> {
   if (error) throw error;
   const row = Array.isArray(data) ? data[0] : data;
   if (!row || row.role === 'none') return null;
-  return { role: row.role, empNo: row.emp_no, name: row.name };
+  return { role: row.role, empNo: row.emp_no, name: row.name, mustChange: !!row.must_change };
 }
 
 async function signInStaffAccount(code: string, password: string) {
@@ -74,13 +74,20 @@ export async function changePassword(isStaffAccount: boolean, current: string, n
   const { data } = await supabase.auth.getUser();
   const email = data.user?.email;
   if (!email) return { error: 'You are signed out. Please sign in again.' };
-  if (!isStaffAccount && next.length < 6) return { error: 'Administrator passwords must be at least 6 characters.' };
+  if (next.length < 6) return { error: 'New password must be at least 6 characters.' };
+  if (isStaffAccount && next.trim().toLowerCase() === email.split('@')[0]) return { error: 'Choose a password other than your Staff Code.' };
   const wrap = (pw: string) => (isStaffAccount ? authPassword(pw) : pw);
   const check = await supabase.auth.signInWithPassword({ email, password: wrap(current) });
   if (check.error) return { error: 'Current password is incorrect.' };
   // The auth service requires the current password alongside the new one ("secure password change").
   const { error } = await supabase.auth.updateUser({ password: wrap(next), current_password: wrap(current) } as any);
   if (error) return { error: error.message };
+  if (isStaffAccount) {
+    // clears the "must change password" flag — the database checks the password really changed
+    const { data: stillFlagged, error: flagErr } = await (supabase as any).rpc('hr_refresh_password_flag');
+    if (flagErr) return { error: flagErr.message };
+    if (stillFlagged) return { error: 'Choose a password different from the one you were given.' };
+  }
 }
 
 /** Calls the hr-manage-login edge function (admin only). */

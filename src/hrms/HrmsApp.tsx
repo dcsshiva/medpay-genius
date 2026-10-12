@@ -81,6 +81,47 @@ export default function HrmsApp() {
       }
     };
 
+    // ── accounts on a default / administrator-set password choose a new one before any data loads ──
+    const askNewPassword = (who: HrWho) => new Promise<boolean>(resolve => {
+      const wrap = document.createElement('div');
+      wrap.innerHTML = ''
+        + '<div class="modal-back np-back"><div class="modal narrow" role="dialog" aria-modal="true" aria-labelledby="npTitle">'
+        + '<div class="modal-head"><h3 id="npTitle" style="font-size:15px;">Choose a new password</h3></div>'
+        + '<div class="modal-body">'
+        + '<div class="hint" style="margin-bottom:12px;"><span id="npName"></span>, for your security please choose your own password before continuing. '
+        + 'It must be at least 6 characters and can\'t be your Staff Code.</div>'
+        + '<div class="form-row"><label for="npCurrent">Current password</label><input id="npCurrent" type="password" autocomplete="current-password"></div>'
+        + '<div class="form-row"><label for="npNew">New password</label><input id="npNew" type="password" autocomplete="new-password"></div>'
+        + '<div class="form-row"><label for="npConfirm">Confirm new password</label><input id="npConfirm" type="password" autocomplete="new-password"></div>'
+        + '<div class="error-text" id="npError" role="alert"></div>'
+        + '<button class="btn" style="width:100%;" id="npSubmit">Save new password</button>'
+        + '<div style="text-align:center;margin-top:12px;"><button class="iconbtn" id="npSignOut">Sign out</button></div>'
+        + '</div></div></div>';
+      root.appendChild(wrap);
+      const $ = (id: string) => wrap.querySelector('#' + id) as HTMLInputElement;
+      $('npName').textContent = who.name || 'Hello';
+      $('npCurrent').focus();
+      const done = (ok: boolean) => { wrap.remove(); resolve(ok); };
+      const submit = async () => {
+        const cur = $('npCurrent').value, nw = $('npNew').value, cf = $('npConfirm').value;
+        const err = $('npError');
+        if (!cur) { err.textContent = 'Enter your current password.'; return; }
+        if (nw.length < 6) { err.textContent = 'New password must be at least 6 characters.'; return; }
+        if (nw !== cf) { err.textContent = 'New password and confirmation do not match.'; return; }
+        const btn = $('npSubmit') as unknown as HTMLButtonElement;
+        btn.disabled = true; err.textContent = '';
+        const r = await changePassword(true, cur, nw);
+        btn.disabled = false;
+        if (r && r.error) { err.textContent = r.error; return; }
+        done(true);
+      };
+      $('npSubmit').onclick = submit;
+      wrap.querySelectorAll('input').forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); }));
+      $('npSignOut').onclick = async () => { done(false); await signOut(); };
+      disposeOverlay = () => done(false);
+    });
+    let disposeOverlay: (() => void) | null = null;
+
     // ── sign-in → load everything → show the right workspace ──
     const onSignedIn = async (uid: string, fresh: boolean) => {
       if (signedInUid === uid && loading) return loading;
@@ -92,6 +133,18 @@ export default function HrmsApp() {
         if (!who) {
           await supabase.auth.signOut();
           return;
+        }
+        if (who.mustChange) {
+          status('');
+          const changed = await askNewPassword(who);
+          disposeOverlay = null;
+          if (!changed || disposed) return;
+          who = await whoami().catch(() => null);
+          if (!who || who.mustChange) {
+            status('Your new password could not be confirmed — please sign in again.', true);
+            await supabase.auth.signOut();
+            return;
+          }
         }
         status('Loading…');
         const settings = await store.loadSettings();
@@ -112,6 +165,7 @@ export default function HrmsApp() {
     };
 
     const onSignedOut = () => {
+      disposeOverlay?.();
       signedInUid = null;
       if (sessionChannel) { supabase.removeChannel(sessionChannel); sessionChannel = null; }
       store.clear();
@@ -251,6 +305,7 @@ export default function HrmsApp() {
 
     return () => {
       disposed = true;
+      disposeOverlay?.();
       sub.subscription.unsubscribe();
       window.removeEventListener('beforeunload', onBeforeUnload);
       if (syncTimer) clearTimeout(syncTimer);
