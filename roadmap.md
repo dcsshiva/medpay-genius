@@ -1,5 +1,7 @@
 # Current tasks
 
+- [ ] Add Overview attendance cycle/date labels, stacked unit colours, and a unit legend; verify calculations and signed-in display.
+
 - [ ] Update the six remix credentials — blocked until the secure update form is accepted.
 - [ ] Replace removed email-function calls with managed sending — blocked until this remix has its own configured email domain.
 - [x] Verify `techteam@westmedhospitals.com` and `shivanss@gmail.com` and assign administrator designation without disturbing other accounts.

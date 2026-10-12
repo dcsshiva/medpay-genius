@@ -3,6 +3,10 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700;800&display=swap');
 
 .hrms-root{
+  --attendance-unit-1:var(--teal); --attendance-unit-2:var(--rose);
+  --attendance-unit-3:var(--amber); --attendance-unit-4:#658ddb;
+  --attendance-unit-5:#bd79be; --attendance-unit-6:#91a945;
+  --attendance-unit-7:#dd7fa7; --attendance-unit-8:#49a0b8;
   --ink:#16211f; --paper:#f6f4ef; --surface:#ffffff; --surface-2:#fbfaf6;
   --line: rgba(22,33,31,.13); --line-strong: rgba(22,33,31,.24);
   --teal:#0f6e63; --teal-deep:#0a4a43; --teal-tint:#e4f0ee;
@@ -340,3 +344,20 @@
   .hrms-root .auth-card{padding:24px 20px; border-radius:18px;}
 }
 @media (prefers-reduced-motion: reduce){ .hrms-root .auth *{transition:none !important;} }
+
+.hrms-root .attendance-cycle{font-size:12px;color:var(--slate);margin:-3px 0 10px;}
+.hrms-root .attendance-scroll{max-width:100%;overflow-x:auto;border:1px solid var(--line);border-radius:8px;background:var(--surface);scrollbar-width:thin;}
+.hrms-root .attendance-columns{display:flex;gap:6px;width:max-content;min-width:100%;padding:12px 10px;}
+.hrms-root .attendance-column{width:48px;flex:0 0 48px;cursor:pointer;border-radius:4px;}
+.hrms-root .attendance-column:hover{background:var(--surface-2);}
+.hrms-root .attendance-column:focus-visible{outline:2px solid var(--teal);outline-offset:2px;}
+.hrms-root .attendance-value{height:22px;text-align:center;font-size:11px;color:var(--ink);}
+.hrms-root .attendance-plot{height:110px;border-bottom:1px solid var(--line-strong);padding:0 10px;}
+.hrms-root .attendance-stack{height:100%;display:flex;flex-direction:column-reverse;justify-content:flex-start;overflow:hidden;border-radius:3px 3px 0 0;}
+.hrms-root .attendance-segment{flex:none;width:100%;}
+.hrms-root .attendance-stack.no-data{border-bottom:3px dotted var(--slate-soft);}
+.hrms-root .attendance-stack.zero-data{border-bottom:3px solid var(--rose);}
+.hrms-root .attendance-date{height:23px;padding-top:6px;text-align:center;font-size:10px;white-space:nowrap;color:var(--slate);}
+.hrms-root .attendance-legend{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:10px;font-size:12px;color:var(--slate);}
+.hrms-root .attendance-legend span{display:flex;align-items:center;gap:6px;}
+.hrms-root .attendance-legend i{width:10px;height:10px;flex:none;border-radius:2px;}

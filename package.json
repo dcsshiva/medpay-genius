@@ -5,6 +5,7 @@
   "releaseNumber": "02",
   "type": "module",
   "scripts": {
+    "test": "node --test src/hrms/*.test.js",
     "dev": "vite",
     "build": "vite build",
     "build:dev": "vite build --mode development",
