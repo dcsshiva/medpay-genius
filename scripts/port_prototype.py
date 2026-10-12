@@ -1425,7 +1425,27 @@ rep("""function renderAdminOverview(){
   const body = document.getElementById('adminBody');
   explorerLinks = [];""")
 rep("""  const attendanceSeries = dailyAttendanceSeries(scopedIds).map(x=>({label:fmtDate(x.date), value:x.pct}));""",
-    """  const attendanceSeries = dailyAttendanceSeries(scopedIds).map(x=>({label:fmtDate(x.date), value:x.pct, date:x.date}));""")
+    """  const attendanceChart = attendanceByUnit(env.cycle.dates, scopedStaff, ATTENDANCE, UNITS);""")
+rep('function miniBarChart(series, opts){', """function unitChartColour(code){
+  const codes = [...new Set(UNITS.map(u=>u.code).concat(STAFF.map(s=>s.unitCode || '')))].sort();
+  return 'var(--attendance-unit-'+(codes.indexOf(code)+1)+', var(--slate-soft))';
+}
+function unitAttendanceChart(chart, list){
+  const month = new Date(env.cycle.end+'T12:00:00').toLocaleDateString('en-IN',{month:'long',year:'numeric'});
+  return '<div class="attendance-cycle">'+escapeHTML(month+' cycle · '+env.cycle.label)+'</div>'+
+    '<div class="attendance-scroll"><div class="attendance-columns">'+chart.series.map(day=>{
+      const shortDate = new Date(day.date+'T12:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+      const breakdown = day.segments.map(s=>s.name+': '+s.present+'/'+s.total+' present ('+(s.pct==null?'no data':s.pct+'%')+')').join(' · ');
+      const detail = env.cycle.label+' · '+fmtDate(day.date)+' · '+(day.pct==null?'No attendance data':day.pct+'% attendance')+' · '+breakdown;
+      return '<div class="attendance-column" role="button" tabindex="0" aria-label="'+escapeAttr(detail)+'" title="'+escapeAttr(detail)+'"'+xl(()=>xDay(day.date,list))+'>'+
+        '<div class="attendance-value mono">'+(day.pct==null?'—':day.pct+'%')+'</div>'+
+        '<div class="attendance-plot"><div class="attendance-stack'+(day.pct==null?' no-data':day.pct===0?' zero-data':'')+'">'+
+          day.segments.filter(s=>s.present>0).map(s=>'<div class="attendance-segment" style="height:'+s.contribution+'%;background:'+unitChartColour(s.code)+';"></div>').join('')+
+        '</div></div><div class="attendance-date mono">'+escapeHTML(shortDate)+'</div></div>';
+    }).join('')+'</div></div>'+
+    '<div class="attendance-legend">'+chart.units.map(u=>'<span><i style="background:'+unitChartColour(u.code)+';"></i>'+escapeHTML(u.name)+'</span>').join('')+'</div>';
+}
+function miniBarChart(series, opts){""")
 rep("""    .map(x=>({label:x.s.name, value:x.cyc.summary.lateDays}));""",
     """    .map(x=>({label:x.s.name, value:x.cyc.summary.lateDays, empNo:x.s.empNo}));""")
 rep("""      stat('Total staff', scopedStaff.length)+
@@ -1444,8 +1464,8 @@ rep("""      stat('Total staff', scopedStaff.length)+
       stat('Staff with no Reporting Manager', noManager, noManager>0?'rose':'', xl(()=>xStaffTree('No reporting manager', scopedStaff.filter(s=>!s.reportingManager || !findStaff(s.reportingManager)), 'Set the manager in Staff Master (one by one, or select several and use the bulk bar).')))+""")
 rep("""      '<div><div class="section-title">Daily attendance % (this cycle)</div>'+miniBarChart(attendanceSeries,{suffix:'%',max:100})+'</div>'+
       '<div><div class="section-title">Top late-comers</div>'+topList(topLate,{color:'var(--rose)'})+'</div>'+""",
-    """      '<div><div class="section-title">Daily attendance % (this cycle) <button class="x-more"'+xl(()=>xDays('Daily attendance', scopedStaff))+'>Explore ›</button></div>'+
-        miniBarChart(attendanceSeries,{suffix:'%',max:100,links:attendanceSeries.map(x=>xl(()=>xDay(x.date, scopedStaff)))})+'</div>'+
+    """      '<div class="attendance-panel"><div class="section-title">Daily attendance % (this cycle) <button class="x-more"'+xl(()=>xDays('Daily attendance', scopedStaff))+'>Explore ›</button></div>'+
+        unitAttendanceChart(attendanceChart, scopedStaff)+'</div>'+
       '<div><div class="section-title">Top late-comers <button class="x-more"'+xl(()=>xRanked('Late-comers', scopedStaff, c=>c.summary.lateDays, 'Late instances', false))+'>All ›</button></div>'+
         topList(topLate,{color:'var(--rose)',links:topLate.map(x=>xl(()=>xStaff(x.empNo)))})+'</div>'+""")
 rep("""    '<div class="section-title" style="margin-top:16px;">Payroll cost breakdown (this cycle)</div>'+
@@ -1537,6 +1557,7 @@ module = '''// @ts-nocheck
  *   • demo shortcuts (sample IDs, demo passwords) and fake attendance removed
  * ========================================================================== */
 import type { HrEnv, HrController, HrWho } from './types';
+import { attendanceByUnit } from './attendanceChart.js';
 
 export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   root.innerHTML = SHELL;
