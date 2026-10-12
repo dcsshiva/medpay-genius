@@ -679,8 +679,8 @@ function wireNewStaffPanel(parsed){
         shiftCode: v(r,'.ns-shift'), netSalary: gross,
         monthlyCL: v(r,'.ns-cl')==='' ? DEFAULT_MONTHLY_CL : (parseFloat(v(r,'.ns-cl'))||0),
         monthlyPermissionHours: v(r,'.ns-perm')==='' ? DEFAULT_MONTHLY_PERMISSION_MIN/60 : (parseFloat(v(r,'.ns-perm'))||0),
-        phone: '', email: '', doj: v(r,'.ns-doj'), dob: '', address: '', otEligible: false, pfApplicable: true,
-        esiApplicable: gross<=PAYROLL_SETTINGS.esi.ceiling, otherDeduction: 0,
+        phone: '', email: '', doj: v(r,'.ns-doj'), dob: '', address: '', otEligible: false, pfApplicable: false,
+        esiApplicable: false, otherDeduction: 0,
         username: code, password: code, active: true,
         unitHistory: [{unitCode, effectiveFrom: today, note: 'Added from attendance import'}],
       });
@@ -1115,6 +1115,48 @@ rep("""  '<div class="section-title" style="margin-top:0;">Pay cycle</div>'+""",
 rep("""    p.ot.graceMin = parseFloat(document.getElementById('psOtGrace').value) || 0;""",
     """    p.ot.graceMin = parseFloat(document.getElementById('psOtGrace').value) || 0;
     p.staffSalaryVisible = document.getElementById('psStaffSal').checked;""")
+
+# ── 26. lateness is measured against the shift nearest the IN punch — except staff on the
+#        General Shift, who stay on it. Shift Planner overrides still win. ──
+rep("""/* Resolution order for a given staff+date: (1) Shift Planner override, (2) the staff's
+   Shift Master mapping from Staff Master, (3) auto-detect nearest shift from IN time. */
+function effectiveShift(empNo, date, inMin){
+  const override = ROSTER[rosterKey(empNo, date)];
+  if(override) return shiftByCode(override);
+  const emp = findStaff(empNo);
+  if(emp && emp.shiftCode && shiftByCode(emp.shiftCode)) return shiftByCode(emp.shiftCode);
+  return nearestShift(inMin);
+}""", """/* Resolution order for a given staff+date: (1) Shift Planner override, (2) staff whose
+   Staff Master shift is the General Shift stay on it, (3) everyone else: the active shift
+   (other than General) they're eligible for whose start is nearest the IN punch. With no
+   IN punch, their Staff Master shift applies. */
+function isGeneralShift(s){ return !!s && /general/i.test(s.name || ''); }
+function effectiveShift(empNo, date, inMin){
+  const override = ROSTER[rosterKey(empNo, date)];
+  if(override && shiftByCode(override)) return shiftByCode(override);
+  const emp = findStaff(empNo);
+  const own = emp && emp.shiftCode ? shiftByCode(emp.shiftCode) : null;
+  if(isGeneralShift(own)) return own;
+  if(!(inMin > 0) && own) return own;
+  const pool = activeOnly(SHIFT_MASTER).filter(s=>!isGeneralShift(s) && shiftAllowedFor(s, emp));
+  if(!pool.length) return own || nearestShift(inMin);
+  let best=pool[0], bd=Infinity;
+  for(const s of pool){ const d=Math.abs(inMin-shiftStartMin(s)); if(d<bd){ bd=d; best=s; } }
+  return best;
+}""")
+rep("""A gold ring marks a manual override; a red dot""",
+    """Without an override, General Shift staff are checked against the General Shift and everyone else against the shift nearest their IN punch. A gold ring marks a manual override; a red dot""")
+rep("""Shift is auto-suggested from IN time (9-10 AM &middot; 2-3 PM &middot; 8-9 PM), or set by your admin""",
+    """Shift is the General Shift if that is your assigned shift; otherwise the shift whose start is nearest your IN time. It can also be set by your admin""")
+
+# ── 27. PF and ESI are off unless an administrator ticks them on the staff record ──
+rep("const pfDeduction = (PAYROLL_SETTINGS.pf.enabled && (emp.pfApplicable??true))",
+    "const pfDeduction = (PAYROLL_SETTINGS.pf.enabled && (emp.pfApplicable??false))")
+rep("const esiEligible = emp.esiApplicable ?? (grossPay<=PAYROLL_SETTINGS.esi.ceiling);",
+    "const esiEligible = emp.esiApplicable ?? false;")
+rep("""id="sdPf" '+((e.pfApplicable??true)?'checked':'')""", """id="sdPf" '+((e.pfApplicable??false)?'checked':'')""")
+rep("""id="sdEsi" '+((e.esiApplicable ?? (e.netSalary<=21000))?'checked':'')""", """id="sdEsi" '+((e.esiApplicable??false)?'checked':'')""")
+rep("pfApplicable: true, esiApplicable: netSalary<=21000,", "pfApplicable: false, esiApplicable: false,")
 
 # sanity: nothing left that points at demo data
 # (the Selvantra Technologies credit is allowed only inside the sign-in screen, section 24)

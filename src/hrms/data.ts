@@ -35,7 +35,7 @@ const staffFromRow = (r: any) => ({
   netSalary: num(r.net_salary), username: r.emp_no, active: r.active !== false,
   shiftCode: r.shift_code ?? '', monthlyCL: num(r.monthly_cl, 1), monthlyPermissionHours: num(r.monthly_permission_hours, 4),
   unitCode: r.unit_code ?? '', dbRef: r.db_ref ?? '', unitHistory: Array.isArray(r.unit_history) ? r.unit_history : [],
-  role: r.role || 'Staff', pfApplicable: r.pf_applicable ?? true, esiApplicable: r.esi_applicable ?? false,
+  role: r.role || 'Staff', pfApplicable: r.pf_applicable ?? false, esiApplicable: r.esi_applicable ?? false,
   otEligible: r.ot_eligible ?? false, otherDeduction: num(r.other_deduction), phone: r.phone ?? '', email: r.email ?? '',
   dob: r.dob ?? '', doj: r.doj ?? '', address: r.address ?? '', reportingManager: r.reporting_manager ?? '',
   bankAccountName: r.bank_account_name ?? '', bankAccountNo: r.bank_account_no ?? '', bankIfsc: r.bank_ifsc ?? '', bankName: r.bank_name ?? '',
