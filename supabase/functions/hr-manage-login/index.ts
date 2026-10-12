@@ -64,6 +64,13 @@ serve(async (req) => {
       return userIndex.get(email.toLowerCase()) || null;
     };
 
+    // a password the administrator knows (new login, or one they set) must be replaced by the
+    // staff member at their next sign-in (migration 0018: hr_staff.must_change_password)
+    const flagPasswordChange = async (empNo: string) => {
+      const { error } = await admin.rpc("hr_flag_password_change", { _emp: empNo });
+      if (error) throw new Error(error.message);
+    };
+
     const ensure = async (empNo: string, password?: string, forcePassword = false) => {
       const { data: staff } = await admin.from("hr_staff").select("emp_no, name, user_id").eq("emp_no", empNo).maybeSingle();
       if (!staff) throw new Error(`Staff ${empNo} not found`);
@@ -85,11 +92,13 @@ serve(async (req) => {
         }
         await admin.from("hr_staff").update({ user_id: userId }).eq("emp_no", empNo);
         if (forcePassword) await admin.auth.admin.updateUserById(userId, { password: pw });
+        await flagPasswordChange(empNo);
         return { emp_no: empNo, created: true };
       }
       if (forcePassword) {
         const { error } = await admin.auth.admin.updateUserById(userId, { password: pw });
         if (error) throw new Error(error.message);
+        await flagPasswordChange(empNo);
       }
       return { emp_no: empNo, created: false };
     };

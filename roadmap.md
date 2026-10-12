@@ -14,3 +14,8 @@
 - [x] PF and ESI off for every staff member (live data updated 2026-10-12); new staff default to off; administrators turn them on per staff in Staff Master.
 - [x] Lateness uses the shift nearest the IN punch for everyone except General Shift staff (Shift Planner overrides still win); applies to all cycles because lateness is computed live.
 - [x] Overview explorer: every card, chart bar, late-comer row, payroll segment and table row opens a drill-down (unit → department → staff → day-by-day sheet; staff → manager, reports, tasks, leave) with breadcrumb and Back; managers explore only their reports, salary hidden.
+- [x] Security stage 1 (live 2026-10-12): no anonymous access to HR tables, staff directory or HR functions; directory only for HR users; must-change-password flag on the 139 default-password accounts.
+- [x] Forced "choose a new password" screen before any data loads; passwords ≥ 6 characters and never the Staff Code; admin-set passwords must be replaced at next sign-in.
+- [x] Saving: an edit made while a save is running is no longer lost; a failed insert batch no longer creates duplicate tasks / leave requests.
+- [ ] Security stage 2: apply migration 0019 (forced change enforced in the database; managers limited to their own reports) once the app with the new password screen is published.
+- [ ] Remove the unused verify-emergency-otp edge function (hard-coded access codes) from the repo and from Supabase.

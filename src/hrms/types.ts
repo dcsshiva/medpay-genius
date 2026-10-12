@@ -5,6 +5,8 @@ export interface HrWho {
   role: 'admin' | 'manager' | 'staff';
   empNo: string | null;
   name: string;
+  /** must choose a new password before seeing any data (default password = staff code, or set by an administrator) */
+  mustChange: boolean;
 }
 
 /** Result of an auth action: nothing on success, `{ error }` on failure. */

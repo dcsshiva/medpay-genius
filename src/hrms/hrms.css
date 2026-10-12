@@ -151,6 +151,8 @@
 .hrms-root .modal.narrow{max-width:520px;}
 .hrms-root .modal-head{display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--line);}
 .hrms-root .modal-body{padding:20px;}
+/* "choose a new password" screen (HrmsApp) sits above the sign-in screen (.auth, z-index 40) */
+.hrms-root .np-back{z-index:50; background:rgba(2,6,23,.72);}
 /* Overview explorer: clickable cards / bars / rows and the drill-down breadcrumb */
 .hrms-root .stat-link{cursor:pointer; position:relative; transition:border-color .12s, transform .12s;}
 .hrms-root .stat-link::after{content:"›"; position:absolute; right:12px; top:10px; color:var(--slate-soft); font-size:16px; line-height:1;}

@@ -1488,6 +1488,10 @@ rep("""all happen there.</div>';
   wireExplore(body, explorerLinks);
 }""")
 
+# ── 29. passwords are at least 6 characters (the app also refuses the Staff Code itself) ──
+rep("""if(!nw || nw.length < 4){ err.textContent = 'New password must be at least 4 characters.'; return; }""",
+    """if(!nw || nw.length < 6){ err.textContent = 'New password must be at least 6 characters.'; return; }""")
+
 # sanity: nothing left that points at demo data
 # (the Selvantra Technologies credit is allowed only inside the sign-in screen, section 24)
 _outside_auth = re.sub(r'function authShell\(kind, errorMsg\)\{.*?\nfunction wireAuthShell', '', script, flags=re.S)

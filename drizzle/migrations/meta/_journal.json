@@ -127,6 +127,20 @@
       "when": 1789865827547,
       "tag": "0017_hr_pf_esi_default_off",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1789865828547,
+      "tag": "0018_hr_security_anon_and_password_flag",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789865829547,
+      "tag": "0019_hr_security_enforce",
+      "breakpoints": true
     }
   ]
 }
