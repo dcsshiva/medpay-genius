@@ -13,3 +13,4 @@
 - [x] Staff Master: drag-to-slide on wide tables, search boxes keep focus while typing, Shift Planner legend and colours cover all Shift Master shifts.
 - [x] PF and ESI off for every staff member (live data updated 2026-10-12); new staff default to off; administrators turn them on per staff in Staff Master.
 - [x] Lateness uses the shift nearest the IN punch for everyone except General Shift staff (Shift Planner overrides still win); applies to all cycles because lateness is computed live.
+- [x] Overview explorer: every card, chart bar, late-comer row, payroll segment and table row opens a drill-down (unit → department → staff → day-by-day sheet; staff → manager, reports, tasks, leave) with breadcrumb and Back; managers explore only their reports, salary hidden.

@@ -151,6 +151,25 @@
 .hrms-root .modal.narrow{max-width:520px;}
 .hrms-root .modal-head{display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--line);}
 .hrms-root .modal-body{padding:20px;}
+/* Overview explorer: clickable cards / bars / rows and the drill-down breadcrumb */
+.hrms-root .stat-link{cursor:pointer; position:relative; transition:border-color .12s, transform .12s;}
+.hrms-root .stat-link::after{content:"›"; position:absolute; right:12px; top:10px; color:var(--slate-soft); font-size:16px; line-height:1;}
+.hrms-root .stat-link:hover, .hrms-root .stat-link:focus-visible{border-color:var(--teal); transform:translateY(-1px); outline:none;}
+.hrms-root .stat-link:hover::after, .hrms-root .stat-link:focus-visible::after{color:var(--teal);}
+.hrms-root .x-bar{cursor:pointer;}
+.hrms-root .x-bar:hover{filter:brightness(1.25);}
+.hrms-root .x-hover{cursor:pointer; border-radius:6px;}
+.hrms-root .x-hover:hover{background:var(--surface-2); color:var(--teal);}
+.hrms-root .x-more{border:none; background:none; color:var(--teal); font:inherit; font-size:11px; letter-spacing:.04em; cursor:pointer; padding:0 0 0 6px; text-transform:none; font-weight:600;}
+.hrms-root .x-more:hover{text-decoration:underline;}
+.hrms-root .x-link{border:none; background:none; padding:0; color:var(--teal); font:inherit; cursor:pointer; text-align:left;}
+.hrms-root .x-link:hover{text-decoration:underline;}
+.hrms-root .x-crumbs{display:flex; align-items:center; flex-wrap:wrap; gap:6px; min-width:0; font-size:14px;}
+.hrms-root .x-crumb{border:none; background:none; padding:2px 0; color:var(--teal); font:inherit; cursor:pointer; overflow-wrap:anywhere;}
+.hrms-root .x-crumb:hover{text-decoration:underline;}
+.hrms-root .x-crumb.current{color:var(--ink); font-weight:600; cursor:default;}
+.hrms-root .x-sep{color:var(--slate-soft);}
+.hrms-root .x-links{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:14px;}
 .hrms-root .closebtn{border:none; background:var(--surface-2); width:30px; height:30px; border-radius:8px; font-size:15px; cursor:pointer; color:var(--slate);}
 .hrms-root .form-row{margin-bottom:12px;}
 .hrms-root .form-row label{display:block; font-size:12px; font-weight:600; color:var(--slate); margin-bottom:5px;}
