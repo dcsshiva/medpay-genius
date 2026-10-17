@@ -29,3 +29,28 @@ export function attendanceByUnit(dates, staff, attendance, units) {
     })
   };
 }
+/** Per unit/day present & absent counts; days with no records for a unit are 'missing', days after today 'future'. */
+export function attendanceCalendar(dates, staff, attendance, units, today) {
+  const { units: rows } = attendanceByUnit([], staff, attendance, units);
+  const records = new Map(staff.map(s => [s.empNo, new Map((attendance[s.empNo]?.records || []).map(r => [r.date, r]))]));
+  const cell = (list, date) => {
+    let present = 0, absent = 0, off = 0, seen = 0;
+    for (const s of list) {
+      const r = records.get(s.empNo)?.get(date);
+      if (!r) continue;
+      seen++;
+      if (r.status === 'WO' || r.status === 'H') off++;
+      else if (r.status === 'P') present++;
+      else absent++;
+    }
+    const status = today && date > today ? 'future' : seen ? 'ok' : 'missing';
+    return { date, present, absent, off, status };
+  };
+  return {
+    rows: rows.map(u => {
+      const list = staff.filter(s => (s.unitCode || '') === u.code);
+      return { ...u, cells: dates.map(d => cell(list, d)) };
+    }),
+    total: dates.map(d => cell(staff, d)),
+  };
+}

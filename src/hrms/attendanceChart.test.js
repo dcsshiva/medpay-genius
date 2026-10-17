@@ -35,4 +35,11 @@ test('selected unit uses only its staff and legend', () => {
   assert.deepEqual(result.units, [units[1]]);
   assert.equal(result.series[0].total, 2);
   assert.equal(result.series[0].pct, 50);
+});import { attendanceCalendar } from './attendanceChart.js';
+test('calendar counts present/absent per unit and flags missing and future days', () => {
+  const cal = attendanceCalendar([date, '2026-10-02', '2099-01-01'], staff, attendance, units, '2026-10-05');
+  assert.deepEqual([cal.rows[0].cells[0].present, cal.rows[0].cells[0].absent], [2, 2]);
+  assert.deepEqual([cal.total[0].present, cal.total[0].absent], [3, 3]);
+  assert.equal(cal.rows[0].cells[1].status, 'missing');
+  assert.equal(cal.total[2].status, 'future');
 });
