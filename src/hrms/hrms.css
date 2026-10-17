@@ -362,3 +362,21 @@
 .hrms-root .attendance-legend{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:10px;font-size:12px;color:var(--slate);}
 .hrms-root .attendance-legend span{display:flex;align-items:center;gap:6px;}
 .hrms-root .attendance-legend i{width:10px;height:10px;flex:none;border-radius:2px;}
+
+/* Attendance calendar (admin Overview) */
+.attendance-cal { margin-top: 8px; }
+.cal-table { border-collapse: separate; border-spacing: 2px; font-size: 12px; }
+.cal-table th, .cal-table td { padding: 4px 2px; text-align: center; min-width: 38px; }
+.cal-table .cal-unit { position: sticky; left: 0; z-index: 1; background: var(--bg, hsl(var(--background))); text-align: left; min-width: 110px; padding-right: 8px; white-space: nowrap; }
+.cal-day small { display: block; opacity: .6; font-size: 10px; }
+.cal-break { border-left: 2px solid var(--teal); }
+.cal-cell { border-radius: 6px; background: color-mix(in srgb, var(--teal) 10%, transparent); cursor: pointer; line-height: 1.2; }
+.cal-p { display: block; color: var(--teal); font-weight: 600; }
+.cal-a { display: block; color: var(--rose); font-size: 10px; }
+.cal-missing { background: transparent; border: 1px dashed var(--slate-soft, currentColor); opacity: .55; cursor: default; }
+.cal-future { background: transparent; opacity: .3; cursor: default; }
+.cal-off { background: color-mix(in srgb, var(--amber) 15%, transparent); }
+.cal-o { color: var(--amber); font-size: 10px; }
+.cal-total th, .cal-total td { font-weight: 700; border-top: 1px solid var(--slate-soft, currentColor); }
+.cal-lg-p { background: var(--teal); } .cal-lg-a { background: var(--rose); }
+.cal-lg-m { border: 1px dashed currentColor; background: transparent; } .cal-lg-o { background: var(--amber); }

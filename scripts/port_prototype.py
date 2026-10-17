@@ -1494,7 +1494,8 @@ rep("""    '<div class="section-title" style="margin-top:16px;">Payroll cost bre
       {label:'Net payable', value:netTotal, color:'var(--teal)'},
       {label:'Lateness / LOP', value:lopTotal, color:'var(--rose)'},
       {label:'Statutory (PF/ESI/PT)', value:statTotal, color:'var(--amber)'},
-    ])+""", """    '<div class="section-title" style="margin-top:16px;">Payroll cost breakdown (this cycle) <button class="x-more"'+xl(()=>xPayroll('Payroll cost', scopedStaff))+'>Explore ›</button></div>'+
+    ])+""", """    '<div class="section-title" style="margin-top:16px;">Attendance calendar (this cycle) · '+escapeHTML(env.cycle.label)+'</div>'+unitAttendanceCalendar(scopedStaff)+
+    '<div class="section-title" style="margin-top:16px;">Payroll cost breakdown (this cycle) <button class="x-more"'+xl(()=>xPayroll('Payroll cost', scopedStaff))+'>Explore ›</button></div>'+
     stackedBar([
       {label:'Net payable', value:netTotal, color:'var(--teal)', link:xl(()=>xRanked('Net payable', scopedStaff, c=>c.summary.finalNet, 'Net payable', true))},
       {label:'Lateness / LOP', value:lopTotal, color:'var(--rose)', link:xl(()=>xRanked('Lateness / LOP', scopedStaff, c=>c.summary.totalDeduction, 'Lateness / LOP', true))},
