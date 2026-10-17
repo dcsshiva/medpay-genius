@@ -2087,7 +2087,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const filtered = unitFilterStaff(STAFF).filter(e=> (e.name+e.empNo+e.dbRef+desgName(e.designation)+deptName(e.department)).toLowerCase().includes(staffQuery.toLowerCase()));
     body.innerHTML = ''+
     '<div class="emp-toolbar">'+
-      '<input class="search" id="staffSearch" placeholder="Search staff..." value="'+escapeAttr(staffQuery)+'" />'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;"><input class="search" id="staffSearch" placeholder="Search staff..." value="'+escapeAttr(staffQuery)+'" />'+
+        '<select id="staffStatusSel" title="Show active staff or staff who have left"><option value="active">Active staff</option><option value="inactive">Inactive staff</option></select></div>'+
       '<div style="display:flex;gap:8px;flex-wrap:wrap;">'+
         '<button class="iconbtn" id="createLoginsBtn" title="Create sign-in accounts for staff who don\'t have one yet (password = Staff Code)">Create missing logins</button>'+
         '<button class="btn" id="addStaffBtn">+ Add staff</button>'+
@@ -2125,7 +2126,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<td><input class="editable mono" data-field="monthlyCL" type="number" min="0" value="'+staffMonthlyCL(e)+'" style="width:56px;"></td>'+
         '<td><input class="editable mono" data-field="monthlyPermissionHours" type="number" min="0" step="0.5" value="'+(e.monthlyPermissionHours ?? (DEFAULT_MONTHLY_PERMISSION_MIN/60))+'" style="width:56px;"></td>'+
         '<td><input class="editable mono" data-field="password" type="password" value="" placeholder="set new…" autocomplete="new-password" style="width:110px;"></td>'+
-        '<td style="white-space:nowrap;"><button class="iconbtn" data-details="'+e.empNo+'">Details</button> <button class="iconbtn" data-hist="'+e.empNo+'">Transfers</button> <button class="iconbtn danger" data-del="'+e.empNo+'">Suspend</button></td>'+
+        '<td style="white-space:nowrap;"><button class="iconbtn" data-details="'+e.empNo+'">Details</button> <button class="iconbtn" data-hist="'+e.empNo+'">Transfers</button> <button class="iconbtn danger" data-del="'+e.empNo+'">Make inactive</button></td>'+
       '</tr>'
     )).join('')+
     '</tbody></table></div>'+
@@ -2186,7 +2187,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         const id = btn.dataset.del;
         const idx = STAFF.findIndex(x=>x.empNo===id);
         if(idx<0) return;
-        if(!confirm('Suspend '+STAFF[idx].name+' ('+id+')? They drop out of attendance, payroll and sign-in until reactivated. Their records are kept.')) return;
+        if(!confirm('Make '+STAFF[idx].name+' ('+id+') inactive (left the organisation)? They drop out of attendance, payroll and sign-in until reactivated. Their records are kept.')) return;
         const s = STAFF.splice(idx,1)[0];
         (env.data.SUSPENDED_STAFF = env.data.SUSPENDED_STAFF || []).push(s);
         renderAdminStaff();
@@ -2230,14 +2231,21 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     };
   }
 
+  let staffStatusView = 'active';
   function renderSuspendedStaff(body){
+    const sel = document.getElementById('staffStatusSel');
+    if(sel){ sel.value = staffStatusView; sel.onchange = ()=>{ staffStatusView = sel.value; renderAdminStaff(); }; }
+    if(staffStatusView !== 'inactive') return;
+    [...body.children].forEach(c=>{ if(!c.classList.contains('emp-toolbar')) c.style.display='none'; });
+    const q = (typeof staffQuery==='string' ? staffQuery : '').toLowerCase();
     const list = env.data.SUSPENDED_STAFF || [];
-    if(!list.length) return;
+    const shown = list.filter(s=>(s.name+s.empNo+(s.dbRef||'')).toLowerCase().includes(q));
+    if(!shown.length){ body.insertAdjacentHTML('beforeend','<div class="footnote" style="margin-top:18px;">No inactive staff'+(q?' match the search':'')+'.</div>'); return; }
     body.insertAdjacentHTML('beforeend', ''+
-      '<div class="section-title" style="margin-top:18px;">Suspended staff ('+list.length+')</div>'+
+      '<div class="section-title" style="margin-top:18px;">Inactive staff — left the organisation ('+shown.length+')</div>'+
       '<div class="tbl-scroll"><table class="narrow"><thead><tr><th>Staff Ref</th><th>Code</th><th>Name</th><th>Unit</th><th></th></tr></thead><tbody>'+
-      list.map(s=>'<tr class="row-wo"><td class="mono hint">'+(s.dbRef||'')+'</td><td class="mono">'+s.empNo+'</td><td>'+s.name+'</td><td>'+unitName(s.unitCode)+'</td>'+
-        '<td><button class="iconbtn" data-react="'+s.empNo+'">Reactivate</button></td></tr>').join('')+
+      shown.map(s=>'<tr class="row-wo"><td class="mono hint">'+(s.dbRef||'')+'</td><td class="mono">'+s.empNo+'</td><td>'+s.name+'</td><td>'+unitName(s.unitCode)+'</td>'+
+        '<td><button class="iconbtn" data-react="'+s.empNo+'">Make active</button></td></tr>').join('')+
       '</tbody></table></div>');
     body.querySelectorAll('[data-react]').forEach(btn=> btn.onclick = ()=>{
       const i = list.findIndex(s=>s.empNo===btn.dataset.react);
