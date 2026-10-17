@@ -12,7 +12,7 @@
  *   • demo shortcuts (sample IDs, demo passwords) and fake attendance removed
  * ========================================================================== */
 import type { HrEnv, HrController, HrWho } from './types';
-import { attendanceByUnit } from './attendanceChart.js';
+import { attendanceByUnit, attendanceCalendar } from './attendanceChart.js';
 
 export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   root.innerHTML = SHELL;
@@ -1227,6 +1227,27 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       }).join('')+'</div></div>'+
       '<div class="attendance-legend">'+chart.units.map(u=>'<span><i style="background:'+unitChartColour(u.code)+';"></i>'+escapeHTML(u.name)+'</span>').join('')+'</div>';
   }
+  function unitAttendanceCalendar(list){
+    const cal = attendanceCalendar(env.cycle.dates, list, ATTENDANCE, UNITS, todayISO());
+    const head = env.cycle.dates.map((d,i)=>{
+      const dt = new Date(d+'T12:00:00');
+      const brk = i>0 && dt.getDate()===1 ? ' cal-break' : '';
+      return '<th class="cal-day'+brk+'"><div class="mono">'+dt.getDate()+'</div><small>'+dt.toLocaleDateString('en-GB',{weekday:'short'})+'</small></th>';
+    }).join('');
+    const cellHtml = (c, unitList, label) => {
+      if (c.status==='future') return '<td class="cal-cell cal-future">·</td>';
+      if (c.status==='missing') return '<td class="cal-cell cal-missing" title="'+escapeAttr(label+' · '+fmtDate(c.date)+' · attendance not yet received')+'">—</td>';
+      const offOnly = !c.present && !c.absent;
+      const t = label+' · '+fmtDate(c.date)+' · Present '+c.present+' · Absent '+c.absent+(c.off?' · Off '+c.off:'');
+      return '<td class="cal-cell'+(offOnly?' cal-off':'')+'" role="button" tabindex="0" title="'+escapeAttr(t)+'"'+xl(()=>xDay(c.date,unitList))+'>'+
+        (offOnly?'<span class="cal-o">WO</span>':'<span class="cal-p mono">'+c.present+'</span><span class="cal-a mono">'+c.absent+'A</span>')+'</td>';
+    };
+    const row = (name, cells, unitList, cls) => '<tr class="'+(cls||'')+'"><th class="cal-unit">'+escapeHTML(name)+'</th>'+cells.map(c=>cellHtml(c,unitList,name)).join('')+'</tr>';
+    return '<div class="tbl-scroll attendance-cal"><table class="cal-table"><thead><tr><th class="cal-unit">Unit</th>'+head+'</tr></thead><tbody>'+
+      cal.rows.map(r=>row(r.name, r.cells, list.filter(s=>(s.unitCode||'')===r.code))).join('')+
+      row('Total', cal.total, list, 'cal-total')+'</tbody></table></div>'+
+      '<div class="attendance-legend"><span><i class="cal-lg-p"></i>Present</span><span><i class="cal-lg-a"></i>Absent</span><span><i class="cal-lg-m"></i>Not yet imported</span><span><i class="cal-lg-o"></i>Weekly off / holiday</span></div>';
+  }
   function miniBarChart(series, opts){
     opts = opts||{};
     const vals = series.map(s=>s.value).filter(v=>v!=null);
@@ -1308,6 +1329,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<div><div class="section-title">Top late-comers <button class="x-more"'+xl(()=>xRanked('Late-comers', scopedStaff, c=>c.summary.lateDays, 'Late instances', false))+'>All ›</button></div>'+
           topList(topLate,{color:'var(--rose)',links:topLate.map(x=>xl(()=>xStaff(x.empNo)))})+'</div>'+
       '</div>'+
+      '<div class="section-title" style="margin-top:16px;">Attendance calendar (this cycle) · '+escapeHTML(env.cycle.label)+'</div>'+unitAttendanceCalendar(scopedStaff)+
       '<div class="section-title" style="margin-top:16px;">Payroll cost breakdown (this cycle) <button class="x-more"'+xl(()=>xPayroll('Payroll cost', scopedStaff))+'>Explore ›</button></div>'+
       stackedBar([
         {label:'Net payable', value:netTotal, color:'var(--teal)', link:xl(()=>xRanked('Net payable', scopedStaff, c=>c.summary.finalNet, 'Net payable', true))},
