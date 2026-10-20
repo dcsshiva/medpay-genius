@@ -27,13 +27,15 @@ export const DEFAULT_PAYROLL_SETTINGS = {
   ot: { enabled: true, multiplier: 1.5, graceMin: 15 },
   /** staff login shows salary/deduction/net figures and the payslip only when an admin turns this on */
   staffSalaryVisible: false,
+  defaultPermissionHours: 2,
+  permissionRoundUpToHours: 4,
 };
 
 // ─────────────── DB row ⇄ prototype object ───────────────
 const staffFromRow = (r: any) => ({
   empNo: r.emp_no, name: r.name, designation: r.designation_code ?? '', department: r.department_code ?? '',
   netSalary: num(r.net_salary), username: r.emp_no, active: r.active !== false,
-  shiftCode: r.shift_code ?? '', monthlyCL: num(r.monthly_cl, 1), monthlyPermissionHours: num(r.monthly_permission_hours, 4),
+  shiftCode: r.shift_code ?? '', monthlyCL: num(r.monthly_cl, 1), monthlyPermissionHours: num(r.monthly_permission_hours, 2),
   unitCode: r.unit_code ?? '', dbRef: r.db_ref ?? '', unitHistory: Array.isArray(r.unit_history) ? r.unit_history : [],
   role: r.role || 'Staff', pfApplicable: r.pf_applicable ?? false, esiApplicable: r.esi_applicable ?? false,
   otEligible: r.ot_eligible ?? false, otherDeduction: num(r.other_deduction), phone: r.phone ?? '', email: r.email ?? '',
@@ -43,7 +45,7 @@ const staffFromRow = (r: any) => ({
 const staffToRow = (s: any) => ({
   emp_no: s.empNo, db_ref: nz(s.dbRef), name: s.name, role: s.role || 'Staff', reporting_manager: s.reportingManager || '',
   designation_code: nz(s.designation), department_code: nz(s.department), unit_code: nz(s.unitCode), shift_code: nz(s.shiftCode),
-  net_salary: num(s.netSalary), monthly_cl: num(s.monthlyCL, 1), monthly_permission_hours: num(s.monthlyPermissionHours, 4),
+  net_salary: num(s.netSalary), monthly_cl: num(s.monthlyCL, 1), monthly_permission_hours: num(s.monthlyPermissionHours, 2),
   pf_applicable: !!s.pfApplicable, esi_applicable: !!s.esiApplicable, ot_eligible: !!s.otEligible,
   other_deduction: num(s.otherDeduction), phone: s.phone || '', email: s.email || '', dob: nz(s.dob), doj: nz(s.doj),
   address: s.address || '', unit_history: s.unitHistory || [], active: true, updated_at: new Date().toISOString(),

@@ -132,7 +132,7 @@ export function computePayroll(input: EngineInput): PayrollResult {
   const perMinute = perDay / 480;
 
   const clQuota = n(staff.monthly_cl, 1);
-  const permissionQuota = Math.round(n(staff.monthly_permission_hours, 4) * 60);
+  const permissionQuota = Math.round(n(staff.monthly_permission_hours, 2) * 60);
   let clRemaining = clQuota;
   let permissionRemaining = permissionQuota;
   let cumulativeUncovered = 0;

@@ -1573,6 +1573,47 @@ SHELL = '''<div class="wrap">
 </div>
 <div class="sync-status hidden" id="hrSyncStatus"></div>'''
 
+
+# ── 40. permission allowance: default 2h (admin-set in Payroll settings); usage over the
+#        allowance is counted as the round-up tier (default 4h) with no deduction; minutes
+#        beyond the tier are deducted per minute as before ──
+rep('const DEFAULT_MONTHLY_PERMISSION_MIN = 240;',
+    'function defaultPermMin(){ return Math.round(((PAYROLL_SETTINGS && PAYROLL_SETTINGS.defaultPermissionHours) ?? 2) * 60); }')
+rep('DEFAULT_MONTHLY_PERMISSION_MIN', 'defaultPermMin()', 5)
+rep("function staffMonthlyPermissionMin(emp){",
+    """function permissionPoolMin(q){ const r = Math.round(((PAYROLL_SETTINGS && PAYROLL_SETTINGS.permissionRoundUpToHours) ?? 4) * 60); return q > 0 ? Math.max(q, r) : 0; }
+function permissionDisplay(q, raw){ return raw <= q ? {raw, used: raw, remaining: q - raw} : {raw, used: permissionPoolMin(q), remaining: 0}; }
+function staffMonthlyPermissionMin(emp){""")
+rep("""  let permissionRemaining = monthlyPermissionMin;
+  let clRemaining = monthlyCL;""", """  const permissionPool = permissionPoolMin(monthlyPermissionMin);
+  let permissionRemaining = permissionPool;
+  let permRoundNoted = false;
+  let clRemaining = monthlyCL;""")
+rep("""    row.permissionRemaining = permissionRemaining;
+    row.clRemaining = clRemaining;""", """    const pdRow = permissionDisplay(monthlyPermissionMin, permissionPool - permissionRemaining);
+    if(!permRoundNoted && pdRow.raw > monthlyPermissionMin){
+      permRoundNoted = true;
+      row.note += ' · permission '+fmtMin(pdRow.raw)+' used — counted as '+fmtMin(pdRow.used);
+    }
+    row.permissionRemaining = pdRow.remaining;
+    row.clRemaining = clRemaining;""")
+rep("""  const summary = {""", """  const pdSum = permissionDisplay(monthlyPermissionMin, permissionPool - permissionRemaining);
+  const summary = {""")
+rep("""    permissionRemaining, permissionUsed: monthlyPermissionMin - permissionRemaining,""",
+    """    permissionRemaining: pdSum.remaining, permissionUsed: pdSum.used, permissionRawUsed: pdSum.raw,""")
+rep("""  '<button class="btn" style="width:100%;margin-top:8px;" id="psSave">Save payroll settings</button>'+""",
+    """  '<div class="section-title">Permission</div>'+
+  '<div class="form-row"><label>Default permission hours per cycle</label><input id="psPermDefault" type="number" min="0" step="0.5" value="'+(p.defaultPermissionHours ?? 2)+'"></div>'+
+  '<div class="form-row"><label>If exceeded, count as (hours)</label><input id="psPermRound" type="number" min="0" step="0.5" value="'+(p.permissionRoundUpToHours ?? 4)+'"></div>'+
+  '<div class="form-row"><label><input type="checkbox" id="psPermApply"> Apply the default to all staff now</label></div>'+
+  '<div class="hint">Usage over the allowance (e.g. 2h 7m) is counted as the round-up hours with no deduction; minutes beyond that are deducted per minute.</div>'+
+  '<button class="btn" style="width:100%;margin-top:8px;" id="psSave">Save payroll settings</button>'+""")
+rep("""    p.staffSalaryVisible = document.getElementById('psStaffSal').checked;""",
+    """    p.staffSalaryVisible = document.getElementById('psStaffSal').checked;
+    p.defaultPermissionHours = parseFloat(document.getElementById('psPermDefault').value) || 0;
+    p.permissionRoundUpToHours = parseFloat(document.getElementById('psPermRound').value) || 0;
+    if(document.getElementById('psPermApply').checked) STAFF.forEach(e=>{ e.monthlyPermissionHours = p.defaultPermissionHours; });""")
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
