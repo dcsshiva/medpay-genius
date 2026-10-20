@@ -257,18 +257,15 @@ export function computePayroll(input: EngineInput): PayrollResult {
         } else {
           lateDays++;
           lateMinutes += effectiveLate;
-          const fromPerm = Math.min(effectiveLate, permissionRemaining);
-          permissionRemaining -= fromPerm;
-          row.permUsed += fromPerm;
-          const uncovered = effectiveLate - fromPerm;
+          // permission only covers lateness when pre-approved (handled above); no automatic absorption
+          const fromPerm = 0;
+          const uncovered = effectiveLate;
           if (uncovered > 0) {
             const ded = uncovered * perMinute;
             row.deduction += ded;
             lateDeduction += ded;
             totalDeduction += ded;
-            row.note = fromPerm > 0
-              ? `${fromPerm}m from permission, ${uncovered}m deducted`
-              : `${uncovered}m late deducted (permission balance empty)`;
+            row.note = `${late}m late — no approved permission, ${uncovered}m deducted`;
             cumulativeUncovered += uncovered;
             while (cumulativeUncovered >= consolidated) {
               cumulativeUncovered -= consolidated;

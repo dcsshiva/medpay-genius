@@ -1614,6 +1614,23 @@ rep("""    p.staffSalaryVisible = document.getElementById('psStaffSal').checked;
     p.permissionRoundUpToHours = parseFloat(document.getElementById('psPermRound').value) || 0;
     if(document.getElementById('psPermApply').checked) STAFF.forEach(e=>{ e.monthlyPermissionHours = p.defaultPermissionHours; });""")
 
+
+# ── 41. permission covers lateness only when a Permission request for that date was approved ──
+rep("""  let permRoundNoted = false;""", """  let permRoundNoted = false;
+  const approvedPermMin = approvedPermissionByDate(empNo);""")
+rep("""function permissionDisplay(q, raw){""", """function approvedPermissionByDate(empNo){ const m = {}; (LEAVES||[]).forEach(l=>{ if(l.empNo===empNo && l.type==='Permission' && l.status==='Approved' && l.date) m[l.date] = (m[l.date]||0) + Math.round((parseFloat(l.hours)||1)*60); }); return m; }
+function permissionCover(late, approvedToday, remaining){ return Math.max(0, Math.min(late, approvedToday||0, remaining)); }
+function permissionDisplay(q, raw){""")
+rep("""        const fromPerm = Math.min(late, permissionRemaining);""",
+    """        const approvedToday = approvedPermMin[rec.date] || 0;
+        const fromPerm = permissionCover(late, approvedToday, permissionRemaining);""")
+rep("""            ? fromPerm+'m absorbed by permission, '+uncovered+'m deducted from pay'
+            : uncovered+'m late deducted from pay (permission pool empty)';""",
+    """            ? late+'m late - '+fromPerm+'m covered by approved permission ('+fmtMin(approvedToday)+'), '+uncovered+'m deducted from pay'
+            : late+'m late - '+(approvedToday ? 'permission balance used up' : 'no approved permission')+', '+uncovered+'m deducted from pay';""")
+rep("""          row.note = fromPerm+'m late fully absorbed by permission balance';""",
+    """          row.note = late+'m late - covered by approved permission ('+fmtMin(approvedToday)+')';""")
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
