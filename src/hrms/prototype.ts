@@ -59,6 +59,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   }
   function staffMonthlyCL(emp){ return emp.monthlyCL ?? DEFAULT_MONTHLY_CL; }
   function permissionPoolMin(q){ const r = Math.round(((PAYROLL_SETTINGS && PAYROLL_SETTINGS.permissionRoundUpToHours) ?? 4) * 60); return q > 0 ? Math.max(q, r) : 0; }
+  function approvedPermissionByDate(empNo){ const m = {}; (LEAVES||[]).forEach(l=>{ if(l.empNo===empNo && l.type==='Permission' && l.status==='Approved' && l.date) m[l.date] = (m[l.date]||0) + Math.round((parseFloat(l.hours)||1)*60); }); return m; }
+  function permissionCover(late, approvedToday, remaining){ return Math.max(0, Math.min(late, approvedToday||0, remaining)); }
   function permissionDisplay(q, raw){ return raw <= q ? {raw, used: raw, remaining: q - raw} : {raw, used: permissionPoolMin(q), remaining: 0}; }
   function staffMonthlyPermissionMin(emp){ return Math.round((emp.monthlyPermissionHours ?? (defaultPermMin()/60)) * 60); }
   let TASK_TEMPLATES = env.data.TASK_TEMPLATES;
@@ -128,6 +130,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const permissionPool = permissionPoolMin(monthlyPermissionMin);
     let permissionRemaining = permissionPool;
     let permRoundNoted = false;
+    const approvedPermMin = approvedPermissionByDate(empNo);
     let clRemaining = monthlyCL;
     let cumulativeUncovered = 0;
     let totalDeduction = 0;
@@ -176,7 +179,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
           extraLateUsed[shift.code]++;
           row.note = late+'m late - covered by monthly extra-late allowance ('+extraLateUsed[shift.code]+'/'+extraCap+' used on '+shift.name+')';
         } else {
-          const fromPerm = Math.min(late, permissionRemaining);
+          const approvedToday = approvedPermMin[rec.date] || 0;
+          const fromPerm = permissionCover(late, approvedToday, permissionRemaining);
           permissionRemaining -= fromPerm;
           row.permUsed = fromPerm;
           const uncovered = late - fromPerm;
@@ -186,8 +190,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
             row.deduction += ded;
             totalDeduction += ded;
             row.note = fromPerm>0
-              ? fromPerm+'m absorbed by permission, '+uncovered+'m deducted from pay'
-              : uncovered+'m late deducted from pay (permission pool empty)';
+              ? late+'m late - '+fromPerm+'m covered by approved permission ('+fmtMin(approvedToday)+'), '+uncovered+'m deducted from pay'
+              : late+'m late - '+(approvedToday ? 'permission balance used up' : 'no approved permission')+', '+uncovered+'m deducted from pay';
 
             cumulativeUncovered += uncovered;
             while(cumulativeUncovered >= CONSOLIDATED_LEAVE_MIN){
@@ -202,7 +206,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
               }
             }
           } else {
-            row.note = fromPerm+'m late fully absorbed by permission balance';
+            row.note = late+'m late - covered by approved permission ('+fmtMin(approvedToday)+')';
           }
         }
 
