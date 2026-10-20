@@ -1579,7 +1579,7 @@ SHELL = '''<div class="wrap">
 #        beyond the tier are deducted per minute as before ──
 rep('const DEFAULT_MONTHLY_PERMISSION_MIN = 240;',
     'function defaultPermMin(){ return Math.round(((PAYROLL_SETTINGS && PAYROLL_SETTINGS.defaultPermissionHours) ?? 2) * 60); }')
-rep('DEFAULT_MONTHLY_PERMISSION_MIN', 'defaultPermMin()', 4)
+rep('DEFAULT_MONTHLY_PERMISSION_MIN', 'defaultPermMin()', 5)
 rep("function staffMonthlyPermissionMin(emp){",
     """function permissionPoolMin(q){ const r = Math.round(((PAYROLL_SETTINGS && PAYROLL_SETTINGS.permissionRoundUpToHours) ?? 4) * 60); return q > 0 ? Math.max(q, r) : 0; }
 function permissionDisplay(q, raw){ return raw <= q ? {raw, used: raw, remaining: q - raw} : {raw, used: permissionPoolMin(q), remaining: 0}; }

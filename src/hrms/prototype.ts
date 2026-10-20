@@ -43,7 +43,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
      allowedExtraLateMin = an extra grace band forgiven up to extraLateMaxPerMonth times/cycle;
      beyond that (or once the allowance is used up) the FULL late duration is charged. */
   let SHIFT_MASTER = env.data.SHIFT_MASTER;
-  const DEFAULT_MONTHLY_PERMISSION_MIN = 240;
+  function defaultPermMin(){ return Math.round(((PAYROLL_SETTINGS && PAYROLL_SETTINGS.defaultPermissionHours) ?? 2) * 60); }
   const DEFAULT_MONTHLY_CL = 1;
   const CONSOLIDATED_LEAVE_MIN = 480;
   /* Pay cycle: 25th of a month to the 24th of the next. Indicative statutory rates below
@@ -58,7 +58,9 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     return slab ? slab.amount : 0;
   }
   function staffMonthlyCL(emp){ return emp.monthlyCL ?? DEFAULT_MONTHLY_CL; }
-  function staffMonthlyPermissionMin(emp){ return Math.round((emp.monthlyPermissionHours ?? (DEFAULT_MONTHLY_PERMISSION_MIN/60)) * 60); }
+  function permissionPoolMin(q){ const r = Math.round(((PAYROLL_SETTINGS && PAYROLL_SETTINGS.permissionRoundUpToHours) ?? 4) * 60); return q > 0 ? Math.max(q, r) : 0; }
+  function permissionDisplay(q, raw){ return raw <= q ? {raw, used: raw, remaining: q - raw} : {raw, used: permissionPoolMin(q), remaining: 0}; }
+  function staffMonthlyPermissionMin(emp){ return Math.round((emp.monthlyPermissionHours ?? (defaultPermMin()/60)) * 60); }
   let TASK_TEMPLATES = env.data.TASK_TEMPLATES;
   let ROSTER = env.data.ROSTER; // admin per-date overrides: ROSTER["<empNo>|<date>"] = shift code
   function rosterKey(empNo, date){ return empNo+'|'+date; }
@@ -123,7 +125,9 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
 
     const monthlyPermissionMin = staffMonthlyPermissionMin(emp);
     const monthlyCL = staffMonthlyCL(emp);
-    let permissionRemaining = monthlyPermissionMin;
+    const permissionPool = permissionPoolMin(monthlyPermissionMin);
+    let permissionRemaining = permissionPool;
+    let permRoundNoted = false;
     let clRemaining = monthlyCL;
     let cumulativeUncovered = 0;
     let totalDeduction = 0;
@@ -214,7 +218,12 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         }
       }
 
-      row.permissionRemaining = permissionRemaining;
+      const pdRow = permissionDisplay(monthlyPermissionMin, permissionPool - permissionRemaining);
+      if(!permRoundNoted && pdRow.raw > monthlyPermissionMin){
+        permRoundNoted = true;
+        row.note += ' · permission '+fmtMin(pdRow.raw)+' used — counted as '+fmtMin(pdRow.used);
+      }
+      row.permissionRemaining = pdRow.remaining;
       row.clRemaining = clRemaining;
       row.runningDeduction = totalDeduction;
       row.runningNet = emp.netSalary - totalDeduction;
@@ -230,10 +239,11 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const statutoryDeduction = pfDeduction + esiDeduction + ptDeduction + otherDeduction;
     const otPay = PAYROLL_SETTINGS.ot.enabled ? (otMinutesTotal/60) * (perDay/8) * PAYROLL_SETTINGS.ot.multiplier : 0;
 
+    const pdSum = permissionDisplay(monthlyPermissionMin, permissionPool - permissionRemaining);
     const summary = {
       perDay, perMinute, grossPay,
       monthlyPermissionMin, monthlyCL,
-      permissionRemaining, permissionUsed: monthlyPermissionMin - permissionRemaining,
+      permissionRemaining: pdSum.remaining, permissionUsed: pdSum.used, permissionRawUsed: pdSum.raw,
       clRemaining, clUsed: monthlyCL - clRemaining,
       totalDeduction,
       pfDeduction, esiDeduction, ptDeduction, otherDeduction, statutoryDeduction,
@@ -926,6 +936,11 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '<div class="form-row"><label>Grace before OT starts (min)</label><input id="psOtGrace" type="number" min="0" value="'+p.ot.graceMin+'"></div>'+
     '</div>'+
 
+    '<div class="section-title">Permission</div>'+
+    '<div class="form-row"><label>Default permission hours per cycle</label><input id="psPermDefault" type="number" min="0" step="0.5" value="'+(p.defaultPermissionHours ?? 2)+'"></div>'+
+    '<div class="form-row"><label>If exceeded, count as (hours)</label><input id="psPermRound" type="number" min="0" step="0.5" value="'+(p.permissionRoundUpToHours ?? 4)+'"></div>'+
+    '<div class="form-row"><label><input type="checkbox" id="psPermApply"> Apply the default to all staff now</label></div>'+
+    '<div class="hint">Usage over the allowance (e.g. 2h 7m) is counted as the round-up hours with no deduction; minutes beyond that are deducted per minute.</div>'+
     '<button class="btn" style="width:100%;margin-top:8px;" id="psSave">Save payroll settings</button>'+
     '<div class="footnote">These PF/ESI/Professional Tax rates and slabs are editable defaults for this demo, not authoritative figures — confirm the actual applicable rates with your accountant before relying on them for real payroll. Overtime pay is calculated from actual out-time minus the shift\'s end time (overnight shifts aren\'t modeled yet) for staff marked OT-eligible in Staff Master → Details.</div>';
 
@@ -946,6 +961,9 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       p.ot.multiplier = parseFloat(document.getElementById('psOtMult').value) || 1;
       p.ot.graceMin = parseFloat(document.getElementById('psOtGrace').value) || 0;
       p.staffSalaryVisible = document.getElementById('psStaffSal').checked;
+      p.defaultPermissionHours = parseFloat(document.getElementById('psPermDefault').value) || 0;
+      p.permissionRoundUpToHours = parseFloat(document.getElementById('psPermRound').value) || 0;
+      if(document.getElementById('psPermApply').checked) STAFF.forEach(e=>{ e.monthlyPermissionHours = p.defaultPermissionHours; });
       renderAdminMasters();
     };
   }
@@ -1959,7 +1977,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
          '<td><input class="editable mono ns-gross" type="number" min="0" value="0" style="width:100px;"></td>'+
         '<td><input class="editable mono ns-doj" type="date"></td>'+
         '<td><input class="editable mono ns-cl" type="number" min="0" step="0.5" style="width:60px;" value="'+DEFAULT_MONTHLY_CL+'"></td>'+
-        '<td><input class="editable mono ns-perm" type="number" min="0" step="0.5" style="width:60px;" value="'+(DEFAULT_MONTHLY_PERMISSION_MIN/60)+'"></td>'+
+        '<td><input class="editable mono ns-perm" type="number" min="0" step="0.5" style="width:60px;" value="'+(defaultPermMin()/60)+'"></td>'+
       '</tr>';
     }).join('')+
     '</tbody></table></div>';
@@ -2031,7 +2049,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
           reportingManager: v(r,'.ns-mgr'), designation: v(r,'.ns-desg'), department: v(r,'.ns-dept'), unitCode,
           shiftCode: v(r,'.ns-shift'), netSalary: gross,
           monthlyCL: v(r,'.ns-cl')==='' ? DEFAULT_MONTHLY_CL : (parseFloat(v(r,'.ns-cl'))||0),
-          monthlyPermissionHours: v(r,'.ns-perm')==='' ? DEFAULT_MONTHLY_PERMISSION_MIN/60 : (parseFloat(v(r,'.ns-perm'))||0),
+          monthlyPermissionHours: v(r,'.ns-perm')==='' ? defaultPermMin()/60 : (parseFloat(v(r,'.ns-perm'))||0),
           phone: '', email: '', doj: v(r,'.ns-doj'), dob: '', address: '', otEligible: false, pfApplicable: false,
           esiApplicable: false, otherDeduction: 0,
           username: code, password: code, active: true,
@@ -2124,7 +2142,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '</select></td>'+
         '<td><input class="editable mono" data-field="netSalary" value="'+e.netSalary+'" inputmode="numeric"></td>'+
         '<td><input class="editable mono" data-field="monthlyCL" type="number" min="0" value="'+staffMonthlyCL(e)+'" style="width:56px;"></td>'+
-        '<td><input class="editable mono" data-field="monthlyPermissionHours" type="number" min="0" step="0.5" value="'+(e.monthlyPermissionHours ?? (DEFAULT_MONTHLY_PERMISSION_MIN/60))+'" style="width:56px;"></td>'+
+        '<td><input class="editable mono" data-field="monthlyPermissionHours" type="number" min="0" step="0.5" value="'+(e.monthlyPermissionHours ?? (defaultPermMin()/60))+'" style="width:56px;"></td>'+
         '<td><input class="editable mono" data-field="password" type="password" value="" placeholder="set new…" autocomplete="new-password" style="width:110px;"></td>'+
         '<td style="white-space:nowrap;"><button class="iconbtn" data-details="'+e.empNo+'">Details</button> <button class="iconbtn" data-hist="'+e.empNo+'">Transfers</button> <button class="iconbtn danger" data-del="'+e.empNo+'">Make inactive</button></td>'+
       '</tr>'
@@ -2365,7 +2383,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<div class="form-row"><label>Net salary (₹/month)</label><input id="asSalary" type="number" min="0" value="10000"></div>'+
         '<div class="form-grid">'+
           '<div class="form-row"><label>CL allowed / month</label><input id="asCL" type="number" min="0" value="'+DEFAULT_MONTHLY_CL+'"></div>'+
-          '<div class="form-row"><label>Permission hrs / month</label><input id="asPermHrs" type="number" min="0" step="0.5" value="'+(DEFAULT_MONTHLY_PERMISSION_MIN/60)+'"></div>'+
+          '<div class="form-row"><label>Permission hrs / month</label><input id="asPermHrs" type="number" min="0" step="0.5" value="'+(defaultPermMin()/60)+'"></div>'+
         '</div>'+
         '<div class="hint">Contact address, overtime eligibility and PF/ESI/other-deduction settings can be filled in afterwards from the Details button on the staff row.</div>'+
         '<div class="error-text" id="asError"></div>'+
