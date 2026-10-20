@@ -40,7 +40,7 @@ export async function fetchLeaveBalance(staffId: string, refDate: Date = new Dat
   ]);
 
   const monthlyCL = Number(staff?.monthly_cl ?? 1);
-  const permQuotaMin = Math.round(Number(staff?.monthly_permission_hours ?? 4) * 60);
+  const permQuotaMin = Math.round(Number(staff?.monthly_permission_hours ?? 2) * 60);
   let clApproved = 0, clPending = 0, permApprovedMin = 0, permPendingMin = 0;
 
   for (const a of (apps || []) as any[]) {
