@@ -1,5 +1,7 @@
 # Current tasks
 
+- [x] Fix Salary → View payslip → Next opening; signed-in checks passed for both unit letterheads, period selection, Back, Print and PDF.
+
 - [x] Add Overview attendance cycle/date labels, stacked unit colours, and a unit legend; five calculation tests passed; signed-in display, unit filtering, cycle switching and day details verified.
 
 - [ ] Update the six remix credentials — blocked until the secure update form is accepted.
