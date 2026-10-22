@@ -13,6 +13,11 @@
  * ========================================================================== */
 import type { HrEnv, HrController, HrWho } from './types';
 import { attendanceByUnit, attendanceCalendar } from './attendanceChart.js';
+import { earningsLines, pfBase, cycleAdjustments, statutory, buildPayslip } from './payslip.js';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
+const LETTERHEAD_URL = '/payslip/westmed-letterhead.png';
+const PAYSLIP_PRINT_CSS = '@page{size:A5 landscape;margin:6mm}body{margin:0;font-family:Arial,sans-serif;color:#111;-webkit-print-color-adjust:exact;print-color-adjust:exact}.ps-doc{border:2px solid #111}.ps-head{text-align:center;padding:4px;border-bottom:1px solid #111}.ps-head img{max-height:80px;max-width:100%}.ps-tbl{width:100%;border-collapse:collapse;font-size:10px}.ps-tbl td,.ps-tbl th{border:1px solid #111;padding:3px 6px;text-align:left}.ps-tbl .num,.ps-tbl .center{text-align:center}.ps-title,.ps-sub{text-align:center!important}.band td{background:#fff200;font-weight:700}.lbl{font-weight:700}.strong{font-weight:700}.foot{font-weight:700;padding:8px}';
 
 export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   root.innerHTML = SHELL;
@@ -235,12 +240,15 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     }
 
     const grossPay = emp.netSalary;
-    const pfDeduction = (PAYROLL_SETTINGS.pf.enabled && (emp.pfApplicable??false)) ? grossPay*PAYROLL_SETTINGS.pf.rate/100 : 0;
+    const pfDeduction = (PAYROLL_SETTINGS.pf.enabled && (emp.pfApplicable??false)) ? pfBase(emp)*PAYROLL_SETTINGS.pf.rate/100 : 0;
     const esiEligible = emp.esiApplicable ?? false;
     const esiDeduction = (PAYROLL_SETTINGS.esi.enabled && esiEligible && grossPay<=PAYROLL_SETTINGS.esi.ceiling) ? grossPay*PAYROLL_SETTINGS.esi.rate/100 : 0;
     const ptDeduction = ptFor(grossPay);
-    const otherDeduction = emp.otherDeduction || 0;
-    const statutoryDeduction = pfDeduction + esiDeduction + ptDeduction + otherDeduction;
+    const adjustments = cycleAdjustments(emp, env.cycle.key);
+    const otherDeduction = (emp.otherDeduction || 0) + adjustments.reduce((t,a)=>t+a.amount,0);
+    const tdsDeduction = Number(emp.tds) || 0;
+    const employer = statutory(emp, PAYROLL_SETTINGS);
+    const statutoryDeduction = pfDeduction + esiDeduction + ptDeduction + otherDeduction + tdsDeduction;
     const otPay = PAYROLL_SETTINGS.ot.enabled ? (otMinutesTotal/60) * (perDay/8) * PAYROLL_SETTINGS.ot.multiplier : 0;
 
     const pdSum = permissionDisplay(monthlyPermissionMin, permissionPool - permissionRemaining);
@@ -251,6 +259,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       clRemaining, clUsed: monthlyCL - clRemaining,
       totalDeduction,
       pfDeduction, esiDeduction, ptDeduction, otherDeduction, statutoryDeduction,
+      tdsDeduction, adjustments, earnings: earningsLines(emp),
+      employerPf: pfDeduction>0 ? employer.employerPf : 0, employerEsi: esiDeduction>0 ? employer.employerEsi : 0,
       otMinutesTotal, otPay,
       finalNet: grossPay - totalDeduction - statutoryDeduction + otPay,
       presentDays: rows.filter(r=>r.status==='P').length,
@@ -2100,10 +2110,152 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     modalRoot.innerHTML = ''+
     '<div class="modal-back" id="modalBack"><div class="modal">'+
       '<div class="modal-head"><h3 style="font-size:15px;">'+result.emp.name+' — cycle sheet</h3><button class="closebtn" id="modalClose">✕</button></div>'+
-      '<div class="modal-body">'+ profileAndStats(result) + attendanceTable(result) +'</div>'+
+      '<div class="modal-body">'+ profileAndStats(result) + attendanceTable(result) +
+        '<div style="display:flex;justify-content:flex-end;margin-top:14px;"><button class="btn" id="psNext">Next — Payslip →</button></div></div>'+
     '</div></div>';
+    document.getElementById('psNext').onclick = ()=> openPayslip(empNo);
     document.getElementById('modalClose').onclick = ()=> modalRoot.innerHTML='';
     document.getElementById('modalBack').addEventListener('click', e=>{ if(e.target.id==='modalBack') modalRoot.innerHTML=''; });
+  }
+
+  function payslipData(empNo){
+    const result = computeCycle(empNo);
+    const emp = findStaff(empNo) || result.emp;
+    const slip = buildPayslip({emp, summary: result.summary, settings: PAYROLL_SETTINGS, rows: result.rows});
+    const month = new Date(env.cycle.end+'T12:00:00').toLocaleDateString('en-IN',{month:'long'});
+    const year = env.cycle.end.slice(0,4);
+    const run = env.data.PAYROLL.run;
+    return {emp, result, slip, monthLabel: month+' - '+year, fileMonth: month+'-'+year,
+      payDate: run && run.finalized_at ? fmtDate(String(run.finalized_at).slice(0,10)) : '',
+      period: fmtDate(env.cycle.start)+' to '+fmtDate(env.cycle.end)};
+  }
+  function psAmt(v){ return Math.round(Number(v)||0).toLocaleString('en-IN'); }
+  function payslipDocHTML(d){
+    const s = d.slip, e = d.emp;
+    const lines = Math.max(s.earnings.length, s.deductions.length);
+    let body = '';
+    for(let i=0;i<lines;i++){
+      const er = s.earnings[i], dr = s.deductions[i];
+      body += '<tr><td>'+(er?escapeHTML(er.label):'')+'</td><td class="num">'+(er?psAmt(er.amount):'')+'</td><td>'+(dr?escapeHTML(dr.label):'')+'</td><td class="num">'+(dr?psAmt(dr.amount):'')+'</td></tr>';
+    }
+    return '<div class="ps-doc">'+
+      '<div class="ps-head"><img src="'+LETTERHEAD_URL+'" alt="WestMed Hospitals"></div>'+
+      '<table class="ps-tbl">'+
+        '<tr><th colspan="4" class="ps-title">Pay Slip for the month of '+escapeHTML(d.monthLabel)+'</th></tr>'+
+        '<tr><th colspan="4" class="ps-sub">Employee ID - '+escapeHTML(e.empNo)+'</th></tr>'+
+        '<tr><td class="lbl">Emp. Name</td><td>'+escapeHTML(e.name)+'</td><td class="lbl">Designation</td><td>'+escapeHTML(desgName(e.designation)||'')+'</td></tr>'+
+        '<tr><td class="lbl">No. of working Days</td><td>'+s.workingDays+'</td><td class="lbl">Pay Date</td><td>'+escapeHTML(d.payDate)+'</td></tr>'+
+        '<tr><td class="lbl">LOP</td><td>'+(s.lopDays?s.lopDays+' day(s)':'0')+'</td><td class="lbl">UAN No</td><td>'+escapeHTML(e.uanNo||'')+'</td></tr>'+
+        '<tr><td class="lbl">Pay Period</td><td>'+escapeHTML(d.period)+'</td><td class="lbl">ESIC No</td><td>'+escapeHTML(e.esicNo||'')+'</td></tr>'+
+        '<tr class="band"><td>EARNINGS</td><td class="num">Amount (Rs.)</td><td>DEDUCTIONS</td><td class="num">Amount (Rs.)</td></tr>'+
+        body+
+        '<tr class="band"><td>TOTAL</td><td class="num">'+psAmt(s.earningsSum)+'</td><td>TOTAL</td><td class="num">'+psAmt(s.deductionsSum)+'</td></tr>'+
+        '<tr><td></td><td></td><td class="lbl">NET SALARY</td><td class="num strong">'+psAmt(s.net)+'</td></tr>'+
+        '<tr class="band"><td colspan="4" class="center">Employer Contribution</td></tr>'+
+        '<tr><td class="lbl">EPF</td><td class="num">'+psAmt(s.employerPf)+'</td><td class="lbl">ESI</td><td class="num">'+psAmt(s.employerEsi)+'</td></tr>'+
+        '<tr class="band"><td colspan="2" class="center">Cost to Company</td><td colspan="2" class="center">'+psAmt(s.ctc)+'</td></tr>'+
+        '<tr><td colspan="4" class="center foot">*This is a system generated Payslip and does not require Signature*</td></tr>'+
+      '</table></div>';
+  }
+  function printPayslip(d){
+    const w = window.open('', '_blank');
+    if(!w){ alert('Allow pop-ups to print the payslip.'); return; }
+    w.document.write('<!doctype html><html><head><title>Payslip '+escapeHTML(d.emp.empNo)+' '+escapeHTML(d.fileMonth)+'</title><style>'+PAYSLIP_PRINT_CSS+'</style></head><body>'+payslipDocHTML(d)+
+      '<script>window.onload=function(){setTimeout(function(){window.print();},300);};<\/script></body></html>');
+    w.document.close();
+  }
+  async function payslipPDF(d){
+    const s = d.slip, e = d.emp;
+    const doc = new jsPDF({orientation:'landscape', unit:'mm', format:'a5'});
+    const W = 210, M = 8;
+    try {
+      const img = await fetch(LETTERHEAD_URL).then(r=>r.blob()).then(b=> new Promise(res=>{ const fr = new FileReader(); fr.onload = ()=>res(fr.result); fr.readAsDataURL(b); }));
+      doc.addImage(img, 'PNG', M+20, 5, W-2*M-40, 26);
+    } catch(_){ doc.setFontSize(16); doc.text('WestMed Hospitals', W/2, 18, {align:'center'}); }
+    const band = [255,242,0];
+    const rows = [];
+    const n = Math.max(s.earnings.length, s.deductions.length);
+    for(let i=0;i<n;i++){ const er=s.earnings[i], dr=s.deductions[i]; rows.push([er?er.label:'', er?psAmt(er.amount):'', dr?dr.label:'', dr?psAmt(dr.amount):'']); }
+    const B = (cells)=> cells.map(c=> typeof c==='object' ? Object.assign({}, c, {styles:Object.assign({fillColor:band, fontStyle:'bold'}, c.styles||{})}) : {content:c, styles:{fillColor:band, fontStyle:'bold'}});
+    autoTable(doc, {
+      startY: 33, margin:{left:M, right:M}, theme:'grid',
+      styles:{fontSize:7.5, cellPadding:1.2, textColor:20, lineColor:40, lineWidth:0.2},
+      columnStyles:{1:{halign:'center'}, 3:{halign:'center'}},
+      body: [
+        [{content:'Pay Slip for the month of '+d.monthLabel, colSpan:4, styles:{halign:'center', fontStyle:'bold', fontSize:9}}],
+        [{content:'Employee ID - '+e.empNo, colSpan:4, styles:{halign:'center', fontStyle:'bold'}}],
+        ['Emp. Name', e.name, 'Designation', desgName(e.designation)||''],
+        ['No. of working Days', String(s.workingDays), 'Pay Date', d.payDate],
+        ['LOP', s.lopDays?s.lopDays+' day(s)':'0', 'UAN No', e.uanNo||''],
+        ['Pay Period', d.period, 'ESIC No', e.esicNo||''],
+        B(['EARNINGS', {content:'Amount (Rs.)', styles:{halign:'center'}}, 'DEDUCTIONS', {content:'Amount (Rs.)', styles:{halign:'center'}}]),
+        ...rows,
+        B(['TOTAL', {content:psAmt(s.earningsSum), styles:{halign:'center'}}, 'TOTAL', {content:psAmt(s.deductionsSum), styles:{halign:'center'}}]),
+        ['', '', {content:'NET SALARY', styles:{fontStyle:'bold'}}, {content:psAmt(s.net), styles:{fontStyle:'bold'}}],
+        B([{content:'Employer Contribution', colSpan:4, styles:{halign:'center'}}]),
+        ['EPF', psAmt(s.employerPf), 'ESI', psAmt(s.employerEsi)],
+        B([{content:'Cost to Company', colSpan:2, styles:{halign:'center'}}, {content:psAmt(s.ctc), colSpan:2, styles:{halign:'center'}}]),
+        [{content:'*This is a system generated Payslip and does not require Signature*', colSpan:4, styles:{halign:'center', fontStyle:'bold'}}],
+      ],
+    });
+    doc.save('Payslip_'+e.empNo+'_'+d.fileMonth+'.pdf');
+  }
+  function openPayslip(empNo){
+    const d = payslipData(empNo);
+    const modalRoot = document.getElementById('modalRoot');
+    modalRoot.innerHTML = ''+
+    '<div class="modal-back" id="modalBack"><div class="modal">'+
+      '<div class="modal-head"><h3 style="font-size:15px;">Payslip — '+escapeHTML(d.emp.name)+'</h3><button class="closebtn" id="modalClose">✕</button></div>'+
+      '<div class="modal-body">'+
+        '<div class="ps-toolbar">'+
+          '<label class="hint">Pay period <select id="psPeriod">'+env.cycles.map(c=>'<option value="'+c.key+'" '+(c.key===env.cycle.key?'selected':'')+'>'+c.label+'</option>').join('')+'</select></label>'+
+          '<span class="spacer"></span>'+
+          '<button class="iconbtn" id="psBack">← Back</button>'+
+          '<button class="iconbtn" id="psPrint">Print (A5 landscape)</button>'+
+          '<button class="btn" id="psPdf">Download PDF</button>'+
+        '</div>'+
+        (d.result.noAttendance?'<div class="note" style="margin-bottom:10px;">No attendance imported for this pay period yet — figures are the standard monthly amounts.</div>':'')+
+        '<div class="ps-scroll">'+payslipDocHTML(d)+'</div>'+
+      '</div>'+
+    '</div></div>';
+    document.getElementById('modalClose').onclick = ()=> modalRoot.innerHTML='';
+    document.getElementById('modalBack').addEventListener('click', ev=>{ if(ev.target.id==='modalBack') modalRoot.innerHTML=''; });
+    document.getElementById('psBack').onclick = ()=> openDrilldown(empNo);
+    document.getElementById('psPrint').onclick = ()=> printPayslip(d);
+    document.getElementById('psPdf').onclick = async (ev)=>{ ev.target.disabled = true; try { await payslipPDF(d); } finally { ev.target.disabled = false; } };
+    document.getElementById('psPeriod').onchange = async (ev)=>{ await env.setCycle(ev.target.value); CYCLE_LABEL_JS = env.cycle.label; openPayslip(empNo); };
+  }
+  function openAdjust(empNo){
+    const e = findStaff(empNo);
+    const key = env.cycle.key;
+    if(env.data.PAYROLL.run){ alert('This pay cycle is finalized. Reopen it on the Salary tab to change deductions.'); return; }
+    let list = cycleAdjustments(e, key).map(a=>Object.assign({}, a));
+    const modalRoot = document.getElementById('modalRoot');
+    modalRoot.innerHTML = '<div class="modal-back" id="modalBack"><div class="modal narrow">'+
+      '<div class="modal-head"><h3 style="font-size:15px;">Extra deductions — '+escapeHTML(e.name)+'</h3><button class="closebtn" id="modalClose">✕</button></div>'+
+      '<div class="modal-body"><div class="hint" style="margin-bottom:10px;">Only for '+escapeHTML(env.cycle.label)+'. Standard deductions stay in Staff Master → Details → Earnings &amp; Deductions.</div>'+
+      '<div id="adjRows"></div><button type="button" class="iconbtn" id="adjAdd">+ Add deduction</button>'+
+      '<button class="btn" style="width:100%;margin-top:14px;" id="adjSave">Save</button></div></div></div>';
+    const read = ()=>{ document.querySelectorAll('#adjRows .adj-row').forEach((r,i)=>{ list[i] = {label: r.querySelector('.adj-l').value.trim(), amount: parseFloat(r.querySelector('.adj-a').value)||0, note: r.querySelector('.adj-n').value.trim()}; }); };
+    const draw = ()=>{
+      document.getElementById('adjRows').innerHTML = list.map((a,i)=>'<div class="adj-row form-grid">'+
+        '<div class="form-row"><select class="adj-l">'+['Advance','Loan recovery','TDS','Others'].map(o=>'<option '+(a.label===o?'selected':'')+'>'+o+'</option>').join('')+'</select></div>'+
+        '<div class="form-row" style="display:flex;gap:6px;"><input class="adj-a mono" type="number" min="0" placeholder="₹" value="'+(a.amount||'')+'"><button type="button" class="iconbtn danger" data-adjrm="'+i+'">✕</button></div>'+
+        '<div class="form-row" style="grid-column:1/-1;"><input class="adj-n" placeholder="Note (optional)" value="'+escapeAttr(a.note||'')+'"></div></div>').join('') || '<div class="hint">No extra deductions this cycle.</div>';
+      document.querySelectorAll('[data-adjrm]').forEach(b=> b.onclick = ()=>{ read(); list.splice(+b.dataset.adjrm,1); draw(); });
+    };
+    draw();
+    document.getElementById('adjAdd').onclick = ()=>{ read(); list.push({label:'Advance', amount:0, note:''}); draw(); };
+    document.getElementById('modalClose').onclick = ()=> modalRoot.innerHTML='';
+    document.getElementById('adjSave').onclick = ()=>{
+      read();
+      const all = Object.assign({}, e.cycleAdjustments||{});
+      const clean = list.filter(a=>a.amount>0);
+      if(clean.length) all[key] = clean; else delete all[key];
+      e.cycleAdjustments = all;
+      modalRoot.innerHTML = '';
+      renderAdmin();
+    };
   }
 
   function renderAdminStaff(){
@@ -2288,6 +2440,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     '<div class="modal-back" id="modalBack"><div class="modal narrow">'+
       '<div class="modal-head"><h3 style="font-size:15px;">Details — '+e.name+'</h3><button class="closebtn" id="modalClose">✕</button></div>'+
       '<div class="modal-body">'+
+        '<div class="sd-tabs"><button type="button" class="active" data-sdtab="main">Contact &amp; bank</button><button type="button" data-sdtab="pay">Earnings &amp; Deductions</button></div>'+
+        '<div id="sdTabMain">'+
         '<div class="section-title" style="margin-top:0;">Contact details</div>'+
         '<div class="form-grid">'+
           '<div class="form-row"><label>Phone</label><input id="sdPhone" value="'+escapeAttr(e.phone||'')+'"></div>'+
@@ -2300,11 +2454,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<div class="form-row"><label>Address</label><textarea id="sdAddress" rows="2">'+escapeAttr(e.address||'')+'</textarea></div>'+
         '<div class="section-title">Overtime &amp; payroll deductions</div>'+
         '<div class="form-row"><label><input type="checkbox" id="sdOt" '+(e.otEligible?'checked':'')+'> Eligible for overtime pay</label></div>'+
-        '<div class="form-grid">'+
-          '<div class="form-row"><label><input type="checkbox" id="sdPf" '+((e.pfApplicable??false)?'checked':'')+'> PF applicable</label></div>'+
-          '<div class="form-row"><label><input type="checkbox" id="sdEsi" '+((e.esiApplicable??false)?'checked':'')+'> ESI applicable</label></div>'+
-        '</div>'+
-        '<div class="form-row"><label>Other monthly deduction (₹) — TDS, loan recovery, etc.</label><input id="sdOtherDed" type="number" min="0" value="'+(e.otherDeduction||0)+'"></div>'+
+
         '<div class="section-title">Bank details (salary transfer)</div>'+
         '<div class="form-grid">'+
           '<div class="form-row"><label>Account holder name</label><input id="sdBankHolder" value="'+escapeAttr(e.bankAccountName||'')+'" placeholder="'+escapeAttr(e.name)+'"></div>'+
@@ -2314,13 +2464,68 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
           '<div class="form-row"><label>IFSC</label><input id="sdBankIfsc" class="mono" value="'+escapeAttr(e.bankIfsc||'')+'" placeholder="e.g. SBIN0001234"></div>'+
           '<div class="form-row"><label>Bank</label><input id="sdBankName" value="'+escapeAttr(e.bankName||'')+'"></div>'+
         '</div>'+
+        '</div>'+
+        '<div id="sdTabPay" class="hidden">'+
+          '<div class="form-grid">'+
+            '<div class="form-row"><label>UAN No</label><input id="sdUan" class="mono" value="'+escapeAttr(e.uanNo||'')+'"></div>'+
+            '<div class="form-row"><label>ESIC No</label><input id="sdEsic" class="mono" value="'+escapeAttr(e.esicNo||'')+'"></div>'+
+          '</div>'+
+          '<div class="section-title">Standard earnings (per month)</div>'+
+          '<div id="sdEarnRows"></div>'+
+          '<button type="button" class="iconbtn" id="sdEarnAdd">+ Add earning</button>'+
+          '<div class="payslip-row total" style="margin-top:10px;"><span>Gross salary</span><span class="mono" id="sdEarnTotal"></span></div>'+
+          '<div class="section-title">Standard deductions (per month)</div>'+
+          '<div class="form-grid">'+
+            '<div class="form-row"><label><input type="checkbox" id="sdPf" '+((e.pfApplicable??false)?'checked':'')+'> EPF applicable (on Basic)</label></div>'+
+            '<div class="form-row"><label><input type="checkbox" id="sdEsi" '+((e.esiApplicable??false)?'checked':'')+'> ESI applicable</label></div>'+
+          '</div>'+
+          '<div class="form-grid">'+
+            '<div class="form-row"><label>TDS (₹)</label><input id="sdTds" type="number" min="0" value="'+(Number(e.tds)||0)+'"></div>'+
+            '<div class="form-row"><label>Others (₹) — loan recovery etc.</label><input id="sdOtherDed" type="number" min="0" value="'+(e.otherDeduction||0)+'"></div>'+
+          '</div>'+
+          '<div id="sdStatPreview" class="hint" style="margin-bottom:12px;"></div>'+
+        '</div>'+
         '<div class="error-text" id="sdError"></div>'+
         '<button class="btn" style="width:100%;" id="sdSubmit">Save</button>'+
       '</div>'+
     '</div></div>';
     document.getElementById('modalClose').onclick = ()=> modalRoot.innerHTML='';
     document.getElementById('modalBack').addEventListener('click', ev=>{ if(ev.target.id==='modalBack') modalRoot.innerHTML=''; });
+    let sdEarn = (Array.isArray(e.earnings) && e.earnings.length) ? e.earnings.map(x=>({label:x.label, amount:Number(x.amount)||0}))
+      : [{label:'BASIC', amount:Number(e.netSalary)||0}, {label:'HRA', amount:0}];
+    const sdReadEarn = ()=>{ document.querySelectorAll('#sdEarnRows .sd-earn').forEach((row,i)=>{
+      sdEarn[i] = {label: row.querySelector('.sd-el').value.trim().toUpperCase(), amount: parseFloat(row.querySelector('.sd-ea').value)||0}; }); };
+    const sdPreview = ()=>{
+      const probe = {netSalary: e.netSalary, earnings: sdEarn, pfApplicable: document.getElementById('sdPf').checked, esiApplicable: document.getElementById('sdEsi').checked};
+      const st = statutory(probe, PAYROLL_SETTINGS);
+      document.getElementById('sdEarnTotal').textContent = fmtMoney(st.gross);
+      document.getElementById('sdStatPreview').innerHTML = 'Employee: EPF '+fmtMoney(st.pf)+' · ESI '+fmtMoney(st.esi)+'<br>Employer contribution: EPF '+fmtMoney(st.employerPf)+' · ESI '+fmtMoney(st.employerEsi)+'<br>Extra deductions for one pay cycle only are added from Salary → Adjust.';
+    };
+    const sdRenderEarn = ()=>{
+      document.getElementById('sdEarnRows').innerHTML = sdEarn.map((x,i)=>
+        '<div class="form-grid sd-earn"><div class="form-row"><input class="sd-el" placeholder="e.g. BASIC" value="'+escapeAttr(x.label)+'"></div>'+
+        '<div class="form-row" style="display:flex;gap:6px;"><input class="sd-ea mono" type="number" min="0" value="'+x.amount+'"><button type="button" class="iconbtn danger" data-earnrm="'+i+'">✕</button></div></div>').join('');
+      document.querySelectorAll('#sdEarnRows input').forEach(inp=> inp.oninput = ()=>{ sdReadEarn(); sdPreview(); });
+      document.querySelectorAll('[data-earnrm]').forEach(b=> b.onclick = ()=>{ sdReadEarn(); sdEarn.splice(+b.dataset.earnrm,1); sdRenderEarn(); });
+      sdPreview();
+    };
+    document.getElementById('sdEarnAdd').onclick = ()=>{ sdReadEarn(); sdEarn.push({label:'', amount:0}); sdRenderEarn(); };
+    document.getElementById('sdPf').onchange = sdPreview;
+    document.getElementById('sdEsi').onchange = sdPreview;
+    document.querySelectorAll('[data-sdtab]').forEach(b=> b.onclick = ()=>{
+      document.querySelectorAll('[data-sdtab]').forEach(x=> x.classList.toggle('active', x===b));
+      document.getElementById('sdTabMain').classList.toggle('hidden', b.dataset.sdtab!=='main');
+      document.getElementById('sdTabPay').classList.toggle('hidden', b.dataset.sdtab!=='pay');
+    });
+    sdRenderEarn();
     document.getElementById('sdSubmit').onclick = ()=>{
+      sdReadEarn();
+      const cleanEarn = sdEarn.filter(x=> x.label && x.amount>0);
+      e.earnings = cleanEarn;
+      if(cleanEarn.length) e.netSalary = cleanEarn.reduce((t,x)=>t+x.amount,0);
+      e.uanNo = document.getElementById('sdUan').value.trim();
+      e.esicNo = document.getElementById('sdEsic').value.trim();
+      e.tds = parseFloat(document.getElementById('sdTds').value) || 0;
       e.phone = document.getElementById('sdPhone').value.trim();
       e.email = document.getElementById('sdEmail').value.trim();
       e.dob = document.getElementById('sdDob').value;
@@ -2666,11 +2871,11 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '<td class="mono">'+(r.summary.statutoryDeduction>0.5?'-'+fmtMoney(r.summary.statutoryDeduction):'—')+'</td>'+
       '<td class="mono">'+(r.summary.otPay>0.5?'+'+fmtMoney(r.summary.otPay):'—')+'</td>'+
       '<td class="mono">'+fmtMoney(r.summary.finalNet)+'</td>'+
-      '<td><button class="iconbtn" data-payslip="'+e.empNo+'">View payslip</button></td></tr>'
+      '<td style="white-space:nowrap;"><button class="iconbtn" data-adjust="'+e.empNo+'">Adjust</button> <button class="iconbtn" data-payslip="'+e.empNo+'">View payslip</button></td></tr>'
     )).join('')+
     '</tbody></table></div>'+
     '<div class="footnote">Payroll register for the current cycle, driven by the same engine as Shift Ledger and each staff member\'s Payslip tab. PF/ESI/Professional Tax rates are the indicative defaults set in Admin → Masters → Payroll Settings — confirm actual applicable rates with your accountant before relying on them. Once the cycle is complete and checked, <b>Finalize cycle</b> locks every payslip (later attendance, leave or settings edits no longer change it) and unlocks the bank salary file.</div>';
-    body.querySelectorAll('[data-payslip]').forEach(btn=> btn.onclick = ()=> openDrilldown(btn.dataset.payslip));
+    body.querySelectorAll('[data-payslip]').forEach(btn=> btn.onclick = ()=> openDrilldown(btn.dataset.payslip)); bindAdjustButtons();
     wireSalaryLock();
   }
 
@@ -2726,6 +2931,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     exportCSV('bank_salary_'+env.cycle.key+'.csv', headers, body);
   }
 
+  function bindAdjustButtons(){ document.querySelectorAll('[data-adjust]').forEach(btn=> btn.onclick = ()=> openAdjust(btn.dataset.adjust)); }
   /* ================= Reports ================= */
   async function exportCSV(filename, headers, rows){
     const esc = (v)=> '"'+String(v??'').replace(/"/g,'""')+'"';
