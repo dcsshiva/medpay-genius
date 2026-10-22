@@ -1891,14 +1891,10 @@ function renderAdminStaff(){""")
 
 rep("""    '<td><button class="iconbtn" data-payslip="'+e.empNo+'">View payslip</button></td></tr>'""",
     """    '<td style="white-space:nowrap;"><button class="iconbtn" data-adjust="'+e.empNo+'">Adjust</button> <button class="iconbtn" data-payslip="'+e.empNo+'">View payslip</button></td></tr>'""")
-rep("""  body.querySelectorAll('[data-payslip]').forEach(btn=> btn.onclick = ()=> openDrilldown(btn.dataset.payslip));
-}
-
-/* ================= Reports ================= */""", """  body.querySelectorAll('[data-payslip]').forEach(btn=> btn.onclick = ()=> openDrilldown(btn.dataset.payslip));
-  body.querySelectorAll('[data-adjust]').forEach(btn=> btn.onclick = ()=> openAdjust(btn.dataset.adjust));
-}
-
+rep("""/* ================= Reports ================= */""", """function bindAdjustButtons(){ document.querySelectorAll('[data-adjust]').forEach(btn=> btn.onclick = ()=> openAdjust(btn.dataset.adjust)); }
 /* ================= Reports ================= */""")
+rep("data-payslip=\"'+e.empNo+'\">View payslip</button></td></tr>'", "data-payslip=\"'+e.empNo+'\">View payslip</button></td></tr>'")
+
 
 module = '''// @ts-nocheck
 /* ============================================================================
