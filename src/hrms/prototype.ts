@@ -700,7 +700,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
 
   function openLeaveForm(empNo){
     const emp = findStaff(empNo);
-    const managers = STAFF.filter(m=>m.role==='Manager');
+    const myMgr = (emp.reportingManager && findStaff(emp.reportingManager) && findStaff(emp.reportingManager).active!==false) ? findStaff(emp.reportingManager) : null;
     const sameUnitStaff = STAFF.filter(s=>s.unitCode===emp.unitCode && s.empNo!==empNo);
     const modalRoot = document.getElementById('modalRoot');
     modalRoot.innerHTML = ''+
@@ -712,15 +712,16 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<div class="form-row"><label>Date</label><input id="lvDate" type="date" value="'+todayISO()+'"></div>'+
         '<div class="form-row"><label>Reason</label><textarea id="lvReason" rows="2" placeholder="Reason for request"></textarea></div>'+
         '<div class="form-row"><label>Reporting Manager (approver)</label><select id="lvManager">'+
-          (managers.length ? managers.map(m=>'<option value="'+m.empNo+'" '+(emp.reportingManager===m.empNo?'selected':'')+'>'+m.name+'</option>').join('')
-            : '<option value="">No managers set up — Administrator will approve</option>')+
+          (myMgr ? '<option value="'+myMgr.empNo+'" selected>'+escapeHTML(myMgr.name)+' ('+myMgr.empNo+')</option>'
+            : '<option value="">No reporting manager assigned — please contact HR/Admin</option>')+
         '</select></div>'+
+        (myMgr ? '' : '<div class="error-text">You can\'t apply until HR/Admin assigns your reporting manager in Staff Master.</div>')+
         '<div class="form-row"><label>Alternative employee covering your work (required, same unit)</label><select id="lvAlt">'+
           '<option value="">Select a colleague…</option>'+
           (sameUnitStaff.length ? sameUnitStaff.map(s=>'<option value="'+s.empNo+'">'+s.name+' ('+s.empNo+')</option>').join('') : '')+
         '</select></div>'+
         '<div class="error-text" id="lvError"></div>'+
-        '<button class="btn" style="width:100%;" id="lvSubmit">Submit request</button>'+
+        '<button class="btn" style="width:100%;'+(myMgr?'':'opacity:.5;cursor:not-allowed;')+'" id="lvSubmit" '+(myMgr?'':'disabled')+'>Submit request</button>'+
       '</div>'+
     '</div></div>';
     document.getElementById('lvType').onchange = (e)=> document.getElementById('lvHoursRow').style.display = e.target.value==='Permission' ? 'block' : 'none';
@@ -729,12 +730,13 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     document.getElementById('lvSubmit').onclick = ()=>{
       const altEmpNo = document.getElementById('lvAlt').value;
       const err = document.getElementById('lvError');
+      if(!myMgr){ err.textContent = 'No reporting manager assigned — please contact HR/Admin.'; return; }
       if(!altEmpNo){ err.textContent = 'Please select an alternative employee from your unit to cover your work.'; return; }
       const type = document.getElementById('lvType').value;
       const rec = {id:env.tempId('L'), empNo, type,
         appliedOn:todayISO(), date:document.getElementById('lvDate').value,
         reason:document.getElementById('lvReason').value || 'Not specified', status:'Pending',
-        reportingManager: document.getElementById('lvManager').value || '', altEmpNo};
+        reportingManager: myMgr.empNo, altEmpNo};
       if(type==='Permission') rec.hours = parseInt(document.getElementById('lvHours').value)||1;
       LEAVES.push(rec);
       modalRoot.innerHTML='';
