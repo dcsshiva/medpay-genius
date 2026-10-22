@@ -1300,14 +1300,17 @@ export type Database = {
           bank_ifsc: string
           bank_name: string
           created_at: string
+          cycle_adjustments: Json
           db_ref: string | null
           department_code: string | null
           designation_code: string | null
           dob: string | null
           doj: string | null
+          earnings: Json
           email: string
           emp_no: string
           esi_applicable: boolean
+          esic_no: string
           monthly_cl: number
           monthly_permission_hours: number
           must_change_password: boolean
@@ -1321,6 +1324,8 @@ export type Database = {
           reporting_manager: string
           role: string
           shift_code: string | null
+          tds: number
+          uan_no: string
           unit_code: string | null
           unit_history: Json
           updated_at: string
@@ -1334,14 +1339,17 @@ export type Database = {
           bank_ifsc?: string
           bank_name?: string
           created_at?: string
+          cycle_adjustments?: Json
           db_ref?: string | null
           department_code?: string | null
           designation_code?: string | null
           dob?: string | null
           doj?: string | null
+          earnings?: Json
           email?: string
           emp_no: string
           esi_applicable?: boolean
+          esic_no?: string
           monthly_cl?: number
           monthly_permission_hours?: number
           must_change_password?: boolean
@@ -1355,6 +1363,8 @@ export type Database = {
           reporting_manager?: string
           role?: string
           shift_code?: string | null
+          tds?: number
+          uan_no?: string
           unit_code?: string | null
           unit_history?: Json
           updated_at?: string
@@ -1368,14 +1378,17 @@ export type Database = {
           bank_ifsc?: string
           bank_name?: string
           created_at?: string
+          cycle_adjustments?: Json
           db_ref?: string | null
           department_code?: string | null
           designation_code?: string | null
           dob?: string | null
           doj?: string | null
+          earnings?: Json
           email?: string
           emp_no?: string
           esi_applicable?: boolean
+          esic_no?: string
           monthly_cl?: number
           monthly_permission_hours?: number
           must_change_password?: boolean
@@ -1389,6 +1402,8 @@ export type Database = {
           reporting_manager?: string
           role?: string
           shift_code?: string | null
+          tds?: number
+          uan_no?: string
           unit_code?: string | null
           unit_history?: Json
           updated_at?: string
