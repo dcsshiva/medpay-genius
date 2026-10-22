@@ -166,6 +166,23 @@ rep("TASKS.push({id:'T'+String(TASKS.length+1).padStart(3,'0'), title,",
 rep("TASK_TEMPLATES.push({id:'TT'+(TASK_TEMPLATES.length+1), title:v.title, description:v.description});",
     "TASK_TEMPLATES.push({id:nextMasterCode(TASK_TEMPLATES.map(t=>({code:t.id})),'TT'), title:v.title, description:v.description});")
 rep("""<input id="lvDate" type="date" value="2026-09-25">""", """<input id="lvDate" type="date" value="'+todayISO()+'">""")
+# ── 8b. CL / Permission goes only to the staff member's own (active) reporting manager ──
+rep("""  const managers = STAFF.filter(m=>m.role==='Manager');
+  const sameUnitStaff""", """  const myMgr = (emp.reportingManager && findStaff(emp.reportingManager) && findStaff(emp.reportingManager).active!==false) ? findStaff(emp.reportingManager) : null;
+  const sameUnitStaff""")
+rep("""        (managers.length ? managers.map(m=>'<option value="'+m.empNo+'" '+(emp.reportingManager===m.empNo?'selected':'')+'>'+m.name+'</option>').join('')
+          : '<option value="">No managers set up — Administrator will approve</option>')+
+      '</select></div>'+""", """        (myMgr ? '<option value="'+myMgr.empNo+'" selected>'+escapeHTML(myMgr.name)+' ('+myMgr.empNo+')</option>'
+          : '<option value="">No reporting manager assigned — please contact HR/Admin</option>')+
+      '</select></div>'+
+      (myMgr ? '' : '<div class="error-text">You can\\'t apply until HR/Admin assigns your reporting manager in Staff Master.</div>')+""")
+rep("""<button class="btn" style="width:100%;" id="lvSubmit">Submit request</button>""",
+    """<button class="btn" style="width:100%;'+(myMgr?'':'opacity:.5;cursor:not-allowed;')+'" id="lvSubmit" '+(myMgr?'':'disabled')+'>Submit request</button>""")
+rep("""    const err = document.getElementById('lvError');
+    if(!altEmpNo){""", """    const err = document.getElementById('lvError');
+    if(!myMgr){ err.textContent = 'No reporting manager assigned — please contact HR/Admin.'; return; }
+    if(!altEmpNo){""")
+rep("""reportingManager: document.getElementById('lvManager').value || '', altEmpNo};""", """reportingManager: myMgr.empNo, altEmpNo};""")
 
 # ── 9. Staff Master: passwords are never shown; typing a new one resets it ──
 rep("""      '<td><input class="editable mono" data-field="password" value="'+escapeAttr(e.password)+'"></td>'+""",
