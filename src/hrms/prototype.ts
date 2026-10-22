@@ -2177,7 +2177,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const rows = [];
     const n = Math.max(s.earnings.length, s.deductions.length);
     for(let i=0;i<n;i++){ const er=s.earnings[i], dr=s.deductions[i]; rows.push([er?er.label:'', er?psAmt(er.amount):'', dr?dr.label:'', dr?psAmt(dr.amount):'']); }
-    const B = (cells)=> cells.map(c=> typeof c==='object' ? Object.assign({styles:{fillColor:band, fontStyle:'bold'}}, c) : {content:c, styles:{fillColor:band, fontStyle:'bold'}});
+    const B = (cells)=> cells.map(c=> typeof c==='object' ? Object.assign({}, c, {styles:Object.assign({fillColor:band, fontStyle:'bold'}, c.styles||{})}) : {content:c, styles:{fillColor:band, fontStyle:'bold'}});
     autoTable(doc, {
       startY: 33, margin:{left:M, right:M}, theme:'grid',
       styles:{fontSize:7.5, cellPadding:1.2, textColor:20, lineColor:40, lineWidth:0.2},
