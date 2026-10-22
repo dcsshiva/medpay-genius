@@ -1893,7 +1893,8 @@ rep("""    '<td><button class="iconbtn" data-payslip="'+e.empNo+'">View payslip<
     """    '<td style="white-space:nowrap;"><button class="iconbtn" data-adjust="'+e.empNo+'">Adjust</button> <button class="iconbtn" data-payslip="'+e.empNo+'">View payslip</button></td></tr>'""")
 rep("""/* ================= Reports ================= */""", """function bindAdjustButtons(){ document.querySelectorAll('[data-adjust]').forEach(btn=> btn.onclick = ()=> openAdjust(btn.dataset.adjust)); }
 /* ================= Reports ================= */""")
-rep("data-payslip=\"'+e.empNo+'\">View payslip</button></td></tr>'", "data-payslip=\"'+e.empNo+'\">View payslip</button></td></tr>'")
+_ps = "btn.onclick = ()=> openDrilldown(btn.dataset.payslip));"
+rep(_ps, _ps+" bindAdjustButtons();", script.count(_ps))
 
 
 module = '''// @ts-nocheck
