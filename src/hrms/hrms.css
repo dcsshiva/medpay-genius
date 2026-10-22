@@ -6,6 +6,7 @@
   --attendance-unit-1:var(--teal); --attendance-unit-2:var(--rose);
   --attendance-unit-3:var(--amber); --attendance-unit-4:#658ddb;
   --attendance-unit-5:#bd79be; --attendance-unit-6:#91a945;
+  --payslip-paper:#ffffff; --payslip-ink:#111111; --payslip-band:#fff200;
   --attendance-unit-7:#dd7fa7; --attendance-unit-8:#49a0b8;
   --ink:#16211f; --paper:#f6f4ef; --surface:#ffffff; --surface-2:#fbfaf6;
   --line: rgba(22,33,31,.13); --line-strong: rgba(22,33,31,.24);
@@ -380,3 +381,21 @@
 .cal-total th, .cal-total td { font-weight: 700; border-top: 1px solid var(--slate-soft, currentColor); }
 .cal-lg-p { background: var(--teal); } .cal-lg-a { background: var(--rose); }
 .cal-lg-m { border: 1px dashed currentColor; background: transparent; } .cal-lg-o { background: var(--amber); }
+
+/* Unit 1 payslip (a printed document: always paper-white like the hospital template) */
+.hrms-root .sd-tabs{display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--line);}
+.hrms-root .sd-tabs button{background:none;border:0;padding:8px 12px;color:var(--slate);font:inherit;font-weight:600;cursor:pointer;border-bottom:2px solid transparent;}
+.hrms-root .sd-tabs button.active{color:var(--teal);border-bottom-color:var(--teal);}
+.hrms-root .ps-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px;}
+.hrms-root .ps-toolbar .spacer{flex:1;}
+.hrms-root .ps-toolbar select{margin-left:6px;}
+.hrms-root .ps-scroll{overflow-x:auto;}
+.hrms-root .ps-doc{min-width:640px;background:var(--payslip-paper);color:var(--payslip-ink);border:2px solid var(--payslip-ink);}
+.hrms-root .ps-head{text-align:center;padding:6px;border-bottom:1px solid var(--payslip-ink);}
+.hrms-root .ps-head img{max-height:90px;max-width:100%;}
+.hrms-root .ps-tbl{width:100%;border-collapse:collapse;font-size:12px;}
+.hrms-root .ps-tbl td,.hrms-root .ps-tbl th{border:1px solid var(--payslip-ink);padding:4px 8px;text-align:left;color:var(--payslip-ink);background:var(--payslip-paper);}
+.hrms-root .ps-tbl .num,.hrms-root .ps-tbl .center,.hrms-root .ps-tbl .ps-title,.hrms-root .ps-tbl .ps-sub{text-align:center;}
+.hrms-root .ps-tbl .band td{background:var(--payslip-band);font-weight:700;}
+.hrms-root .ps-tbl .lbl,.hrms-root .ps-tbl .strong,.hrms-root .ps-tbl .foot{font-weight:700;}
+.hrms-root .ps-tbl .foot{padding:10px;}
