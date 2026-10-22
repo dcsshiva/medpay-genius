@@ -16,8 +16,7 @@ import { attendanceByUnit, attendanceCalendar } from './attendanceChart.js';
 import { earningsLines, pfBase, cycleAdjustments, statutory, buildPayslip } from './payslip.js';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import letterhead from '@/assets/westmed-letterhead.png.asset.json';
-const LETTERHEAD_URL = letterhead.url;
+const LETTERHEAD_URL = '/payslip/westmed-letterhead.png';
 const PAYSLIP_PRINT_CSS = '@page{size:A5 landscape;margin:6mm}body{margin:0;font-family:Arial,sans-serif;color:#111;-webkit-print-color-adjust:exact;print-color-adjust:exact}.ps-doc{border:2px solid #111}.ps-head{text-align:center;padding:4px;border-bottom:1px solid #111}.ps-head img{max-height:80px;max-width:100%}.ps-tbl{width:100%;border-collapse:collapse;font-size:10px}.ps-tbl td,.ps-tbl th{border:1px solid #111;padding:3px 6px;text-align:left}.ps-tbl .num,.ps-tbl .center{text-align:center}.ps-title,.ps-sub{text-align:center!important}.band td{background:#fff200;font-weight:700}.lbl{font-weight:700}.strong{font-weight:700}.foot{font-weight:700;padding:8px}';
 
 export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
