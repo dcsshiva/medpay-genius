@@ -1968,6 +1968,35 @@ rep("""      '<td><input class="editable mono" data-field="netSalary" value="'+e
       '</select></td>'+
       '<td><input class="editable mono" data-field="netSalary" value="'+e.netSalary+'" inputmode="numeric"></td>'+""")
 
+# ── 45. "Employee Punch Monitor" import reads its columns from the header row and checks each
+#        value (src/hrms/punchMonitor.js): a day exported without the empty columns had put the last
+#        punch time in the name ("17:57") and lost the punches. A time or number is never a name. ──
+rep("""    let reportDate = null, headerSeen = false;
+    for(const line of lines){
+      const cells = parseCSVLine(line).map(c=>c.trim());
+      if(!reportDate && /^date$/i.test(cells[0]||'')){
+        const d = cells.slice(1).find(c=>parseDMonY(c));
+        if(d) reportDate = parseDMonY(d);
+        continue;
+      }
+      if(!headerSeen && /^sno/i.test(cells[0]||'')){ headerSeen = true; continue; }
+      if(headerSeen){
+        const code = cells[1];
+        if(!code) continue;
+        if(cells[3]) result.names[code] = cells[3];
+        const punches = (cells[7]||'').split(',').map(p=>p.trim()).filter(Boolean);
+        const status = mapAttStatusText(cells[9]) || (punches.length ? 'P' : 'A');
+        if(!reportDate){ result.warnings.push('No report date found in the Punch Monitor header.'); continue; }
+        const rec = {empNo: code, date: reportDate, status};
+        if(punches.length){ rec.in = punches[0]; rec.out = punches[punches.length-1]; }
+        result.records.push(rec);
+      }
+    }""", """    const pm = parsePunchMonitor(lines.map(parseCSVLine), {parseDate: parseDMonY, mapStatus: mapAttStatusText});
+    result.records.push(...pm.records);
+    Object.assign(result.names, pm.names);
+    if(pm.warnings.length) result.warnings.push(pm.warnings[0]);""")
+rep("""  if(!n || n===code) return '';""", """  if(!n || n===code || !looksLikeName(n)) return '';""")
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
@@ -1984,6 +2013,7 @@ module = '''// @ts-nocheck
 import type { HrEnv, HrController, HrWho } from './types';
 import { attendanceByUnit, attendanceCalendar } from './attendanceChart.js';
 import { normalizePunches, normalizeAttendance } from './punches.js';
+import { parsePunchMonitor, looksLikeName } from './punchMonitor.js';
 import { earningsLines, pfBase, cycleAdjustments, statutory, buildPayslip } from './payslip.js';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
