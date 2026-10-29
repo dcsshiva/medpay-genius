@@ -1,8 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import * as XLSX from 'xlsx';
-import { buildPlanSheet, readPlanSheet, planChanges, parseHeaderDate, defaultPlanCode, planChoices } from './shiftPlan.js';
-import { writePlanXlsx, writePlanCsv, readPlanFile, addSheetExtras } from './shiftPlanFile.js';
+import { buildPlanSheet, buildPlanBook, readPlanSheet, readPlanBook, planChanges, parseHeaderDate, defaultPlanCode, planChoices, sheetName } from './shiftPlan.js';
+import { writePlanXlsx, writePlanXls, writePlanCsv, readPlanFile, readPlanBookFile, addSheetExtras } from './shiftPlanFile.js';
 
 const cycle = { key: '2026-12', label: '26 Nov 2026 - 25 Dec 2026', start: '2026-11-26', end: '2026-12-25',
   dates: Array.from({ length: 30 }, (_, i) => new Date(Date.UTC(2026, 10, 26 + i)).toISOString().slice(0, 10)) };
@@ -32,11 +32,12 @@ const col = (aoa, date) => aoa[1].findIndex(h => String(h).startsWith(date));
 test('export: meta row, header, one row per staff sorted by unit then code, planned letters with WO on the weekly off', () => {
   const aoa = sheet({ '2100329|2026-11-27': 'S2' });
   assert.deepEqual(aoa[0].slice(0, 6), ['WestMed shift plan', cycle.label, 'Cycle', '2026-12', 'Exported', exportedAt]);
-  assert.deepEqual(aoa[1].slice(0, 7), ['Unit', 'Code', 'Name', 'Designation', 'Reporting Manager', 'Default Shift', '2026-11-26 (Thu)']);
-  assert.equal(aoa[1].length, 6 + 30);
+  assert.deepEqual(aoa[1].slice(0, 8), ['Unit', 'Code', 'Name', 'Designation', 'Reporting Manager', 'Default Shift', 'Weekly Off', '2026-11-26 (Thu)']);
+  assert.equal(aoa[1].length, 7 + 30);
   assert.deepEqual(aoa.slice(2).map(r => r[1]), ['21002', '2100500', '2100329']);
   const raj = aoa[2];
   assert.equal(raj[5], 'G1');
+  assert.equal(raj[6], 'Sun');
   assert.equal(raj[col(aoa, '2026-11-29')], 'WO'); // Sunday = Rajaram's weekly off
   assert.equal(raj[col(aoa, '2026-11-30')], 'G1');
   assert.equal(aoa[4][col(aoa, '2026-11-27')], 'MS'); // planner override
@@ -66,7 +67,8 @@ test('import checks: unknown code, suspended shift, designation-restricted shift
   aoa[4][col(aoa, '2026-12-04')] = 'X9';
   aoa[4][col(aoa, '2026-11-26')] = 'MS';   // before today (manager)
   aoa.push(['Unit 1', 2100600, 'LEFT']);   // inactive (code as a number, like Excel)
-  aoa.push(['Unit 2', '2100329', 'again']);
+  aoa.push(['Unit 2', '2100329', 'VIJAYALAKSHMI']);
+  aoa.push(['Unit 1', '21002', 'SOMEONE ELSE']);  // code edited in an unprotected copy
   aoa.push(['Unit 2', '9999999', 'nobody']);
   const r = planChanges(readPlanSheet(aoa, { cycle }), ctx({ today: '2026-11-27' }));
   const msgs = r.errors.filter(e => e.line).map(e => e.empNo + ' ' + (e.date || '') + ' ' + e.message);
@@ -77,6 +79,7 @@ test('import checks: unknown code, suspended shift, designation-restricted shift
   assert.ok(msgs.some(m => /2100600  LEFT is inactive/.test(m)));
   assert.ok(msgs.some(m => /2100329  Code appears twice/.test(m)));
   assert.ok(msgs.some(m => /9999999  No staff member/.test(m)));
+  assert.ok(msgs.some(m => /21002  Code 21002 is RAJARAM, but this row says "SOMEONE ELSE"/.test(m)));
   assert.deepEqual(r.changes.map(c => [c.empNo, c.date, c.to]), [['21002', '2026-11-30', 'S5']]);
   // an administrator may change past dates and anyone's staff
   const a = planChanges(readPlanSheet(aoa, { cycle }), ctx({ today: '2026-11-27', isAdmin: true, canEdit: () => true }));
@@ -122,24 +125,66 @@ test('defaults and choices', () => {
   assert.deepEqual(planChoices(shifts), ['G1', 'MS', 'NS', 'BS', 'WO']);
 });
 
-test('xlsx round trip keeps every cell, adds a frozen header and the drop-down; csv and xls read back too', () => {
-  const aoa = sheet({ '2100329|2026-11-27': 'S2' });
-  const bytes = writePlanXlsx(aoa, { choices: planChoices(shifts) });
-  const back = readPlanFile(bytes, 'plan.xlsx');
+test('workbook: one sheet per reporting manager plus How to fill; xlsx locks everything but the day cells', () => {
+  const book = buildPlanBook({ cycle, staff: staff.filter(s => s.active), roster: { '2100329|2026-11-27': 'S2' }, shifts, names, exportedAt, exportedBy: 'Admin' });
+  assert.deepEqual(book.map(b => b.name), ['Manager One', 'Manager Two', 'How to fill']);
+  assert.deepEqual(book[0].aoa.slice(2).map(r => r[1]), ['21002', '2100329']);
+  assert.equal(book[0].aoa[0][9], 'Reporting manager: Manager One');
+  const bytes = writePlanXlsx(book, { choices: planChoices(shifts) });
+  const sheets = readPlanBookFile(bytes, 'plan.xlsx');
+  assert.deepEqual(sheets.map(x => x.name), ['Manager One', 'Manager Two', 'How to fill']);
   const trim = r => { const a = r.map(String); while (a.length && a[a.length - 1] === '') a.pop(); return a; };
-  assert.deepEqual(back.map(trim), aoa.map(trim));
+  assert.deepEqual(sheets[0].aoa.map(trim), book[0].aoa.map(trim));
+  const read = readPlanBook(sheets, { cycle });
+  assert.deepEqual(read.rows.map(r => r.sheet + ':' + r.empNo), ['Manager One:21002', 'Manager One:2100329', 'Manager Two:2100500']);
+  const same = ctx({ roster: { '2100329|2026-11-27': 'S2' }, canEdit: () => true });
+  assert.deepEqual(planChanges(read, same).changes, []);
+  // the XML: protected sheet, editable day cells only, drop-down on exactly the day cells, schema order
   const wb = XLSX.read(bytes, { type: 'array', bookFiles: true });
   const xml = new TextDecoder().decode(wb.files['xl/worksheets/sheet1.xml'].content);
-  assert.match(xml, /<dataValidation type="list"[^>]*sqref="G3:AJ205"><formula1>&quot;G1,MS,NS,BS,WO&quot;<\/formula1>/);
+  const styles = new TextDecoder().decode(wb.files['xl/styles.xml'].content);
+  const xfs = [...styles.match(/<cellXfs[\s\S]*?<\/cellXfs>/)[0].matchAll(/<xf [^>]*?(\/>|>[\s\S]*?<\/xf>)/g)].map(m => m[0]);
+  const unlocked = xfs.map((x, i) => /locked="0"/.test(x) ? i : -1).filter(i => i >= 0);
+  assert.equal(unlocked.length, 1);
+  const cells = [...xml.matchAll(/<c r="([A-Z]+)(\d+)"(?: s="(\d+)")?/g)].map(m => ({ col: m[1], row: +m[2], s: m[3] ? +m[3] : null }));
+  const editable = cells.filter(c => c.s === unlocked[0]);
+  assert.equal(editable.length, 2 * 30);                                   // 2 staff × 30 days
+  assert.ok(editable.every(c => c.row >= 3 && c.col >= 'H' || c.col.length === 2));
+  assert.ok(cells.filter(c => ['A', 'B', 'C', 'F', 'G'].includes(c.col)).every(c => c.s !== unlocked[0]));
+  assert.match(xml, /<sheetProtection sheet="1"[^>]*formatColumns="0"/);
+  assert.match(xml, /<dataValidation type="list"[^>]*sqref="H3:AK4"><formula1>&quot;G1,MS,NS,BS,WO&quot;<\/formula1>/);
   assert.match(xml, /<pane xSplit="3" ySplit="2" topLeftCell="D3"/);
-  assert.ok(xml.indexOf('<sheetViews>') < xml.indexOf('<sheetData'));
-  assert.ok(xml.indexOf('</sheetData>') < xml.indexOf('<dataValidations'));
-  const csv = writePlanCsv(aoa);
-  const fromCsv = readPlanFile(new TextEncoder().encode(csv), 'plan.csv');
-  const same = ctx({ roster: { '2100329|2026-11-27': 'S2' }, canEdit: () => true });
-  assert.deepEqual(planChanges(readPlanSheet(fromCsv, { cycle }), same).changes, []);
-  const xls = XLSX.write(XLSX.read(bytes, { type: 'array' }), { type: 'array', bookType: 'biff8' });
-  assert.deepEqual(planChanges(readPlanSheet(readPlanFile(xls, 'plan.xls'), { cycle }), same).changes, []);
+  const at = t => xml.indexOf(t);
+  assert.ok(at('<sheetViews>') < at('<sheetData') && at('</sheetData>') < at('<sheetProtection') && at('<sheetProtection') < at('<dataValidations'));
+  assert.ok(at('<ignoredErrors') < 0 || at('<dataValidations') < at('<ignoredErrors'));
+  const help = new TextDecoder().decode(wb.files['xl/worksheets/sheet3.xml'].content);
+  assert.match(help, /<sheetProtection sheet="1"/);
+});
+
+test('xls keeps the manager sheets; csv is one table; both import with no changes', () => {
+  const roster = { '2100329|2026-11-27': 'S2' };
+  const book = buildPlanBook({ cycle, staff: staff.filter(s => s.active), roster, shifts, names, exportedAt });
+  const same = ctx({ roster, canEdit: () => true });
+  const xls = readPlanBookFile(writePlanXls(book), 'plan.xls');
+  assert.deepEqual(xls.map(x => x.name), ['Manager One', 'Manager Two', 'How to fill']);
+  assert.deepEqual(planChanges(readPlanBook(xls, { cycle }), same).changes, []);
+  const csv = writePlanCsv(sheet(roster));
+  const fromCsv = readPlanBookFile(new TextEncoder().encode(csv), 'plan.csv');
+  assert.equal(fromCsv.length, 1);
+  assert.deepEqual(planChanges(readPlanBook(fromCsv, { cycle }), same).changes, []);
+  assert.equal(readPlanFile(new TextEncoder().encode(csv), 'plan.csv').length, 5);
+  // a code appearing on two manager sheets is caught
+  const dup = [...book.slice(0, 2), { name: 'Copy', aoa: book[0].aoa }];
+  const r = planChanges(readPlanBook(dup, { cycle }), same);
+  assert.ok(r.errors.some(e => e.sheet === 'Copy' && /appears twice/.test(e.message)));
+});
+
+test('sheet names follow Excel rules', () => {
+  const taken = new Set();
+  assert.equal(sheetName('A:B/C [x]', taken), 'A B C x');
+  assert.equal(sheetName('A:B/C [x]', taken), 'A B C x (2)');
+  assert.equal(sheetName('X'.repeat(40), taken).length, 31);
+  assert.equal(sheetName('', taken), 'Sheet');
 });
 
 test('sheet extras slot into the right place when SheetJS already wrote sheetViews', () => {
