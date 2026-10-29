@@ -127,3 +127,27 @@ test('re-importing the same file changes nothing; leave and weekly off beat abse
   assert.equal(mergeAttendanceRecord({ date: 'd', status: 'WO' }, { date: 'd', status: 'A' }).status, 'WO');
   assert.deepEqual(mergeAttendanceRecord(null, { date: 'd', status: 'A' }), { date: 'd', status: 'A' });
 });
+
+test('Shift Planner WO makes that date a weekly off; a planned shift makes a weekly off a working day', () => {
+  const recs = [
+    r('2026-11-04', 'A'),                    // Wed, planned WO, no punch      -> weekly off
+    r('2026-11-05', 'A', '09:02'),           // Thu, planned WO but punched     -> single punch = Present
+    r('2026-11-08', 'WO'),                   // Sun (her weekly off), planned shift, no punch -> Absent
+    r('2026-11-15', 'WO', '08:58', '17:01'), // Sun, planned shift, punched     -> Present
+    r('2026-11-22', 'A'),                    // Sun, nothing planned            -> Staff Master weekly off
+  ];
+  const plan = { '2026-11-04': 'WO', '2026-11-05': 'WO', '2026-11-08': 'S1', '2026-11-15': 'S1' };
+  const got = normalizePunches(recs, { weeklyOff: 'Sun', plan });
+  assert.deepEqual(got.map(x => x.status), ['WO', 'P', 'A', 'P', 'WO']);
+  assert.match(got[0].punchNote, /planned in Shift Planner/);
+  assert.match(got[2].punchNote, /Shift Planner has a shift/);
+  assert.match(got[4].punchNote, /set in Staff Master/);
+});
+
+test('a plan works without a Staff Master weekly off, and normalizeAttendance reads the roster', () => {
+  const att = { a: { records: [r('2026-11-04', 'A'), r('2026-11-07', 'WO')] }, b: { records: [r('2026-11-04', 'A')] } };
+  const roster = { 'a|2026-11-04': 'WO', 'b|2026-11-05': 'WO' };
+  const got = normalizeAttendance(att, [{ empNo: 'a' }, { empNo: 'b' }], roster);
+  assert.deepEqual(got.a.records.map(x => x.status), ['WO', 'WO']); // device WO on 7th untouched
+  assert.equal(got.b.records[0].status, 'A');
+});

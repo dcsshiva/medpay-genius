@@ -44,7 +44,7 @@ export default function HrmsApp() {
     const store = createStore();
     let startDay = 25;
     let cycles: HrCycle[] = recentCycles(startDay, 12);
-    let cycle: HrCycle = cycles[0];
+    let cycle: HrCycle = cycleContaining(todayISO(), startDay);
     let controller: HrController | null = null;
     let signedInUid: string | null = null;
     let loading: Promise<void> | null = null;
@@ -294,6 +294,12 @@ export default function HrmsApp() {
       },
       build: BUILD,
       existingAttendance: (codes: string[], start: string, end: string) => fetchAttendanceRange(codes, start, end),
+      rosterMeta: (start: string, end: string) => store.rosterMeta(start, end),
+      applyRosterPlan: async (changes) => {
+        const r = await store.applyRosterPlan(changes);
+        status(r.failed.length ? `Shift plan: ${r.saved} saved, ${r.failed.length} refused` : 'Shift plan saved', !!r.failed.length, 2500);
+        return r;
+      },
     };
 
     controller = mountHrms(root, env);

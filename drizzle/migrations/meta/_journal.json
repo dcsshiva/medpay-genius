@@ -148,6 +148,13 @@
       "when": 1789865830547,
       "tag": "0020_hr_staff_weekly_off",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1789865831547,
+      "tag": "0021_hr_roster_manager_plan",
+      "breakpoints": true
     }
   ]
 }

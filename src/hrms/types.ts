@@ -83,6 +83,10 @@ export interface HrEnv {
   afterImport(): Promise<void>;
   /** stored attendance for these staff between two dates (the import merges with it) */
   existingAttendance(codes: string[], start: string, end: string): Promise<{ empNo: string; date: string; status: string; in?: string; out?: string }[]>;
+  /** shift plan import: when each planned cell last changed ("<empNo>|<date>" → ISO time) */
+  rosterMeta(start: string, end: string): Promise<Record<string, string>>;
+  /** shift plan import: save the confirmed changes (clear = back to the Staff Master default) */
+  applyRosterPlan(changes: { empNo: string; date: string; to: string; clear?: boolean }[]): Promise<{ saved: number; failed: { empNo: string; date: string; message: string }[] }>;
   /** running app version and when it was released (package.json, stamped at build time) */
   build: { version: string; releasedAt: string };
 }

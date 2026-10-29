@@ -48,15 +48,37 @@ const weekdayOf = (iso) => {
  *  5. on any other day, a device weekly off is Absent when there's no punch, Present when there is.
  * Off-after-night days, leave and holidays are left alone.
  */
+/*
+ * opts.plan — the Shift Planner for this staff member ({ date: shiftCode }, 'WO' = planned day off).
+ * A planned date decides on its own, before the weekly-off rules:
+ *  6. planned 'WO': a day marked Absent with no punch is a weekly off;
+ *  7. planned shift: a device weekly off is Present when punched, Absent when not.
+ */
+export const PLANNED_OFF = 'WO';
 export function normalizePunches(records, opts = {}) {
   const paired = pairPunches(records);
   const offDays = new Set(String(opts.weeklyOff || '').split(',').map(s => s.trim()).filter(d => WEEKDAYS.includes(d)));
-  if (!offDays.size) return paired;
+  const plan = opts.plan || {};
+  const hasPlan = Object.keys(plan).length > 0;
+  if (!offDays.size && !hasPlan) return paired;
   const offLabel = [...offDays].join(', ');
   return paired.map(rec => {
     if (rec.offAfterNight || rec.night) return rec;
-    const isOffDay = offDays.has(weekdayOf(rec.date));
     const punched = !!rec.in;
+    const planned = plan[rec.date];
+    if (planned) {
+      if (planned === PLANNED_OFF && rec.status === 'A' && !punched) {
+        return { ...rec, status: 'WO', punchNote: 'Weekly off (planned in Shift Planner)' };
+      }
+      if (planned !== PLANNED_OFF && rec.status === 'WO') {
+        return punched
+          ? { ...rec, status: 'P', punchNote: 'Present — Shift Planner has a shift on this day' }
+          : { ...rec, status: 'A', punchNote: 'Absent — Shift Planner has a shift on this day, not a weekly off' };
+      }
+      return rec;
+    }
+    if (!offDays.size) return rec;
+    const isOffDay = offDays.has(weekdayOf(rec.date));
     if (isOffDay && rec.status === 'A' && !punched) {
       return { ...rec, status: 'WO', punchNote: 'Weekly off (' + offLabel + ', set in Staff Master)' };
     }
@@ -67,6 +89,14 @@ export function normalizePunches(records, opts = {}) {
     }
     return rec;
   });
+}
+
+/** { "<empNo>|<date>": code } (the Shift Planner) → { date: code } for one staff member */
+export function planFor(roster, empNo) {
+  const out = {};
+  const prefix = empNo + '|';
+  for (const k in roster || {}) if (k.startsWith(prefix)) out[k.slice(prefix.length)] = roster[k];
+  return out;
 }
 
 function pairPunches(records) {
@@ -123,12 +153,12 @@ function pairPunches(records) {
 }
 
 /** { empNo: { records } } → same shape with normalized records for the given staff
- *  ([{ empNo, weeklyOff }], for the calendar / charts). */
-export function normalizeAttendance(attendance, staff) {
+ *  ([{ empNo, weeklyOff }], for the calendar / charts); `roster` = the Shift Planner. */
+export function normalizeAttendance(attendance, staff, roster) {
   const res = {};
   for (const s of staff) {
     const a = attendance[s.empNo];
-    if (a) res[s.empNo] = { ...a, records: normalizePunches(a.records, { weeklyOff: s.weeklyOff }) };
+    if (a) res[s.empNo] = { ...a, records: normalizePunches(a.records, { weeklyOff: s.weeklyOff, plan: planFor(roster, s.empNo) }) };
   }
   return res;
 }
