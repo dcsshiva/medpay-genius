@@ -13,6 +13,7 @@
  * ========================================================================== */
 import type { HrEnv, HrController, HrWho } from './types';
 import { attendanceByUnit, attendanceCalendar } from './attendanceChart.js';
+import { normalizePunches, normalizeAttendance } from './punches.js';
 import { earningsLines, pfBase, cycleAdjustments, statutory, buildPayslip } from './payslip.js';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -96,7 +97,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     if(override && shiftByCode(override)) return shiftByCode(override);
     const emp = findStaff(empNo);
     const own = emp && emp.shiftCode ? shiftByCode(emp.shiftCode) : null;
-    if(isGeneralShift(own)) return own;
+    if(isGeneralShift(own) && !(inMin > shiftStartMin(own) + 180)) return own;
     if(!(inMin > 0) && own) return own;
     const pool = activeOnly(SHIFT_MASTER).filter(s=>!isGeneralShift(s) && shiftAllowedFor(s, emp));
     if(!pool.length) return own || nearestShift(inMin);
@@ -122,7 +123,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const emp = findStaff(empNo);
     const att = ATTENDANCE[empNo];
     if(!emp || !att) return null;
-    const records = att.records.filter(r=> r.date>=env.cycle.start && r.date<=env.cycle.end);
+    const records = normalizePunches(att.records).filter(r=> r.date>=env.cycle.start && r.date<=env.cycle.end);
     if(!records.length){
       const mPerm = staffMonthlyPermissionMin(emp), mCL = staffMonthlyCL(emp);
       return {emp, rows: [], primaryShift: att.primaryShift, noAttendance: true, summary: {
@@ -233,6 +234,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         }
       }
 
+      if(rec.punchNote) row.note = row.note ? row.note+' · '+rec.punchNote : rec.punchNote;
       const pdRow = permissionDisplay(monthlyPermissionMin, permissionPool - permissionRemaining);
       if(!permRoundNoted && pdRow.raw > monthlyPermissionMin){
         permRoundNoted = true;
@@ -1182,7 +1184,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
 
     const rows = filteredStaff.map(s=>{
       const att = ATTENDANCE[s.empNo];
-      const byDate = {}; att.records.forEach(r=> byDate[r.date]=r);
+      const byDate = {}; normalizePunches(att.records).forEach(r=> byDate[r.date]=r);
       const cells = datesInMonth.map(d=>{
         const rec = byDate[d];
         if(!rec || rec.status!=='P'){
@@ -1223,7 +1225,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       btn.onclick = ()=>{
         if(env.data.PAYROLL.run){ alert('This pay cycle is finalized. Reopen it on the Salary tab to change shifts.'); return; }
         const emp = btn.dataset.emp, date = btn.dataset.date;
-        const rec = ATTENDANCE[emp].records.find(r=>r.date===date);
+        const rec = normalizePunches(ATTENDANCE[emp].records).find(r=>r.date===date);
         const current = effectiveShift(emp, date, toMin(rec.in)).code;
         ROSTER[rosterKey(emp, date)] = nextShiftCode(current, STAFF.find(x=>x.empNo===emp));
         renderShiftPlanner();
@@ -1235,10 +1237,11 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   function dailyAttendanceSeries(scopedIds){
     const anyAtt = {records: allCycleDates().map(d=>({date:d}))};
     if(!anyAtt.records.length) return [];
+    const normAtt = normalizeAttendance(ATTENDANCE, [...scopedIds]);
     return anyAtt.records.map(r0=>{
       let present=0, total=0;
       scopedIds.forEach(id=>{
-        const att = ATTENDANCE[id]; if(!att) return;
+        const att = normAtt[id]; if(!att) return;
         const rec = att.records.find(r=>r.date===r0.date); if(!rec) return;
         if(rec.status==='WO' || rec.status==='H') return;
         total++; if(rec.status==='P') present++;
@@ -1266,7 +1269,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '<div class="attendance-legend">'+chart.units.map(u=>'<span><i style="background:'+unitChartColour(u.code)+';"></i>'+escapeHTML(u.name)+'</span>').join('')+'</div>';
   }
   function unitAttendanceCalendar(list){
-    const cal = attendanceCalendar(env.cycle.dates, list, ATTENDANCE, UNITS, todayISO());
+    const cal = attendanceCalendar(env.cycle.dates, list, normalizeAttendance(ATTENDANCE, list.map(s=>s.empNo)), UNITS, todayISO());
     const head = env.cycle.dates.map((d,i)=>{
       const dt = new Date(d+'T12:00:00');
       const brk = i>0 && dt.getDate()===1 ? ' cal-break' : '';
@@ -1334,7 +1337,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const byDept = {};
     scopedStaff.forEach(s=> byDept[s.department] = (byDept[s.department]||0)+1);
 
-    const attendanceChart = attendanceByUnit(env.cycle.dates, scopedStaff, ATTENDANCE, UNITS);
+    const attendanceChart = attendanceByUnit(env.cycle.dates, scopedStaff, normalizeAttendance(ATTENDANCE, scopedStaff.map(s=>s.empNo)), UNITS);
     const topLate = scopedStaff.map(s=>({s, cyc:computeCycle(s.empNo)})).filter(x=>x.cyc.summary.lateDays>0)
       .sort((a,b)=>b.cyc.summary.lateDays-a.cyc.summary.lateDays).slice(0,5)
       .map(x=>({label:x.s.name, value:x.cyc.summary.lateDays, empNo:x.s.empNo}));
@@ -1664,7 +1667,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const tasksAwaitingReview = myTasks.filter(t=>t.status==='Review');
     const rejectedTasks = myTasks.filter(t=>t.status==='Rejected');
     const today = latestDataDate();
-    const todaySnapshot = myReports.map(s=>{ const att = ATTENDANCE[s.empNo]; const rec = att ? att.records.find(r=>r.date===today) : null; return {s, rec}; });
+    const todaySnapshot = myReports.map(s=>{ const att = ATTENDANCE[s.empNo]; const rec = att ? normalizePunches(att.records).find(r=>r.date===today) : null; return {s, rec}; });
     const presentToday = todaySnapshot.filter(x=>x.rec && x.rec.status==='P').length;
     const upcomingLeaves = LEAVES.filter(l=>myReportIds.has(l.empNo) && l.status==='Approved' && today && l.date>=today).sort((a,b)=>a.date.localeCompare(b.date));
     body.innerHTML = ''+

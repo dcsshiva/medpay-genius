@@ -1,0 +1,98 @@
+/**
+ * Re-reads biometric punches before attendance is counted (pure; see punches.test.js).
+ *
+ * The device pairs the first and last punch of each CALENDAR day, so a night shift
+ * (IN ~20:00, OUT ~08:00 next morning) arrives as:
+ *   night 1 starts   →  "A  20:09 –"        (lone evening punch, marked Absent)
+ *   following days   →  "P  08:27 – 20:09"  (this morning's OUT of last night + tonight's IN)
+ *   after last night →  "A  08:30 –"        (lone morning OUT)
+ * and any day with only an IN punch is marked Absent.
+ *
+ * Rules (per staff member, records in date order):
+ *  1. A lone evening punch (IN ≥ 17:00, no OUT) starts a night shift on that date: Present,
+ *     IN = that punch, whatever the device status (A / P / WO).
+ *  2. While a night is open, the next calendar day's first punch at or before 11:00 is that
+ *     night's OUT — unless that day also has a daytime OUT (then it's an ordinary day).
+ *     If that day's remaining punch is in the evening (≥ 17:00) it starts the next night.
+ *     If nothing remains, the day is "off after night duty" (no deduction), unless the device
+ *     recorded leave / holiday for it.
+ *  3. Otherwise a day marked Absent that has an IN punch but no OUT is counted Present
+ *     ("missing OUT punch").
+ * Records keep every original field; changed ones get `punchNote`, and night shifts `night: true`.
+ */
+export const EVENING_MIN = 17 * 60;
+export const MORNING_MAX_MIN = 11 * 60;
+
+const toMin = (t) => {
+  if (!t) return null;
+  const [h, m] = String(t).split(':').map(Number);
+  return Number.isFinite(h) ? h * 60 + (Number.isFinite(m) ? m : 0) : null;
+};
+const nextDay = (iso) => {
+  const [y, m, d] = iso.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + 1));
+  return dt.toISOString().slice(0, 10);
+};
+
+export function normalizePunches(records) {
+  const sorted = [...(records || [])].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const out = [];
+  let openNight = null; // the output record of a night still waiting for its OUT
+
+  for (const rec of sorted) {
+    const inM = toMin(rec.in);
+    const outM = toMin(rec.out);
+    const keepsStatus = rec.status === 'CL' || rec.status === 'H';
+
+    // 2. this morning's punch closes last night's shift
+    if (openNight && rec.date === nextDay(openNight.date) && inM !== null && inM <= MORNING_MAX_MIN
+        && (outM === null || outM >= EVENING_MIN) && !keepsStatus) {
+      openNight.out = rec.in;
+      openNight.punchNote = 'Night shift ' + openNight.in + ' → ' + rec.in + ' next morning';
+      openNight = null;
+      if (outM !== null) {
+        // the evening punch starts tonight's night shift
+        const night = { ...rec, status: 'P', in: rec.out, out: undefined, night: true,
+          punchNote: 'Night shift from ' + rec.out + ' (OUT punch is next morning)' };
+        out.push(night);
+        openNight = night;
+      } else {
+        out.push({ ...rec, status: 'WO', in: undefined, out: undefined, offAfterNight: true,
+          punchNote: 'Off after night duty (' + rec.in + ' was the OUT of the previous night)' });
+      }
+      continue;
+    }
+    if (openNight) {
+      openNight.punchNote = 'Night shift from ' + openNight.in + ' (no OUT punch found next morning)';
+      openNight = null;
+    }
+
+    // 1. a lone evening punch starts a night shift
+    if (inM !== null && inM >= EVENING_MIN && outM === null && !keepsStatus) {
+      const night = { ...rec, status: 'P', night: true, punchNote: 'Night shift from ' + rec.in + ' (OUT punch is next morning)' };
+      out.push(night);
+      openNight = night;
+      continue;
+    }
+
+    // 3. a single IN punch marked Absent is a present day with a missing OUT punch
+    if (rec.status === 'A' && inM !== null && outM === null) {
+      out.push({ ...rec, status: 'P', punchNote: 'Missing OUT punch — counted present' });
+      continue;
+    }
+
+    out.push(rec);
+  }
+  if (openNight) openNight.punchNote = 'Night shift from ' + openNight.in + ' (OUT punch not yet imported)';
+  return out;
+}
+
+/** { empNo: { records } } → same shape with normalized records (for the calendar / charts). */
+export function normalizeAttendance(attendance, empNos) {
+  const res = {};
+  for (const emp of empNos) {
+    const a = attendance[emp];
+    if (a) res[emp] = { ...a, records: normalizePunches(a.records) };
+  }
+  return res;
+}

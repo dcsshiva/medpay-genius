@@ -1925,6 +1925,38 @@ rep("""      '<footer class="auth-foot">&copy; 2026&ndash;2030 Selvantra Technol
     """      '<footer class="auth-foot">&copy; 2026&ndash;2030 Selvantra Technologies &middot; <a href="https://selvantra.com" target="_blank" rel="noopener">selvantra.com</a>'+
         (versionText() ? '<div class="auth-version">'+escapeHTML(versionText())+'</div>' : '')+'</footer>'+""")
 
+# ── 43. biometric punches are re-read before anything is counted (src/hrms/punches.js):
+#        night shifts are paired across midnight (OUT = next morning's first punch), the morning
+#        after a night is "off after night duty", and a single IN punch marked Absent is Present.
+#        Every reader of attendance uses it: payroll engine, day view, calendar & chart, Shift
+#        Planner, manager's today table. Stored punches are never changed.
+#        General-shift staff who punch in 3+ hours after their shift start are measured against
+#        the nearest other shift (e.g. Afternoon 14:00, Night 20:00). ──
+rep("""  const records = att.records.filter(r=> r.date>=env.cycle.start && r.date<=env.cycle.end);""",
+    """  const records = normalizePunches(att.records).filter(r=> r.date>=env.cycle.start && r.date<=env.cycle.end);""")
+rep("""    const pdRow = permissionDisplay(monthlyPermissionMin, permissionPool - permissionRemaining);""",
+    """    if(rec.punchNote) row.note = row.note ? row.note+' · '+rec.punchNote : rec.punchNote;
+    const pdRow = permissionDisplay(monthlyPermissionMin, permissionPool - permissionRemaining);""")
+rep("""  if(isGeneralShift(own)) return own;""",
+    """  if(isGeneralShift(own) && !(inMin > shiftStartMin(own) + 180)) return own;""")
+rep("""    const byDate = {}; att.records.forEach(r=> byDate[r.date]=r);""",
+    """    const byDate = {}; normalizePunches(att.records).forEach(r=> byDate[r.date]=r);""")
+rep("""      const rec = ATTENDANCE[emp].records.find(r=>r.date===date);""",
+    """      const rec = normalizePunches(ATTENDANCE[emp].records).find(r=>r.date===date);""")
+rep("""      const att = ATTENDANCE[id]; if(!att) return;
+      const rec = att.records.find(r=>r.date===r0.date); if(!rec) return;""",
+    """      const att = normAtt[id]; if(!att) return;
+      const rec = att.records.find(r=>r.date===r0.date); if(!rec) return;""")
+rep("""  return anyAtt.records.map(r0=>{""",
+    """  const normAtt = normalizeAttendance(ATTENDANCE, [...scopedIds]);
+  return anyAtt.records.map(r0=>{""")
+rep("""  const todaySnapshot = myReports.map(s=>{ const att = ATTENDANCE[s.empNo]; const rec = att ? att.records.find(r=>r.date===today) : null; return {s, rec}; });""",
+    """  const todaySnapshot = myReports.map(s=>{ const att = ATTENDANCE[s.empNo]; const rec = att ? normalizePunches(att.records).find(r=>r.date===today) : null; return {s, rec}; });""")
+rep("""  const cal = attendanceCalendar(env.cycle.dates, list, ATTENDANCE, UNITS, todayISO());""",
+    """  const cal = attendanceCalendar(env.cycle.dates, list, normalizeAttendance(ATTENDANCE, list.map(s=>s.empNo)), UNITS, todayISO());""")
+rep("""  const attendanceChart = attendanceByUnit(env.cycle.dates, scopedStaff, ATTENDANCE, UNITS);""",
+    """  const attendanceChart = attendanceByUnit(env.cycle.dates, scopedStaff, normalizeAttendance(ATTENDANCE, scopedStaff.map(s=>s.empNo)), UNITS);""")
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
@@ -1940,6 +1972,7 @@ module = '''// @ts-nocheck
  * ========================================================================== */
 import type { HrEnv, HrController, HrWho } from './types';
 import { attendanceByUnit, attendanceCalendar } from './attendanceChart.js';
+import { normalizePunches, normalizeAttendance } from './punches.js';
 import { earningsLines, pfBase, cycleAdjustments, statutory, buildPayslip } from './payslip.js';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
