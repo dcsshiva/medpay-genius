@@ -24,3 +24,4 @@
 - [ ] Security stage 2: apply migration 0019 (forced change enforced in the database; managers limited to their own reports) once the app with the new password screen is published.
 - [x] Removed the unused verify-emergency-otp edge function (hard-coded access codes) from the repo.
 - [ ] Delete the already-deployed verify-emergency-otp function in Supabase (Edge Functions) — removing the code does not undeploy it.
+- [x] Look and feel: "Digitify Desk" style (navy top bar and frame, one white rounded panel, blue #0971F9 accent, Roboto, 8px corners, flat borders, compact 13px tables, labels never upper-case, tinted rounded status pills); one light theme. Styles only — no behaviour changes.
