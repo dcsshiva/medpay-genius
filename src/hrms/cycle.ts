@@ -34,12 +34,13 @@ export function cycleContaining(date: string, startDay: number): HrCycle {
   return cycleForKey(`${y}-${pad(m)}`, startDay);
 }
 
-/** The last `count` cycles up to (and including) the current one, newest first — plus `extra` if outside. */
+/** The upcoming cycle (for the Shift Planner) and the last `count` cycles up to and including the
+ *  current one, newest first — plus `extra` if outside. */
 export function recentCycles(startDay: number, count = 12, extra?: HrCycle): HrCycle[] {
   const cur = cycleContaining(todayISO(), startDay);
   const [y, m] = cur.key.split('-').map(Number);
   const list: HrCycle[] = [];
-  for (let i = 0; i < count; i++) {
+  for (let i = -1; i < count; i++) {
     const dt = new Date(y, m - 1 - i, 1);
     list.push(cycleForKey(`${dt.getFullYear()}-${pad(dt.getMonth() + 1)}`, startDay));
   }

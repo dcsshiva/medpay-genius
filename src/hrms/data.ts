@@ -84,12 +84,18 @@ const leaveFromRow = (r: any) => {
   if (r.hours != null) l.hours = r.hours;
   if (r.decided_by) l.decidedBy = r.decided_by;
   if (r.decided_on) l.decidedOn = r.decided_on;
+  if (r.revoked_by) l.revokedBy = r.revoked_by;
+  if (r.revoked_on) l.revokedOn = r.revoked_on;
+  if (r.revoke_reason) l.revokeReason = r.revoke_reason;
+  if (r.prev_attendance) l.prevAttendance = r.prev_attendance;
   return l;
 };
 const leaveToRow = (l: any) => ({
   emp_no: l.empNo, type: l.type, applied_on: nz(l.appliedOn), date: l.date, hours: l.hours ?? null, reason: l.reason || '',
   status: l.status, reporting_manager: l.reportingManager || '', alt_emp_no: l.altEmpNo || '',
   decided_by: nz(l.decidedBy), decided_on: nz(l.decidedOn),
+  revoked_by: nz(l.revokedBy), revoked_on: nz(l.revokedOn), revoke_reason: nz(l.revokeReason),
+  prev_attendance: l.prevAttendance ?? null,
 });
 const shiftFromRow = (r: any) => ({
   code: r.code, letter: r.letter, name: r.name, start: time(r.start_time), end: time(r.end_time),
@@ -451,6 +457,83 @@ export function createStore() {
     return { idsChanged };
   }
 
+  /** When each planned cell last changed (shift plan import: conflict check) — "<emp>|<date>" → ISO. */
+  async function rosterMeta(start: string, end: string): Promise<Record<string, string>> {
+    const rows = await fetchAll(() => db.from('hr_roster').select('emp_no, date, shift_code, updated_at')
+      .gte('date', start).lte('date', end).order('emp_no').order('date'));
+    const out: Record<string, string> = {};
+    rows.forEach((r: { emp_no: string; date: string; updated_at?: string }) => { if (r.updated_at) out[r.emp_no + '|' + r.date] = r.updated_at; });
+    return out;
+  }
+
+  /**
+   * Saves a shift plan import straight to hr_roster: `clear` removes the override (back to the
+   * Staff Master default), otherwise the shift is set. Memory and the sync snapshot follow, so
+   * the regular save does not repeat it. Returns the cells the database refused.
+   */
+  async function applyRosterPlan(changes: { empNo: string; date: string; to: string; clear?: boolean }[]) {
+    const failed: { empNo: string; date: string; message: string }[] = [];
+    const done: typeof changes = [];
+    const sets = changes.filter(c => !c.clear);
+    const clears = changes.filter(c => c.clear);
+    const setRow = (c: typeof changes[number]) => ({ emp_no: c.empNo, date: c.date, shift_code: c.to });
+    for (let i = 0; i < sets.length; i += 500) {
+      const batch = sets.slice(i, i + 500);
+      const { error } = await db.from('hr_roster').upsert(batch.map(setRow), { onConflict: 'emp_no,date' });
+      if (!error) { done.push(...batch); continue; }
+      for (const c of batch) {
+        const { error: e1 } = await db.from('hr_roster').upsert(setRow(c), { onConflict: 'emp_no,date' });
+        if (e1) failed.push({ empNo: c.empNo, date: c.date, message: e1.message }); else done.push(c);
+      }
+    }
+    const byEmp = new Map<string, string[]>();
+    clears.forEach(c => byEmp.set(c.empNo, [...(byEmp.get(c.empNo) || []), c.date]));
+    for (const [emp, dates] of byEmp) {
+      const { error } = await db.from('hr_roster').delete().eq('emp_no', emp).in('date', dates);
+      if (error) dates.forEach(d => failed.push({ empNo: emp, date: d, message: error.message }));
+      else done.push(...clears.filter(c => c.empNo === emp));
+    }
+    const snap = snapshot['roster'] || new Map<string, string>();
+    for (const c of done) {
+      const key = c.empNo + '|' + c.date;
+      if (c.clear) { delete data.ROSTER[key]; snap.delete(key); }
+      else { data.ROSTER[key] = c.to; snap.set(key, comparable({ emp_no: c.empNo, date: c.date, shift_code: c.to })); }
+    }
+    snapshot['roster'] = snap;
+    return { saved: done.length, failed };
+  }
+
+  /**
+   * Writes one attendance day straight to hr_attendance (withdrawing an approved CL puts the day
+   * back): `rec` null deletes it. Works for any date, loaded or not; memory and the sync snapshot follow.
+   */
+  async function setAttendanceDay(empNo: string, date: string, rec: { status: string; in?: string; out?: string; permMin?: number } | null) {
+    const key = empNo + '|' + date;
+    if (rec) {
+      const row = attToRow(empNo, { date, ...rec });
+      const { error } = await db.from('hr_attendance').upsert(row, { onConflict: 'emp_no,date' });
+      if (error) throw error;
+      snapshot['attendance']?.set(key, comparable(row));
+    } else {
+      const { error } = await db.from('hr_attendance').delete().eq('emp_no', empNo).eq('date', date);
+      if (error) throw error;
+      snapshot['attendance']?.delete(key);
+    }
+    const att = data.ATTENDANCE[empNo];
+    if (att) {
+      const i = att.records.findIndex(r => r.date === date);
+      if (i >= 0) att.records.splice(i, 1);
+      if (rec) { att.records.push({ date, ...rec }); att.records.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)); }
+    }
+  }
+
+  /** Is the pay cycle containing this date finalized? */
+  async function cycleFinalized(date: string): Promise<boolean> {
+    const { data: locked, error } = await db.rpc('hr_cycle_locked', { _date: date });
+    if (error) throw error;
+    return !!locked;
+  }
+
   function hasPendingChanges(): boolean {
     return COLLECTIONS.some(c => {
       const before = snapshot[c.name] || new Map();
@@ -462,7 +545,7 @@ export function createStore() {
 
   return {
     data, clear, loadAll, loadCycleRows, loadSettings, sync, tempId, hasPendingChanges,
-    finalizeCycle, reopenCycle, loadTrends, get who() { return who; },
+    finalizeCycle, reopenCycle, loadTrends, rosterMeta, applyRosterPlan, setAttendanceDay, cycleFinalized, get who() { return who; },
   };
 }
 
