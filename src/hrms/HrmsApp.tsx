@@ -7,6 +7,18 @@ import { staffSignIn, adminSignIn, signOut, changePassword, whoami, manageLogin 
 import { cycleContaining, cycleForKey, recentCycles, todayISO } from './cycle';
 import type { HrController, HrCycle, HrEnv, HrWho } from './types';
 
+// Stamped by vite.config.ts from package.json: version "1.1.0.03", releasedAt set by the
+// release workflow (falls back to the build time).
+declare const __BUILD_INFO__: { version?: string; timestamp?: string; releasedAt?: string } | undefined;
+const BUILD = (() => {
+  try {
+    const b = __BUILD_INFO__;
+    return { version: b?.version || '', releasedAt: b?.releasedAt || b?.timestamp || '' };
+  } catch {
+    return { version: '', releasedAt: '' };
+  }
+})();
+
 const DEVICE_KEY = 'hr_device_id';
 const deviceId = (() => {
   try {
@@ -280,6 +292,7 @@ export default function HrmsApp() {
         const ws = wb.Sheets[wb.SheetNames[0]];
         return XLSX.utils.sheet_to_csv(ws, { blankrows: false, rawNumbers: false });
       },
+      build: BUILD,
     };
 
     controller = mountHrms(root, env);

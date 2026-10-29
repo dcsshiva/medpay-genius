@@ -21,7 +21,10 @@
 - [x] Security stage 1 (live 2026-10-12): no anonymous access to HR tables, staff directory or HR functions; directory only for HR users; must-change-password flag on the 139 default-password accounts.
 - [x] Forced "choose a new password" screen before any data loads; passwords ≥ 6 characters and never the Staff Code; admin-set passwords must be replaced at next sign-in.
 - [x] Saving: an edit made while a save is running is no longer lost; a failed insert batch no longer creates duplicate tasks / leave requests.
-- [ ] Security stage 2: apply migration 0019 (forced change enforced in the database; managers limited to their own reports) once the app with the new password screen is published.
+- [x] Security stage 2 (live 2026-10-29): migration 0019 applied — accounts on a default or admin-set password get no HR data until they choose their own; managers see and act on their own reports only.
 - [x] Removed the unused verify-emergency-otp edge function (hard-coded access codes) from the repo.
 - [ ] Delete the already-deployed verify-emergency-otp function in Supabase (Edge Functions) — removing the code does not undeploy it.
 - [x] Look and feel: "Digitify Desk" style (navy top bar and frame, one white rounded panel, blue #0971F9 accent, Roboto, 8px corners, flat borders, compact 13px tables, labels never upper-case, tinted rounded status pills); one light theme. Styles only — no behaviour changes.
+- [x] Module menu in the navy top bar (admin and staff workspaces; own row below laptop width, scrolls sideways on phones).
+- [x] Version management: every push to main bumps the release number and stamps the release time (fixed workflow — it was failing on `npm ci`); the app shows "v… · Released <date, time>" in the top bar and on the sign-in screen.
+- [x] 11 staff absent on every working day 27 Aug – 27 Oct 2026 made inactive (live data, 2026-10-29); managers, reporting managers and admins excluded. Inactive staff are left out of attendance counts, charts, ledger and payroll; Staff Master can reactivate them.

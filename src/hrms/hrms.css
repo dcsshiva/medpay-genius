@@ -59,6 +59,20 @@
 .hrms-root .topbar .iconbtn{background:var(--teal); border-color:var(--teal); color:#fff; border-radius:999px; padding:6px 14px;}
 .hrms-root .topbar .cycle-select{color:var(--header-text); border-color:rgba(240,246,252,.35); background:transparent;}
 .hrms-root .topbar .cycle-select option{color:var(--ink); background:#fff;}
+/* module menu in the top bar: icon-less labels, darker navy block behind the active module */
+.hrms-root .topnav{flex:1 1 auto; min-width:0; display:flex; justify-content:center; gap:2px; overflow-x:auto; scrollbar-width:none;}
+.hrms-root .topnav::-webkit-scrollbar{display:none;}
+.hrms-root .topnav:empty{display:none;}
+.hrms-root .topnav-item{flex:none; border:0; background:transparent; color:var(--header-text); font:inherit; font-size:14px; font-weight:500; padding:8px 12px; border-radius:8px; cursor:pointer; white-space:nowrap;}
+.hrms-root .topnav-item:hover{background:rgba(255,255,255,.08);}
+.hrms-root .topnav-item.active{background:var(--header-active); color:#fff;}
+.hrms-root .app-version{font-size:11.5px; color:rgba(240,246,252,.7); white-space:nowrap; font-variant-numeric:tabular-nums; margin-left:8px;}
+.hrms-root .app-version:empty{display:none;}
+.hrms-root .auth-version{margin-top:6px; font-size:11.5px; color:var(--a-muted); font-variant-numeric:tabular-nums;}
+/* below laptop width the menu takes its own row and scrolls sideways */
+@media (max-width: 1180px){
+  .hrms-root .topnav{order:3; flex-basis:100%; justify-content:flex-start; margin:0 -4px; padding-bottom:2px;}
+}
 
 .hrms-root .card{background:var(--surface); border:1px solid var(--line); border-radius:8px; box-shadow:none;}
 .hrms-root .pad{padding:20px;}
@@ -419,4 +433,5 @@
   .hrms-root .search{min-width:0; width:100%;}
   .hrms-root .emp-toolbar > *{flex-wrap:wrap;}
   .hrms-root .sync-status{top:auto; bottom:14px; left:12px; right:12px; text-align:center;}
+  .hrms-root .app-version{display:block; margin:2px 0 0; font-size:10.5px; white-space:normal;}
 }

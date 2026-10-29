@@ -1,4 +1,9 @@
-name: Auto Version Bump and Deploy
+name: Release version
+
+# Every push to main is a release: bump the release number in package.json, stamp the
+# release time (package.json → releasedAt, shown in the app as "Released <date, time>"),
+# commit, tag and create a GitHub release. The app is built and published by Lovable;
+# this job only versions it, so it needs no dependency install or build.
 
 on:
   push:
@@ -15,25 +20,28 @@ on:
         - minor
         - major
 
+permissions:
+  contents: write
+
+concurrency:
+  group: release-version
+  cancel-in-progress: false
+
 jobs:
-  version-and-deploy:
+  release:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
         fetch-depth: 0
-        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
-        cache: 'npm'
-
-    - name: Install dependencies
-      run: npm ci
+        node-version: '20'
 
     - name: Configure Git
       run: |
@@ -42,90 +50,40 @@ jobs:
 
     - name: Bump version
       id: version
+      env:
+        DISPATCH_TYPE: ${{ github.event.inputs.version_type }}
       run: |
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          VERSION_TYPE="${{ github.event.inputs.version_type }}"
+        if [ -n "$DISPATCH_TYPE" ]; then
+          VERSION_TYPE="$DISPATCH_TYPE"
+        elif git log --format=%B -n 1 | grep -Eq "BREAKING CHANGE|feat!|fix!"; then
+          VERSION_TYPE="major"
+        elif git log --format=%B -n 1 | grep -Eq "^feat"; then
+          VERSION_TYPE="minor"
         else
-          # Auto-detect version type based on commit messages
-          if git log --format=%B -n 1 | grep -E "BREAKING CHANGE|feat!|fix!" -q; then
-            VERSION_TYPE="major"
-          elif git log --format=%B -n 1 | grep -E "^feat" -q; then
-            VERSION_TYPE="minor"
-          else
-            VERSION_TYPE="release"
-          fi
+          VERSION_TYPE="release"
         fi
-        
         echo "Bumping $VERSION_TYPE version"
         NEW_VERSION=$(node scripts/bump-release.cjs "$VERSION_TYPE")
-        echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-        echo "version_type=$VERSION_TYPE" >> $GITHUB_OUTPUT
+        echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
 
-    - name: Update version in files
-      run: |
-        # Update version in package.json (already done by npm version)
-        # Create build info for injection
-        cat > public/build-info.json << EOF
-        {
-          "version": "${{ steps.version.outputs.new_version }}",
-          "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%S.000Z)",
-          "commit": "${{ github.sha }}",
-          "branch": "${{ github.ref_name }}",
-          "environment": "production"
-        }
-        EOF
-
-    - name: Generate Changelog
-      id: changelog
-      run: |
-        # Simple changelog generation
-        PREVIOUS_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
-        if [ -n "$PREVIOUS_TAG" ]; then
-          CHANGES=$(git log --pretty=format:"- %s (%h)" $PREVIOUS_TAG..HEAD)
-        else
-          CHANGES=$(git log --pretty=format:"- %s (%h)" --max-count=10)
-        fi
-        
-        echo "## ${{ steps.version.outputs.new_version }}" > CURRENT_CHANGELOG.md
-        echo "**Release Date:** $(date -u +%Y-%m-%d)" >> CURRENT_CHANGELOG.md
-        echo "" >> CURRENT_CHANGELOG.md
-        echo "**Changes:**" >> CURRENT_CHANGELOG.md
-        echo "$CHANGES" >> CURRENT_CHANGELOG.md
-
-    - name: Build application
-      run: |
-        # Inject build info into the build process
-        export VITE_BUILD_VERSION="${{ steps.version.outputs.new_version }}"
-        export VITE_BUILD_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%S.000Z)"
-        export VITE_BUILD_COMMIT="${{ github.sha }}"
-        export VITE_BUILD_BRANCH="${{ github.ref_name }}"
-        npm run build
-
-    - name: Commit version bump
-      run: |
-        git add package.json package-lock.json public/build-info.json CURRENT_CHANGELOG.md
-        git commit -m "chore: bump version to ${{ steps.version.outputs.new_version }} [skip ci]"
-        git tag ${{ steps.version.outputs.new_version }}
-
-    - name: Push changes
-      run: |
-        git push origin main
-        git push origin ${{ steps.version.outputs.new_version }}
-
-    - name: Create GitHub Release
-      uses: actions/create-release@v1
+    - name: Commit, tag and push
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ steps.version.outputs.new_version }}
-        release_name: Release ${{ steps.version.outputs.new_version }}
-        body_path: CURRENT_CHANGELOG.md
-        draft: false
-        prerelease: false
-
-    - name: Deploy to Production
+        NEW_VERSION: ${{ steps.version.outputs.new_version }}
       run: |
-        echo "🚀 Deploying version ${{ steps.version.outputs.new_version }} to production"
-        # Add your deployment commands here
-        # For example, if using Vercel, Netlify, or other platforms
-        # This could also trigger a webhook to your hosting platform
+        git add package.json package-lock.json
+        git commit -m "chore(release): $NEW_VERSION [skip ci]"
+        git tag "$NEW_VERSION"
+        # main may have moved while this ran (e.g. a Lovable sync): rebase onto it, retag, push
+        for attempt in 1 2 3; do
+          if git push origin HEAD:main; then break; fi
+          git pull --rebase origin main
+          git tag -f "$NEW_VERSION"
+          [ "$attempt" = 3 ] && exit 1
+        done
+        git push origin "$NEW_VERSION"
+
+    - name: Create GitHub release
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        NEW_VERSION: ${{ steps.version.outputs.new_version }}
+      run: gh release create "$NEW_VERSION" --title "Release $NEW_VERSION" --generate-notes

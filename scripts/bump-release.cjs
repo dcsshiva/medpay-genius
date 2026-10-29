@@ -31,6 +31,8 @@ if (requestedType === 'major') {
 
 packageJson.version = parts.slice(0, 3).join('.');
 packageJson.releaseNumber = String(releaseNumber).padStart(2, '0');
+// shown in the app as "Released <date, time>" (vite.config.ts → __BUILD_INFO__.releasedAt)
+packageJson.releasedAt = new Date().toISOString();
 fs.writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`);
 
 if (fs.existsSync(lockPath)) {

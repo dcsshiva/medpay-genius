@@ -81,6 +81,8 @@ export interface HrEnv {
   excelToCsv(file: File): Promise<string>;
   /** save an attendance import, then reload the selected cycle */
   afterImport(): Promise<void>;
+  /** running app version and when it was released (package.json, stamped at build time) */
+  build: { version: string; releasedAt: string };
 }
 
 /** Handle returned by mountHrms(). */

@@ -552,7 +552,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
             '<li>Signing in here signs this account out of any other device.</li>'+
           '</ul>'+
         '</div>'+
-        '<footer class="auth-foot">&copy; 2026&ndash;2030 Selvantra Technologies &middot; <a href="https://selvantra.com" target="_blank" rel="noopener">selvantra.com</a></footer>'+
+        '<footer class="auth-foot">&copy; 2026&ndash;2030 Selvantra Technologies &middot; <a href="https://selvantra.com" target="_blank" rel="noopener">selvantra.com</a>'+
+          (versionText() ? '<div class="auth-version">'+escapeHTML(versionText())+'</div>' : '')+'</footer>'+
       '</main>'+
     '</div>';
   }
@@ -605,16 +606,14 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
           '<button class="iconbtn" id="logoutBtn">Sign out</button>'+
         '</div>'+
       '</div>'+
-      '<div class="tabs no-print">'+
-        ['overview','ledger','tasks','leave'].concat(staffSalaryHidden() ? [] : ['payslip']).map(t=>'<button data-tab="'+t+'" class="'+(staffTab===t?'active':'')+'">'+
-          ({overview:'Overview', ledger:(staffSalaryHidden() ? 'My Attendance' : 'My Shift & Salary'), tasks:'My Tasks', leave:'Leave & Permission', payslip:'Payslip'})[t]+'</button>').join('')+
-      '</div>'+
       '<div id="staffTabBody"></div>'+
     '</div>';
 
     document.getElementById('logoutBtn').onclick = ()=>{ env.auth.signOut(); };
     document.getElementById('changePwBtn').onclick = ()=> openChangePasswordModal('staff');
-    staffView.querySelectorAll('.tabs button').forEach(b=> b.onclick = ()=>{ staffTab=b.dataset.tab; renderStaffDashboard(); });
+    setTopNav(['overview','ledger','tasks','leave'].concat(staffSalaryHidden() ? [] : ['payslip']).map(t=>({key:t,
+      label:({overview:'Overview', ledger:(staffSalaryHidden() ? 'My Attendance' : 'My Shift & Salary'), tasks:'My Tasks', leave:'Leave & Permission', payslip:'Payslip'})[t]})),
+      staffTab, key=>{ staffTab=key; renderStaffDashboard(); });
 
     const body = document.getElementById('staffTabBody');
     const emp = result.emp;
@@ -856,9 +855,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<button class="iconbtn" id="adminChangePwBtn">Change password</button>'+
         '<button class="iconbtn" id="adminLogoutBtn">Sign out</button>'+
     '</div>'+
-    '<div class="tabs">'+ tabs.map(t=>'<button data-tab="'+t+'" class="'+(adminTab===t?'active':'')+'">'+labels[t]+'</button>').join('') +'</div>'+
     '<div id="adminBody"></div>';
-    adminView.querySelectorAll('.tabs button').forEach(b=> b.onclick = ()=>{ adminTab=b.dataset.tab; renderAdmin(); });
+    setTopNav(tabs.map(t=>({key:t, label:labels[t]})), adminTab, key=>{ adminTab=key; renderAdmin(); });
     document.getElementById('adminLogoutBtn').onclick = ()=>{ env.auth.signOut(); };
     document.getElementById('adminChangePwBtn').onclick = ()=> openChangePasswordModal('admin');
     const unitSel = document.getElementById('adminUnitSel');
@@ -3169,13 +3167,31 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
 
 
   /* ================= live-app controller ================= */
+  /* the module menu lives in the top bar; each workspace fills it when it renders */
+  function setTopNav(items, active, onPick){
+    const nav = document.getElementById('topNav');
+    if(!nav) return;
+    nav.innerHTML = (items||[]).map(i=>'<button data-nav="'+i.key+'" class="topnav-item'+(i.key===active?' active':'')+'"'+(i.key===active?' aria-current="page"':'')+'>'+i.label+'</button>').join('');
+    nav.querySelectorAll('[data-nav]').forEach(b=> b.onclick = ()=> onPick(b.dataset.nav));
+  }
+  /* "v1.1.0.03 · Released 29 Oct 2026, 7:15 am" — from package.json via the build (env.build) */
+  function versionText(){
+    const b = env.build || {};
+    if(!b.version) return '';
+    const d = b.releasedAt ? new Date(b.releasedAt) : null;
+    const when = d && !isNaN(d.getTime()) ? d.toLocaleString('en-IN', {day:'2-digit', month:'short', year:'numeric', hour:'numeric', minute:'2-digit'}) : '';
+    return 'v'+b.version + (when ? ' · Released '+when : '');
+  }
   function showView(which){
+    setTopNav([]);
     document.querySelectorAll('#roleSwitch button').forEach(b=>b.classList.toggle('active', b.dataset.role===which));
     if(which==='admin'){ staffView.classList.add('hidden'); adminView.classList.remove('hidden'); renderAdmin(); }
     else { adminView.classList.add('hidden'); staffView.classList.remove('hidden'); currentStaff ? renderStaffDashboard() : renderStaffLogin(); }
   }
   function currentView(){ return adminView.classList.contains('hidden') ? 'staff' : 'admin'; }
   function renderCycleSelect(){
+    const ver = document.getElementById('appVersion');
+    if(ver) ver.textContent = versionText();
     const sel = document.getElementById('cycleSel');
     sel.innerHTML = env.cycles.map(c=>'<option value="'+c.key+'" '+(c.key===env.cycle.key?'selected':'')+'>'+c.label+'</option>').join('');
     sel.onchange = (e)=> env.setCycle(e.target.value);
@@ -3228,9 +3244,10 @@ const SHELL = `<div class="wrap">
       <div class="brand-mark">WM</div>
       <div>
         <div class="brand-name">WestMed Payroll System</div>
-        <div class="brand-sub mono">Pay cycle &middot; <select class="cycle-select" id="cycleSel"></select></div>
+        <div class="brand-sub mono">Pay cycle &middot; <select class="cycle-select" id="cycleSel"></select><span class="app-version" id="appVersion"></span></div>
       </div>
     </div>
+    <nav class="topnav" id="topNav" aria-label="Modules"></nav>
     <div style="display:flex; align-items:center; gap:10px;">
       <button class="iconbtn hidden" id="installAppBtn">Install app</button>
       <div class="roleswitch" id="roleSwitch">
