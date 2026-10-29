@@ -2,7 +2,7 @@
   "name": "vite_react_shadcn_ts",
   "private": true,
   "version": "1.1.0",
-  "releaseNumber": "07",
+  "releaseNumber": "08",
   "type": "module",
   "scripts": {
     "test": "node --test src/hrms/*.test.js",
@@ -103,5 +103,5 @@
     "typescript-eslint": "^8.38.0",
     "vite": "^5.4.19"
   },
-  "releasedAt": "2026-10-29T05:58:43.637Z"
+  "releasedAt": "2026-10-29T07:32:43.587Z"
 }
