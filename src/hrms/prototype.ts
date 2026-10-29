@@ -14,7 +14,7 @@
 import type { HrEnv, HrController, HrWho } from './types';
 import { attendanceByUnit, attendanceCalendar } from './attendanceChart.js';
 import { normalizePunches, normalizeAttendance, mergeAttendanceRecord, planFor } from './punches.js';
-import { PLAN_OFF, defaultPlanCode, plannedCode, buildPlanSheet, readPlanSheet, planChanges, planChoices } from './shiftPlan.js';
+import { PLAN_OFF, defaultPlanCode, plannedCode, buildPlanSheet, buildPlanBook, readPlanBook, planChanges, planChoices } from './shiftPlan.js';
 import { revokeWindowStart, canRevoke, attendanceAfterRevoke, snapshotDay } from './leaveRevoke.js';
 import { parsePunchMonitor, looksLikeName } from './punchMonitor.js';
 import { earningsLines, pfBase, cycleAdjustments, statutory, buildPayslip } from './payslip.js';
@@ -1185,11 +1185,6 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const key = rosterKey(emp.empNo, date);
     if(code === defaultPlanCode(emp, date)) delete ROSTER[key]; else ROSTER[key] = code;
   }
-  function nextPlanCode(code, emp){
-    const list = activeOnly(SHIFT_MASTER).filter(s=>shiftAllowedFor(s, emp)).map(s=>s.code).concat([PLAN_OFF]);
-    const i = list.indexOf(code);
-    return list[(i+1) % list.length];
-  }
   function renderShiftPlanner(){
     const body = document.getElementById('adminBody');
     const dates = env.cycle.dates;
@@ -1198,7 +1193,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const locked = !!env.data.PAYROLL.run;
     const filteredStaff = plannerStaff().filter(e=> (e.name+e.empNo+deptName(e.department)).toLowerCase().includes(plannerQuery.toLowerCase()));
 
-    const head = '<th class="mono">Code</th><th>Name</th>'+dates.map((d, i)=>{
+    const head = '<th class="mono">Code</th><th>Name</th><th title="Regular weekly off (Staff Master)">Weekly off</th>'+dates.map((d, i)=>{
       const day = new Date(d+'T00:00:00');
       const isSun = day.getDay()===0;
       const mon = (i===0 || day.getDate()===1) ? '<div style="font-size:9.5px;font-weight:600;">'+day.toLocaleDateString('en-IN',{month:'short'})+'</div>' : '';
@@ -1238,7 +1233,12 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
             (code===PLAN_OFF ? 'WO' : (sh ? sh.letter : code))+
           '</button></td>';
       }).join('');
-      return '<tr><td class="mono">'+s.empNo+'</td><td>'+s.name+'</td>'+cells+'</tr>';
+      const wo = s.weeklyOff || '';
+      const woCell = (!isMgr && !locked)
+        ? '<select class="plan-wo-sel" data-emp="'+s.empNo+'" aria-label="Weekly off for '+escapeAttr(s.name)+'" title="Regular weekly off — saved to Staff Master">'+
+            ['', ...WEEKDAYS_SHORT, ...(wo && !WEEKDAYS_SHORT.includes(wo) ? [wo] : [])].map(d=>'<option value="'+d+'"'+(d===wo?' selected':'')+'>'+(d||'—')+'</option>').join('')+'</select>'
+        : '<span class="mono" title="Regular weekly off (Staff Master)">'+(wo||'—')+'</span>';
+      return '<tr><td class="mono">'+s.empNo+'</td><td>'+s.name+'</td><td>'+woCell+'</td>'+cells+'</tr>';
     }).join('');
 
     const scope = isMgr ? 'your '+filteredStaff.length+' staff' : (adminUnitFilter==='ALL' ? 'all units' : unitName(adminUnitFilter));
@@ -1249,8 +1249,9 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<span class="hint" style="margin:0;">'+escapeHTML(env.cycle.label)+' · choose another cycle (like the upcoming one) at the top</span>'+
       '</div>'+
       '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">'+
-        '<button class="btn sm" id="planExportBtn" title="Excel file with a drop-down of shift codes in every day">Export plan (.xlsx)</button>'+
-        '<button class="iconbtn" id="planExportCsvBtn">CSV</button>'+
+        '<button class="btn sm" id="planExportBtn" title="Excel: one sheet per reporting manager, a drop-down of shifts and WO in every day, everything else locked">Export plan (.xlsx)</button>'+
+        '<button class="iconbtn" id="planExportXlsBtn" title="Excel 97-2003: same sheets, without the drop-down and locking">.xls</button>'+
+        '<button class="iconbtn" id="planExportCsvBtn" title="One table, all staff">.csv</button>'+
         '<button class="btn sm" id="planImportBtn"'+(locked?' disabled title="This pay cycle is finalized"':'')+'>Import plan</button>'+
       '</div>'+
     '</div>'+
@@ -1259,32 +1260,72 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '<span class="planner-cell planner-plan planner-off" style="pointer-events:none;">WO</span> Weekly off'+
     '</div>'+
     '<div class="tbl-scroll"><table class="narrow"><thead><tr>'+head+'</tr></thead><tbody>'+
-      (rows || '<tr><td colspan="'+(dates.length+2)+'" class="note">'+(isMgr ? 'No staff report to you yet.' : 'No staff.')+'</td></tr>')+
+      (rows || '<tr><td colspan="'+(dates.length+3)+'" class="note">'+(isMgr ? 'No staff report to you yet.' : 'No staff.')+'</td></tr>')+
     '</tbody></table></div>'+
-    '<div class="footnote">Showing '+escapeHTML(scope)+'. Solid badges are days already worked: the shift applied, with a red dot when late. Lighter badges are the plan for today and later — click one to step through the shifts and WO (weekly off). '+
+    '<div class="footnote">Showing '+escapeHTML(scope)+'. Solid badges are days already worked: the shift applied, with a red dot when late. Lighter badges are the plan for today and later — click a day to choose its shift or <b>WO</b> (weekly off). The Weekly off column is each person\'s regular day off (Staff Master); a WO set on a day counts as that day\'s weekly off. '+
       'With nothing planned, the Staff Master shift applies (WO on the Staff Master weekly-off day); a gold ring marks a Shift Planner entry. '+
       (isMgr ? 'You can plan your own staff from today onward. ' : 'Administrators can change any day until the cycle\'s salary is finalized. ')+
-      'To plan a whole cycle at once: <b>Export plan</b>, fill in the shift codes (the Excel file offers a drop-down in every day), then <b>Import plan</b> — the same file works for .xlsx, .xls and .csv. A planned WO counts as that day\'s weekly off.</div>';
+      'To plan a whole cycle at once: <b>Export plan</b>, fill in the days, then <b>Import plan</b>. The Excel (.xlsx) file has a sheet per reporting manager, a drop-down of shifts and WO in every day, and everything except the day cells locked; .xls and .csv carry the same columns.</div>';
 
     document.getElementById('plannerSearch').oninput = (e)=>{ plannerQuery = e.target.value; renderShiftPlanner(); refocusSearch('plannerSearch'); };
     document.getElementById('planExportBtn').onclick = ()=> exportShiftPlan('xlsx');
+    document.getElementById('planExportXlsBtn').onclick = ()=> exportShiftPlan('xls');
     document.getElementById('planExportCsvBtn').onclick = ()=> exportShiftPlan('csv');
+    body.querySelectorAll('.plan-wo-sel').forEach(sel=> sel.onchange = ()=>{
+      const s = findStaff(sel.dataset.emp); if(!s) return;
+      s.weeklyOff = sel.value; renderShiftPlanner();
+    });
     document.getElementById('planImportBtn').onclick = ()=> openShiftPlanImport();
     body.querySelectorAll('.planner-cell[data-emp]').forEach(btn=>{
       btn.onclick = ()=>{
         if(env.data.PAYROLL.run){ alert('This pay cycle is finalized. Reopen it on the Salary tab to change shifts.'); return; }
         const emp = findStaff(btn.dataset.emp), date = btn.dataset.date;
         if(!emp || !plannerCanEdit(emp, date)) return;
-        if(btn.dataset.mode==='actual'){
-          const rec = normalizePunches(ATTENDANCE[emp.empNo].records, {weeklyOff: emp.weeklyOff, plan: planFor(ROSTER, emp.empNo)}).find(r=>r.date===date);
-          const current = effectiveShift(emp.empNo, date, toMin(rec.in)).code;
-          ROSTER[rosterKey(emp.empNo, date)] = nextShiftCode(current, emp);
-        } else {
-          setPlan(emp, date, nextPlanCode(plannedCode(ROSTER, emp, date), emp));
-        }
-        renderShiftPlanner();
+        openPlanPicker(btn, emp, date, btn.dataset.mode);
       };
     });
+  }
+
+  /* the day picker: every shift the person may work, WO (weekly off) for planned days, and
+     "remove planner entry" when one is set */
+  const WEEKDAYS_SHORT = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  function closePlanPicker(){
+    const el = document.getElementById('planPicker'); if(el) el.remove();
+    document.removeEventListener('mousedown', planPickerOutside, true);
+    document.removeEventListener('keydown', planPickerKey, true);
+  }
+  function planPickerOutside(e){ const el = document.getElementById('planPicker'); if(el && !el.contains(e.target)) closePlanPicker(); }
+  function planPickerKey(e){ if(e.key==='Escape') closePlanPicker(); }
+  function openPlanPicker(btn, emp, date, mode){
+    closePlanPicker();
+    const key = rosterKey(emp.empNo, date);
+    const actual = mode==='actual';
+    const def = defaultPlanCode(emp, date);
+    const current = actual ? (shiftByCode(ROSTER[key]) ? ROSTER[key] : '') : plannedCode(ROSTER, emp, date);
+    const opts = activeOnly(SHIFT_MASTER).filter(sh=>shiftAllowedFor(sh, emp)).map(sh=>({code: sh.code, label: sh.letter, text: sh.name+' · '+sh.start+'–'+sh.end}));
+    if(!actual) opts.push({code: PLAN_OFF, label: 'WO', text: 'Weekly off (day off)'});
+    const el = document.createElement('div');
+    el.id = 'planPicker'; el.className = 'plan-picker'; el.setAttribute('role', 'menu');
+    el.innerHTML = '<div class="plan-picker-head">'+escapeHTML(emp.name)+' · '+fmtDate(date)+' '+dayName(date)+(actual?' · worked':'')+'</div>'+
+      opts.map(o=>'<button role="menuitem" data-code="'+o.code+'" class="'+(o.code===current?'active':'')+'">'+
+        '<span class="planner-cell '+(o.code===PLAN_OFF?'planner-plan planner-off':plannerClass(o.code))+'" style="pointer-events:none;">'+o.label+'</span> '+escapeHTML(o.text)+
+        (!actual && o.code===def ? ' <span class="hint" style="margin:0;">(default)</span>' : '')+'</button>').join('')+
+      (ROSTER[key] ? '<button role="menuitem" data-code="__clear" class="plan-picker-clear">Remove planner entry — back to '+(actual?'the automatic shift':'the default')+'</button>' : '');
+    root.appendChild(el);
+    const r = btn.getBoundingClientRect();
+    const h = el.offsetHeight, w = el.offsetWidth;
+    el.style.top = Math.max(8, (r.bottom + 4 + h > window.innerHeight) ? r.top - h - 4 : r.bottom + 4)+'px';
+    el.style.left = Math.max(8, Math.min(r.left, window.innerWidth - w - 8))+'px';
+    el.querySelectorAll('[data-code]').forEach(b=> b.onclick = ()=>{
+      const code = b.dataset.code;
+      if(code==='__clear') delete ROSTER[key];
+      else if(actual) ROSTER[key] = code;
+      else setPlan(emp, date, code);
+      closePlanPicker();
+      renderShiftPlanner();
+    });
+    const first = el.querySelector('button.active') || el.querySelector('button'); if(first) first.focus();
+    setTimeout(()=>{ document.addEventListener('mousedown', planPickerOutside, true); document.addEventListener('keydown', planPickerKey, true); });
   }
 
   function saveBytes(filename, data, mime){
@@ -1302,12 +1343,13 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     try{
       const f = await import('./shiftPlanFile.js');
       const scope = planScopeLabel();
-      const aoa = buildPlanSheet({cycle: env.cycle, staff: plannerStaff(), roster: ROSTER, shifts: SHIFT_MASTER,
+      const opts = {cycle: env.cycle, staff: plannerStaff(), roster: ROSTER, shifts: SHIFT_MASTER,
         names: {unit: unitName, designation: desgName, manager: (c)=>{ const m = findStaff(c); return m ? m.name : ''; }},
-        exportedAt: new Date().toISOString(), exportedBy: currentAdminAccount.name, scope});
+        exportedAt: new Date().toISOString(), exportedBy: currentAdminAccount.name, scope};
       const name = 'Shift-plan_'+env.cycle.start+'_to_'+env.cycle.end+'_'+scope.replace(/[^A-Za-z0-9]+/g,'-').replace(/^-|-$/g,'');
-      if(kind==='csv') saveBytes(name+'.csv', '﻿'+f.writePlanCsv(aoa), 'text/csv;charset=utf-8;');
-      else saveBytes(name+'.xlsx', f.writePlanXlsx(aoa, {choices: planChoices(activeOnly(SHIFT_MASTER))}), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      if(kind==='csv') saveBytes(name+'.csv', '\ufeff'+f.writePlanCsv(buildPlanSheet(opts)), 'text/csv;charset=utf-8;');
+      else if(kind==='xls') saveBytes(name+'.xls', f.writePlanXls(buildPlanBook(opts)), 'application/vnd.ms-excel');
+      else saveBytes(name+'.xlsx', f.writePlanXlsx(buildPlanBook(opts), {choices: planChoices(activeOnly(SHIFT_MASTER))}), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     }catch(err){ alert('Could not export the shift plan: '+((err && err.message) || err)); }
   }
   function openShiftPlanImport(){
@@ -1318,7 +1360,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     '<div class="modal-back" id="modalBack"><div class="modal">'+
       '<div class="modal-head"><h3 style="font-size:15px;">Import shift plan — '+escapeHTML(env.cycle.label)+'</h3><button class="closebtn" id="modalClose">✕</button></div>'+
       '<div class="modal-body">'+
-        '<div class="hint" style="margin-bottom:10px;">Upload the file from <b>Export plan</b> after filling in the shift codes (.xlsx, .xls or .csv). Rows are matched on the staff <b>Code</b>; a blank day stays as it is. '+
+        '<div class="hint" style="margin-bottom:10px;">Upload the file from <b>Export plan</b> after filling in the days (.xlsx, .xls or .csv) — every reporting-manager sheet is read. Rows are matched on the staff <b>Code</b> (and its name must match); a blank day stays as it is; only the day cells are read. '+
           (isMgr ? 'Only your own staff are read, from today onward.' : 'You can upload the combined file for every unit, or a manager\'s file.')+
           ' Nothing is saved until you confirm the preview.</div>'+
         '<div class="form-row"><label>Shift plan file</label><input type="file" id="planImportFile" accept=".xlsx,.xls,.csv"></div>'+
@@ -1334,7 +1376,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       box.innerHTML = '<div class="hint">Reading '+escapeHTML(file.name)+'…</div>';
       try{
         const f = await import('./shiftPlanFile.js');
-        const read = readPlanSheet(f.readPlanFile(await file.arrayBuffer(), file.name), {cycle: env.cycle});
+        const read = readPlanBook(f.readPlanBookFile(await file.arrayBuffer(), file.name), {cycle: env.cycle});
         let meta = {}, metaNote = '';
         try{ meta = await env.rosterMeta(env.cycle.start, env.cycle.end); }catch(err){ metaNote = 'Could not check for changes made since the export: '+((err && err.message) || err); }
         const staffByCode = new Map();
@@ -1359,7 +1401,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const rowsFor = (list, withWhen)=> list.slice(0, 300).map(c=>'<tr><td class="mono">'+escapeHTML(c.empNo)+'</td><td>'+escapeHTML(c.name)+'</td><td class="mono">'+fmtDate(c.date)+' '+dayName(c.date)+'</td>'+
       '<td class="mono">'+planCodeLabel(c.from)+' → <b>'+planCodeLabel(c.to)+'</b>'+(c.clear?' <span class="hint" style="margin:0;">(default)</span>':'')+'</td>'+
       (withWhen ? '<td class="mono">'+escapeHTML(new Date(c.changedAt).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'numeric',minute:'2-digit'}))+'</td>' : '')+'</tr>').join('');
-    const errRows = r.errors.slice(0, 300).map(e=>'<tr><td class="mono">'+(e.line||'')+'</td><td class="mono">'+escapeHTML(e.empNo||'')+'</td><td class="mono">'+(e.date?fmtDate(e.date):'')+'</td><td>'+escapeHTML(e.message)+'</td></tr>').join('');
+    const errRows = r.errors.slice(0, 300).map(e=>'<tr><td class="mono">'+(e.sheet ? escapeHTML(e.sheet)+' · ' : '')+(e.line||'')+'</td><td class="mono">'+escapeHTML(e.empNo||'')+'</td><td class="mono">'+(e.date?fmtDate(e.date):'')+'</td><td>'+escapeHTML(e.message)+'</td></tr>').join('');
     const staffChanged = new Set(r.changes.map(c=>c.empNo)).size;
     const fatal = !r.changes.length && !r.conflicts.length;
     box.innerHTML = ''+
@@ -1385,8 +1427,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const errBtn = document.getElementById('planErrCsv');
     if(errBtn) errBtn.onclick = ()=>{
       const q = (v)=> '"'+String(v==null?'':v).replace(/"/g,'""')+'"';
-      const csv = ['Row,Code,Day,Problem'].concat(r.errors.map(e=>[e.line||'', e.empNo||'', e.date||'', e.message].map(q).join(','))).join('\n');
-      saveBytes('Shift-plan-problems.csv', '﻿'+csv, 'text/csv;charset=utf-8;');
+      const csv = ['Sheet,Row,Code,Day,Problem'].concat(r.errors.map(e=>[e.sheet||'', e.line||'', e.empNo||'', e.date||'', e.message].map(q).join(','))).join('\n');
+      saveBytes('Shift-plan-problems.csv', '\ufeff'+csv, 'text/csv;charset=utf-8;');
     };
     const apply = document.getElementById('planApplyBtn');
     if(apply) apply.onclick = async ()=>{

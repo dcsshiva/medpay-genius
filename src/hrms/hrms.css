@@ -160,6 +160,14 @@
 .hrms-root .planner-cell.planner-off{background:var(--paper); color:var(--slate); border:1.5px dashed var(--line-strong); opacity:1; font-size:9.5px;}
 .hrms-root .planner-cell.planner-locked{cursor:default;}
 .hrms-root .planner-cell:disabled{pointer-events:auto;}
+.hrms-root .plan-picker{position:fixed; z-index:60; min-width:250px; max-height:70vh; overflow:auto; background:var(--paper); border:1px solid var(--line-strong); border-radius:8px; box-shadow:0 8px 24px rgba(15,30,60,.18); padding:6px;}
+.hrms-root .plan-picker-head{font-size:11.5px; color:var(--slate); padding:4px 8px 6px; border-bottom:1px solid var(--line); margin-bottom:4px;}
+.hrms-root .plan-picker button{display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:none; border:0; border-radius:6px; padding:5px 8px; font-size:12.5px; color:inherit; cursor:pointer;}
+.hrms-root .plan-picker button:hover, .hrms-root .plan-picker button:focus{background:var(--line); outline:none;}
+.hrms-root .plan-picker button.active{background:#e8f1fe; font-weight:600;}
+.hrms-root .plan-picker .planner-cell{flex:none; cursor:inherit;}
+.hrms-root .plan-picker .plan-picker-clear{color:var(--rose); border-top:1px solid var(--line); border-radius:0 0 6px 6px; margin-top:4px;}
+.hrms-root .plan-wo-sel{padding:3px 4px; border:1px solid var(--line-strong); border-radius:6px; font-size:12px; background:var(--paper);}
 .hrms-root .planner-late-dot{position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--rose); border:1.5px solid var(--paper);}
 .hrms-root .search{font:inherit; padding:8px 12px; border-radius:8px; border:1px solid var(--line-strong); color:var(--ink); background:var(--surface); min-width:200px;}
 .hrms-root input.search{padding-left:34px; min-width:220px;

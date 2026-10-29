@@ -5,15 +5,19 @@
  * file — so the same sheet goes out and comes back:
  *
  *   row 1   WestMed shift plan | <cycle label> | Cycle | <key> | Exported | <ISO time> | By | <name> | Scope | <who>
- *   row 2   Unit | Code | Name | Designation | Reporting Manager | Default Shift | 2026-10-26 (Mon) | …
+ *   row 2   Unit | Code | Name | Designation | Reporting Manager | Default Shift | Weekly Off | 2026-10-26 (Mon) | …
  *   row 3…  one row per staff member, sorted by unit then code
+ *
+ * The administrator's file has one sheet per reporting manager (buildPlanBook) plus a "How to fill"
+ * sheet; a manager's file has their sheet only. In the .xlsx only the day cells can be edited.
  *
  * Cells hold the shift letter shown in the planner (G1, MS, NS …) or WO for a planned day off.
  * Rows are matched on Code only; a blank cell leaves that day unchanged. Only differences from
  * the default (Staff Master shift, or WO on the Staff Master weekly-off day) are stored.
  */
 export const PLAN_OFF = 'WO';
-export const FIXED_COLUMNS = ['Unit', 'Code', 'Name', 'Designation', 'Reporting Manager', 'Default Shift'];
+export const FIXED_COLUMNS = ['Unit', 'Code', 'Name', 'Designation', 'Reporting Manager', 'Default Shift', 'Weekly Off'];
+export const HELP_SHEET = 'How to fill';
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
 const pad = (n) => String(n).padStart(2, '0');
@@ -68,9 +72,59 @@ export function buildPlanSheet({ cycle, staff, roster, shifts, names, exportedAt
     (n.designation ? n.designation(s.designation) : s.designation) || '',
     (n.manager ? n.manager(s.reportingManager) : s.reportingManager) || '',
     tok.label(s.shiftCode),
+    s.weeklyOff || '',
     ...cycle.dates.map(d => tok.label(plannedCode(roster, s, d))),
   ]);
   return [meta, header, ...rows];
+}
+
+/** Excel sheet names: ≤31 characters, none of : \ / ? * [ ], unique. */
+export function sheetName(name, taken) {
+  const base = (String(name || '').replace(/[:\\/?*[\]]/g, ' ').replace(/\s+/g, ' ').trim() || 'Sheet').slice(0, 31);
+  let n = base, i = 2;
+  while (taken.has(n.toLowerCase()) || n.toLowerCase() === HELP_SHEET.toLowerCase()) { const suffix = ` (${i++})`; n = base.slice(0, 31 - suffix.length) + suffix; }
+  taken.add(n.toLowerCase());
+  return n;
+}
+
+/**
+ * The administrator's workbook: one sheet per reporting manager ("No reporting manager" last),
+ * each in the buildPlanSheet layout, then the "How to fill" sheet. → [{ name, aoa, kind }]
+ */
+export function buildPlanBook(opts) {
+  const n = opts.names || {};
+  const managerName = (code) => (n.manager ? n.manager(code) : code) || '';
+  const groups = new Map();
+  for (const s of opts.staff) {
+    const key = managerName(s.reportingManager) ? s.reportingManager : '';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(s);
+  }
+  const keys = [...groups.keys()].sort((a, b) => (!a) - (!b) || managerName(a).localeCompare(managerName(b)));
+  const taken = new Set();
+  const sheets = keys.map(k => ({
+    name: sheetName(k ? managerName(k) : 'No reporting manager', taken),
+    kind: 'plan',
+    aoa: buildPlanSheet({ ...opts, staff: groups.get(k), scope: k ? 'Reporting manager: ' + managerName(k) : 'No reporting manager' }),
+  }));
+  return [...sheets, { name: HELP_SHEET, kind: 'help', aoa: planHelp(opts.cycle, opts.shifts) }];
+}
+
+/** The "How to fill" sheet (no "Code" header, so the import skips it). */
+export function planHelp(cycle, shifts) {
+  return [
+    ['How to fill the shift plan'],
+    ['Pay cycle', cycle.label],
+    [],
+    ['Only the yellow day cells can be changed. Everything else is locked.'],
+    ['Pick a shift from the drop-down in each day, or WO for a weekly off (day off).'],
+    ['Leave a day blank to keep it as it is. Rows are matched on the staff Code.'],
+    ['Upload the file with Shift Planner → Import plan (.xlsx, .xls or .csv). Nothing is saved until you confirm the preview.'],
+    [],
+    ['Shift code', 'Shift', 'Start', 'End'],
+    ...(shifts || []).filter(s => !s.suspended).map(s => [s.letter || s.code, s.name, s.start || '', s.end || '']),
+    [PLAN_OFF, 'Weekly off (day off)', '', ''],
+  ];
 }
 
 const clean = (v) => (v == null ? '' : String(v).trim());
@@ -99,7 +153,7 @@ export function parseHeaderDate(v, cycle) {
 const codeOf = (v) => (typeof v === 'number' && Number.isInteger(v) ? String(v) : clean(v).replace(/\.0+$/, ''));
 
 /** Reads the sheet back: { meta, dateColumns, badColumns, rows, error } */
-export function readPlanSheet(aoa, { cycle } = {}) {
+export function readPlanSheet(aoa, { cycle, sheet } = {}) {
   const grid = (aoa || []).map(r => (Array.isArray(r) ? r : []));
   const h = grid.slice(0, 15).findIndex(r => r.some(c => clean(c).toLowerCase() === 'code'));
   if (h < 0) return { error: 'No header row with a "Code" column was found. Export a fresh file from the Shift Planner and fill that in.' };
@@ -129,10 +183,22 @@ export function readPlanSheet(aoa, { cycle } = {}) {
     if (!empNo) return;
     const cells = {};
     dateColumns.forEach(({ col, date }) => { const v = clean(r[col]); if (v) cells[date] = v; });
-    rows.push({ line: h + k + 2, empNo, name: nameCol >= 0 ? clean(r[nameCol]) : '', cells });
+    rows.push({ line: h + k + 2, sheet, empNo, name: nameCol >= 0 ? clean(r[nameCol]) : '', cells });
   });
   return { meta, dateColumns, badColumns, rows };
 }
+
+/** Every plan sheet of a workbook ([{ name, aoa }]) read as one; the help sheet is skipped. */
+export function readPlanBook(sheets, { cycle } = {}) {
+  const reads = (sheets || []).filter(s => String(s.name).toLowerCase() !== HELP_SHEET.toLowerCase())
+    .map(s => readPlanSheet(s.aoa, { cycle, sheet: sheets.length > 1 ? s.name : undefined }));
+  const ok = reads.filter(r => !r.error);
+  if (!ok.length) return reads[0] || { error: 'The file is empty.' };
+  const bad = new Map();
+  ok.forEach(r => r.badColumns.forEach(b => bad.set(b.date, b)));
+  return { meta: ok[0].meta, dateColumns: ok[0].dateColumns, badColumns: [...bad.values()], rows: ok.flatMap(r => r.rows) };
+}
+const sameName = (a, b) => String(a).toUpperCase().replace(/[^A-Z]/g, '') === String(b).toUpperCase().replace(/[^A-Z]/g, '');
 
 /**
  * Works out what an import would change.
@@ -164,8 +230,9 @@ export function planChanges(read, ctx) {
   const seen = new Set();
   for (const row of read.rows) {
     const s = ctx.staffByCode.get(row.empNo);
-    const fail = (message, date) => out.errors.push({ line: row.line, empNo: row.empNo, date, message });
+    const fail = (message, date) => out.errors.push({ line: row.line, ...(row.sheet ? { sheet: row.sheet } : {}), empNo: row.empNo, date, message });
     if (!s) { fail('No staff member with this code.'); continue; }
+    if (row.name && !sameName(row.name, s.name)) { fail(`Code ${row.empNo} is ${s.name}, but this row says "${row.name}" — the row was skipped.`); continue; }
     if (seen.has(row.empNo)) { fail('Code appears twice — only the first row was used.'); continue; }
     seen.add(row.empNo);
     if (s.active === false) { fail(`${s.name} is inactive.`); continue; }
