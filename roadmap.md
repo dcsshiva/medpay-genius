@@ -32,3 +32,5 @@
 - [x] Punches re-read before counting (src/hrms/punches.js): night shifts paired across midnight, morning after a night = off after night duty, single IN punch marked Absent = Present ("missing OUT punch"). General-shift staff punching in 3+ hours after shift start are measured against the nearest other shift.
 - [x] Weekly off per staff (Staff Master → Weekly off; column hr_staff.weekly_off live 2026-10-29): when set it replaces the device's Sat/Sun weekly offs for that person.
 - [ ] HR to fill in Weekly off for staff whose day off isn't Saturday/Sunday.
+- [x] Punch Monitor import reads columns from the header row and checks each value (src/hrms/punchMonitor.js); a time or number is never taken as a staff name. Fixed 4 names saved as times on 2026-10-29 (2100408, 2100420, 2100422, 2100423).
+- [ ] Re-import the 27 Oct Punch Monitor file once this is published — that day was misread (91 Absent, punches lost).

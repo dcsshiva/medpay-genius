@@ -14,6 +14,7 @@
 import type { HrEnv, HrController, HrWho } from './types';
 import { attendanceByUnit, attendanceCalendar } from './attendanceChart.js';
 import { normalizePunches, normalizeAttendance } from './punches.js';
+import { parsePunchMonitor, looksLikeName } from './punchMonitor.js';
 import { earningsLines, pfBase, cycleAdjustments, statutory, buildPayslip } from './payslip.js';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -1786,27 +1787,10 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     if(!lines.length) return result;
     if(/Employee\s*Punch\s*Monitor/i.test(head)){
       result.format = 'Employee Punch Monitor (single day)';
-      let reportDate = null, headerSeen = false;
-      for(const line of lines){
-        const cells = parseCSVLine(line).map(c=>c.trim());
-        if(!reportDate && /^date$/i.test(cells[0]||'')){
-          const d = cells.slice(1).find(c=>parseDMonY(c));
-          if(d) reportDate = parseDMonY(d);
-          continue;
-        }
-        if(!headerSeen && /^sno/i.test(cells[0]||'')){ headerSeen = true; continue; }
-        if(headerSeen){
-          const code = cells[1];
-          if(!code) continue;
-          if(cells[3]) result.names[code] = cells[3];
-          const punches = (cells[7]||'').split(',').map(p=>p.trim()).filter(Boolean);
-          const status = mapAttStatusText(cells[9]) || (punches.length ? 'P' : 'A');
-          if(!reportDate){ result.warnings.push('No report date found in the Punch Monitor header.'); continue; }
-          const rec = {empNo: code, date: reportDate, status};
-          if(punches.length){ rec.in = punches[0]; rec.out = punches[punches.length-1]; }
-          result.records.push(rec);
-        }
-      }
+      const pm = parsePunchMonitor(lines.map(parseCSVLine), {parseDate: parseDMonY, mapStatus: mapAttStatusText});
+      result.records.push(...pm.records);
+      Object.assign(result.names, pm.names);
+      if(pm.warnings.length) result.warnings.push(pm.warnings[0]);
     } else if(/Daily\s*Attendance\s*Report/i.test(head) || /DailyAttendance_SummaryReport/i.test(head)){
       result.format = 'Daily Attendance Summary Report (per-employee)';
       let curCode = null;
@@ -1944,7 +1928,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       which records the transfer history. */
   function cleanImportedName(n, code){
     n = String(n||'').replace(/[\u0000-\u001f\u007f]/g,' ').replace(/\s+/g,' ').trim().slice(0,100);
-    if(!n || n===code) return '';
+    if(!n || n===code || !looksLikeName(n)) return '';
     return n.replace(/^(mr|mrs|ms|miss|mst)\.?\s+/i,'').trim().toUpperCase();
   }
   function newStaffPanel(parsed){
