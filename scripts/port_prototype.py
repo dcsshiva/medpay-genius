@@ -2048,6 +2048,98 @@ rep("""function commitAttendanceImport(records){
       updated++;
     } else {""")
 
+# ── 47. assign reporting managers straight from the Overview drill-down: "Staff with no Reporting
+#        Manager" → unit → department / all staff lists get a manager picker per row and a bulk bar
+#        (administrators only; saved like Staff Master). ──
+rep("""      '<div style="margin-top:10px;"><button class="iconbtn"'+xl(()=>xStaffList('All '+list.length+' staff', list))+'>Show all '+list.length+' as one list ›</button></div>';
+  }};
+}
+function xDeptTree(title, list){""", """      '<div style="margin-top:10px;"><button class="'+(opts && opts.assignManager ? 'btn' : 'iconbtn')+'"'+xl(()=>xStaffList('All '+list.length+' staff', list, '', opts))+'>'+(opts && opts.assignManager && !xIsManager() ? 'Assign reporting managers — all '+list.length+' ›' : 'Show all '+list.length+' as one list ›')+'</button></div>';
+  }};
+}
+function xDeptTree(title, list, opts){""")
+rep("""function xStaffTree(title, list, hint){""", """function xStaffTree(title, list, hint, opts){""")
+rep("""    const rows = xGroup(list, s=>s.unitCode).map(([code, members])=> xRow(xl(()=>xDeptTree(unitName(code)||'No unit', members)), [""",
+    """    const rows = xGroup(list, s=>s.unitCode).map(([code, members])=> xRow(xl(()=>xDeptTree(unitName(code)||'No unit', members, opts)), [""")
+rep("""    const rows = xGroup(list, s=>s.department).map(([code, members])=> xRow(xl(()=>xStaffList(deptName(code)||'No department', members)), [""",
+    """    const rows = xGroup(list, s=>s.department).map(([code, members])=> xRow(xl(()=>xStaffList(deptName(code)||'No department', members, '', opts)), [""")
+rep("""      '<div style="margin-top:10px;"><button class="iconbtn"'+xl(()=>xStaffList(title+' · all staff', list))+'>Show all '+list.length+' as one list ›</button></div>';""",
+    """      '<div style="margin-top:10px;"><button class="'+(opts && opts.assignManager ? 'btn' : 'iconbtn')+'"'+xl(()=>xStaffList(title+' · all staff', list, '', opts))+'>'+(opts && opts.assignManager && !xIsManager() ? 'Assign reporting managers — all '+list.length+' ›' : 'Show all '+list.length+' as one list ›')+'</button></div>';""")
+rep("""function xStaffList(title, list, hint){
+  return {title, build: ()=>{""", """function xStaffList(title, list, hint, opts){
+  if(opts && opts.assignManager && !xIsManager()) return xAssignManagers(title, list, hint);
+  return {title, build: ()=>{""")
+rep("""function xStaffTree(title, list, hint, opts){""", """/* staff list where an administrator picks each person's reporting manager (or several at once) */
+function xAssignManagers(title, list, hint){
+  const picked = new Set();
+  let savedMsg = '';
+  const managers = ()=> STAFF.filter(m=>m.role==='Manager').sort((a,b)=>a.name.localeCompare(b.name));
+  const options = (cur, selfEmp, blank)=> '<option value="">'+blank+'</option>'+
+    managers().filter(m=>m.empNo!==selfEmp).map(m=>'<option value="'+escapeAttr(m.empNo)+'"'+(cur===m.empNo?' selected':'')+'>'+escapeHTML(m.name)+'</option>').join('');
+  const node = {title, build: ()=>{
+    const sorted = list.slice().sort((a,b)=>a.name.localeCompare(b.name));
+    const left = sorted.filter(s=>!s.reportingManager || !findStaff(s.reportingManager)).length;
+    const rows = sorted.map(s=>{
+      const ok = s.reportingManager && findStaff(s.reportingManager);
+      return '<tr data-emp="'+escapeAttr(s.empNo)+'">'+
+        '<td><input type="checkbox" class="am-pick" aria-label="Select '+escapeAttr(s.name)+'"'+(picked.has(s.empNo)?' checked':'')+'></td>'+
+        '<td>'+xMono(s.empNo)+'</td><td>'+xStaffLink(s.empNo)+'</td>'+
+        '<td>'+escapeHTML(deptName(s.department)||'—')+'</td><td>'+escapeHTML(desgName(s.designation)||'—')+'</td>'+
+        '<td><select class="am-mgr" aria-label="Reporting manager for '+escapeAttr(s.name)+'" style="min-width:200px;">'+options(s.reportingManager||'', s.empNo, '— choose manager —')+'</select>'+
+          (ok ? ' <span class="badge teal">Assigned</span>' : '')+'</td></tr>';
+    }).join('');
+    return xHint((hint ? hint+' ' : '')+'Pick a reporting manager for each person, or tick several and set them together. Changes save straight away.')+
+      '<div class="ns-bulk-panel" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">'+
+        '<b class="am-count">'+picked.size+' ticked</b>'+
+        '<select id="amBulkMgr" style="min-width:220px;padding:7px 10px;border:1px solid var(--line-strong);border-radius:8px;">'+options('', null, 'Set reporting manager…')+'</select>'+
+        '<button class="btn sm" id="amApply">Set for ticked staff</button>'+
+        '<button class="iconbtn" id="amAll">Tick all '+sorted.length+'</button>'+
+        '<button class="iconbtn" id="amNone">Clear ticks</button>'+
+        '<span class="hint" style="margin:0 0 0 auto;">'+(savedMsg ? escapeHTML(savedMsg)+' · ' : '')+left+' of '+sorted.length+' still without a manager</span>'+
+      '</div>'+
+      '<div class="tbl-scroll"><table class="narrow"><thead><tr><th></th><th>Code</th><th>Name</th><th>Department</th><th>Designation</th><th>Reporting manager</th></tr></thead><tbody>'+
+        (rows || '<tr><td colspan="6" class="note">No staff.</td></tr>')+'</tbody></table></div>';
+  }};
+  node.wire = (root)=>{
+    const assign = (emps, mgr)=>{
+      let n = 0;
+      emps.forEach(id=>{ const s = findStaff(id); if(s && id !== mgr){ s.reportingManager = mgr; n++; } });
+      if(n){ xDirty = true; env.scheduleSync(); }
+      const m = findStaff(mgr);
+      savedMsg = n ? (m ? n+' set to '+m.name : n+' cleared') : '';
+      renderExplorer();
+    };
+    root.querySelectorAll('tr[data-emp] .am-mgr').forEach(sel=> sel.onchange = ()=> assign([sel.closest('tr').dataset.emp], sel.value));
+    root.querySelectorAll('tr[data-emp] .am-pick').forEach(cb=> cb.onchange = ()=>{
+      const id = cb.closest('tr').dataset.emp; cb.checked ? picked.add(id) : picked.delete(id);
+      const c = root.querySelector('.am-count'); if(c) c.textContent = picked.size+' ticked';
+    });
+    const all = root.querySelector('#amAll'); if(all) all.onclick = ()=>{ list.forEach(s=>picked.add(s.empNo)); renderExplorer(); };
+    const none = root.querySelector('#amNone'); if(none) none.onclick = ()=>{ picked.clear(); renderExplorer(); };
+    const apply = root.querySelector('#amApply');
+    if(apply) apply.onclick = ()=>{
+      const mgr = root.querySelector('#amBulkMgr').value;
+      if(!picked.size){ alert('Tick the staff first.'); return; }
+      if(!mgr){ alert('Choose the reporting manager to set.'); return; }
+      assign([...picked], mgr); picked.clear(); renderExplorer();
+    };
+  };
+  return node;
+}
+function xStaffTree(title, list, hint, opts){""")
+rep("""  const close = ()=>{ explorerStack = []; modalRoot.innerHTML = ''; };""",
+    """  const close = ()=>{ explorerStack = []; modalRoot.innerHTML = ''; if(xDirty){ xDirty = false; renderAdmin(); } };""")
+rep("""  wireExplore(modalRoot, explorerLinks);
+  document.getElementById('modalBack').scrollTop = 0;""", """  wireExplore(modalRoot, explorerLinks);
+  if(node.wire) node.wire(modalRoot);
+  document.getElementById('modalBack').scrollTop = 0;""")
+rep("""let explorerStack = [];
+let explorerLinks = [];""", """let explorerStack = [];
+let explorerLinks = [];
+let xDirty = false; // something was edited inside the explorer → refresh the page behind it on close""")
+rep("""xl(()=>xStaffTree('No reporting manager', scopedStaff.filter(s=>!s.reportingManager || !findStaff(s.reportingManager)), 'Set the manager in Staff Master (one by one, or select several and use the bulk bar).')))+""",
+    """xl(()=>xStaffTree('No reporting manager', scopedStaff.filter(s=>!s.reportingManager || !findStaff(s.reportingManager)), 'Open a unit to assign their reporting managers here.', {assignManager: true})))+""")
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
