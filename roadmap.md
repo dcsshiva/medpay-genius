@@ -22,4 +22,5 @@
 - [x] Forced "choose a new password" screen before any data loads; passwords ≥ 6 characters and never the Staff Code; admin-set passwords must be replaced at next sign-in.
 - [x] Saving: an edit made while a save is running is no longer lost; a failed insert batch no longer creates duplicate tasks / leave requests.
 - [ ] Security stage 2: apply migration 0019 (forced change enforced in the database; managers limited to their own reports) once the app with the new password screen is published.
-- [ ] Remove the unused verify-emergency-otp edge function (hard-coded access codes) from the repo and from Supabase.
+- [x] Removed the unused verify-emergency-otp edge function (hard-coded access codes) from the repo.
+- [ ] Delete the already-deployed verify-emergency-otp function in Supabase (Edge Functions) — removing the code does not undeploy it.
