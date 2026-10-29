@@ -87,6 +87,10 @@ export interface HrEnv {
   rosterMeta(start: string, end: string): Promise<Record<string, string>>;
   /** shift plan import: save the confirmed changes (clear = back to the Staff Master default) */
   applyRosterPlan(changes: { empNo: string; date: string; to: string; clear?: boolean }[]): Promise<{ saved: number; failed: { empNo: string; date: string; message: string }[] }>;
+  /** write one attendance day now (null = delete) — withdrawing an approved CL puts the day back */
+  setAttendanceDay(empNo: string, date: string, rec: { status: string; in?: string; out?: string; permMin?: number } | null): Promise<void>;
+  /** is the pay cycle containing this date finalized? */
+  cycleFinalized(date: string): Promise<boolean>;
   /** running app version and when it was released (package.json, stamped at build time) */
   build: { version: string; releasedAt: string };
 }

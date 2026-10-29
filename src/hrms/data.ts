@@ -84,12 +84,18 @@ const leaveFromRow = (r: any) => {
   if (r.hours != null) l.hours = r.hours;
   if (r.decided_by) l.decidedBy = r.decided_by;
   if (r.decided_on) l.decidedOn = r.decided_on;
+  if (r.revoked_by) l.revokedBy = r.revoked_by;
+  if (r.revoked_on) l.revokedOn = r.revoked_on;
+  if (r.revoke_reason) l.revokeReason = r.revoke_reason;
+  if (r.prev_attendance) l.prevAttendance = r.prev_attendance;
   return l;
 };
 const leaveToRow = (l: any) => ({
   emp_no: l.empNo, type: l.type, applied_on: nz(l.appliedOn), date: l.date, hours: l.hours ?? null, reason: l.reason || '',
   status: l.status, reporting_manager: l.reportingManager || '', alt_emp_no: l.altEmpNo || '',
   decided_by: nz(l.decidedBy), decided_on: nz(l.decidedOn),
+  revoked_by: nz(l.revokedBy), revoked_on: nz(l.revokedOn), revoke_reason: nz(l.revokeReason),
+  prev_attendance: l.prevAttendance ?? null,
 });
 const shiftFromRow = (r: any) => ({
   code: r.code, letter: r.letter, name: r.name, start: time(r.start_time), end: time(r.end_time),
@@ -497,6 +503,37 @@ export function createStore() {
     return { saved: done.length, failed };
   }
 
+  /**
+   * Writes one attendance day straight to hr_attendance (withdrawing an approved CL puts the day
+   * back): `rec` null deletes it. Works for any date, loaded or not; memory and the sync snapshot follow.
+   */
+  async function setAttendanceDay(empNo: string, date: string, rec: { status: string; in?: string; out?: string; permMin?: number } | null) {
+    const key = empNo + '|' + date;
+    if (rec) {
+      const row = attToRow(empNo, { date, ...rec });
+      const { error } = await db.from('hr_attendance').upsert(row, { onConflict: 'emp_no,date' });
+      if (error) throw error;
+      snapshot['attendance']?.set(key, comparable(row));
+    } else {
+      const { error } = await db.from('hr_attendance').delete().eq('emp_no', empNo).eq('date', date);
+      if (error) throw error;
+      snapshot['attendance']?.delete(key);
+    }
+    const att = data.ATTENDANCE[empNo];
+    if (att) {
+      const i = att.records.findIndex(r => r.date === date);
+      if (i >= 0) att.records.splice(i, 1);
+      if (rec) { att.records.push({ date, ...rec }); att.records.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)); }
+    }
+  }
+
+  /** Is the pay cycle containing this date finalized? */
+  async function cycleFinalized(date: string): Promise<boolean> {
+    const { data: locked, error } = await db.rpc('hr_cycle_locked', { _date: date });
+    if (error) throw error;
+    return !!locked;
+  }
+
   function hasPendingChanges(): boolean {
     return COLLECTIONS.some(c => {
       const before = snapshot[c.name] || new Map();
@@ -508,7 +545,7 @@ export function createStore() {
 
   return {
     data, clear, loadAll, loadCycleRows, loadSettings, sync, tempId, hasPendingChanges,
-    finalizeCycle, reopenCycle, loadTrends, rosterMeta, applyRosterPlan, get who() { return who; },
+    finalizeCycle, reopenCycle, loadTrends, rosterMeta, applyRosterPlan, setAttendanceDay, cycleFinalized, get who() { return who; },
   };
 }
 

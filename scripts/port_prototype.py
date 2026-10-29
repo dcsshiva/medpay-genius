@@ -2405,6 +2405,117 @@ function showShiftPlanPreview(box, r, metaNote, fileName){
 '''
 rep_re(r'/\* ---- Shift Planner ---- \*/\n.*?(?=/\* ---- lightweight themed CSS visuals)', lambda m: PLANNER)
 
+# ── 49. withdraw an approved Casual Leave / Permission (src/hrms/leaveRevoke.js): the reporting
+#        manager or an administrator, only for requests dated in the running pay cycle or the one
+#        before (or later); a finalized cycle is locked. A withdrawn CL puts the day's attendance
+#        back as it was when the leave was approved; a withdrawn Permission stops covering
+#        lateness. The database repeats the rule (migration 0022). ──
+rep("Pending:'Pending', Approved:'Approved', Rejected:'Rejected'}[status] || status;",
+    "Pending:'Pending', Approved:'Approved', Rejected:'Rejected', Revoked:'Approval withdrawn'}[status] || status;")
+rep("""'<td>'+statusPill(l.status)+(l.decidedBy?'<div class="hint" style="margin-top:2px;">by '+l.decidedBy+' &middot; '+fmtDate(l.decidedOn)+'</div>':'')+'</td>'+""",
+    """'<td>'+statusPill(l.status)+(l.decidedBy?'<div class="hint" style="margin-top:2px;">'+(l.status==='Revoked'?'approved':'by')+' by '+l.decidedBy+' &middot; '+fmtDate(l.decidedOn)+'</div>':'')+
+        (l.status==='Revoked' && l.revokedBy ? '<div class="hint" style="margin-top:2px;color:var(--rose);">withdrawn by '+escapeHTML(l.revokedBy)+' &middot; '+fmtDate(l.revokedOn)+(l.revokeReason?' — '+escapeHTML(l.revokeReason):'')+'</div>' : '')+'</td>'+""")
+LEAVE = r'''let leaveStatusFilter = 'All';
+function cycleStartDay(){ return Number(PAYROLL_SETTINGS && PAYROLL_SETTINGS.cycleStartDay) || 25; }
+function renderAdminLeave(){
+  const body = document.getElementById('adminBody');
+  const isManager = currentAdminAccount.role==='manager';
+  const scopedLeaves = LEAVES.filter(l=> inSelectedUnit(l.empNo) && (!isManager || l.reportingManager===currentAdminAccount.username));
+  const scopedIds = isManager ? new Set(STAFF.filter(s=>s.reportingManager===currentAdminAccount.username).map(s=>s.empNo)) : new Set(unitFilterStaff(STAFF).map(s=>s.empNo));
+  const today = todayISO();
+  const startDay = cycleStartDay();
+  const windowFrom = revokeWindowStart(today, startDay);
+  const filters = [['All','All'],['Pending','Pending'],['Approved','Approved'],['Rejected','Rejected'],['Revoked','Withdrawn']];
+  const count = (k)=> k==='All' ? scopedLeaves.length : scopedLeaves.filter(l=>l.status===k).length;
+  const shown = leaveStatusFilter==='All' ? scopedLeaves : scopedLeaves.filter(l=>l.status===leaveStatusFilter);
+  const actions = (l)=>{
+    if(l.status==='Pending') return '<button class="iconbtn" data-approve="'+l.id+'">Approve</button> <button class="iconbtn danger" data-reject="'+l.id+'">Reject</button>';
+    if(l.status==='Approved'){
+      const c = canRevoke(l, {today, startDay});
+      return c.ok ? '<button class="iconbtn danger" data-revoke="'+l.id+'" title="Withdraw this approval">Withdraw approval</button>'
+        : '<span class="hint" title="'+escapeAttr(c.reason)+'">Locked</span>';
+    }
+    return '<span class="hint">'+(l.status==='Revoked'?'Withdrawn':l.status)+'</span>';
+  };
+  body.innerHTML = ''+
+  whosOutBoard(scopedIds)+
+  '<div class="emp-toolbar"><div class="section-title" style="margin:0;">Leave &amp; permission requests</div>'+
+    (isManager ? '<span class="badge teal">Routed to you as reporting manager</span>' : (adminUnitFilter!=='ALL'?'<span class="badge teal">Scoped to '+unitName(adminUnitFilter)+'</span>':''))+
+  '</div>'+
+  '<div class="tabs">'+filters.map(([k,label])=>'<button data-lvfilter="'+k+'" class="'+(leaveStatusFilter===k?'active':'')+'">'+label+' ('+count(k)+')</button>').join('')+'</div>'+
+  '<div class="tbl-scroll"><table><thead><tr><th>ID</th><th>Staff</th><th>Type</th><th>Date</th><th>Reason</th><th>Reporting Manager</th><th>Alternative employee</th><th>Status</th><th></th></tr></thead><tbody>'+
+  (shown.map(l=>leaveRow(l,{showRouting:true, showBalance:l.status==='Pending', actions})).join('') ||
+    '<tr><td colspan="9" class="note">No '+(leaveStatusFilter==='All'?'':filters.find(f=>f[0]===leaveStatusFilter)[1].toLowerCase()+' ')+'requests'+(isManager?' routed to you':'')+' yet.</td></tr>')+
+  '</tbody></table></div>'+
+  '<div class="footnote">Approving a Casual Leave request marks that date as CL in the staff member\'s attendance, so it flows straight into Shift Ledger and Salary. Approving a Permission request doesn\'t need to touch attendance — permission-hour usage is already calculated automatically from that day\'s actual punch times. Every request names an Alternative employee from the same unit who covers the work while the staff member is away. '+
+    'An approved request can be <b>withdrawn</b> while it is dated in the running or previous pay cycle (from '+fmtDate(windowFrom)+'); older requests are locked, and so is any cycle whose salary is finalized. Withdrawing a CL puts that day\'s attendance back as it was before approval and gives the CL back; a withdrawn Permission no longer covers that day\'s lateness.</div>';
+  body.querySelectorAll('[data-lvfilter]').forEach(b=> b.onclick = ()=>{ leaveStatusFilter = b.dataset.lvfilter; renderAdminLeave(); });
+  body.querySelectorAll('[data-approve]').forEach(btn=> btn.onclick = async ()=>{
+    const l = LEAVES.find(l=>l.id===btn.dataset.approve);
+    if(!l || l.status!=='Pending') return;
+    btn.disabled = true;
+    if(l.type==='CL'){
+      // keep the day as it is now, so a later withdrawal can put it back
+      let rec = (ATTENDANCE[l.empNo] || {records:[]}).records.find(r=>r.date===l.date) || null;
+      let known = true;
+      if(!rec && (l.date < env.cycle.start || l.date > env.cycle.end)){
+        try{ rec = (await env.existingAttendance([l.empNo], l.date, l.date))[0] || null; }catch(e){ known = false; }
+      }
+      if(known) l.prevAttendance = snapshotDay(rec);
+    }
+    l.status='Approved';
+    l.decidedBy = currentAdminAccount.name; l.decidedOn = todayISO();
+    applyApprovedLeaveToAttendance(l);
+    env.scheduleSync();
+    renderAdminLeave();
+  });
+  body.querySelectorAll('[data-reject]').forEach(btn=> btn.onclick = ()=>{
+    const l = LEAVES.find(l=>l.id===btn.dataset.reject);
+    l.status='Rejected';
+    l.decidedBy = currentAdminAccount.name; l.decidedOn = todayISO();
+    renderAdminLeave();
+  });
+  body.querySelectorAll('[data-revoke]').forEach(btn=> btn.onclick = ()=> revokeLeave(LEAVES.find(l=>l.id===btn.dataset.revoke), btn));
+}
+async function revokeLeave(l, btn){
+  if(!l) return;
+  const today = todayISO();
+  const c = canRevoke(l, {today, startDay: cycleStartDay()});
+  if(!c.ok){ alert(c.reason); return; }
+  let locked = false;
+  try{ locked = await env.cycleFinalized(l.date); }catch(e){ /* the database checks again when it saves */ }
+  if(locked){ alert('Salary for the pay cycle containing '+fmtDate(l.date)+' is finalized. Reopen that cycle on the Salary tab, then withdraw the approval.'); return; }
+  const s = findStaff(l.empNo);
+  const what = l.type==='CL' ? 'Casual Leave' : 'Permission'+(l.hours ? ' ('+l.hours+'h)' : '');
+  const effect = l.type==='CL' ? 'That day goes back to its attendance before the leave was approved, and the CL is given back.'
+    : 'The permission will no longer cover lateness on that day.';
+  const reason = prompt('Withdraw the approved '+what+' for '+(s ? s.name : l.empNo)+' on '+fmtDate(l.date)+'?\n\n'+effect+'\n\nReason (shown to the staff member):', '');
+  if(reason===null) return;
+  if(btn) btn.disabled = true;
+  let note = '';
+  if(l.type==='CL'){
+    let current = (ATTENDANCE[l.empNo] || {records:[]}).records.find(r=>r.date===l.date) || null;
+    try{
+      if(!current && (l.date < env.cycle.start || l.date > env.cycle.end)) current = (await env.existingAttendance([l.empNo], l.date, l.date))[0] || null;
+      const plan = attendanceAfterRevoke(current, l.prevAttendance);
+      if(plan.action==='set') await env.setAttendanceDay(l.empNo, l.date, plan.rec);
+      else if(plan.action==='delete') await env.setAttendanceDay(l.empNo, l.date, null);
+      note = plan.note;
+    }catch(err){
+      if(btn) btn.disabled = false;
+      alert('Could not update that day\'s attendance, so the approval was not withdrawn: '+((err && err.message) || err));
+      return;
+    }
+  }
+  l.status = 'Revoked';
+  l.revokedBy = currentAdminAccount.name; l.revokedOn = today; l.revokeReason = reason.trim();
+  env.scheduleSync();
+  renderAdminLeave();
+  alert('Approval withdrawn.'+(note ? ' '+note : ''));
+}
+'''
+rep_re(r'function renderAdminLeave\(\)\{\n.*?(?=function applyApprovedLeaveToAttendance\(l\)\{)', lambda m: LEAVE)
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
@@ -2422,6 +2533,7 @@ import type { HrEnv, HrController, HrWho } from './types';
 import { attendanceByUnit, attendanceCalendar } from './attendanceChart.js';
 import { normalizePunches, normalizeAttendance, mergeAttendanceRecord, planFor } from './punches.js';
 import { PLAN_OFF, defaultPlanCode, plannedCode, buildPlanSheet, readPlanSheet, planChanges, planChoices } from './shiftPlan.js';
+import { revokeWindowStart, canRevoke, attendanceAfterRevoke, snapshotDay } from './leaveRevoke.js';
 import { parsePunchMonitor, looksLikeName } from './punchMonitor.js';
 import { earningsLines, pfBase, cycleAdjustments, statutory, buildPayslip } from './payslip.js';
 import { jsPDF } from 'jspdf';

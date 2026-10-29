@@ -295,6 +295,8 @@ export default function HrmsApp() {
       build: BUILD,
       existingAttendance: (codes: string[], start: string, end: string) => fetchAttendanceRange(codes, start, end),
       rosterMeta: (start: string, end: string) => store.rosterMeta(start, end),
+      setAttendanceDay: (empNo, date, rec) => store.setAttendanceDay(empNo, date, rec),
+      cycleFinalized: (date: string) => store.cycleFinalized(date),
       applyRosterPlan: async (changes) => {
         const r = await store.applyRosterPlan(changes);
         status(r.failed.length ? `Shift plan: ${r.saved} saved, ${r.failed.length} refused` : 'Shift plan saved', !!r.failed.length, 2500);

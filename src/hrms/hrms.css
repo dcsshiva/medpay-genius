@@ -140,7 +140,7 @@
 /* blue: in progress, holiday */
 .hrms-root .status-InProgress, .hrms-root .status-H{background:var(--st-blue-bg); color:var(--st-blue);}
 /* red: absent, rejected */
-.hrms-root .status-A, .hrms-root .status-Rejected{background:var(--rose-tint); color:var(--rose);}
+.hrms-root .status-A, .hrms-root .status-Rejected, .hrms-root .status-Revoked{background:var(--rose-tint); color:var(--rose);}
 /* grey: weekly off, closed */
 .hrms-root .status-WO, .hrms-root .status-Closed{background:var(--st-grey-bg); color:var(--st-grey);}
 .hrms-root .prio-Low{color:var(--slate);} .hrms-root .prio-Medium{color:var(--amber); font-weight:600;} .hrms-root .prio-High{color:var(--rose); font-weight:600;}
