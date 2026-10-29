@@ -81,6 +81,8 @@ export interface HrEnv {
   excelToCsv(file: File): Promise<string>;
   /** save an attendance import, then reload the selected cycle */
   afterImport(): Promise<void>;
+  /** stored attendance for these staff between two dates (the import merges with it) */
+  existingAttendance(codes: string[], start: string, end: string): Promise<{ empNo: string; date: string; status: string; in?: string; out?: string }[]>;
   /** running app version and when it was released (package.json, stamped at build time) */
   build: { version: string; releasedAt: string };
 }

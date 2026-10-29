@@ -132,3 +132,23 @@ export function normalizeAttendance(attendance, staff) {
   }
   return res;
 }
+
+/**
+ * Combines two records for the same staff member and date — e.g. one per unit, for staff who
+ * punch on more than one unit's biometric device. Importing a second file must not erase the
+ * first: Present in either file wins (then leave, holiday, weekly off, absent), IN is the
+ * earliest punch and OUT the latest across both. Re-importing the same file changes nothing.
+ */
+const STATUS_RANK = { P: 5, CL: 4, H: 3, WO: 2, A: 1 };
+export function mergeAttendanceRecord(existing, incoming) {
+  if (!existing) return { ...incoming };
+  const rank = (s) => STATUS_RANK[s] || 0;
+  const status = rank(incoming.status) > rank(existing.status) ? incoming.status : existing.status;
+  const times = [existing.in, existing.out, incoming.in, incoming.out].filter(t => toMin(t) !== null);
+  const sorted = [...new Set(times)].sort((a, b) => toMin(a) - toMin(b));
+  const merged = { ...existing, ...incoming, status };
+  delete merged.in; delete merged.out;
+  if (sorted.length) merged.in = sorted[0];
+  if (sorted.length > 1) merged.out = sorted[sorted.length - 1];
+  return merged;
+}

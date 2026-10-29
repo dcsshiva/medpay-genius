@@ -103,3 +103,27 @@ test('normalizeAttendance passes each staff member\'s weekly off', () => {
   assert.equal(got.a.records[0].status, 'WO');
   assert.equal(got.b.records[0].status, 'A');
 });
+
+import { mergeAttendanceRecord } from './punches.js';
+
+test('staff on two units\' devices: the second file never erases the first', () => {
+  const unit2 = { date: '2026-10-21', status: 'P', in: '09:05', out: '17:30' };
+  const unit1 = { date: '2026-10-21', status: 'A' };                 // "Not Present" on the other device
+  assert.deepEqual(mergeAttendanceRecord(unit2, unit1), unit2);       // Unit 1 file imported after Unit 2
+  assert.deepEqual(mergeAttendanceRecord(unit1, unit2), unit2);       // …or before
+});
+
+test('punches from both units combine into the earliest IN and latest OUT', () => {
+  assert.deepEqual(mergeAttendanceRecord({ date: 'd', status: 'P', in: '09:00' }, { date: 'd', status: 'A', in: '17:10' }),
+    { date: 'd', status: 'P', in: '09:00', out: '17:10' });
+  assert.deepEqual(mergeAttendanceRecord({ date: 'd', status: 'P', in: '08:50', out: '13:00' }, { date: 'd', status: 'P', in: '14:00', out: '18:05' }),
+    { date: 'd', status: 'P', in: '08:50', out: '18:05' });
+});
+
+test('re-importing the same file changes nothing; leave and weekly off beat absent', () => {
+  const rec = { date: 'd', status: 'P', in: '08:47', out: '18:01' };
+  assert.deepEqual(mergeAttendanceRecord(rec, { ...rec }), rec);
+  assert.equal(mergeAttendanceRecord({ date: 'd', status: 'A' }, { date: 'd', status: 'CL' }).status, 'CL');
+  assert.equal(mergeAttendanceRecord({ date: 'd', status: 'WO' }, { date: 'd', status: 'A' }).status, 'WO');
+  assert.deepEqual(mergeAttendanceRecord(null, { date: 'd', status: 'A' }), { date: 'd', status: 'A' });
+});
