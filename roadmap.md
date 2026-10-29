@@ -30,4 +30,5 @@
 - [x] 11 staff absent on every working day 27 Aug – 27 Oct 2026 made inactive (live data, 2026-10-29); managers, reporting managers and admins excluded. Inactive staff are left out of attendance counts, charts, ledger and payroll; Staff Master can reactivate them.
 - [x] 5 more long-absent staff made inactive (live 2026-10-29: Swetha, Jodhimani, Dhinakaran, Muthamizh, Dharshan B). Palaniappan, Thiyagarajan, Sugumar and Senthil Murugan kept active (recent joiners / punched in on 27 Oct).
 - [x] Punches re-read before counting (src/hrms/punches.js): night shifts paired across midnight, morning after a night = off after night duty, single IN punch marked Absent = Present ("missing OUT punch"). General-shift staff punching in 3+ hours after shift start are measured against the nearest other shift.
-- [ ] Weekly offs on weekdays: the biometric export only marks WO on Sat/Sun, so rotational weekday offs arrive as Absent (~9 extra "absent" a weekday). Needs weekly-off days per staff (or a roster) to fix.
+- [x] Weekly off per staff (Staff Master → Weekly off; column hr_staff.weekly_off live 2026-10-29): when set it replaces the device's Sat/Sun weekly offs for that person.
+- [ ] HR to fill in Weekly off for staff whose day off isn't Saturday/Sunday.

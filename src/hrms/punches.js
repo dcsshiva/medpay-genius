@@ -34,7 +34,42 @@ const nextDay = (iso) => {
   return dt.toISOString().slice(0, 10);
 };
 
-export function normalizePunches(records) {
+export const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const weekdayOf = (iso) => {
+  const [y, m, d] = iso.split('-').map(Number);
+  return WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+};
+
+/**
+ * normalizePunches(records, { weeklyOff }) — weeklyOff is the staff member's weekly-off day(s)
+ * from Staff Master ('Wed', 'Sat,Sun', or '' = not set). When set, it replaces the device's
+ * weekly offs (the export only ever marks Sat/Sun):
+ *  4. on a weekly-off day, a day the device marked Absent with no punch is a weekly off;
+ *  5. on any other day, a device weekly off is Absent when there's no punch, Present when there is.
+ * Off-after-night days, leave and holidays are left alone.
+ */
+export function normalizePunches(records, opts = {}) {
+  const paired = pairPunches(records);
+  const offDays = new Set(String(opts.weeklyOff || '').split(',').map(s => s.trim()).filter(d => WEEKDAYS.includes(d)));
+  if (!offDays.size) return paired;
+  const offLabel = [...offDays].join(', ');
+  return paired.map(rec => {
+    if (rec.offAfterNight || rec.night) return rec;
+    const isOffDay = offDays.has(weekdayOf(rec.date));
+    const punched = !!rec.in;
+    if (isOffDay && rec.status === 'A' && !punched) {
+      return { ...rec, status: 'WO', punchNote: 'Weekly off (' + offLabel + ', set in Staff Master)' };
+    }
+    if (!isOffDay && rec.status === 'WO') {
+      return punched
+        ? { ...rec, status: 'P', punchNote: 'Present — weekly off is ' + offLabel + ', not ' + weekdayOf(rec.date) }
+        : { ...rec, status: 'A', punchNote: 'Absent — the device marked a weekly off, but this staff member\'s weekly off is ' + offLabel };
+    }
+    return rec;
+  });
+}
+
+function pairPunches(records) {
   const sorted = [...(records || [])].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   const out = [];
   let openNight = null; // the output record of a night still waiting for its OUT
@@ -87,12 +122,13 @@ export function normalizePunches(records) {
   return out;
 }
 
-/** { empNo: { records } } → same shape with normalized records (for the calendar / charts). */
-export function normalizeAttendance(attendance, empNos) {
+/** { empNo: { records } } → same shape with normalized records for the given staff
+ *  ([{ empNo, weeklyOff }], for the calendar / charts). */
+export function normalizeAttendance(attendance, staff) {
   const res = {};
-  for (const emp of empNos) {
-    const a = attendance[emp];
-    if (a) res[emp] = { ...a, records: normalizePunches(a.records) };
+  for (const s of staff) {
+    const a = attendance[s.empNo];
+    if (a) res[s.empNo] = { ...a, records: normalizePunches(a.records, { weeklyOff: s.weeklyOff }) };
   }
   return res;
 }

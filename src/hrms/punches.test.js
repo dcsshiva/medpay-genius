@@ -60,9 +60,46 @@ test('works across a month boundary and on unsorted input', () => {
 
 test('normalizeAttendance keeps the { empNo: { records } } shape for the listed staff only', () => {
   const att = { a: { primaryShift: 'S1', records: [r('2026-10-01', 'A', '09:05')] }, b: { records: [] } };
-  const got = normalizeAttendance(att, ['a']);
+  const got = normalizeAttendance(att, [{ empNo: 'a' }]);
   assert.deepEqual(Object.keys(got), ['a']);
   assert.equal(got.a.primaryShift, 'S1');
   assert.equal(got.a.records[0].status, 'P');
   assert.equal(att.a.records[0].status, 'A'); // input not mutated
+});
+
+test('weekly off set in Staff Master replaces the device weekly offs (21 Oct = Wed, 18/25 Oct = Sun)', () => {
+  const recs = [
+    r('2026-10-18', 'WO'),             // device Sunday off, no punch  -> Absent (her off day is Wed)
+    r('2026-10-21', 'A'),              // Wed, no punch                 -> weekly off
+    r('2026-10-22', 'A'),              // Thu, no punch                 -> stays Absent
+    r('2026-10-25', 'WO', '08:02', '15:00'), // device Sunday off, but she worked -> Present
+    r('2026-10-28', 'P', '08:00', '15:00'),  // worked on her weekly off  -> stays Present
+  ];
+  const got = normalizePunches(recs, { weeklyOff: 'Wed' });
+  assert.deepEqual(got.map(x => x.status), ['A', 'WO', 'A', 'P', 'P']);
+  assert.match(got[0].punchNote, /weekly off is Wed/);
+  assert.match(got[1].punchNote, /Weekly off \(Wed/);
+});
+
+test('without a weekly off set, the device weekly offs are used as they are', () => {
+  const recs = [r('2026-10-18', 'WO'), r('2026-10-21', 'A')];
+  assert.deepEqual(normalizePunches(recs), recs);
+  assert.deepEqual(normalizePunches(recs, { weeklyOff: '' }), recs);
+});
+
+test('weekly off never touches night shifts, the day off after a night, leave or holidays', () => {
+  const got = normalizePunches([
+    r('2026-10-17', 'A', '20:05'),   // Sat night starts
+    r('2026-10-18', 'WO', '08:10'),  // Sun: OUT of that night -> off after night (kept although Sun isn't her off day)
+    r('2026-10-21', 'CL'), r('2026-10-22', 'H'),
+  ], { weeklyOff: 'Wed' });
+  assert.deepEqual(got.map(x => x.status), ['P', 'WO', 'CL', 'H']);
+  assert.ok(got[1].offAfterNight);
+});
+
+test('normalizeAttendance passes each staff member\'s weekly off', () => {
+  const att = { a: { records: [r('2026-10-21', 'A')] }, b: { records: [r('2026-10-21', 'A')] } };
+  const got = normalizeAttendance(att, [{ empNo: 'a', weeklyOff: 'Wed' }, { empNo: 'b', weeklyOff: '' }]);
+  assert.equal(got.a.records[0].status, 'WO');
+  assert.equal(got.b.records[0].status, 'A');
 });
