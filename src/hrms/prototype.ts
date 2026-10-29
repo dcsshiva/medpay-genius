@@ -13,7 +13,7 @@
  * ========================================================================== */
 import type { HrEnv, HrController, HrWho } from './types';
 import { attendanceByUnit, attendanceCalendar } from './attendanceChart.js';
-import { normalizePunches, normalizeAttendance } from './punches.js';
+import { normalizePunches, normalizeAttendance, mergeAttendanceRecord } from './punches.js';
 import { parsePunchMonitor, looksLikeName } from './punchMonitor.js';
 import { earningsLines, pfBase, cycleAdjustments, statutory, buildPayslip } from './payslip.js';
 import { jsPDF } from 'jspdf';
@@ -2069,16 +2069,38 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       commitAttendanceImport(records);
     };
   }
-  function commitAttendanceImport(records){
+  async function commitAttendanceImport(records){
     let added=0, updated=0;
+    // dates outside the loaded pay cycle: read what is already saved, so it is merged, not overwritten
+    const stored = {};
+    const outside = records.filter(r=> r.date < env.cycle.start || r.date > env.cycle.end);
+    if(outside.length){
+      const dates = outside.map(r=>r.date).sort();
+      try {
+        const rows = await env.existingAttendance([...new Set(outside.map(r=>r.empNo))], dates[0], dates[dates.length-1]);
+        rows.forEach(x=>{ stored[x.empNo+'|'+x.date] = x; });
+      } catch(e){
+        alert('Could not read the attendance already saved for those dates, so nothing was imported. Please try again.');
+        return;
+      }
+    }
     records.forEach(r=>{
       if(!ATTENDANCE[r.empNo]) ATTENDANCE[r.empNo] = {primaryShift:null, records:[]};
       const list = ATTENDANCE[r.empNo].records;
-      const existing = list.find(x=>x.date===r.date);
+      let existing = list.find(x=>x.date===r.date);
+      const saved = stored[r.empNo+'|'+r.date];
+      if(!existing && saved){
+        existing = {date: saved.date, status: saved.status};
+        if(saved.in) existing.in = saved.in;
+        if(saved.out) existing.out = saved.out;
+        if(saved.permMin != null) existing.permMin = saved.permMin;
+        list.push(existing);
+      }
       if(existing){
-        existing.status = r.status;
-        if(r.in) existing.in = r.in; else delete existing.in;
-        if(r.out) existing.out = r.out; else delete existing.out;
+        const m = mergeAttendanceRecord(existing, {date: r.date, status: r.status, in: r.in, out: r.out});
+        existing.status = m.status;
+        if(m.in) existing.in = m.in; else delete existing.in;
+        if(m.out) existing.out = m.out; else delete existing.out;
         updated++;
       } else {
         const rec = {date:r.date, status:r.status};

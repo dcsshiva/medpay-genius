@@ -470,3 +470,21 @@ export async function latestAttendanceDate(): Promise<string | null> {
   const { data } = await db.rpc('hr_latest_attendance_date');
   return data || null;
 }
+
+/** Stored attendance for these staff between two dates — the attendance import merges with it,
+ *  so a second unit's file (or a re-import) never erases punches already saved. */
+export async function fetchAttendanceRange(codes: string[], start: string, end: string) {
+  const out: any[] = [];
+  for (let i = 0; i < codes.length; i += 100) {
+    const chunk = codes.slice(i, i + 100);
+    out.push(...await fetchAll(() => db.from('hr_attendance').select('*').in('emp_no', chunk)
+      .gte('date', start).lte('date', end).order('emp_no').order('date')));
+  }
+  return out.map((r: any) => {
+    const rec: any = { empNo: r.emp_no, date: r.date, status: r.status };
+    if (r.in_time) rec.in = r.in_time;
+    if (r.out_time) rec.out = r.out_time;
+    if (r.perm_min != null) rec.permMin = r.perm_min;
+    return rec;
+  });
+}

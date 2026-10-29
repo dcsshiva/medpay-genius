@@ -34,3 +34,5 @@
 - [ ] HR to fill in Weekly off for staff whose day off isn't Saturday/Sunday.
 - [x] Punch Monitor import reads columns from the header row and checks each value (src/hrms/punchMonitor.js); a time or number is never taken as a staff name. Fixed 4 names saved as times on 2026-10-29 (2100408, 2100420, 2100422, 2100423).
 - [ ] Re-import the 27 Oct Punch Monitor file once this is published — that day was misread (91 Absent, punches lost).
+- [x] Attendance import merges instead of overwriting: staff on more than one unit's device keep their punches (Present in any file wins; earliest IN, latest OUT); dates outside the loaded cycle are merged with what is saved.
+- [ ] Re-import both units' files for 26 Aug – 28 Oct once this is published, to restore punches of multi-unit staff that earlier imports erased; then re-check the 15 staff made inactive on 2026-10-29.

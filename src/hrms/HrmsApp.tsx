@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import './hrms.css';
 import { mountHrms } from './prototype';
-import { createStore, latestAttendanceDate } from './data';
+import { createStore, latestAttendanceDate, fetchAttendanceRange } from './data';
 import { staffSignIn, adminSignIn, signOut, changePassword, whoami, manageLogin } from './auth';
 import { cycleContaining, cycleForKey, recentCycles, todayISO } from './cycle';
 import type { HrController, HrCycle, HrEnv, HrWho } from './types';
@@ -293,6 +293,7 @@ export default function HrmsApp() {
         return XLSX.utils.sheet_to_csv(ws, { blankrows: false, rawNumbers: false });
       },
       build: BUILD,
+      existingAttendance: (codes: string[], start: string, end: string) => fetchAttendanceRange(codes, start, end),
     };
 
     controller = mountHrms(root, env);
