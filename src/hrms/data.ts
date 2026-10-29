@@ -43,6 +43,7 @@ const staffFromRow = (r: any) => ({
   bankAccountName: r.bank_account_name ?? '', bankAccountNo: r.bank_account_no ?? '', bankIfsc: r.bank_ifsc ?? '', bankName: r.bank_name ?? '',
   uanNo: r.uan_no ?? '', esicNo: r.esic_no ?? '', earnings: Array.isArray(r.earnings) ? r.earnings : [], tds: num(r.tds),
   cycleAdjustments: r.cycle_adjustments && typeof r.cycle_adjustments === 'object' ? r.cycle_adjustments : {},
+  weeklyOff: r.weekly_off ?? '',
 });
 const staffToRow = (s: any) => ({
   emp_no: s.empNo, db_ref: nz(s.dbRef), name: s.name, role: s.role || 'Staff', reporting_manager: s.reportingManager || '',
@@ -53,6 +54,7 @@ const staffToRow = (s: any) => ({
   address: s.address || '', unit_history: s.unitHistory || [], active: true, updated_at: new Date().toISOString(),
   bank_account_name: s.bankAccountName || '', bank_account_no: s.bankAccountNo || '', bank_ifsc: s.bankIfsc || '', bank_name: s.bankName || '',
   uan_no: s.uanNo || '', esic_no: s.esicNo || '', earnings: s.earnings || [], tds: num(s.tds), cycle_adjustments: s.cycleAdjustments || {},
+  weekly_off: s.weeklyOff || '',
 });
 const attToRow = (empNo: string, r: any) => ({
   emp_no: empNo, date: r.date, status: r.status, in_time: nz(r.in), out_time: nz(r.out), perm_min: r.permMin ?? null,

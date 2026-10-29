@@ -28,3 +28,7 @@
 - [x] Module menu in the navy top bar (admin and staff workspaces; own row below laptop width, scrolls sideways on phones).
 - [x] Version management: every push to main bumps the release number and stamps the release time (fixed workflow — it was failing on `npm ci`); the app shows "v… · Released <date, time>" in the top bar and on the sign-in screen.
 - [x] 11 staff absent on every working day 27 Aug – 27 Oct 2026 made inactive (live data, 2026-10-29); managers, reporting managers and admins excluded. Inactive staff are left out of attendance counts, charts, ledger and payroll; Staff Master can reactivate them.
+- [x] 5 more long-absent staff made inactive (live 2026-10-29: Swetha, Jodhimani, Dhinakaran, Muthamizh, Dharshan B). Palaniappan, Thiyagarajan, Sugumar and Senthil Murugan kept active (recent joiners / punched in on 27 Oct).
+- [x] Punches re-read before counting (src/hrms/punches.js): night shifts paired across midnight, morning after a night = off after night duty, single IN punch marked Absent = Present ("missing OUT punch"). General-shift staff punching in 3+ hours after shift start are measured against the nearest other shift.
+- [x] Weekly off per staff (Staff Master → Weekly off; column hr_staff.weekly_off live 2026-10-29): when set it replaces the device's Sat/Sun weekly offs for that person.
+- [ ] HR to fill in Weekly off for staff whose day off isn't Saturday/Sunday.
