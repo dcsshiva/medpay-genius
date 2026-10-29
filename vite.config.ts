@@ -10,11 +10,15 @@ import type { Plugin } from 'vite';
 // Get build info at build time
 const getBuildInfo = () => {
   let version = '1.0.0.01';
+  const timestamp = new Date().toISOString();
+  // when this version was released (set by .github/workflows/version-bump.yml); build time if unset
+  let releasedAt = timestamp;
   try {
     const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
     const baseVersion = pkg.version || '1.0.0';
     const releaseNumber = String(pkg.releaseNumber || '01').padStart(2, '0');
     version = `${baseVersion}.${releaseNumber}`;
+    if (pkg.releasedAt) releasedAt = pkg.releasedAt;
   } catch (e) {
     // fallback version
   }
@@ -24,7 +28,8 @@ const getBuildInfo = () => {
     const gitBranch = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
     return {
       version,
-      timestamp: new Date().toISOString(),
+      timestamp,
+      releasedAt,
       commit: gitCommit,
       branch: gitBranch,
       environment: process.env.NODE_ENV || 'development'
@@ -32,7 +37,8 @@ const getBuildInfo = () => {
   } catch (e) {
     return {
       version,
-      timestamp: new Date().toISOString(),
+      timestamp,
+      releasedAt,
       commit: 'unknown',
       branch: 'unknown',
       environment: process.env.NODE_ENV || 'development'

@@ -1897,6 +1897,34 @@ _ps = "btn.onclick = ()=> openDrilldown(btn.dataset.payslip));"
 rep(_ps, _ps+" bindAdjustButtons();", script.count(_ps))
 
 
+# ── 42. module menu in the navy top bar (admin and staff workspaces); app version and last
+#        release date/time in the top bar and on the sign-in screen (env.build, from package.json) ──
+_shell_old = """<select class="cycle-select" id="cycleSel"></select></div>
+      </div>
+    </div>"""
+assert SHELL.count(_shell_old) == 1, 'top bar patch failed'
+SHELL = SHELL.replace(_shell_old, """<select class="cycle-select" id="cycleSel"></select><span class="app-version" id="appVersion"></span></div>
+      </div>
+    </div>
+    <nav class="topnav" id="topNav" aria-label="Modules"></nav>""")
+rep("""  '<div class="tabs">'+ tabs.map(t=>'<button data-tab="'+t+'" class="'+(adminTab===t?'active':'')+'">'+labels[t]+'</button>').join('') +'</div>'+
+  '<div id="adminBody"></div>';
+  adminView.querySelectorAll('.tabs button').forEach(b=> b.onclick = ()=>{ adminTab=b.dataset.tab; renderAdmin(); });""",
+    """  '<div id="adminBody"></div>';
+  setTopNav(tabs.map(t=>({key:t, label:labels[t]})), adminTab, key=>{ adminTab=key; renderAdmin(); });""")
+rep("""    '<div class="tabs no-print">'+
+      ['overview','ledger','tasks','leave'].concat(staffSalaryHidden() ? [] : ['payslip']).map(t=>'<button data-tab="'+t+'" class="'+(staffTab===t?'active':'')+'">'+
+        ({overview:'Overview', ledger:(staffSalaryHidden() ? 'My Attendance' : 'My Shift & Salary'), tasks:'My Tasks', leave:'Leave & Permission', payslip:'Payslip'})[t]+'</button>').join('')+
+    '</div>'+
+    '<div id="staffTabBody"></div>'+""", """    '<div id="staffTabBody"></div>'+""")
+rep("""  staffView.querySelectorAll('.tabs button').forEach(b=> b.onclick = ()=>{ staffTab=b.dataset.tab; renderStaffDashboard(); });""",
+    """  setTopNav(['overview','ledger','tasks','leave'].concat(staffSalaryHidden() ? [] : ['payslip']).map(t=>({key:t,
+    label:({overview:'Overview', ledger:(staffSalaryHidden() ? 'My Attendance' : 'My Shift & Salary'), tasks:'My Tasks', leave:'Leave & Permission', payslip:'Payslip'})[t]})),
+    staffTab, key=>{ staffTab=key; renderStaffDashboard(); });""")
+rep("""      '<footer class="auth-foot">&copy; 2026&ndash;2030 Selvantra Technologies &middot; <a href="https://selvantra.com" target="_blank" rel="noopener">selvantra.com</a></footer>'+""",
+    """      '<footer class="auth-foot">&copy; 2026&ndash;2030 Selvantra Technologies &middot; <a href="https://selvantra.com" target="_blank" rel="noopener">selvantra.com</a>'+
+        (versionText() ? '<div class="auth-version">'+escapeHTML(versionText())+'</div>' : '')+'</footer>'+""")
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
@@ -1932,13 +1960,31 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
 ''' + '\n'.join('  ' + l if l else l for l in script.split('\n')) + '''
 
   /* ================= live-app controller ================= */
+  /* the module menu lives in the top bar; each workspace fills it when it renders */
+  function setTopNav(items, active, onPick){
+    const nav = document.getElementById('topNav');
+    if(!nav) return;
+    nav.innerHTML = (items||[]).map(i=>'<button data-nav="'+i.key+'" class="topnav-item'+(i.key===active?' active':'')+'"'+(i.key===active?' aria-current="page"':'')+'>'+i.label+'</button>').join('');
+    nav.querySelectorAll('[data-nav]').forEach(b=> b.onclick = ()=> onPick(b.dataset.nav));
+  }
+  /* "v1.1.0.03 · Released 29 Oct 2026, 7:15 am" — from package.json via the build (env.build) */
+  function versionText(){
+    const b = env.build || {};
+    if(!b.version) return '';
+    const d = b.releasedAt ? new Date(b.releasedAt) : null;
+    const when = d && !isNaN(d.getTime()) ? d.toLocaleString('en-IN', {day:'2-digit', month:'short', year:'numeric', hour:'numeric', minute:'2-digit'}) : '';
+    return 'v'+b.version + (when ? ' · Released '+when : '');
+  }
   function showView(which){
+    setTopNav([]);
     document.querySelectorAll('#roleSwitch button').forEach(b=>b.classList.toggle('active', b.dataset.role===which));
     if(which==='admin'){ staffView.classList.add('hidden'); adminView.classList.remove('hidden'); renderAdmin(); }
     else { adminView.classList.add('hidden'); staffView.classList.remove('hidden'); currentStaff ? renderStaffDashboard() : renderStaffLogin(); }
   }
   function currentView(){ return adminView.classList.contains('hidden') ? 'staff' : 'admin'; }
   function renderCycleSelect(){
+    const ver = document.getElementById('appVersion');
+    if(ver) ver.textContent = versionText();
     const sel = document.getElementById('cycleSel');
     sel.innerHTML = env.cycles.map(c=>'<option value="'+c.key+'" '+(c.key===env.cycle.key?'selected':'')+'>'+c.label+'</option>').join('');
     sel.onchange = (e)=> env.setCycle(e.target.value);

@@ -1,5 +1,17 @@
 # Automated Version Management System
 
+## Current setup (payroll app)
+- **Version** = `package.json` `version` + `releaseNumber`, shown as `v1.1.0.03`.
+- **Every push to `main` is a release.** `.github/workflows/version-bump.yml` runs
+  `scripts/bump-release.cjs` (release number +1; a commit starting `feat` bumps minor; `BREAKING CHANGE` bumps major),
+  stamps `package.json` → `releasedAt`, commits `chore(release): vX [skip ci]`, tags `vX` and creates a GitHub release.
+  It installs nothing and builds nothing — Lovable builds and publishes the app.
+- **In the app:** `vite.config.ts` puts `version` and `releasedAt` into `__BUILD_INFO__`; the payroll app shows
+  "v1.1.0.03 · Released 29 Oct 2026, 7:05 am" beside the pay cycle in the top bar and under the sign-in form.
+- Manual bump: Actions → "Release version" → Run workflow (release / minor / major).
+
+The sections below describe the older HMS screens (`/classic`).
+
 ## Overview
 This HMS application now has a complete automated version management system that tracks versions, enables rollbacks, and maintains a deployment history.
 
