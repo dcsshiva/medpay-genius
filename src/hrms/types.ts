@@ -98,6 +98,9 @@ export interface HrEnv {
   /** weekly off from a date onward (reporting manager: own staff, today or later; admin: any date) */
   setWeeklyOff(empNo: string, days: string, from: string): Promise<void>;
   removeWeeklyOff(empNo: string, from: string): Promise<void>;
+  /** the bell in the admin header: notifications for the signed-in administrator */
+  notifications(): Promise<HrNotification[]>;
+  updateNotification(id: number, change: { read?: boolean; done?: boolean; by?: string }): Promise<void>;
   /** running app version and when it was released (package.json, stamped at build time) */
   build: { version: string; releasedAt: string };
 }
@@ -109,4 +112,18 @@ export interface HrController {
   takeover(): void;
   setSyncStatus(text: string, isError?: boolean): void;
   destroy(): void;
+}
+
+export interface HrNotification {
+  id: number;
+  title: string;
+  message: string;
+  steps: string[];
+  items: { code: string; name: string; detail: string }[];
+  screen: string;
+  createdBy: string;
+  createdAt: string;
+  readAt: string | null;
+  doneAt: string | null;
+  doneBy: string;
 }

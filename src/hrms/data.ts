@@ -573,6 +573,27 @@ export function createStore() {
     return rows.map((r: { unit_code: string | null; date_from: string; date_to: string }) => ({ unit: r.unit_code, from: r.date_from, to: r.date_to }));
   }
 
+  /** The bell in the admin header: notifications sent to the signed-in administrator (RLS: own only) */
+  async function loadNotifications() {
+    const rows = await fetchAll(() => db.from('hr_notifications').select('*').order('created_at', { ascending: false }).order('id', { ascending: false }));
+    return rows.map((r: any) => ({
+      id: r.id, title: r.title, message: r.message || '', steps: r.steps || [], items: r.items || [],
+      screen: r.screen || '', createdBy: r.created_by || '', createdAt: r.created_at,
+      readAt: r.read_at || null, doneAt: r.done_at || null, doneBy: r.done_by || '',
+    }));
+  }
+  /** read: opened from the bell; done: true = marked done, false = opened again */
+  async function updateNotification(id: number, change: { read?: boolean; done?: boolean; by?: string }) {
+    const patch: Record<string, unknown> = {};
+    const now = new Date().toISOString();
+    if (change.read) patch.read_at = now;
+    if (change.done === true) { patch.done_at = now; patch.done_by = change.by || null; }
+    if (change.done === false) { patch.done_at = null; patch.done_by = null; }
+    if (!Object.keys(patch).length) return;
+    const { error } = await db.from('hr_notifications').update(patch).eq('id', id);
+    if (error) throw error;
+  }
+
   /** Is the pay cycle containing this date finalized? */
   async function cycleFinalized(date: string): Promise<boolean> {
     const { data: locked, error } = await db.rpc('hr_cycle_locked', { _date: date });
@@ -591,7 +612,7 @@ export function createStore() {
 
   return {
     data, clear, loadAll, loadCycleRows, loadSettings, sync, tempId, hasPendingChanges,
-    finalizeCycle, reopenCycle, loadTrends, rosterMeta, applyRosterPlan, setAttendanceDay, cycleFinalized, logImport, importLog, setWeeklyOff, removeWeeklyOff, get who() { return who; },
+    finalizeCycle, reopenCycle, loadTrends, rosterMeta, applyRosterPlan, setAttendanceDay, cycleFinalized, logImport, importLog, setWeeklyOff, removeWeeklyOff, loadNotifications, updateNotification, get who() { return who; },
   };
 }
 

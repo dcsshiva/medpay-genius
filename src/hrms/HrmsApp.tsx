@@ -300,6 +300,8 @@ export default function HrmsApp() {
       cycleFinalized: (date: string) => store.cycleFinalized(date),
       logImport: (entry) => store.logImport(entry),
       importLog: (from: string, to: string) => store.importLog(from, to),
+      notifications: () => store.loadNotifications(),
+      updateNotification: (id: number, change: { read?: boolean; done?: boolean; by?: string }) => store.updateNotification(id, change),
       setWeeklyOff: (empNo: string, days: string, from: string) => store.setWeeklyOff(empNo, days, from),
       removeWeeklyOff: (empNo: string, from: string) => store.removeWeeklyOff(empNo, from),
       applyRosterPlan: async (changes) => {

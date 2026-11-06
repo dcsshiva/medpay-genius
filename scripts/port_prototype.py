@@ -2724,6 +2724,110 @@ rep("""  const noManager = scopedStaff.filter(s=>!s.reportingManager || !findSta
 rep("""xl(()=>xStaffTree('No reporting manager', scopedStaff.filter(s=>!s.reportingManager || !findStaff(s.reportingManager)),""",
     """xl(()=>xStaffTree('No reporting manager', scopedStaff.filter(s=>(!s.reportingManager || !findStaff(s.reportingManager)) && !topManagerFor(s)),""")
 
+# ── 53. shifts that start at the same time (Morning Shift 1 / 2 / DMO's Shift 1 at 08:00, …): the staff
+#        member's own Staff Master shift wins the tie, so their own shift name is shown. ──
+rep("""  if(!pool.length) return own || nearestShift(inMin);
+  let best=pool[0], bd=Infinity;
+  for(const s of pool){ const d=Math.abs(inMin-shiftStartMin(s)); if(d<bd){ bd=d; best=s; } }""",
+    """  if(!pool.length) return own || nearestShift(inMin);
+  let best=pool[0], bd=Infinity;
+  for(const s of pool){ const d=Math.abs(inMin-shiftStartMin(s)); if(d<bd || (d===bd && own && s.code===own.code)){ bd=d; best=s; } }""")
+
+# ── 54. notification bell (administrators): tasks sent to the signed-in admin account (hr_notifications,
+#        migration 0026) — each with steps to follow, the staff it concerns and a button to the screen. ──
+rep("""    '<button class="iconbtn" id="adminChangePwBtn">Change password</button>'+""",
+    """    (role==='admin' ? '<button class="iconbtn notif-bell" id="adminBellBtn" title="Notifications">&#128276;<span class="notif-count" id="adminBellCount" hidden></span></button>' : '')+
+    '<button class="iconbtn" id="adminChangePwBtn">Change password</button>'+""")
+rep("""  document.getElementById('adminChangePwBtn').onclick = ()=> openChangePasswordModal('admin');""",
+    """  document.getElementById('adminChangePwBtn').onclick = ()=> openChangePasswordModal('admin');
+  const bellBtn = document.getElementById('adminBellBtn');
+  if(bellBtn){ bellBtn.onclick = ()=> openNotifications(); paintBell(); if(!NOTIFS_LOADED) loadNotifs(); }""")
+NB = """
+/* ---- Notifications (the bell in the admin header) ---- */
+let NOTIFS = [], NOTIFS_LOADED = false, NOTIFS_FILTER = 'open';
+const NOTIF_SCREENS = {overview:'Overview', staff:'Staff Master', masters:'Masters', shiftmaster:'Shift Master', ledger:'Shift Ledger', planner:'Shift Planner', tasks:'Tasks', leave:'Leave & Permission', salary:'Salary', reports:'Reports'};
+async function loadNotifs(){
+  NOTIFS_LOADED = true;
+  try{ NOTIFS = await env.notifications(); }catch(e){ NOTIFS = []; }
+  paintBell();
+}
+function paintBell(){
+  const el = document.getElementById('adminBellCount');
+  const btn = document.getElementById('adminBellBtn');
+  if(!el || !btn) return;
+  const open = NOTIFS.filter(n=>!n.doneAt).length;
+  const unread = NOTIFS.filter(n=>!n.doneAt && !n.readAt).length;
+  el.hidden = !open;
+  el.textContent = open;
+  btn.classList.toggle('notif-unread', unread>0);
+  btn.title = open ? open+' open notification'+(open>1?'s':'')+(unread ? ' ('+unread+' new)' : '') : 'Notifications';
+}
+function notifCard(n){
+  const screen = NOTIF_SCREENS[n.screen];
+  return '<div class="notif-card'+(n.doneAt?' notif-done':'')+(!n.readAt?' notif-new':'')+'">'+
+    '<div class="notif-head"><b>'+escapeHTML(n.title)+'</b>'+
+      (n.doneAt ? '<span class="badge teal">Done</span>' : (!n.readAt ? '<span class="badge amber">New</span>' : '<span class="badge slate">Open</span>'))+'</div>'+
+    '<div class="hint" style="margin:2px 0 6px;">'+escapeHTML(new Date(n.createdAt).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}))+
+      (n.createdBy ? ' &middot; from '+escapeHTML(n.createdBy) : '')+
+      (n.doneAt ? ' &middot; done '+escapeHTML(fmtDate(String(n.doneAt).slice(0,10)))+(n.doneBy ? ' by '+escapeHTML(n.doneBy) : '') : '')+'</div>'+
+    (n.message ? '<div style="margin-bottom:6px;">'+escapeHTML(n.message)+'</div>' : '')+
+    (n.items && n.items.length ? '<div class="tbl-scroll" style="max-height:220px;margin-bottom:6px;"><table class="narrow"><thead><tr><th>Code</th><th>Name</th><th>What to check</th></tr></thead><tbody>'+
+      n.items.map(it=>'<tr><td class="mono">'+escapeHTML(it.code||'')+'</td><td>'+escapeHTML(it.name||'')+'</td><td>'+escapeHTML(it.detail||'')+'</td></tr>').join('')+'</tbody></table></div>' : '')+
+    (n.steps && n.steps.length ? '<div class="section-title" style="margin:6px 0 2px;">How to fix</div><ol class="notif-steps">'+n.steps.map(st=>'<li>'+escapeHTML(st)+'</li>').join('')+'</ol>' : '')+
+    '<div class="notif-actions">'+
+      (screen ? '<button class="btn" data-notif-open="'+n.id+'">Open '+escapeHTML(screen)+'</button>' : '')+
+      (n.doneAt ? '<button class="iconbtn" data-notif-reopen="'+n.id+'">Not done yet</button>' : '<button class="iconbtn" data-notif-done="'+n.id+'">Mark as done</button>')+
+    '</div>'+
+  '</div>';
+}
+async function openNotifications(){
+  if(!NOTIFS_LOADED) await loadNotifs();
+  const fresh = NOTIFS.filter(n=>!n.readAt && !n.doneAt);
+  const modalRoot = document.getElementById('modalRoot');
+  const draw = ()=>{
+    const list = NOTIFS.filter(n=> NOTIFS_FILTER==='open' ? !n.doneAt : NOTIFS_FILTER==='done' ? !!n.doneAt : true);
+    const openCount = NOTIFS.filter(n=>!n.doneAt).length;
+    modalRoot.innerHTML = ''+
+    '<div class="modal-back" id="modalBack"><div class="modal" style="max-width:760px;">'+
+      '<div class="modal-head"><h3 style="font-size:15px;">Notifications</h3><button class="closebtn" id="modalClose">&#10005;</button></div>'+
+      '<div class="modal-body">'+
+        '<div class="tabs" style="margin-bottom:10px;">'+
+          [['open','Open ('+openCount+')'],['done','Done'],['all','All']].map(t=>'<button data-notif-filter="'+t[0]+'" class="'+(NOTIFS_FILTER===t[0]?'active':'')+'">'+t[1]+'</button>').join('')+
+        '</div>'+
+        (list.length ? list.map(notifCard).join('') : '<div class="note">'+(NOTIFS_FILTER==='open' ? 'Nothing to do — every notification is done.' : 'No notifications here.')+'</div>')+
+      '</div>'+
+    '</div></div>';
+    const close = ()=>{ modalRoot.innerHTML=''; };
+    document.getElementById('modalClose').onclick = close;
+    document.getElementById('modalBack').addEventListener('click', e=>{ if(e.target.id==='modalBack') close(); });
+    modalRoot.querySelectorAll('[data-notif-filter]').forEach(b=> b.onclick = ()=>{ NOTIFS_FILTER = b.dataset.notifFilter; draw(); });
+    modalRoot.querySelectorAll('[data-notif-open]').forEach(b=> b.onclick = ()=>{
+      const n = NOTIFS.find(x=>String(x.id)===b.dataset.notifOpen);
+      close();
+      if(n && n.screen){ adminTab = n.screen; renderAdmin(); }
+    });
+    const mark = async (id, done)=>{
+      const n = NOTIFS.find(x=>String(x.id)===String(id));
+      if(!n) return;
+      try{
+        await env.updateNotification(n.id, {done, by: currentAdminAccount ? currentAdminAccount.name : ''});
+        n.doneAt = done ? new Date().toISOString() : null;
+        n.doneBy = done ? (currentAdminAccount ? currentAdminAccount.name : '') : '';
+      }catch(e){ alert('Could not save: '+(e && e.message ? e.message : e)); }
+      paintBell(); draw();
+    };
+    modalRoot.querySelectorAll('[data-notif-done]').forEach(b=> b.onclick = ()=> mark(b.dataset.notifDone, true));
+    modalRoot.querySelectorAll('[data-notif-reopen]').forEach(b=> b.onclick = ()=> mark(b.dataset.notifReopen, false));
+  };
+  draw();
+  for(const n of fresh){
+    try{ await env.updateNotification(n.id, {read: true}); n.readAt = new Date().toISOString(); }catch(e){}
+  }
+  paintBell();
+}
+"""
+rep("""/* ---- Shift Planner ---- */""", NB.lstrip('\n') + """\n/* ---- Shift Planner ---- */""")
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
@@ -2796,6 +2900,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   function applySession(who: HrWho | null, fresh: boolean){
     const prevView = currentView();
     currentStaff = null; adminLoggedIn = false; currentAdminAccount = null;
+    if(fresh){ NOTIFS = []; NOTIFS_LOADED = false; }
     if(who){
       if(who.empNo && findStaff(who.empNo)) currentStaff = who.empNo;
       if(who.role==='admin'){ adminLoggedIn = true; currentAdminAccount = {username:'admin', name: who.name || 'Administrator', role:'admin'}; }
