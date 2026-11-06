@@ -2692,6 +2692,11 @@ async function openMultiUnitCheck(from, to, info, gaps){
 '''
 rep("""/* ---- Shift Planner ---- */""", MU.lstrip('\n') + """\n/* ---- Shift Planner ---- */""")
 
+# ── 51. "Present days" on a staff member's page counts against every calendar day of the pay cycle
+#        (26 Oct – 25 Nov = 31), not the cycle minus weekly offs and holidays. ──
+rep("""    stat('Present days', summary.presentDays+' / '+ (summary.cycleLen-summary.woDays-summary.holidayDays))+""",
+    """    stat('Present days', summary.presentDays+' / '+ env.cycle.dates.length)+""")
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
