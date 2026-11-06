@@ -2558,6 +2558,89 @@ async function revokeLeave(l, btn){
 '''
 rep_re(r'function renderAdminLeave\(\)\{\n.*?(?=function applyApprovedLeaveToAttendance\(l\)\{)', lambda m: LEAVE)
 
+# ── 50. staff who punch at more than one unit (src/hrms/multiUnit.js): a Multi-unit column in
+#        Staff Master; every attendance import is logged with the unit its file belongs to and the
+#        dates it covered; afterwards (and from Shift Ledger → Multi-unit check) the multi-unit
+#        staff with a single punch or an absence are listed with the units' files still missing. ──
+rep("""<th title="Weekly off day — when set, it replaces the Sat/Sun weekly offs from the biometric device for this person">Weekly off</th><th>Net salary</th>""",
+    """<th title="Weekly off day — when set, it replaces the Sat/Sun weekly offs from the biometric device for this person">Weekly off</th><th title="Punches at more than one unit — the attendance import checks these staff for days that still need a file from the other unit">Multi-unit</th><th>Net salary</th>""")
+rep("""      '</select></td>'+
+      '<td><input class="editable mono" data-field="netSalary" value="'+e.netSalary+'" inputmode="numeric"></td>'+""",
+    """      '</select></td>'+
+      '<td><select class="editable" data-field="multiUnit" title="Punches at more than one unit">'+
+        '<option value="false"'+(e.multiUnit?'':' selected')+'>No</option><option value="true"'+(e.multiUnit?' selected':'')+'>Yes</option>'+
+      '</select></td>'+
+      '<td><input class="editable mono" data-field="netSalary" value="'+e.netSalary+'" inputmode="numeric"></td>'+""")
+rep("""      const numericFields = ['netSalary','monthlyCL','monthlyPermissionHours'];""",
+    """      if(field==='multiUnit'){ s.multiUnit = inp.value==='true'; return; }
+      const numericFields = ['netSalary','monthlyCL','monthlyPermissionHours'];""")
+# Shift Ledger: Multi-unit check button
+rep("""  '<div class="emp-toolbar"><div></div><button class="btn" id="attImportBtn">+ Import attendance</button></div>'+""",
+    """  '<div class="emp-toolbar"><div></div><div style="display:flex;gap:8px;"><button class="iconbtn" id="multiUnitBtn" title="Staff who punch at more than one unit: days with a single punch or an absence that may need the other unit\\'s file">Multi-unit check</button><button class="btn" id="attImportBtn">+ Import attendance</button></div></div>'+""")
+rep("""  document.getElementById('attImportBtn').onclick = ()=>{""",
+    """  document.getElementById('multiUnitBtn').onclick = ()=>{
+    const today = todayISO();
+    openMultiUnitCheck(env.cycle.start, env.cycle.end < today ? env.cycle.end : today);
+  };
+  document.getElementById('attImportBtn').onclick = ()=>{""")
+# after an import: log it, check multi-unit staff, show the result
+rep("""  document.getElementById('modalRoot').innerHTML = '';
+  alert('Import complete: '+added+' new record(s) added, '+updated+' existing record(s) updated.');
+  renderAdminLedger();
+  env.afterImport();""", """  document.getElementById('modalRoot').innerHTML = '';
+  const dates = records.map(r=>r.date).sort();
+  const from = dates[0], to = dates[dates.length-1];
+  const fu = fileUnit(records.map(r=>r.empNo), new Map(STAFF.map(s=>[s.empNo, s])));
+  // worked out before the reload below, while every imported day (in or outside the cycle) is in memory
+  const gaps = multiUnitGaps(STAFF, ATTENDANCE, from, to);
+  renderAdminLedger();
+  try{
+    await env.logImport({unit: fu.unit, from, to, staff: new Set(records.map(r=>r.empNo)).size, records: records.length, by: currentAdminAccount ? currentAdminAccount.name : ''});
+  }catch(e){ /* the attendance is saved either way; only this file's coverage note is lost */ }
+  await env.afterImport();
+  openMultiUnitCheck(from, to, {added, updated, unit: fu.unit}, gaps);""")
+MU = r'''
+/* ---- staff who punch at more than one unit ---- */
+async function openMultiUnitCheck(from, to, info, gaps){
+  const multi = STAFF.filter(s=>s.multiUnit);
+  const list = gaps || multiUnitGaps(STAFF, ATTENDANCE, from, to);
+  let log = null;
+  try{ log = await env.importLog(from, to); }catch(e){ log = null; }
+  const units = UNITS.filter(u=>!u.suspended).map(u=>u.code);
+  const cov = log ? coverage(log, units, from, to) : null;
+  const span = (a, b)=> a===b ? fmtDate(a) : fmtDate(a)+' – '+fmtDate(b);
+  const dayList = (ds)=> ds.length ? ranges(ds).map(r=>span(r.from, r.to)).join(', ') : '—';
+  const missingAny = cov && cov.some(c=>c.missing.length);
+  const modalRoot = document.getElementById('modalRoot');
+  modalRoot.innerHTML = ''+
+  '<div class="modal-back" id="modalBack"><div class="modal">'+
+    '<div class="modal-head"><h3 style="font-size:15px;">'+(info ? 'Import complete' : 'Multi-unit check')+' — '+escapeHTML(span(from, to))+'</h3><button class="closebtn" id="modalClose">✕</button></div>'+
+    '<div class="modal-body">'+
+      (info ? '<div class="ns-bulk-panel"><b>'+info.added+' new and '+info.updated+' updated attendance records saved.</b> '+
+        '<span class="hint" style="margin:0;">This file looks like '+(info.unit ? '<b>'+escapeHTML(unitName(info.unit))+'</b>\'s device' : 'a mix of units')+'.</span></div>' : '')+
+      '<div class="section-title" style="margin-top:12px;">Unit files imported for these dates</div>'+
+      (cov ? '<ul style="margin:4px 0 0 18px;padding:0;">'+cov.map(c=>'<li>'+escapeHTML(unitName(c.unit))+': '+
+          (c.missing.length ? '<span style="color:var(--rose);">not imported for '+c.missing.map(m=>span(m.from, m.to)).join(', ')+'</span>' : '<span style="color:var(--teal);">imported for every day</span>')+'</li>').join('')+'</ul>'+
+          '<div class="hint">Imports are recorded from now on; files imported before this check was added are not listed.</div>'
+        : '<div class="note">Could not read the import record.</div>')+
+      '<div class="section-title" style="margin-top:14px;">Multi-unit staff to check'+(multi.length ? ' ('+multi.length+' marked in Staff Master)' : '')+'</div>'+
+      (!multi.length ? '<div class="note">No staff are marked <b>Multi-unit</b> yet — set it in Staff Master for everyone who punches at more than one unit.</div>' :
+       !list.length ? '<div class="note" style="color:var(--teal);">Every day has an IN and an OUT for the multi-unit staff — nothing to check.</div>' :
+        '<div class="hint">A single punch or an absence for these staff usually means another unit\'s file for that day has not been imported yet'+(missingAny ? ' (see above)' : '')+'. If every unit\'s file is in, it is a real missed punch or absence.</div>'+
+        '<div class="tbl-scroll" style="max-height:320px;"><table class="narrow"><thead><tr><th>Code</th><th>Name</th><th>Home unit</th><th>Single punch</th><th>Absent</th></tr></thead><tbody>'+
+          list.map(g=>{ const s = findStaff(g.empNo) || {};
+            return '<tr><td class="mono">'+escapeHTML(g.empNo)+'</td><td>'+escapeHTML(g.name)+'</td><td>'+escapeHTML(unitName(s.unitCode)||'—')+'</td>'+
+              '<td class="mono">'+dayList(g.single)+'</td><td class="mono">'+dayList(g.absent)+'</td></tr>'; }).join('')+
+        '</tbody></table></div>')+
+    '</div>'+
+  '</div></div>';
+  const close = ()=>{ modalRoot.innerHTML=''; };
+  document.getElementById('modalClose').onclick = close;
+  document.getElementById('modalBack').addEventListener('click', e=>{ if(e.target.id==='modalBack') close(); });
+}
+'''
+rep("""/* ---- Shift Planner ---- */""", MU.lstrip('\n') + """\n/* ---- Shift Planner ---- */""")
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
@@ -2576,6 +2659,7 @@ import { attendanceByUnit, attendanceCalendar } from './attendanceChart.js';
 import { normalizePunches, normalizeAttendance, mergeAttendanceRecord, planFor } from './punches.js';
 import { PLAN_OFF, defaultPlanCode, plannedCode, buildPlanSheet, buildPlanBook, readPlanBook, planChanges, planChoices } from './shiftPlan.js';
 import { revokeWindowStart, canRevoke, attendanceAfterRevoke, snapshotDay } from './leaveRevoke.js';
+import { fileUnit, multiUnitGaps, coverage, ranges } from './multiUnit.js';
 import { parsePunchMonitor, looksLikeName } from './punchMonitor.js';
 import { earningsLines, pfBase, cycleAdjustments, statutory, buildPayslip } from './payslip.js';
 import { jsPDF } from 'jspdf';
