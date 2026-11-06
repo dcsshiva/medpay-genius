@@ -183,6 +183,13 @@
       "when": 1789865835547,
       "tag": "0025_hr_admin_password_change",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1789865836547,
+      "tag": "0026_hr_notifications",
+      "breakpoints": true
     }
   ]
 }

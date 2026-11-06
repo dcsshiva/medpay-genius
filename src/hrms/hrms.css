@@ -450,3 +450,18 @@
   .hrms-root .sync-status{top:auto; bottom:14px; left:12px; right:12px; text-align:center;}
   .hrms-root .app-version{display:block; margin:2px 0 0; font-size:10.5px; white-space:normal;}
 }
+
+/* notification bell (admin header) */
+.hrms-root .notif-bell{position:relative; padding:5px 10px; font-size:15px; line-height:1;}
+.hrms-root .notif-bell .notif-count{position:absolute; top:-6px; right:-6px; min-width:18px; height:18px; padding:0 5px; border-radius:999px; background:var(--slate); color:#fff; font-size:11px; font-weight:600; line-height:18px; text-align:center;}
+.hrms-root .notif-bell.notif-unread .notif-count{background:var(--rose);}
+.hrms-root .notif-bell.notif-unread{animation:notif-ring 1.6s ease-in-out 2;}
+@keyframes notif-ring{0%,100%{transform:rotate(0)} 10%,30%{transform:rotate(-12deg)} 20%,40%{transform:rotate(12deg)} 50%{transform:rotate(0)}}
+@media (prefers-reduced-motion: reduce){ .hrms-root .notif-bell.notif-unread{animation:none;} }
+.hrms-root .notif-card{border:1px solid var(--line-strong); border-radius:10px; padding:10px 12px; margin-bottom:10px; background:var(--surface);}
+.hrms-root .notif-card.notif-new{border-color:var(--amber); box-shadow:0 0 0 2px var(--amber-tint);}
+.hrms-root .notif-card.notif-done{opacity:.75;}
+.hrms-root .notif-head{display:flex; justify-content:space-between; align-items:center; gap:8px;}
+.hrms-root .notif-steps{margin:2px 0 8px 18px; padding:0;}
+.hrms-root .notif-steps li{margin:2px 0;}
+.hrms-root .notif-actions{display:flex; gap:8px; flex-wrap:wrap;}
