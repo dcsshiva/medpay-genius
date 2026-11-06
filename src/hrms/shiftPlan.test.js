@@ -193,3 +193,15 @@ test('sheet extras slot into the right place when SheetJS already wrote sheetVie
   assert.equal((out.match(/<sheetViews>/g) || []).length, 1);
   assert.ok(out.indexOf('<dataValidations') < out.indexOf('<pageMargins'));
 });
+
+import { weeklyOffLabel } from './shiftPlan.js';
+
+test('a weekly-off change from a date moves the default WO from that date only', () => {
+  const s = { empNo: 'x', shiftCode: 'S1', weeklyOff: 'Sun', weeklyOffHistory: [{ from: '2026-12-07', days: 'Wed' }] };
+  assert.equal(defaultPlanCode(s, '2026-11-29'), 'WO');   // Sun before the change
+  assert.equal(defaultPlanCode(s, '2026-12-02'), 'S1');   // Wed before the change
+  assert.equal(defaultPlanCode(s, '2026-12-09'), 'WO');   // Wed after the change
+  assert.equal(defaultPlanCode(s, '2026-12-13'), 'S1');   // Sun after the change
+  assert.equal(weeklyOffLabel(s, cycle), 'Sun → Wed from 2026-12-07');
+  assert.equal(weeklyOffLabel({ weeklyOff: '' }, cycle), '');
+});

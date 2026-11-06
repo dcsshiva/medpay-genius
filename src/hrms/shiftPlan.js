@@ -15,6 +15,8 @@
  * Rows are matched on Code only; a blank cell leaves that day unchanged. Only differences from
  * the default (Staff Master shift, or WO on the Staff Master weekly-off day) are stored.
  */
+import { weeklyOffOn } from './punches.js';
+
 export const PLAN_OFF = 'WO';
 export const FIXED_COLUMNS = ['Unit', 'Code', 'Name', 'Designation', 'Reporting Manager', 'Default Shift', 'Weekly Off'];
 export const HELP_SHEET = 'How to fill';
@@ -31,12 +33,20 @@ const rosterKey = (empNo, date) => empNo + '|' + date;
 
 /** What applies with no planner entry: WO on the Staff Master weekly-off day, else the Staff Master shift. */
 export function defaultPlanCode(staff, date) {
-  const off = String(staff.weeklyOff || '').split(',').map(s => s.trim());
+  const off = String(weeklyOffOn(staff.weeklyOff, staff.weeklyOffHistory, date)).split(',').map(s => s.trim());
   if (off.includes(weekdayOf(date))) return PLAN_OFF;
   return staff.shiftCode || '';
 }
 export function plannedCode(roster, staff, date) {
   return (roster || {})[rosterKey(staff.empNo, date)] || defaultPlanCode(staff, date);
+}
+
+/** Weekly off for the file: the day at the start of the cycle, plus any change inside it. */
+export function weeklyOffLabel(staff, cycle) {
+  const start = weeklyOffOn(staff.weeklyOff, staff.weeklyOffHistory, cycle.start);
+  const changes = (staff.weeklyOffHistory || []).filter(h => h.from > cycle.start && h.from <= cycle.end)
+    .sort((a, b) => (a.from < b.from ? -1 : 1)).map(h => `→ ${h.days || 'none'} from ${h.from}`);
+  return [start, ...changes].filter(Boolean).join(' ');
 }
 
 /** shift code ↔ the letter people see; letters, codes and names are all accepted when reading */
@@ -72,7 +82,7 @@ export function buildPlanSheet({ cycle, staff, roster, shifts, names, exportedAt
     (n.designation ? n.designation(s.designation) : s.designation) || '',
     (n.manager ? n.manager(s.reportingManager) : s.reportingManager) || '',
     tok.label(s.shiftCode),
-    s.weeklyOff || '',
+    weeklyOffLabel(s, cycle),
     ...cycle.dates.map(d => tok.label(plannedCode(roster, s, d))),
   ]);
   return [meta, header, ...rows];

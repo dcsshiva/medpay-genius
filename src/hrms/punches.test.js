@@ -151,3 +151,25 @@ test('a plan works without a Staff Master weekly off, and normalizeAttendance re
   assert.deepEqual(got.a.records.map(x => x.status), ['WO', 'WO']); // device WO on 7th untouched
   assert.equal(got.b.records[0].status, 'A');
 });
+
+import { weeklyOffOn } from './punches.js';
+
+test('weekly off with an effective date: earlier days keep the old day, later days follow the change', () => {
+  const history = [{ from: '2026-11-10', days: 'Wed' }, { from: '2026-11-20', days: '' }];
+  assert.equal(weeklyOffOn('Sun', history, '2026-11-08'), 'Sun');
+  assert.equal(weeklyOffOn('Sun', history, '2026-11-10'), 'Wed');
+  assert.equal(weeklyOffOn('Sun', history, '2026-11-19'), 'Wed');
+  assert.equal(weeklyOffOn('Sun', history, '2026-11-22'), '');   // back to the device's weekly offs
+  const recs = [
+    r('2026-11-08', 'A'),   // Sun, before the change → weekly off
+    r('2026-11-11', 'A'),   // Wed, after the change  → weekly off
+    r('2026-11-15', 'A'),   // Sun, after the change  → stays Absent
+    r('2026-11-15', 'A'),
+  ].slice(0, 3);
+  const got = normalizePunches(recs, { weeklyOff: 'Sun', weeklyOffHistory: history });
+  assert.deepEqual(got.map(x => x.status), ['WO', 'WO', 'A']);
+  assert.match(got[0].punchNote, /set in Staff Master/);
+  assert.match(got[1].punchNote, /Wed, from 2026-11-10/);
+  // history alone, with no Staff Master day
+  assert.equal(normalizePunches([r('2026-11-11', 'A')], { weeklyOffHistory: [{ from: '2026-11-01', days: 'Wed' }] })[0].status, 'WO');
+});
