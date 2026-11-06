@@ -176,6 +176,13 @@
       "when": 1789865834547,
       "tag": "0024_hr_weekly_off_from",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1789865835547,
+      "tag": "0025_hr_admin_password_change",
+      "breakpoints": true
     }
   ]
 }

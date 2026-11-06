@@ -82,12 +82,11 @@ export async function changePassword(isStaffAccount: boolean, current: string, n
   // The auth service requires the current password alongside the new one ("secure password change").
   const { error } = await supabase.auth.updateUser({ password: wrap(next), current_password: wrap(current) } as any);
   if (error) return { error: error.message };
-  if (isStaffAccount) {
-    // clears the "must change password" flag — the database checks the password really changed
-    const { data: stillFlagged, error: flagErr } = await (supabase as any).rpc('hr_refresh_password_flag');
-    if (flagErr) return { error: flagErr.message };
-    if (stillFlagged) return { error: 'Choose a password different from the one you were given.' };
-  }
+  // clears the "must change password" flag (staff and administrators) — the database checks the
+  // password really changed
+  const { data: stillFlagged, error: flagErr } = await (supabase as any).rpc('hr_refresh_password_flag');
+  if (flagErr) return { error: flagErr.message };
+  if (stillFlagged) return { error: 'Choose a password different from the one you were given.' };
 }
 
 /** Calls the hr-manage-login edge function (admin only). */

@@ -101,7 +101,7 @@ export default function HrmsApp() {
         + '<div class="modal-head"><h3 id="npTitle" style="font-size:15px;">Choose a new password</h3></div>'
         + '<div class="modal-body">'
         + '<div class="hint" style="margin-bottom:12px;"><span id="npName"></span>, for your security please choose your own password before continuing. '
-        + 'It must be at least 6 characters and can\'t be your Staff Code.</div>'
+        + 'It must be at least 6 characters' + (who.empNo ? ' and can\'t be your Staff Code' : '') + '.</div>'
         + '<div class="form-row"><label for="npCurrent">Current password</label><input id="npCurrent" type="password" autocomplete="current-password"></div>'
         + '<div class="form-row"><label for="npNew">New password</label><input id="npNew" type="password" autocomplete="new-password"></div>'
         + '<div class="form-row"><label for="npConfirm">Confirm new password</label><input id="npConfirm" type="password" autocomplete="new-password"></div>'
@@ -122,7 +122,8 @@ export default function HrmsApp() {
         if (nw !== cf) { err.textContent = 'New password and confirmation do not match.'; return; }
         const btn = $('npSubmit') as unknown as HTMLButtonElement;
         btn.disabled = true; err.textContent = '';
-        const r = await changePassword(true, cur, nw);
+        // staff logins use the Staff Code scheme; administrators' passwords are used as typed
+        const r = await changePassword(!!who.empNo, cur, nw);
         btn.disabled = false;
         if (r && r.error) { err.textContent = r.error; return; }
         done(true);

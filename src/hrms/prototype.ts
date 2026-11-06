@@ -330,6 +330,11 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   }
 
   function staffSalaryHidden(){ return !PAYROLL_SETTINGS.staffSalaryVisible; }
+  /* a Manager with no reporting manager reports to the top administrator (Payroll Settings) */
+  function topManagerFor(emp){
+    const top = (PAYROLL_SETTINGS && PAYROLL_SETTINGS.topReportingManager) || '';
+    return top && emp && emp.role==='Manager' && (!emp.reportingManager || !findStaff(emp.reportingManager)) ? top : '';
+  }
   function profileAndStats(result, hideSal){
     const {emp, summary} = result;
     return ''+
@@ -337,7 +342,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '<div>'+
         '<div class="profile-name">'+emp.name+'</div>'+
         '<div class="profile-meta mono">Staff Code '+emp.empNo+' &middot; '+desgName(emp.designation)+' &middot; '+deptName(emp.department)+' &middot; '+unitName(emp.unitCode)+'</div>'+
-        '<div class="profile-meta">Reporting Manager: '+(findStaff(emp.reportingManager)?findStaff(emp.reportingManager).name:'Not assigned — Administrator approves your requests')+'</div>'+
+        '<div class="profile-meta">Reporting Manager: '+(findStaff(emp.reportingManager)?findStaff(emp.reportingManager).name:(topManagerFor(emp) ? escapeHTML(topManagerFor(emp))+' (Administrator)' : 'Not assigned — Administrator approves your requests'))+'</div>'+
       '</div>'+
       (hideSal ? '' : '<div style="display:flex;gap:8px;flex-wrap:wrap;">'+
         '<span class="badge teal">Gross Salary '+fmtMoney(emp.netSalary)+'</span>'+
@@ -463,7 +468,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '<td>'+l.type+'</td>'+
       '<td class="mono">'+fmtDate(l.date)+(l.hours?' &middot; '+l.hours+'h':'')+'</td>'+
       '<td class="wrap-cell">'+l.reason+(bal?'<div class="hint">CL '+bal.clRemaining+'/'+bal.monthlyCL+' &middot; Permission '+fmtMin(bal.permissionRemaining)+'/'+fmtMin(bal.monthlyPermissionMin)+' remaining</div>':'')+'</td>'+
-      (opts.showRouting ? '<td>'+(mgr?mgr.name:'—')+'</td><td>'+(alt?alt.name:'—')+'</td>' : '')+
+      (opts.showRouting ? '<td>'+(mgr?mgr.name:(s && topManagerFor(s) ? escapeHTML(topManagerFor(s))+' (Administrator)' : '—'))+'</td><td>'+(alt?alt.name:'—')+'</td>' : '')+
       '<td>'+statusPill(l.status)+(l.decidedBy?'<div class="hint" style="margin-top:2px;">'+(l.status==='Revoked'?'approved':'by')+' by '+l.decidedBy+' &middot; '+fmtDate(l.decidedOn)+'</div>':'')+
           (l.status==='Revoked' && l.revokedBy ? '<div class="hint" style="margin-top:2px;color:var(--rose);">withdrawn by '+escapeHTML(l.revokedBy)+' &middot; '+fmtDate(l.revokedOn)+(l.revokeReason?' — '+escapeHTML(l.revokeReason):'')+'</div>' : '')+'</td>'+
       (opts.actions ? '<td>'+opts.actions(l)+'</td>' : '')+
@@ -926,6 +931,9 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     '<div class="section-title" style="margin-top:0;">Staff login</div>'+
     '<div class="form-row"><label><input type="checkbox" id="psStaffSal" '+(p.staffSalaryVisible?'checked':'')+'> Show salary details to staff (gross, LOP deduction, PF/ESI/PT, overtime pay, net payable, payslip)</label></div>'+
     '<div class="hint">When off, staff see only their attendance, tasks and leave.</div>'+
+    '<div class="section-title">Top administrator</div>'+
+    '<div class="form-row" style="max-width:360px;"><label>Name</label><input id="psTopMgr" value="'+escapeAttr(p.topReportingManager||'')+'" placeholder="e.g. Arulmani Ayyamperumal"></div>'+
+    '<div class="hint">Every Manager without a reporting manager reports to this administrator — now and when new managers are added. Their requests are approved by administrators.</div>'+
     '<div class="section-title">Pay cycle</div>'+
     '<div class="form-row" style="max-width:220px;"><label>Cycle start day of month</label><input id="psCycleDay" type="number" min="1" max="28" value="'+p.cycleStartDay+'"></div>'+
     '<div class="hint">Current cycle: '+CYCLE_LABEL_JS+' (a full cycle runs the '+p.cycleStartDay+'th to the day before the '+p.cycleStartDay+'th of the next month).</div>'+
@@ -988,6 +996,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       p.ot.multiplier = parseFloat(document.getElementById('psOtMult').value) || 1;
       p.ot.graceMin = parseFloat(document.getElementById('psOtGrace').value) || 0;
       p.staffSalaryVisible = document.getElementById('psStaffSal').checked;
+      p.topReportingManager = document.getElementById('psTopMgr').value.trim();
       p.defaultPermissionHours = parseFloat(document.getElementById('psPermDefault').value) || 0;
       p.permissionRoundUpToHours = parseFloat(document.getElementById('psPermRound').value) || 0;
       if(document.getElementById('psPermApply').checked) STAFF.forEach(e=>{ e.monthlyPermissionHours = p.defaultPermissionHours; });
@@ -1641,7 +1650,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const pendingLeave = LEAVES.filter(l=>l.status==='Pending' && scopedIds.has(l.empNo)).length;
     const rejectedTasks = TASKS.filter(t=>t.status==='Rejected' && scopedIds.has(t.assignedTo)).length;
     const reviewsAwaiting = TASKS.filter(t=>t.status==='Review' && scopedIds.has(t.assignedTo)).length;
-    const noManager = scopedStaff.filter(s=>!s.reportingManager || !findStaff(s.reportingManager)).length;
+    const noManager = scopedStaff.filter(s=>(!s.reportingManager || !findStaff(s.reportingManager)) && !topManagerFor(s)).length;
     const byDept = {};
     scopedStaff.forEach(s=> byDept[s.department] = (byDept[s.department]||0)+1);
 
@@ -1669,7 +1678,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         stat('Total deduction (cycle)', fmtMoney(totalDeduction), totalDeduction>0.5?'rose':'', xl(()=>xPayroll('Total deduction', scopedStaff)))+
         stat('Rejected tasks to reassign', rejectedTasks, rejectedTasks>0?'rose':'', xl(()=>xTaskList('Rejected tasks', TASKS.filter(t=>t.status==='Rejected' && scopedIds.has(t.assignedTo)))))+
         stat('Reviews awaiting close', reviewsAwaiting, reviewsAwaiting>0?'rose':'', xl(()=>xTaskList('Reviews awaiting close', TASKS.filter(t=>t.status==='Review' && scopedIds.has(t.assignedTo)))))+
-        stat('Staff with no Reporting Manager', noManager, noManager>0?'rose':'', xl(()=>xStaffTree('No reporting manager', scopedStaff.filter(s=>!s.reportingManager || !findStaff(s.reportingManager)), 'Open a unit to assign their reporting managers here.', {assignManager: true})))+
+        stat('Staff with no Reporting Manager', noManager, noManager>0?'rose':'', xl(()=>xStaffTree('No reporting manager', scopedStaff.filter(s=>(!s.reportingManager || !findStaff(s.reportingManager)) && !topManagerFor(s)), 'Open a unit to assign their reporting managers here.', {assignManager: true})))+
       '</div>'+
       whosOutBoard(scopedIds)+
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" class="stack-mobile">'+

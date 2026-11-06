@@ -2697,6 +2697,33 @@ rep("""/* ---- Shift Planner ---- */""", MU.lstrip('\n') + """\n/* ---- Shift Pl
 rep("""    stat('Present days', summary.presentDays+' / '+ (summary.cycleLen-summary.woDays-summary.holidayDays))+""",
     """    stat('Present days', summary.presentDays+' / '+ env.cycle.dates.length)+""")
 
+# ── 52. top administrator (Payroll Settings → "Top administrator"): every Manager without a reporting
+#        manager — now or added later — reports to this person; shown on their page and in the leave
+#        list, and they no longer count as "no reporting manager". Requests still go to administrators. ──
+rep("""  '<div class="hint">When off, staff see only their attendance, tasks and leave.</div>'+""",
+    """  '<div class="hint">When off, staff see only their attendance, tasks and leave.</div>'+
+  '<div class="section-title">Top administrator</div>'+
+  '<div class="form-row" style="max-width:360px;"><label>Name</label><input id="psTopMgr" value="'+escapeAttr(p.topReportingManager||'')+'" placeholder="e.g. Arulmani Ayyamperumal"></div>'+
+  '<div class="hint">Every Manager without a reporting manager reports to this administrator — now and when new managers are added. Their requests are approved by administrators.</div>'+""")
+rep("""    p.staffSalaryVisible = document.getElementById('psStaffSal').checked;""",
+    """    p.staffSalaryVisible = document.getElementById('psStaffSal').checked;
+    p.topReportingManager = document.getElementById('psTopMgr').value.trim();""")
+rep("""function staffSalaryHidden(){ return !PAYROLL_SETTINGS.staffSalaryVisible; }""",
+    """function staffSalaryHidden(){ return !PAYROLL_SETTINGS.staffSalaryVisible; }
+/* a Manager with no reporting manager reports to the top administrator (Payroll Settings) */
+function topManagerFor(emp){
+  const top = (PAYROLL_SETTINGS && PAYROLL_SETTINGS.topReportingManager) || '';
+  return top && emp && emp.role==='Manager' && (!emp.reportingManager || !findStaff(emp.reportingManager)) ? top : '';
+}""")
+rep("""(findStaff(emp.reportingManager)?findStaff(emp.reportingManager).name:'Not assigned — Administrator approves your requests')""",
+    """(findStaff(emp.reportingManager)?findStaff(emp.reportingManager).name:(topManagerFor(emp) ? escapeHTML(topManagerFor(emp))+' (Administrator)' : 'Not assigned — Administrator approves your requests'))""")
+rep("""(opts.showRouting ? '<td>'+(mgr?mgr.name:'—')+'</td>""",
+    """(opts.showRouting ? '<td>'+(mgr?mgr.name:(s && topManagerFor(s) ? escapeHTML(topManagerFor(s))+' (Administrator)' : '—'))+'</td>""")
+rep("""  const noManager = scopedStaff.filter(s=>!s.reportingManager || !findStaff(s.reportingManager)).length;""",
+    """  const noManager = scopedStaff.filter(s=>(!s.reportingManager || !findStaff(s.reportingManager)) && !topManagerFor(s)).length;""")
+rep("""xl(()=>xStaffTree('No reporting manager', scopedStaff.filter(s=>!s.reportingManager || !findStaff(s.reportingManager)),""",
+    """xl(()=>xStaffTree('No reporting manager', scopedStaff.filter(s=>(!s.reportingManager || !findStaff(s.reportingManager)) && !topManagerFor(s)),""")
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
