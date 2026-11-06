@@ -330,9 +330,15 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   }
 
   function staffSalaryHidden(){ return !PAYROLL_SETTINGS.staffSalaryVisible; }
+  /* staff whose reporting manager is the top administrator (no staff code) */
+  const TOP_MGR = '@top';
+  function topMgrLabel(){ return ((PAYROLL_SETTINGS && PAYROLL_SETTINGS.topReportingManager) || 'Top administrator')+' (Administrator)'; }
+  function topMgrOption(cur){ return '<option value="'+TOP_MGR+'"'+(cur===TOP_MGR?' selected':'')+'>'+escapeHTML(topMgrLabel())+'</option>'; }
+  function hasManager(s){ return !!s && (s.reportingManager===TOP_MGR || (!!s.reportingManager && !!findStaff(s.reportingManager))); }
   /* a Manager with no reporting manager reports to the top administrator (Payroll Settings) */
   function topManagerFor(emp){
     const top = (PAYROLL_SETTINGS && PAYROLL_SETTINGS.topReportingManager) || '';
+    if(emp && emp.reportingManager===TOP_MGR) return top || 'Top administrator';
     return top && emp && emp.role==='Manager' && (!emp.reportingManager || !findStaff(emp.reportingManager)) ? top : '';
   }
   function profileAndStats(result, hideSal){
@@ -1764,7 +1770,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         stat('Total deduction (cycle)', fmtMoney(totalDeduction), totalDeduction>0.5?'rose':'', xl(()=>xPayroll('Total deduction', scopedStaff)))+
         stat('Rejected tasks to reassign', rejectedTasks, rejectedTasks>0?'rose':'', xl(()=>xTaskList('Rejected tasks', TASKS.filter(t=>t.status==='Rejected' && scopedIds.has(t.assignedTo)))))+
         stat('Reviews awaiting close', reviewsAwaiting, reviewsAwaiting>0?'rose':'', xl(()=>xTaskList('Reviews awaiting close', TASKS.filter(t=>t.status==='Review' && scopedIds.has(t.assignedTo)))))+
-        stat('Staff with no Reporting Manager', noManager, noManager>0?'rose':'', xl(()=>xStaffTree('No reporting manager', scopedStaff.filter(s=>(!s.reportingManager || !findStaff(s.reportingManager)) && !topManagerFor(s)), 'Open a unit to assign their reporting managers here.', {assignManager: true})))+
+        stat('Reporting managers', xManagerRows(scopedStaff).length, '', xl(()=>xManagers('Reporting managers', scopedStaff)))+
+          stat('Staff with no Reporting Manager', noManager, noManager>0?'rose':'', xl(()=>xStaffTree('No reporting manager', scopedStaff.filter(s=>(!s.reportingManager || !findStaff(s.reportingManager)) && !topManagerFor(s)), 'Open a unit to assign their reporting managers here.', {assignManager: true})))+
       '</div>'+
       whosOutBoard(scopedIds)+
       '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" class="stack-mobile">'+
@@ -1900,12 +1907,12 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     let savedMsg = '';
     const managers = ()=> STAFF.filter(m=>m.role==='Manager').sort((a,b)=>a.name.localeCompare(b.name));
     const options = (cur, selfEmp, blank)=> '<option value="">'+blank+'</option>'+
-      managers().filter(m=>m.empNo!==selfEmp).map(m=>'<option value="'+escapeAttr(m.empNo)+'"'+(cur===m.empNo?' selected':'')+'>'+escapeHTML(m.name)+'</option>').join('');
+      topMgrOption(cur)+managers().filter(m=>m.empNo!==selfEmp).map(m=>'<option value="'+escapeAttr(m.empNo)+'"'+(cur===m.empNo?' selected':'')+'>'+escapeHTML(m.name)+'</option>').join('');
     const node = {title, build: ()=>{
       const sorted = list.slice().sort((a,b)=>a.name.localeCompare(b.name));
-      const left = sorted.filter(s=>!s.reportingManager || !findStaff(s.reportingManager)).length;
+      const left = sorted.filter(s=>!hasManager(s)).length;
       const rows = sorted.map(s=>{
-        const ok = s.reportingManager && findStaff(s.reportingManager);
+        const ok = hasManager(s);
         return '<tr data-emp="'+escapeAttr(s.empNo)+'">'+
           '<td><input type="checkbox" class="am-pick" aria-label="Select '+escapeAttr(s.name)+'"'+(picked.has(s.empNo)?' checked':'')+'></td>'+
           '<td>'+xMono(s.empNo)+'</td><td>'+xStaffLink(s.empNo)+'</td>'+
@@ -1931,7 +1938,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         emps.forEach(id=>{ const s = findStaff(id); if(s && id !== mgr){ s.reportingManager = mgr; n++; } });
         if(n){ xDirty = true; env.scheduleSync(); }
         const m = findStaff(mgr);
-        savedMsg = n ? (m ? n+' set to '+m.name : n+' cleared') : '';
+        savedMsg = n ? (mgr===TOP_MGR ? n+' set to '+topMgrLabel() : m ? n+' set to '+m.name : n+' cleared') : '';
         renderExplorer();
       };
       root.querySelectorAll('tr[data-emp] .am-mgr').forEach(sel=> sel.onchange = ()=> assign([sel.closest('tr').dataset.emp], sel.value));
@@ -1970,6 +1977,27 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         xMono(xSum(members, c=>c.summary.lateDays))].concat(hideSal ? [] : [xMono(fmtMoney(xSum(members, c=>c.emp.netSalary)))])));
       return xTable(['Department','Staff','Present days','Late instances'].concat(hideSal ? [] : ['Payroll cost']), rows, 'No staff.')+
         '<div style="margin-top:10px;"><button class="'+(opts && opts.assignManager ? 'btn' : 'iconbtn')+'"'+xl(()=>xStaffList(title+' · all staff', list, '', opts))+'>'+(opts && opts.assignManager && !xIsManager() ? 'Assign reporting managers — all '+list.length+' ›' : 'Show all '+list.length+' as one list ›')+'</button></div>';
+    }};
+  }
+  /* every reporting manager (the top administrator first) with their direct reports among `list` */
+  function xManagerRows(list){
+    const out = [];
+    const top = (PAYROLL_SETTINGS && PAYROLL_SETTINGS.topReportingManager) || '';
+    const topReports = list.filter(s=>s.reportingManager===TOP_MGR || (!!top && !!topManagerFor(s)));
+    if(top || topReports.length) out.push({name: top || 'Top administrator', code: '', admin: true, reports: topReports});
+    STAFF.filter(m=>m.role==='Manager' && m.active!==false).sort((a,b)=>a.name.localeCompare(b.name))
+      .forEach(m=> out.push({name: m.name, code: m.empNo, admin: false, reports: list.filter(s=>s.reportingManager===m.empNo)}));
+    return out;
+  }
+  function xManagers(title, list){
+    return {title, build: ()=>{
+      const rows = xManagerRows(list).map(r=> xRow(r.reports.length ? xl(()=>xStaffList('Reports of '+r.name, r.reports)) : '', [
+        r.code ? xMono(r.code) : '<span class="hint" style="margin:0;">no staff code</span>',
+        escapeHTML(r.name)+(r.admin ? ' <span class="badge slate">Administrator</span>' : ''),
+        r.code ? escapeHTML(deptName((findStaff(r.code)||{}).department)||'—') : '—',
+        xMono(r.reports.length)]));
+      return xHint('Each reporting manager and the staff who report directly to them. Click a row to see the staff. Staff reporting to the administrator send their leave and permission requests to the administrators.')+
+        xTable(['Code','Reporting manager','Department','Direct reports'], rows, 'No reporting managers yet.');
     }};
   }
   function xStaffList(title, list, hint, opts){
@@ -2015,7 +2043,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
           '<span class="badge slate">'+escapeHTML(deptName(s.department)||'No department')+'</span>'+
           '<span class="badge slate">'+escapeHTML(desgName(s.designation)||'No designation')+'</span>'+
           '<span class="badge slate">'+escapeHTML(sh ? sh.name : 'No shift')+'</span>'+
-          (mgr ? btn('Reporting manager: '+escapeHTML(mgr.name), xCanSee(mgr.empNo) ? xl(()=>xStaff(mgr.empNo)) : '') || '<span class="badge slate">Manager: '+escapeHTML(mgr.name)+'</span>' : '<span class="badge rose">No reporting manager</span>')+
+          (mgr ? btn('Reporting manager: '+escapeHTML(mgr.name), xCanSee(mgr.empNo) ? xl(()=>xStaff(mgr.empNo)) : '') || '<span class="badge slate">Manager: '+escapeHTML(mgr.name)+'</span>' : (topManagerFor(s) ? '<span class="badge slate">Reporting manager: '+escapeHTML(topManagerFor(s))+' (Administrator)</span>' : '<span class="badge rose">No reporting manager</span>'))+
           (reports.length ? btn(reports.length+' report'+(reports.length>1?'s':''), xl(()=>xStaffList('Reports of '+s.name, reports))) : '')+
           btn(tasks.length+' task'+(tasks.length===1?'':'s'), xl(()=>xTaskList('Tasks · '+s.name, tasks)))+
           btn(leaves.length+' leave / permission request'+(leaves.length===1?'':'s'), xl(()=>xLeaveList('Leave · '+s.name, leaves)))+
@@ -2420,7 +2448,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       desg: defaultCode(DESIGNATIONS,'Front Office Executive'), shift: defaultCode(SHIFT_MASTER,'General Shift')
     };
     const opt = (list, lbl, selected='')=> '<option value="">'+lbl+'</option>'+act(list).map(x=>'<option value="'+x.code+'"'+(x.code===selected?' selected':'')+'>'+escapeHTML(x.name)+'</option>').join('');
-     const mgrOpts = '<option value="">— none —</option>'+STAFF.filter(m=>m.role==='Manager').map(m=>'<option value="'+escapeAttr(m.empNo)+'">'+escapeHTML(m.name)+' ('+escapeHTML(m.empNo)+')</option>').join('');
+     const mgrOpts = '<option value="">— none —</option>'+topMgrOption('')+STAFF.filter(m=>m.role==='Manager').map(m=>'<option value="'+escapeAttr(m.empNo)+'">'+escapeHTML(m.name)+' ('+escapeHTML(m.empNo)+')</option>').join('');
      const bulkField = (label, field, options)=> '<label class="ns-bulk-field"><span>'+label+'</span><select data-f="'+field+'" class="ns-bulk">'+options+'</select></label>';
      const bulk = '<div class="ns-bulk-panel"><div class="section-title">Fill all new staff</div><div class="ns-bulk-grid">'+
        bulkField('Unit','unit',opt(UNITS,'Select unit…',defaults.unit))+
@@ -2771,7 +2799,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '</select></td>'+
         '<td><select class="editable" data-field="reportingManager">'+
           '<option value="">— none —</option>'+
-          STAFF.filter(m=>m.role==='Manager' && m.empNo!==e.empNo).map(m=>'<option value="'+m.empNo+'" '+(e.reportingManager===m.empNo?'selected':'')+'>'+m.name+'</option>').join('')+
+          topMgrOption(e.reportingManager)+STAFF.filter(m=>m.role==='Manager' && m.empNo!==e.empNo).map(m=>'<option value="'+m.empNo+'" '+(e.reportingManager===m.empNo?'selected':'')+'>'+m.name+'</option>').join('')+
         '</select></td>'+
         '<td><select class="editable" data-field="designation">'+
           activeOnly(DESIGNATIONS, e.designation).map(d=>'<option value="'+d.code+'" '+(e.designation===d.code?'selected':'')+'>'+d.name+'</option>').join('')+
@@ -2877,7 +2905,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<select class="search" id="bulkMgrSel" style="min-width:200px;">'+
           '<option value="__">Set reporting manager…</option>'+
           '<option value="">— none (Administrator approves) —</option>'+
-          managers.map(m=>'<option value="'+m.empNo+'">'+m.name+' ('+m.empNo+')</option>').join('')+
+          topMgrOption('')+managers.map(m=>'<option value="'+m.empNo+'">'+m.name+' ('+m.empNo+')</option>').join('')+
         '</select>'+
         '<button class="btn sm" id="bulkMgrApply">Apply to selected</button>'+
         '<button class="iconbtn" id="bulkMgrClear">Clear selection</button>'+
@@ -2896,7 +2924,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       if(!staffSel.size){ alert('Tick at least one staff member.'); return; }
       let n = 0;
       staffSel.forEach(id=>{ const s = findStaff(id); if(s && s.empNo!==v){ s.reportingManager = v; n++; } });
-      const who = v ? (findStaff(v)||{}).name : 'none';
+      const who = v===TOP_MGR ? topMgrLabel() : v ? (findStaff(v)||{}).name : 'none';
       staffSel.clear();
       renderAdminStaff();
       alert('Reporting Manager set to '+who+' for '+n+' staff.');
@@ -3061,7 +3089,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '</div>'+
         '<div class="form-row"><label>Reporting Manager</label><select id="asReportingManager">'+
           '<option value="">— none —</option>'+
-          STAFF.filter(m=>m.role==='Manager').map(m=>'<option value="'+m.empNo+'">'+m.name+'</option>').join('')+
+          topMgrOption('')+STAFF.filter(m=>m.role==='Manager').map(m=>'<option value="'+m.empNo+'">'+m.name+'</option>').join('')+
         '</select></div>'+
         '<div class="form-grid">'+
           '<div class="form-row"><label>Designation</label><select id="asDesignation">'+
@@ -3624,10 +3652,10 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const headers = ['Staff ref','Login ID','Name','Role','Designation','Department','Unit','Reporting manager','Shift','Net salary','Phone','Email','DOJ'];
     body.innerHTML = reportShell('Staff master export', 'Full staff roster for the selected scope.',
       headers,
-      rows.map(s=>{ const m=findStaff(s.reportingManager); return '<tr><td class="mono">'+s.dbRef+'</td><td class="mono">'+s.empNo+'</td><td>'+s.name+'</td><td>'+s.role+'</td><td>'+desgName(s.designation)+'</td><td>'+deptName(s.department)+'</td><td>'+unitName(s.unitCode)+'</td><td>'+(m?m.name:'—')+'</td><td>'+s.shiftCode+'</td><td class="mono">'+fmtMoney(s.netSalary)+'</td><td>'+(s.phone||'—')+'</td><td>'+(s.email||'—')+'</td><td class="mono">'+(s.doj||'—')+'</td></tr>'; }).join('')
+      rows.map(s=>{ const m=findStaff(s.reportingManager); return '<tr><td class="mono">'+s.dbRef+'</td><td class="mono">'+s.empNo+'</td><td>'+s.name+'</td><td>'+s.role+'</td><td>'+desgName(s.designation)+'</td><td>'+deptName(s.department)+'</td><td>'+unitName(s.unitCode)+'</td><td>'+(m?m.name:(topManagerFor(s)||'—'))+'</td><td>'+s.shiftCode+'</td><td class="mono">'+fmtMoney(s.netSalary)+'</td><td>'+(s.phone||'—')+'</td><td>'+(s.email||'—')+'</td><td class="mono">'+(s.doj||'—')+'</td></tr>'; }).join('')
     );
     document.getElementById('reportExportBtn').onclick = ()=> exportCSV('staff_master.csv', headers,
-      rows.map(s=>{ const m=findStaff(s.reportingManager); return [s.dbRef,s.empNo,s.name,s.role,desgName(s.designation),deptName(s.department),unitName(s.unitCode),m?m.name:'',s.shiftCode,s.netSalary,s.phone||'',s.email||'',s.doj||'']; }));
+      rows.map(s=>{ const m=findStaff(s.reportingManager); return [s.dbRef,s.empNo,s.name,s.role,desgName(s.designation),deptName(s.department),unitName(s.unitCode),m?m.name:topManagerFor(s),s.shiftCode,s.netSalary,s.phone||'',s.email||'',s.doj||'']; }));
   }
 
   function renderReportStatutory(){

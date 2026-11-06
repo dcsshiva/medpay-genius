@@ -2828,6 +2828,70 @@ async function openNotifications(){
 """
 rep("""/* ---- Shift Planner ---- */""", NB.lstrip('\n') + """\n/* ---- Shift Planner ---- */""")
 
+# ── 55. staff can report directly to the top administrator (Payroll Settings → "Top administrator", who has
+#        no staff code): reporting_manager '@top'. Offered in every reporting-manager list; their requests
+#        go to administrators. Overview gets a "Reporting managers" list with each one's direct reports. ──
+rep("""  return top && emp && emp.role==='Manager' && (!emp.reportingManager || !findStaff(emp.reportingManager)) ? top : '';""",
+    """  if(emp && emp.reportingManager===TOP_MGR) return top || 'Top administrator';
+  return top && emp && emp.role==='Manager' && (!emp.reportingManager || !findStaff(emp.reportingManager)) ? top : '';""")
+rep("""/* a Manager with no reporting manager reports to the top administrator (Payroll Settings) */""",
+    """/* staff whose reporting manager is the top administrator (no staff code) */
+const TOP_MGR = '@top';
+function topMgrLabel(){ return ((PAYROLL_SETTINGS && PAYROLL_SETTINGS.topReportingManager) || 'Top administrator')+' (Administrator)'; }
+function topMgrOption(cur){ return '<option value="'+TOP_MGR+'"'+(cur===TOP_MGR?' selected':'')+'>'+escapeHTML(topMgrLabel())+'</option>'; }
+function hasManager(s){ return !!s && (s.reportingManager===TOP_MGR || (!!s.reportingManager && !!findStaff(s.reportingManager))); }
+/* a Manager with no reporting manager reports to the top administrator (Payroll Settings) */""")
+# Staff Master row, bulk bar, new-staff sheet, Add staff dialog
+rep("""STAFF.filter(m=>m.role==='Manager' && m.empNo!==e.empNo).map(m=>'<option value="'+m.empNo+'" '+(e.reportingManager===m.empNo?'selected':'')""",
+    """topMgrOption(e.reportingManager)+STAFF.filter(m=>m.role==='Manager' && m.empNo!==e.empNo).map(m=>'<option value="'+m.empNo+'" '+(e.reportingManager===m.empNo?'selected':'')""")
+rep("""managers.map(m=>'<option value="'+m.empNo+'">'+m.name+' ('+m.empNo+')</option>').join('')+""",
+    """topMgrOption('')+managers.map(m=>'<option value="'+m.empNo+'">'+m.name+' ('+m.empNo+')</option>').join('')+""")
+rep("""const who = v ? (findStaff(v)||{}).name : 'none';""",
+    """const who = v===TOP_MGR ? topMgrLabel() : v ? (findStaff(v)||{}).name : 'none';""")
+rep("""const mgrOpts = '<option value="">— none —</option>'+STAFF.filter""",
+    """const mgrOpts = '<option value="">— none —</option>'+topMgrOption('')+STAFF.filter""")
+rep("""STAFF.filter(m=>m.role==='Manager').map(m=>'<option value="'+m.empNo+'">'+m.name+'</option>').join('')+""",
+    """topMgrOption('')+STAFF.filter(m=>m.role==='Manager').map(m=>'<option value="'+m.empNo+'">'+m.name+'</option>').join('')+""")
+# Overview → assign reporting managers
+rep("""managers().filter(m=>m.empNo!==selfEmp)""", """topMgrOption(cur)+managers().filter(m=>m.empNo!==selfEmp)""")
+rep("""const left = sorted.filter(s=>!s.reportingManager || !findStaff(s.reportingManager)).length;""",
+    """const left = sorted.filter(s=>!hasManager(s)).length;""")
+rep("""const ok = s.reportingManager && findStaff(s.reportingManager);""", """const ok = hasManager(s);""")
+rep("""savedMsg = n ? (m ? n+' set to '+m.name""", """savedMsg = n ? (mgr===TOP_MGR ? n+' set to '+topMgrLabel() : m ? n+' set to '+m.name""")
+# staff page in the explorer
+rep(""": '<span class="badge rose">No reporting manager</span>')""",
+    """: (topManagerFor(s) ? '<span class="badge slate">Reporting manager: '+escapeHTML(topManagerFor(s))+' (Administrator)</span>' : '<span class="badge rose">No reporting manager</span>'))""")
+# Staff master report
+rep("""+(m?m.name:'—')+'</td><td>'+s.shiftCode""", """+(m?m.name:(topManagerFor(s)||'—'))+'</td><td>'+s.shiftCode""")
+rep("""unitName(s.unitCode),m?m.name:'',s.shiftCode""", """unitName(s.unitCode),m?m.name:topManagerFor(s),s.shiftCode""")
+# Overview: the reporting managers list
+rep("""stat('Staff with no Reporting Manager', noManager,""",
+    """stat('Reporting managers', xManagerRows(scopedStaff).length, '', xl(()=>xManagers('Reporting managers', scopedStaff)))+
+        stat('Staff with no Reporting Manager', noManager,""")
+rep("""function xStaffList(title, list, hint, opts){""",
+    """/* every reporting manager (the top administrator first) with their direct reports among `list` */
+function xManagerRows(list){
+  const out = [];
+  const top = (PAYROLL_SETTINGS && PAYROLL_SETTINGS.topReportingManager) || '';
+  const topReports = list.filter(s=>s.reportingManager===TOP_MGR || (!!top && !!topManagerFor(s)));
+  if(top || topReports.length) out.push({name: top || 'Top administrator', code: '', admin: true, reports: topReports});
+  STAFF.filter(m=>m.role==='Manager' && m.active!==false).sort((a,b)=>a.name.localeCompare(b.name))
+    .forEach(m=> out.push({name: m.name, code: m.empNo, admin: false, reports: list.filter(s=>s.reportingManager===m.empNo)}));
+  return out;
+}
+function xManagers(title, list){
+  return {title, build: ()=>{
+    const rows = xManagerRows(list).map(r=> xRow(r.reports.length ? xl(()=>xStaffList('Reports of '+r.name, r.reports)) : '', [
+      r.code ? xMono(r.code) : '<span class="hint" style="margin:0;">no staff code</span>',
+      escapeHTML(r.name)+(r.admin ? ' <span class="badge slate">Administrator</span>' : ''),
+      r.code ? escapeHTML(deptName((findStaff(r.code)||{}).department)||'—') : '—',
+      xMono(r.reports.length)]));
+    return xHint('Each reporting manager and the staff who report directly to them. Click a row to see the staff. Staff reporting to the administrator send their leave and permission requests to the administrators.')+
+      xTable(['Code','Reporting manager','Department','Direct reports'], rows, 'No reporting managers yet.');
+  }};
+}
+function xStaffList(title, list, hint, opts){""")
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
