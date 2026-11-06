@@ -106,7 +106,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const pool = activeOnly(SHIFT_MASTER).filter(s=>!isGeneralShift(s) && shiftAllowedFor(s, emp));
     if(!pool.length) return own || nearestShift(inMin);
     let best=pool[0], bd=Infinity;
-    for(const s of pool){ const d=Math.abs(inMin-shiftStartMin(s)); if(d<bd){ bd=d; best=s; } }
+    for(const s of pool){ const d=Math.abs(inMin-shiftStartMin(s)); if(d<bd || (d===bd && own && s.code===own.code)){ bd=d; best=s; } }
     return best;
   }
   function isOverridden(empNo, date){ return !!ROSTER[rosterKey(empNo, date)]; }

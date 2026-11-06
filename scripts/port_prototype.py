@@ -2724,6 +2724,15 @@ rep("""  const noManager = scopedStaff.filter(s=>!s.reportingManager || !findSta
 rep("""xl(()=>xStaffTree('No reporting manager', scopedStaff.filter(s=>!s.reportingManager || !findStaff(s.reportingManager)),""",
     """xl(()=>xStaffTree('No reporting manager', scopedStaff.filter(s=>(!s.reportingManager || !findStaff(s.reportingManager)) && !topManagerFor(s)),""")
 
+# ── 53. shifts that start at the same time (Morning Shift 1 / 2 / DMO's Shift 1 at 08:00, …): the staff
+#        member's own Staff Master shift wins the tie, so their own shift name is shown. ──
+rep("""  if(!pool.length) return own || nearestShift(inMin);
+  let best=pool[0], bd=Infinity;
+  for(const s of pool){ const d=Math.abs(inMin-shiftStartMin(s)); if(d<bd){ bd=d; best=s; } }""",
+    """  if(!pool.length) return own || nearestShift(inMin);
+  let best=pool[0], bd=Infinity;
+  for(const s of pool){ const d=Math.abs(inMin-shiftStartMin(s)); if(d<bd || (d===bd && own && s.code===own.code)){ bd=d; best=s; } }""")
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
