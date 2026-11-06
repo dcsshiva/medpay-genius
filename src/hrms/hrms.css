@@ -167,6 +167,8 @@
 .hrms-root .plan-picker button.active{background:#e8f1fe; font-weight:600;}
 .hrms-root .plan-picker .planner-cell{flex:none; cursor:inherit;}
 .hrms-root .plan-picker .plan-picker-clear{color:var(--rose); border-top:1px solid var(--line); border-radius:0 0 6px 6px; margin-top:4px;}
+.hrms-root .plan-wo-btn{background:none; border:1px dashed var(--line-strong); border-radius:6px; padding:3px 8px; cursor:pointer; text-align:left; color:inherit; font:inherit;}
+.hrms-root .plan-wo-btn:hover{border-color:var(--accent, #0971F9);}
 .hrms-root .plan-wo-sel{padding:3px 4px; border:1px solid var(--line-strong); border-radius:6px; font-size:12px; background:var(--paper);}
 .hrms-root .planner-late-dot{position:absolute; top:-3px; right:-3px; width:8px; height:8px; border-radius:50%; background:var(--rose); border:1.5px solid var(--paper);}
 .hrms-root .search{font:inherit; padding:8px 12px; border-radius:8px; border:1px solid var(--line-strong); color:var(--ink); background:var(--surface); min-width:200px;}

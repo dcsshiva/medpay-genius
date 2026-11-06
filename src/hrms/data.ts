@@ -351,6 +351,7 @@ export function createStore() {
     replaceArray(data.TASKS, tasks.map(taskFromRow));
     replaceArray(data.LEAVES, leaves.map(leaveFromRow));
     replaceArray(data.STAFF, staffRows.map(staffFromRow));
+    await loadWeeklyOffChanges();
     takeSnapshot();
     await loadCycleRows(cycle);
   }
@@ -529,6 +530,33 @@ export function createStore() {
     }
   }
 
+  /** Weekly-off changes with an effective date → staff.weeklyOffHistory [{ from, days }] (sorted). */
+  async function loadWeeklyOffChanges() {
+    let rows: { emp_no: string; effective_from: string; days: string }[] = [];
+    try {
+      rows = await fetchAll(() => db.from('hr_weekly_off').select('emp_no, effective_from, days').order('emp_no').order('effective_from'));
+    } catch { rows = []; } // before migration 0024: Staff Master weekly offs only
+    const by = new Map<string, { from: string; days: string }[]>();
+    rows.forEach(r => { const l = by.get(r.emp_no) || []; l.push({ from: r.effective_from, days: r.days || '' }); by.set(r.emp_no, l); });
+    data.STAFF.forEach((st: any) => { st.weeklyOffHistory = by.get(st.empNo) || []; });
+  }
+
+  /** Changes a staff member's weekly off from a date onward (earlier days keep the old one). */
+  async function setWeeklyOff(empNo: string, days: string, from: string) {
+    const { error } = await db.from('hr_weekly_off').upsert({ emp_no: empNo, effective_from: from, days }, { onConflict: 'emp_no,effective_from' });
+    if (error) throw error;
+    const st: any = data.STAFF.find((x: any) => x.empNo === empNo);
+    if (st) st.weeklyOffHistory = [...(st.weeklyOffHistory || []).filter((h: any) => h.from !== from), { from, days }].sort((a, b) => (a.from < b.from ? -1 : 1));
+  }
+
+  /** Removes a scheduled weekly-off change. */
+  async function removeWeeklyOff(empNo: string, from: string) {
+    const { error } = await db.from('hr_weekly_off').delete().eq('emp_no', empNo).eq('effective_from', from);
+    if (error) throw error;
+    const st: any = data.STAFF.find((x: any) => x.empNo === empNo);
+    if (st) st.weeklyOffHistory = (st.weeklyOffHistory || []).filter((h: any) => h.from !== from);
+  }
+
   /** Records one attendance import: which unit's file (null = mixed) and the dates it covered. */
   async function logImport(entry: { unit: string | null; from: string; to: string; staff: number; records: number; by: string }) {
     const { error } = await db.from('hr_import_log').insert({
@@ -563,7 +591,7 @@ export function createStore() {
 
   return {
     data, clear, loadAll, loadCycleRows, loadSettings, sync, tempId, hasPendingChanges,
-    finalizeCycle, reopenCycle, loadTrends, rosterMeta, applyRosterPlan, setAttendanceDay, cycleFinalized, logImport, importLog, get who() { return who; },
+    finalizeCycle, reopenCycle, loadTrends, rosterMeta, applyRosterPlan, setAttendanceDay, cycleFinalized, logImport, importLog, setWeeklyOff, removeWeeklyOff, get who() { return who; },
   };
 }
 

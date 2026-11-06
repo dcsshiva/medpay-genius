@@ -13,7 +13,7 @@
  * ========================================================================== */
 import type { HrEnv, HrController, HrWho } from './types';
 import { attendanceByUnit, attendanceCalendar } from './attendanceChart.js';
-import { normalizePunches, normalizeAttendance, mergeAttendanceRecord, planFor } from './punches.js';
+import { normalizePunches, normalizeAttendance, mergeAttendanceRecord, planFor, weeklyOffOn } from './punches.js';
 import { PLAN_OFF, defaultPlanCode, plannedCode, buildPlanSheet, buildPlanBook, readPlanBook, planChanges, planChoices } from './shiftPlan.js';
 import { revokeWindowStart, canRevoke, attendanceAfterRevoke, snapshotDay } from './leaveRevoke.js';
 import { fileUnit, multiUnitGaps, coverage, ranges } from './multiUnit.js';
@@ -127,7 +127,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const emp = findStaff(empNo);
     const att = ATTENDANCE[empNo];
     if(!emp || !att) return null;
-    const records = normalizePunches(att.records, {weeklyOff: emp.weeklyOff, plan: planFor(ROSTER, empNo)}).filter(r=> r.date>=env.cycle.start && r.date<=env.cycle.end);
+    const records = normalizePunches(att.records, {weeklyOff: emp.weeklyOff, weeklyOffHistory: emp.weeklyOffHistory, plan: planFor(ROSTER, empNo)}).filter(r=> r.date>=env.cycle.start && r.date<=env.cycle.end);
     if(!records.length){
       const mPerm = staffMonthlyPermissionMin(emp), mCL = staffMonthlyCL(emp);
       return {emp, rows: [], primaryShift: att.primaryShift, noAttendance: true, summary: {
@@ -1243,7 +1243,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const rows = filteredStaff.map(s=>{
       const att = ATTENDANCE[s.empNo];
       const byDate = {};
-      if(att) normalizePunches(att.records, {weeklyOff: s.weeklyOff, plan: planFor(ROSTER, s.empNo)}).forEach(r=> byDate[r.date]=r);
+      if(att) normalizePunches(att.records, {weeklyOff: s.weeklyOff, weeklyOffHistory: s.weeklyOffHistory, plan: planFor(ROSTER, s.empNo)}).forEach(r=> byDate[r.date]=r);
       const cells = dates.map(d=>{
         const rec = byDate[d];
         const editable = plannerCanEdit(s, d);
@@ -1273,11 +1273,12 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
             (code===PLAN_OFF ? 'WO' : (sh ? sh.letter : code))+
           '</button></td>';
       }).join('');
-      const wo = s.weeklyOff || '';
-      const woCell = (!isMgr && !locked)
-        ? '<select class="plan-wo-sel" data-emp="'+s.empNo+'" aria-label="Weekly off for '+escapeAttr(s.name)+'" title="Regular weekly off — saved to Staff Master">'+
-            ['', ...WEEKDAYS_SHORT, ...(wo && !WEEKDAYS_SHORT.includes(wo) ? [wo] : [])].map(d=>'<option value="'+d+'"'+(d===wo?' selected':'')+'>'+(d||'—')+'</option>').join('')+'</select>'
-        : '<span class="mono" title="Regular weekly off (Staff Master)">'+(wo||'—')+'</span>';
+      const wo = weeklyOffOn(s.weeklyOff, s.weeklyOffHistory, today) || '';
+      const next = (s.weeklyOffHistory || []).filter(h=>h.from > today).sort((a,b)=> a.from < b.from ? -1 : 1)[0];
+      const woText = '<span class="mono">'+(wo||'—')+'</span>'+(next ? '<div class="hint" style="margin:0;font-size:10.5px;">→ '+(next.days||'none')+' from '+fmtDate(next.from)+'</div>' : '');
+      const woCell = plannerCanEditWeeklyOff(s)
+        ? '<button class="plan-wo-btn" data-emp="'+s.empNo+'" title="Change '+escapeAttr(s.name)+'\'s weekly off from a date">'+woText+'</button>'
+        : '<span title="Weekly off today">'+woText+'</span>';
       return '<tr><td class="mono">'+s.empNo+'</td><td>'+s.name+'</td><td>'+woCell+'</td>'+cells+'</tr>';
     }).join('');
 
@@ -1302,7 +1303,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     '<div class="tbl-scroll"><table class="narrow"><thead><tr>'+head+'</tr></thead><tbody>'+
       (rows || '<tr><td colspan="'+(dates.length+3)+'" class="note">'+(isMgr ? 'No staff report to you yet.' : 'No staff.')+'</td></tr>')+
     '</tbody></table></div>'+
-    '<div class="footnote">Showing '+escapeHTML(scope)+'. Solid badges are days already worked: the shift applied, with a red dot when late. Lighter badges are the plan for today and later — click a day to choose its shift or <b>WO</b> (weekly off). The Weekly off column is each person\'s regular day off (Staff Master); a WO set on a day counts as that day\'s weekly off. '+
+    '<div class="footnote">Showing '+escapeHTML(scope)+'. Solid badges are days already worked: the shift applied, with a red dot when late. Lighter badges are the plan for today and later — click a day to choose its shift or <b>WO</b> (weekly off). The Weekly off column is each person\'s weekly off today — click it to change it from a date (earlier days keep the old one); a WO set on a single day counts as that day\'s weekly off. '+
       'With nothing planned, the Staff Master shift applies (WO on the Staff Master weekly-off day); a gold ring marks a Shift Planner entry. '+
       (isMgr ? 'You can plan your own staff from today onward. ' : 'Administrators can change any day until the cycle\'s salary is finalized. ')+
       'To plan a whole cycle at once: <b>Export plan</b>, fill in the days, then <b>Import plan</b>. The Excel (.xlsx) file has a sheet per reporting manager, a drop-down of shifts and WO in every day, and everything except the day cells locked; .xls and .csv carry the same columns.</div>';
@@ -1311,10 +1312,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     document.getElementById('planExportBtn').onclick = ()=> exportShiftPlan('xlsx');
     document.getElementById('planExportXlsBtn').onclick = ()=> exportShiftPlan('xls');
     document.getElementById('planExportCsvBtn').onclick = ()=> exportShiftPlan('csv');
-    body.querySelectorAll('.plan-wo-sel').forEach(sel=> sel.onchange = ()=>{
-      const s = findStaff(sel.dataset.emp); if(!s) return;
-      s.weeklyOff = sel.value; renderShiftPlanner();
-    });
+    body.querySelectorAll('.plan-wo-btn').forEach(b=> b.onclick = ()=>{ const s = findStaff(b.dataset.emp); if(s) openWeeklyOffDialog(s); });
     document.getElementById('planImportBtn').onclick = ()=> openShiftPlanImport();
     body.querySelectorAll('.planner-cell[data-emp]').forEach(btn=>{
       btn.onclick = ()=>{
@@ -1323,6 +1321,59 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         if(!emp || !plannerCanEdit(emp, date)) return;
         openPlanPicker(btn, emp, date, btn.dataset.mode);
       };
+    });
+  }
+
+  /* weekly off from a date: the reporting manager (own staff, today or later) or an administrator
+     (any date) changes it from an effective date; days before it keep the old weekly off */
+  function plannerCanEditWeeklyOff(s){
+    if(!plannerIsManager()) return true;
+    return s.reportingManager===currentAdminAccount.username;
+  }
+  const WEEKLY_OFF_CHOICES = [['','As device (Sat/Sun)'],['Sun','Sunday'],['Mon','Monday'],['Tue','Tuesday'],['Wed','Wednesday'],['Thu','Thursday'],['Fri','Friday'],['Sat','Saturday'],['Sat,Sun','Sat + Sun']];
+  function openWeeklyOffDialog(emp){
+    const isMgr = plannerIsManager();
+    const today = todayISO();
+    const changes = (emp.weeklyOffHistory || []).slice().sort((a,b)=> a.from < b.from ? -1 : 1);
+    const label = (d)=> d ? d : 'As device (Sat/Sun)';
+    const canRemove = (h)=> !isMgr || h.from >= today;
+    const modalRoot = document.getElementById('modalRoot');
+    modalRoot.innerHTML = ''+
+    '<div class="modal-back" id="modalBack"><div class="modal narrow">'+
+      '<div class="modal-head"><h3 style="font-size:15px;">Weekly off — '+escapeHTML(emp.name)+'</h3><button class="closebtn" id="modalClose">✕</button></div>'+
+      '<div class="modal-body">'+
+        '<div class="hint" style="margin-bottom:8px;">Today: <b>'+escapeHTML(label(weeklyOffOn(emp.weeklyOff, emp.weeklyOffHistory, today)))+'</b>. A change applies from its date onward; days before it keep the old weekly off. A shift or WO set on a single day in the planner still wins.</div>'+
+        '<table class="narrow"><thead><tr><th>From</th><th>Weekly off</th><th></th></tr></thead><tbody>'+
+          '<tr><td class="hint">The start (Staff Master)</td><td>'+escapeHTML(label(emp.weeklyOff||''))+'</td><td></td></tr>'+
+          changes.map(h=>'<tr><td class="mono">'+fmtDate(h.from)+' '+dayName(h.from)+'</td><td>'+escapeHTML(label(h.days))+'</td><td>'+
+            (canRemove(h) ? '<button class="iconbtn danger" data-wo-rm="'+h.from+'">Remove</button>' : '')+'</td></tr>').join('')+
+        '</tbody></table>'+
+        '<div class="section-title" style="margin-top:12px;">Change from a date</div>'+
+        '<div class="form-grid">'+
+          '<div class="form-row"><label>New weekly off</label><select id="woDays">'+WEEKLY_OFF_CHOICES.map(([v,l])=>'<option value="'+v+'">'+l+'</option>').join('')+'</select></div>'+
+          '<div class="form-row"><label>Effective from</label><input type="date" id="woFrom" value="'+today+'"'+(isMgr ? ' min="'+today+'"' : '')+'></div>'+
+        '</div>'+
+        (isMgr ? '<div class="hint">As reporting manager you can set a change from today onward.</div>' : '')+
+        '<button class="btn" id="woSave" style="width:100%;margin-top:10px;">Save</button>'+
+      '</div>'+
+    '</div></div>';
+    const close = ()=>{ modalRoot.innerHTML=''; };
+    document.getElementById('modalClose').onclick = close;
+    document.getElementById('modalBack').addEventListener('click', e=>{ if(e.target.id==='modalBack') close(); });
+    const after = ()=>{ renderShiftPlanner(); openWeeklyOffDialog(findStaff(emp.empNo) || emp); };
+    document.getElementById('woSave').onclick = async ()=>{
+      const days = document.getElementById('woDays').value;
+      const from = document.getElementById('woFrom').value;
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(from)){ alert('Choose the date the new weekly off starts.'); return; }
+      if(isMgr && from < today){ alert('As reporting manager you can set a change from today onward.'); return; }
+      const btn = document.getElementById('woSave'); btn.disabled = true; btn.textContent = 'Saving…';
+      try{ await env.setWeeklyOff(emp.empNo, days, from); after(); }
+      catch(err){ btn.disabled = false; btn.textContent = 'Save'; alert('Could not save: '+((err && err.message) || err)); }
+    };
+    modalRoot.querySelectorAll('[data-wo-rm]').forEach(b=> b.onclick = async ()=>{
+      if(!confirm('Remove the weekly-off change from '+fmtDate(b.dataset.woRm)+'?')) return;
+      try{ await env.removeWeeklyOff(emp.empNo, b.dataset.woRm); after(); }
+      catch(err){ alert('Could not remove: '+((err && err.message) || err)); }
     });
   }
 
@@ -1984,7 +2035,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const tasksAwaitingReview = myTasks.filter(t=>t.status==='Review');
     const rejectedTasks = myTasks.filter(t=>t.status==='Rejected');
     const today = latestDataDate();
-    const todaySnapshot = myReports.map(s=>{ const att = ATTENDANCE[s.empNo]; const rec = att ? normalizePunches(att.records, {weeklyOff: s.weeklyOff, plan: planFor(ROSTER, s.empNo)}).find(r=>r.date===today) : null; return {s, rec}; });
+    const todaySnapshot = myReports.map(s=>{ const att = ATTENDANCE[s.empNo]; const rec = att ? normalizePunches(att.records, {weeklyOff: s.weeklyOff, weeklyOffHistory: s.weeklyOffHistory, plan: planFor(ROSTER, s.empNo)}).find(r=>r.date===today) : null; return {s, rec}; });
     const presentToday = todaySnapshot.filter(x=>x.rec && x.rec.status==='P').length;
     const upcomingLeaves = LEAVES.filter(l=>myReportIds.has(l.empNo) && l.status==='Approved' && today && l.date>=today).sort((a,b)=>a.date.localeCompare(b.date));
     body.innerHTML = ''+

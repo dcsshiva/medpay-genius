@@ -95,6 +95,9 @@ export interface HrEnv {
   logImport(entry: { unit: string | null; from: string; to: string; staff: number; records: number; by: string }): Promise<void>;
   /** multi-unit check: imports covering any day between from and to */
   importLog(from: string, to: string): Promise<{ unit: string | null; from: string; to: string }[]>;
+  /** weekly off from a date onward (reporting manager: own staff, today or later; admin: any date) */
+  setWeeklyOff(empNo: string, days: string, from: string): Promise<void>;
+  removeWeeklyOff(empNo: string, from: string): Promise<void>;
   /** running app version and when it was released (package.json, stamped at build time) */
   build: { version: string; releasedAt: string };
 }

@@ -55,15 +55,32 @@ const weekdayOf = (iso) => {
  *  7. planned shift: a device weekly off is Present when punched, Absent when not.
  */
 export const PLANNED_OFF = 'WO';
+/*
+ * Weekly off with effective dates: opts.weeklyOff is the Staff Master day(s), used from the start;
+ * opts.weeklyOffHistory = [{ from: 'YYYY-MM-DD', days: 'Wed' }] are changes (set by the reporting
+ * manager or an administrator in the Shift Planner) that apply from their date onward, so days
+ * before a change keep the old weekly off.
+ */
+export function weeklyOffOn(base, history, date) {
+  let days = base || '';
+  let at = '';
+  for (const h of history || []) if (h.from <= date && h.from >= at) { at = h.from; days = h.days || ''; }
+  return days;
+}
+const offSet = (days) => new Set(String(days || '').split(',').map(s => s.trim()).filter(d => WEEKDAYS.includes(d)));
+
 export function normalizePunches(records, opts = {}) {
   const paired = pairPunches(records);
-  const offDays = new Set(String(opts.weeklyOff || '').split(',').map(s => s.trim()).filter(d => WEEKDAYS.includes(d)));
+  const history = opts.weeklyOffHistory || [];
   const plan = opts.plan || {};
   const hasPlan = Object.keys(plan).length > 0;
-  if (!offDays.size && !hasPlan) return paired;
-  const offLabel = [...offDays].join(', ');
+  if (!offSet(opts.weeklyOff).size && !history.length && !hasPlan) return paired;
   return paired.map(rec => {
     if (rec.offAfterNight || rec.night) return rec;
+    const offDays = offSet(weeklyOffOn(opts.weeklyOff, history, rec.date));
+    const offLabel = [...offDays].join(', ');
+    const change = history.filter(h => h.from <= rec.date).sort((a, b) => (a.from < b.from ? 1 : -1))[0];
+    const source = change ? 'from ' + change.from : 'set in Staff Master';
     const punched = !!rec.in;
     const planned = plan[rec.date];
     if (planned) {
@@ -80,7 +97,7 @@ export function normalizePunches(records, opts = {}) {
     if (!offDays.size) return rec;
     const isOffDay = offDays.has(weekdayOf(rec.date));
     if (isOffDay && rec.status === 'A' && !punched) {
-      return { ...rec, status: 'WO', punchNote: 'Weekly off (' + offLabel + ', set in Staff Master)' };
+      return { ...rec, status: 'WO', punchNote: 'Weekly off (' + offLabel + ', ' + source + ')' };
     }
     if (!isOffDay && rec.status === 'WO') {
       return punched
@@ -158,7 +175,7 @@ export function normalizeAttendance(attendance, staff, roster) {
   const res = {};
   for (const s of staff) {
     const a = attendance[s.empNo];
-    if (a) res[s.empNo] = { ...a, records: normalizePunches(a.records, { weeklyOff: s.weeklyOff, plan: planFor(roster, s.empNo) }) };
+    if (a) res[s.empNo] = { ...a, records: normalizePunches(a.records, { weeklyOff: s.weeklyOff, weeklyOffHistory: s.weeklyOffHistory, plan: planFor(roster, s.empNo) }) };
   }
   return res;
 }

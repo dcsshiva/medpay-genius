@@ -169,6 +169,13 @@
       "when": 1789865833547,
       "tag": "0023_hr_multi_unit",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1789865834547,
+      "tag": "0024_hr_weekly_off_from",
+      "breakpoints": true
     }
   ]
 }
