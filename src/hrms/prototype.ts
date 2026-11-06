@@ -345,7 +345,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '</div>')+
     '</div>'+
     '<div class="stats">'+
-      stat('Present days', summary.presentDays+' / '+ (summary.cycleLen-summary.woDays-summary.holidayDays))+
+      stat('Present days', summary.presentDays+' / '+ env.cycle.dates.length)+
       stat('Late instances', summary.lateDays)+
       stat('Permission used', fmtMin(summary.permissionUsed)+' / '+fmtMin(summary.monthlyPermissionMin))+
       stat('CL used', summary.clUsed+' / '+summary.monthlyCL)+
