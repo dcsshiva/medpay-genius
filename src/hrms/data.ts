@@ -44,6 +44,7 @@ const staffFromRow = (r: any) => ({
   uanNo: r.uan_no ?? '', esicNo: r.esic_no ?? '', earnings: Array.isArray(r.earnings) ? r.earnings : [], tds: num(r.tds),
   cycleAdjustments: r.cycle_adjustments && typeof r.cycle_adjustments === 'object' ? r.cycle_adjustments : {},
   weeklyOff: r.weekly_off ?? '',
+  multiUnit: r.multi_unit === true,
 });
 const staffToRow = (s: any) => ({
   emp_no: s.empNo, db_ref: nz(s.dbRef), name: s.name, role: s.role || 'Staff', reporting_manager: s.reportingManager || '',
@@ -55,6 +56,7 @@ const staffToRow = (s: any) => ({
   bank_account_name: s.bankAccountName || '', bank_account_no: s.bankAccountNo || '', bank_ifsc: s.bankIfsc || '', bank_name: s.bankName || '',
   uan_no: s.uanNo || '', esic_no: s.esicNo || '', earnings: s.earnings || [], tds: num(s.tds), cycle_adjustments: s.cycleAdjustments || {},
   weekly_off: s.weeklyOff || '',
+  multi_unit: s.multiUnit === true,
 });
 const attToRow = (empNo: string, r: any) => ({
   emp_no: empNo, date: r.date, status: r.status, in_time: nz(r.in), out_time: nz(r.out), perm_min: r.permMin ?? null,
@@ -527,6 +529,22 @@ export function createStore() {
     }
   }
 
+  /** Records one attendance import: which unit's file (null = mixed) and the dates it covered. */
+  async function logImport(entry: { unit: string | null; from: string; to: string; staff: number; records: number; by: string }) {
+    const { error } = await db.from('hr_import_log').insert({
+      unit_code: entry.unit, date_from: entry.from, date_to: entry.to,
+      staff_count: entry.staff, record_count: entry.records, imported_by: entry.by || null,
+    });
+    if (error) throw error;
+  }
+
+  /** Imports that cover any day between from and to → [{ unit, from, to }] */
+  async function importLog(from: string, to: string) {
+    const rows = await fetchAll(() => db.from('hr_import_log').select('unit_code, date_from, date_to')
+      .lte('date_from', to).gte('date_to', from).order('id'));
+    return rows.map((r: { unit_code: string | null; date_from: string; date_to: string }) => ({ unit: r.unit_code, from: r.date_from, to: r.date_to }));
+  }
+
   /** Is the pay cycle containing this date finalized? */
   async function cycleFinalized(date: string): Promise<boolean> {
     const { data: locked, error } = await db.rpc('hr_cycle_locked', { _date: date });
@@ -545,7 +563,7 @@ export function createStore() {
 
   return {
     data, clear, loadAll, loadCycleRows, loadSettings, sync, tempId, hasPendingChanges,
-    finalizeCycle, reopenCycle, loadTrends, rosterMeta, applyRosterPlan, setAttendanceDay, cycleFinalized, get who() { return who; },
+    finalizeCycle, reopenCycle, loadTrends, rosterMeta, applyRosterPlan, setAttendanceDay, cycleFinalized, logImport, importLog, get who() { return who; },
   };
 }
 

@@ -91,6 +91,10 @@ export interface HrEnv {
   setAttendanceDay(empNo: string, date: string, rec: { status: string; in?: string; out?: string; permMin?: number } | null): Promise<void>;
   /** is the pay cycle containing this date finalized? */
   cycleFinalized(date: string): Promise<boolean>;
+  /** multi-unit check: record an attendance import (unit null = the file mixes units) */
+  logImport(entry: { unit: string | null; from: string; to: string; staff: number; records: number; by: string }): Promise<void>;
+  /** multi-unit check: imports covering any day between from and to */
+  importLog(from: string, to: string): Promise<{ unit: string | null; from: string; to: string }[]>;
   /** running app version and when it was released (package.json, stamped at build time) */
   build: { version: string; releasedAt: string };
 }
