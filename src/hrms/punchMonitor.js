@@ -87,7 +87,13 @@ export function parsePunchMonitor(rows, { parseDate, mapStatus }) {
     if (!res.date) { res.warnings.push('No report date found in the Punch Monitor header.'); continue; }
     const status = mapStatus(row.statusText) || (row.punches.length ? 'P' : 'A');
     const rec = { empNo: row.code, date: res.date, status };
-    if (row.punches.length) { rec.in = row.punches[0]; rec.out = row.punches[row.punches.length - 1]; }
+    // a single punch (or the same punch recorded twice, "21:13,21:13") is an IN with no OUT yet —
+    // e.g. the start of a night shift, whose OUT is next morning
+    if (row.punches.length) {
+      rec.in = row.punches[0];
+      const last = row.punches[row.punches.length - 1];
+      if (last !== rec.in) rec.out = last;
+    }
     res.records.push(rec);
   }
   return res;
