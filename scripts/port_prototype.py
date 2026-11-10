@@ -2892,6 +2892,153 @@ function xManagers(title, list){
 }
 function xStaffList(title, list, hint, opts){""")
 
+# ── 56. approved leave set by the reporting manager (type / attendance status 'AL', migration 0027,
+#        absencesForLeave in leaveRevoke.js): an absence in the running or previous pay cycle becomes a
+#        paid leave day that does not use CL. Created from Leave & Permission; withdrawn like any approval. ──
+rep("""} else if(rec.status==='CL'){""", """} else if(rec.status==='AL'){
+        row.note='Approved leave (set by reporting manager) - paid, CL not used';
+      } else if(rec.status==='CL'){""")
+rep("""clDays:0, absentDays:0""", """clDays:0, alDays:0, absentDays:0""")
+rep("""clDays: rows.filter(r=>r.status==='CL').length,""", """clDays: rows.filter(r=>r.status==='CL').length,
+    alDays: rows.filter(r=>r.status==='AL').length,""")
+rep("""{P:'Present', CL:'CL', A:'Absent',""", """{P:'Present', CL:'CL', AL:'Approved leave', A:'Absent',""")
+rep("""({WO:'WO',A:'A',CL:'CL'})""", """({WO:'WO',A:'A',CL:'CL',AL:'AL'})""")
+rep("""const order = {P:0, CL:1, A:2, WO:3, H:4};""", """const order = {P:0, CL:1, AL:1, A:2, WO:3, H:4};""")
+rep("""stat('Casual leave', count('CL'))""", """stat('Leave (CL / approved)', count('CL')+count('AL'))""")
+n = script.count("+l.type+")
+script = script.replace("+l.type+", "+leaveTypeLabel(l.type)+")
+assert n >= 3, n
+rep("""escapeHTML(l.type)+(l.hours""", """escapeHTML(leaveTypeLabel(l.type))+(l.hours""")
+rep("""if(l.type!=='CL') return;""", """if(l.type!=='CL' && l.type!==APPROVED_LEAVE) return;""")
+rep("""if(rec){ rec.status='CL'; delete rec.in; delete rec.out; }""", """if(rec){ rec.status=l.type; delete rec.in; delete rec.out; }""")
+rep("""else { att.records.push({date:l.date, status:'CL'});""", """else { att.records.push({date:l.date, status:l.type});""")
+rep("""const what = l.type==='CL' ? 'Casual Leave' :""", """const what = l.type===MANAGER_WO ? 'Week off' : l.type===APPROVED_LEAVE ? 'Approved leave' : l.type==='CL' ? 'Casual Leave' :""")
+rep("""const effect = l.type==='CL' ?""", """const effect = l.type===MANAGER_WO ? 'The week off set for that day is removed, so the day counts as before (Absent, unless it is their usual weekly off).' : l.type===APPROVED_LEAVE ? 'That day goes back to how it was before the leave was set (Absent), so CL or loss of pay applies again.' : l.type==='CL' ?""")
+rep_re(r"let note = '';(\s*)if\(l\.type==='CL'\)\{", r"let note = '';\1if(l.type==='CL' || l.type===APPROVED_LEAVE){")
+rep("""attendanceAfterRevoke(current, l.prevAttendance)""", """attendanceAfterRevoke(current, l.prevAttendance, l.type)""")
+rep("""'<div class="emp-toolbar"><div class="section-title" style="margin:0;">Leave &amp; permission requests</div>'+""",
+    """'<div class="emp-toolbar"><div class="section-title" style="margin:0;">Leave &amp; permission requests</div>'+
+    '<button class="btn sm" id="alAddBtn" title="Turn an absence of your staff into approved leave (paid, does not use CL) or a week off">+ Approved leave / week off for an absence</button>'+""")
+rep("""body.querySelectorAll('[data-revoke]').forEach(btn=> btn.onclick = ()=> revokeLeave(LEAVES.find(l=>l.id===btn.dataset.revoke), btn));""",
+    """body.querySelectorAll('[data-revoke]').forEach(btn=> btn.onclick = ()=> revokeLeave(LEAVES.find(l=>l.id===btn.dataset.revoke), btn));
+  document.getElementById('alAddBtn').onclick = ()=> openApprovedLeaveDialog(scopedIds);""")
+AL = """
+/* ---- Approved leave for an absence (reporting manager / administrator) ---- */
+const APPROVED_LEAVE = 'AL';
+const MANAGER_WO = 'WO';
+function leaveTypeLabel(t){ return t===APPROVED_LEAVE ? 'Approved leave' : t===MANAGER_WO ? 'Week off' : t; }
+function openApprovedLeaveDialog(scopedIds){
+  const isMgr = currentAdminAccount.role==='manager';
+  const today = todayISO();
+  const startDay = cycleStartDay();
+  const windowFrom = revokeWindowStart(today, startDay);
+  const finalized = !!(env.data.PAYROLL && env.data.PAYROLL.run);
+  const staff = STAFF.filter(s=>scopedIds.has(s.empNo) && s.active!==false && (!isMgr || s.reportingManager===currentAdminAccount.username))
+    .sort((a,b)=>a.name.localeCompare(b.name));
+  const items = [];
+  staff.forEach(s=>{
+    const att = ATTENDANCE[s.empNo];
+    if(!att) return;
+    const recs = normalizePunches(att.records, {weeklyOff: s.weeklyOff, weeklyOffHistory: s.weeklyOffHistory, plan: planFor(ROSTER, s.empNo)});
+    absencesForLeave(recs, LEAVES.filter(l=>l.empNo===s.empNo), {today, startDay})
+      .forEach(a=> items.push({s, date: a.date, pending: a.pending}));
+  });
+  let who = '';
+  let markAs = APPROVED_LEAVE;
+  const modalRoot = document.getElementById('modalRoot');
+  const blocked = finalized ? 'Salary for this pay cycle is finalized. Reopen it on the Salary tab first.'
+    : env.cycle.end < windowFrom ? 'Approved leave can only be set in the running pay cycle or the previous one (from '+fmtDate(windowFrom)+'). Choose a newer pay cycle at the top.' : '';
+  const draw = ()=>{
+    const shown = items.filter(x=> !who || x.s.empNo===who);
+    modalRoot.innerHTML = ''+
+    '<div class="modal-back" id="modalBack"><div class="modal" style="max-width:720px;">'+
+      '<div class="modal-head"><h3 style="font-size:15px;">Approved leave or week off for an absence</h3><button class="closebtn" id="modalClose">&#10005;</button></div>'+
+      '<div class="modal-body">'+
+        '<div class="hint" style="margin-bottom:8px;">Tick the absences to change. <b>Approved leave</b>: the day is paid and does not use their CL. <b>Week off</b>: the day becomes a weekly off (set in the Shift Planner for that day). '+
+          'Only days in the running or previous pay cycle (from '+fmtDate(windowFrom)+') up to today. You can withdraw it later from the Approved list. '+
+          'This shows the pay cycle selected at the top: '+escapeHTML(env.cycle.label || (fmtDate(env.cycle.start)+' – '+fmtDate(env.cycle.end)))+'.</div>'+
+        (blocked ? '<div class="note">'+blocked+'</div>' :
+        (!items.length ? '<div class="note">No absences to mark'+(isMgr ? ' for your staff' : '')+' in this pay cycle.</div>' :
+          '<div class="form-grid"><div class="form-row"><label>Mark as</label><select id="alMark">'+
+            '<option value="'+APPROVED_LEAVE+'"'+(markAs===APPROVED_LEAVE?' selected':'')+'>Approved leave (paid, no CL used)</option>'+
+            '<option value="'+MANAGER_WO+'"'+(markAs===MANAGER_WO?' selected':'')+'>Week off</option></select></div>'+
+          '<div class="form-row"><label>Staff</label><select id="alWho"><option value="">All staff with absences ('+new Set(items.map(x=>x.s.empNo)).size+')</option>'+
+            [...new Map(items.map(x=>[x.s.empNo, x.s])).values()].map(s=>'<option value="'+escapeAttr(s.empNo)+'"'+(who===s.empNo?' selected':'')+'>'+escapeHTML(s.name)+' ('+escapeHTML(s.empNo)+')</option>').join('')+'</select></div></div>'+
+          '<div class="tbl-scroll" style="max-height:300px;"><table class="narrow"><thead><tr><th><input type="checkbox" id="alAll" title="Tick all shown"></th><th>Code</th><th>Name</th><th>Date</th><th></th></tr></thead><tbody>'+
+            shown.map((x)=>{ const i = items.indexOf(x);
+              return '<tr><td>'+(x.pending ? '' : '<input type="checkbox" class="al-pick" data-i="'+i+'">')+'</td><td class="mono">'+escapeHTML(x.s.empNo)+'</td><td>'+escapeHTML(x.s.name)+'</td>'+
+                '<td class="mono">'+fmtDate(x.date)+' '+dayName(x.date)+'</td><td>'+(x.pending ? '<span class="hint" style="margin:0;">A leave request is pending for this day: approve it in the list</span>' : '')+'</td></tr>'; }).join('')+
+          '</tbody></table></div>'+
+          '<div class="form-row" style="margin-top:10px;"><label>Reason (shown to the staff member)</label><textarea id="alReason" rows="2" placeholder="e.g. informed the manager in advance"></textarea></div>'+
+          '<div class="error-text" id="alError"></div>'+
+          '<button class="btn" id="alSave" style="width:100%;">Mark ticked days as '+(markAs===MANAGER_WO ? 'week off' : 'approved leave')+'</button>'))+
+      '</div>'+
+    '</div></div>';
+    const close = ()=>{ modalRoot.innerHTML=''; };
+    document.getElementById('modalClose').onclick = close;
+    document.getElementById('modalBack').addEventListener('click', e=>{ if(e.target.id==='modalBack') close(); });
+    const whoSel = document.getElementById('alWho');
+    if(whoSel) whoSel.onchange = ()=>{ who = whoSel.value; draw(); };
+    const markSel = document.getElementById('alMark');
+    if(markSel) markSel.onchange = ()=>{ markAs = markSel.value; draw(); };
+    const all = document.getElementById('alAll');
+    if(all) all.onchange = ()=> modalRoot.querySelectorAll('.al-pick').forEach(c=> c.checked = all.checked);
+    const save = document.getElementById('alSave');
+    if(!save) return;
+    save.onclick = async ()=>{
+      const picked = [...modalRoot.querySelectorAll('.al-pick')].filter(c=>c.checked).map(c=>items[Number(c.dataset.i)]);
+      const reason = document.getElementById('alReason').value.trim();
+      const err = document.getElementById('alError');
+      if(!picked.length){ err.textContent = 'Tick at least one absence.'; return; }
+      if(!reason){ err.textContent = 'Please give a reason.'; return; }
+      const newLeave = (x, type, prev)=> ({id: env.tempId('L'), empNo: x.s.empNo, type, appliedOn: today, date: x.date,
+          reason, status: 'Approved', reportingManager: isMgr ? currentAdminAccount.username : (x.s.reportingManager || ''), altEmpNo: '',
+          decidedBy: currentAdminAccount.name, decidedOn: today, prevAttendance: prev});
+      if(markAs===MANAGER_WO){
+        // the week off is a planned WO for that day in the Shift Planner, which attendance reads as a weekly off
+        save.disabled = true; save.textContent = 'Saving…';
+        const before = new Map(picked.map(x=>[x.s.empNo+'|'+x.date, ROSTER[rosterKey(x.s.empNo, x.date)] || null]));
+        let res;
+        try{ res = await env.applyRosterPlan(picked.map(x=>({empNo: x.s.empNo, date: x.date, to: PLAN_OFF}))); }
+        catch(e){ save.disabled = false; save.textContent = 'Mark ticked days as week off'; err.textContent = 'Could not save: '+((e && e.message) || e); return; }
+        const failed = new Set(res.failed.map(f=>f.empNo+'|'+f.date));
+        const ok = picked.filter(x=>!failed.has(x.s.empNo+'|'+x.date));
+        ok.forEach(x=> LEAVES.push(newLeave(x, MANAGER_WO, {roster: before.get(x.s.empNo+'|'+x.date)})));
+        if(ok.length) env.scheduleSync();
+        close();
+        renderAdminLeave();
+        alert(ok.length+' absence'+(ok.length===1?'':'s')+' marked as week off.'+(res.failed.length ? ' Not saved ('+res.failed.length+'): '+res.failed.map(f=>f.empNo+' '+fmtDate(f.date)+' - '+f.message).join('; ') : ''));
+        return;
+      }
+      picked.forEach(x=>{
+        const raw = (ATTENDANCE[x.s.empNo] || {records:[]}).records.find(r=>r.date===x.date) || null;
+        const l = newLeave(x, APPROVED_LEAVE, snapshotDay(raw));
+        LEAVES.push(l);
+        applyApprovedLeaveToAttendance(l);
+      });
+      env.scheduleSync();
+      close();
+      renderAdminLeave();
+      alert(picked.length+' absence'+(picked.length>1?'s':'')+' marked as approved leave (paid, CL not used).');
+    };
+  };
+  draw();
+}
+"""
+rep("""and gives the CL back; a withdrawn Permission""",
+    """and gives the CL back. <b>+ Approved leave for an absence</b> turns an absence in the same window into a paid leave day that does not use CL, or into a week off (withdraw it the same way); a withdrawn Permission""")
+rep("""  l.status = 'Revoked';""", """  if(l.type===MANAGER_WO){
+    // remove the planned week off, if it is still the one set for this request
+    if(ROSTER[rosterKey(l.empNo, l.date)]===PLAN_OFF){
+      let res = null;
+      try{ res = await env.applyRosterPlan([{empNo: l.empNo, date: l.date, to: '', clear: true}]); }catch(e){ res = {failed: [{message: (e && e.message) || String(e)}]}; }
+      if(res.failed.length){ if(btn) btn.disabled = false; alert('Could not remove the week off, so the approval was not withdrawn: '+res.failed[0].message); return; }
+      note = 'The week off was removed from the Shift Planner.';
+    } else note = 'The Shift Planner no longer has a week off on that day; nothing to remove.';
+  }
+  l.status = 'Revoked';""")
+rep("""/* ---- Shift Planner ---- */""", AL.lstrip('\n') + """\n/* ---- Shift Planner ---- */""")
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
@@ -2909,7 +3056,7 @@ import type { HrEnv, HrController, HrWho } from './types';
 import { attendanceByUnit, attendanceCalendar } from './attendanceChart.js';
 import { normalizePunches, normalizeAttendance, mergeAttendanceRecord, planFor, weeklyOffOn } from './punches.js';
 import { PLAN_OFF, defaultPlanCode, plannedCode, buildPlanSheet, buildPlanBook, readPlanBook, planChanges, planChoices } from './shiftPlan.js';
-import { revokeWindowStart, canRevoke, attendanceAfterRevoke, snapshotDay } from './leaveRevoke.js';
+import { revokeWindowStart, canRevoke, attendanceAfterRevoke, snapshotDay, absencesForLeave } from './leaveRevoke.js';
 import { fileUnit, multiUnitGaps, coverage, ranges } from './multiUnit.js';
 import { parsePunchMonitor, looksLikeName } from './punchMonitor.js';
 import { earningsLines, pfBase, cycleAdjustments, statutory, buildPayslip } from './payslip.js';
