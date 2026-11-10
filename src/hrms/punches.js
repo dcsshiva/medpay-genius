@@ -121,9 +121,11 @@ function pairPunches(records) {
   const out = [];
   let openNight = null; // the output record of a night still waiting for its OUT
 
-  for (const rec of sorted) {
+  for (let rec of sorted) {
     const inM = toMin(rec.in);
-    const outM = toMin(rec.out);
+    // OUT equal to IN is one punch read twice (some exports repeat a lone punch as the OUT)
+    const outM = toMin(rec.out) === inM ? null : toMin(rec.out);
+    if (outM === null && rec.out !== undefined && inM !== null) { rec = { ...rec }; delete rec.out; }
     const keepsStatus = rec.status === 'CL' || rec.status === 'H';
 
     // 2. this morning's punch closes last night's shift
@@ -188,7 +190,7 @@ export function normalizeAttendance(attendance, staff, roster) {
  */
 const STATUS_RANK = { P: 5, CL: 4, H: 3, WO: 2, A: 1 };
 export function mergeAttendanceRecord(existing, incoming) {
-  if (!existing) return { ...incoming };
+  if (!existing) existing = { date: incoming.date, status: incoming.status };
   const rank = (s) => STATUS_RANK[s] || 0;
   const status = rank(incoming.status) > rank(existing.status) ? incoming.status : existing.status;
   const times = [existing.in, existing.out, incoming.in, incoming.out].filter(t => toMin(t) !== null);

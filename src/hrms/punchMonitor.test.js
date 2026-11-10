@@ -36,7 +36,7 @@ test('reads the 28 Oct layout (with empty columns)', () => {
   assert.deepEqual(got.records, [
     { empNo: '2100420', date: '2026-10-28', status: 'P', in: '09:11', out: '18:21' },
     { empNo: '2100408', date: '2026-10-28', status: 'A' },
-    { empNo: '2100423', date: '2026-10-28', status: 'P', in: '08:55', out: '08:55' },
+    { empNo: '2100423', date: '2026-10-28', status: 'P', in: '08:55' },       // one punch: IN only
   ]);
 });
 
@@ -63,4 +63,17 @@ test('rows that do not line up with the header are still read correctly', () => 
 test('a time, number or status word is never taken as a name', () => {
   for (const bad of ['17:57', '08:55,', '2100420', '', '  ', 'Present', 'Not Present']) assert.equal(looksLikeName(bad), false, bad);
   for (const ok of ['Dr. AARTHI ARUL', 'MS. MANIMEGALAI', 'A KALAIYARASI', 'DR.ARUNKUMAR I']) assert.equal(looksLikeName(ok), true, ok);
+});
+
+test('a single punch, or the same punch twice, is an IN with no OUT (e.g. a night shift start)', () => {
+  const rows = [
+    ['Date', '', '', '08-Nov-2026'],
+    ['SNo.', 'Emp Code ', '', 'Name', 'Last Punch', '', 'Direction', 'Punch Records', '', 'Status'],
+    [1, '21043', '', 'MS.NITHYA', '21:13', '', '', '21:13,21:13,', '', 'Present'],
+    [2, '2100286', '', 'MRS. SIVALAKSHMI', '19:53', '', '', '19:53,', '', 'Present'],
+    [3, '2100145', '', 'MR. PRAKASH', '13:12', '', '', '07:56,13:12,', '', 'Present'],
+  ];
+  const res = parsePunchMonitor(rows, { parseDate, mapStatus });
+  assert.deepEqual(res.records.map(r => [r.empNo, r.in, r.out]), [
+    ['21043', '21:13', undefined], ['2100286', '19:53', undefined], ['2100145', '07:56', '13:12']]);
 });

@@ -173,3 +173,21 @@ test('weekly off with an effective date: earlier days keep the old day, later da
   // history alone, with no Staff Master day
   assert.equal(normalizePunches([r('2026-11-11', 'A')], { weeklyOffHistory: [{ from: '2026-11-01', days: 'Wed' }] })[0].status, 'WO');
 });
+
+test('an OUT equal to the IN is one punch: an evening one still starts a night shift', () => {
+  const out = normalizePunches([
+    { date: '2026-11-08', status: 'P', in: '19:53', out: '19:53' },
+    { date: '2026-11-09', status: 'A', in: '08:02' },
+    { date: '2026-11-10', status: 'P', in: '08:13', out: '08:13' },
+  ]);
+  assert.equal(out[0].night, true);
+  assert.equal(out[0].out, '08:02');
+  assert.equal(out[1].offAfterNight, true);
+  assert.equal(out[2].in, '08:13');
+  assert.equal(out[2].out, undefined);
+});
+
+test('a new record with the same IN and OUT keeps only the IN', () => {
+  assert.deepEqual(mergeAttendanceRecord(null, { date: '2026-11-08', status: 'P', in: '08:13', out: '08:13' }),
+    { date: '2026-11-08', status: 'P', in: '08:13' });
+});
