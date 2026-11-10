@@ -126,7 +126,7 @@ function pairPunches(records) {
     // OUT equal to IN is one punch read twice (some exports repeat a lone punch as the OUT)
     const outM = toMin(rec.out) === inM ? null : toMin(rec.out);
     if (outM === null && rec.out !== undefined && inM !== null) { rec = { ...rec }; delete rec.out; }
-    const keepsStatus = rec.status === 'CL' || rec.status === 'H';
+    const keepsStatus = rec.status === 'CL' || rec.status === 'AL' || rec.status === 'H';
 
     // 2. this morning's punch closes last night's shift
     if (openNight && rec.date === nextDay(openNight.date) && inM !== null && inM <= MORNING_MAX_MIN
@@ -188,7 +188,7 @@ export function normalizeAttendance(attendance, staff, roster) {
  * first: Present in either file wins (then leave, holiday, weekly off, absent), IN is the
  * earliest punch and OUT the latest across both. Re-importing the same file changes nothing.
  */
-const STATUS_RANK = { P: 5, CL: 4, H: 3, WO: 2, A: 1 };
+const STATUS_RANK = { P: 5, CL: 4, AL: 4, H: 3, WO: 2, A: 1 };  // AL: approved leave set by the reporting manager
 export function mergeAttendanceRecord(existing, incoming) {
   if (!existing) existing = { date: incoming.date, status: incoming.status };
   const rank = (s) => STATUS_RANK[s] || 0;

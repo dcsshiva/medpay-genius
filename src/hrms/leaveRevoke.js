@@ -38,12 +38,12 @@ export function canRevoke(leave, { today, startDay }) {
  * ({status,in,out,permMin} | {none:true} | undefined for requests approved before this was kept).
  * → { action: 'keep' | 'delete' | 'set', rec?, note }
  */
-export function attendanceAfterRevoke(current, prev) {
-  if (!current || current.status !== 'CL') {
-    return { action: 'keep', note: current ? `Attendance left as it is (${current.status}) — the day is no longer marked CL.` : 'No attendance stored for that day.' };
+export function attendanceAfterRevoke(current, prev, marked = 'CL') {
+  if (!current || current.status !== marked) {
+    return { action: 'keep', note: current ? `Attendance left as it is (${current.status}) — the day is no longer marked ${marked}.` : 'No attendance stored for that day.' };
   }
   if (prev && prev.none) return { action: 'delete', note: 'The day had no attendance before the leave was approved — cleared again.' };
-  if (prev && prev.status && prev.status !== 'CL') {
+  if (prev && prev.status && prev.status !== marked) {
     const rec = { status: prev.status };
     if (prev.in) rec.in = prev.in;
     if (prev.out) rec.out = prev.out;
@@ -61,4 +61,32 @@ export function snapshotDay(rec) {
   if (rec.out) out.out = rec.out;
   if (rec.permMin != null) out.permMin = rec.permMin;
   return out;
+}
+
+/*
+ * Approved leave set by the reporting manager (type 'AL'): turns an absence into a paid leave day
+ * that does not use the staff member's CL (attendance status 'AL'). Same window as withdrawing:
+ * the running pay cycle and the previous one, up to today, never in a finalized cycle (the
+ * database checks this again — migration 0027).
+ */
+export const APPROVED_LEAVE = 'AL';
+
+/**
+ * Absent days that can be marked as approved leave.
+ * records: the staff member's days AFTER normalizePunches (so weekly offs and night-duty days are
+ * already resolved); leaves: their requests. Days already covered by a pending or approved
+ * request are left out (a pending request should simply be approved).
+ * → [{ date, pending: bool }]   pending = a request is waiting for that day (shown, not offered)
+ */
+export function absencesForLeave(records, leaves, { today, startDay }) {
+  const from = revokeWindowStart(today, startDay);
+  const taken = new Map();
+  for (const l of leaves || []) {
+    if (l.type === 'Permission' || !l.date) continue;
+    if (l.status === 'Approved' || l.status === 'Pending') taken.set(l.date, l.status);
+  }
+  return (records || [])
+    .filter(r => r.status === 'A' && !r.in && r.date >= from && r.date <= today && taken.get(r.date) !== 'Approved')
+    .map(r => ({ date: r.date, pending: taken.get(r.date) === 'Pending' }))
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
 }

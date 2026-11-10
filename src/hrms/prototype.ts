@@ -15,7 +15,7 @@ import type { HrEnv, HrController, HrWho } from './types';
 import { attendanceByUnit, attendanceCalendar } from './attendanceChart.js';
 import { normalizePunches, normalizeAttendance, mergeAttendanceRecord, planFor, weeklyOffOn } from './punches.js';
 import { PLAN_OFF, defaultPlanCode, plannedCode, buildPlanSheet, buildPlanBook, readPlanBook, planChanges, planChoices } from './shiftPlan.js';
-import { revokeWindowStart, canRevoke, attendanceAfterRevoke, snapshotDay } from './leaveRevoke.js';
+import { revokeWindowStart, canRevoke, attendanceAfterRevoke, snapshotDay, absencesForLeave } from './leaveRevoke.js';
 import { fileUnit, multiUnitGaps, coverage, ranges } from './multiUnit.js';
 import { parsePunchMonitor, looksLikeName } from './punchMonitor.js';
 import { earningsLines, pfBase, cycleAdjustments, statutory, buildPayslip } from './payslip.js';
@@ -135,7 +135,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         permissionRemaining:mPerm, permissionUsed:0, clRemaining:mCL, clUsed:0, totalDeduction:0,
         pfDeduction:0, esiDeduction:0, ptDeduction:0, otherDeduction:0, statutoryDeduction:0,
         otMinutesTotal:0, otPay:0, finalNet:0, presentDays:0, lateDays:0, woDays:0, holidayDays:0,
-        clDays:0, absentDays:0, cycleLen:0 }};
+        clDays:0, alDays:0, absentDays:0, cycleLen:0 }};
     }
     const cycleLen = (env.cycle.complete ? records.length : env.cycle.dates.length) || 1;
     const perDay = emp.netSalary / cycleLen;
@@ -163,7 +163,9 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         row.note = 'Declared holiday - no impact regardless of punch';
       } else if(rec.status==='WO' || rec.status==='H'){
         // no work scheduled
-      } else if(rec.status==='CL'){
+      } else if(rec.status==='AL'){
+          row.note='Approved leave (set by reporting manager) - paid, CL not used';
+        } else if(rec.status==='CL'){
         if(clRemaining>0){ clRemaining--; row.note='Casual leave (paid)'; }
         else { row.deduction=perDay; totalDeduction+=perDay; row.note='CL quota exhausted - day unpaid'; }
         if(rec.permMin){
@@ -280,6 +282,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       woDays: rows.filter(r=>r.status==='WO').length,
       holidayDays: rows.filter(r=>r.status==='H').length,
       clDays: rows.filter(r=>r.status==='CL').length,
+      alDays: rows.filter(r=>r.status==='AL').length,
       absentDays: rows.filter(r=>r.status==='A').length,
       cycleLen,
     };
@@ -288,7 +291,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
 
   /* ================= shared bits ================= */
   function statusPill(status){
-    const label = {P:'Present', CL:'CL', A:'Absent', WO:'Week Off', H:'Holiday',
+    const label = {P:'Present', CL:'CL', AL:'Approved leave', A:'Absent', WO:'Week Off', H:'Holiday',
       Open:'Open', InProgress:'In Progress', Accepted:'Accepted', Review:'Review', Done:'Done', Closed:'Closed',
       Pending:'Pending', Approved:'Approved', Rejected:'Rejected', Revoked:'Approval withdrawn'}[status] || status;
     const cls = status.replace(/\s/g,'');
@@ -398,7 +401,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '<div class="tbl-scroll"><table class="narrow"><thead><tr><th>Staff</th><th>Date</th><th>Type</th><th>Covering</th></tr></thead><tbody>'+
       approved.map(l=>{
         const s = findStaff(l.empNo), alt = findStaff(l.altEmpNo);
-        return '<tr><td>'+(s?s.name:l.empNo)+'</td><td class="mono">'+fmtDate(l.date)+(l.hours?' &middot; '+l.hours+'h':'')+'</td><td>'+l.type+'</td><td>'+(alt?alt.name:'—')+'</td></tr>';
+        return '<tr><td>'+(s?s.name:l.empNo)+'</td><td class="mono">'+fmtDate(l.date)+(l.hours?' &middot; '+l.hours+'h':'')+'</td><td>'+leaveTypeLabel(l.type)+'</td><td>'+(alt?alt.name:'—')+'</td></tr>';
       }).join('')+
       '</tbody></table></div>';
   }
@@ -471,7 +474,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     return '<tr data-leave="'+l.id+'">'+
       '<td class="mono">'+l.id+'</td>'+
       (opts.showStaff!==false ? '<td>'+(s?s.name:l.empNo)+'</td>' : '')+
-      '<td>'+l.type+'</td>'+
+      '<td>'+leaveTypeLabel(l.type)+'</td>'+
       '<td class="mono">'+fmtDate(l.date)+(l.hours?' &middot; '+l.hours+'h':'')+'</td>'+
       '<td class="wrap-cell">'+l.reason+(bal?'<div class="hint">CL '+bal.clRemaining+'/'+bal.monthlyCL+' &middot; Permission '+fmtMin(bal.permissionRemaining)+'/'+fmtMin(bal.monthlyPermissionMin)+' remaining</div>':'')+'</td>'+
       (opts.showRouting ? '<td>'+(mgr?mgr.name:(s && topManagerFor(s) ? escapeHTML(topManagerFor(s))+' (Administrator)' : '—'))+'</td><td>'+(alt?alt.name:'—')+'</td>' : '')+
@@ -642,14 +645,14 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       body.innerHTML = ''+
         profileAndStats(result, hideSal)+
         (coveringFor.length ? '<div class="footnote" style="background:#fff8e6;border:1px solid #f0d98c;border-radius:8px;padding:10px 12px;margin-bottom:14px;">'+
-          '<b>You are covering for:</b> '+coveringFor.map(l=>{ const p = findStaff(l.empNo); return (p?p.name:l.empNo)+' on '+fmtDate(l.date)+' ('+l.type+')'; }).join('; ')+
+          '<b>You are covering for:</b> '+coveringFor.map(l=>{ const p = findStaff(l.empNo); return (p?p.name:l.empNo)+' on '+fmtDate(l.date)+' ('+leaveTypeLabel(l.type)+')'; }).join('; ')+
         '</div>' : '')+
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;" class="stack-mobile">'+
           '<div><div class="section-title">Tasks due soon</div><ul class="list-plain">'+
             (myTasks.slice(0,4).map(t=>'<li><span>'+t.title+'</span>'+statusPill(t.status)+'</li>').join('') || '<li>No tasks assigned.</li>')+
           '</ul></div>'+
           '<div><div class="section-title">Recent leave / permission</div><ul class="list-plain">'+
-            (myLeaves.slice(0,4).map(l=>'<li><span>'+l.type+' &middot; '+fmtDate(l.date)+'</span>'+statusPill(l.status)+'</li>').join('') || '<li>No requests filed.</li>')+
+            (myLeaves.slice(0,4).map(l=>'<li><span>'+leaveTypeLabel(l.type)+' &middot; '+fmtDate(l.date)+'</span>'+statusPill(l.status)+'</li>').join('') || '<li>No requests filed.</li>')+
           '</ul></div>'+
         '</div>'+
         '<div class="footnote">Open tasks: '+openTasks+' &middot; Leave/permission requests filed this cycle: '+myLeaves.length+'</div>';
@@ -1299,6 +1302,84 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     paintBell();
   }
 
+  /* ---- Approved leave for an absence (reporting manager / administrator) ---- */
+  const APPROVED_LEAVE = 'AL';
+  function leaveTypeLabel(t){ return t===APPROVED_LEAVE ? 'Approved leave' : t; }
+  function openApprovedLeaveDialog(scopedIds){
+    const isMgr = currentAdminAccount.role==='manager';
+    const today = todayISO();
+    const startDay = cycleStartDay();
+    const windowFrom = revokeWindowStart(today, startDay);
+    const finalized = !!(env.data.PAYROLL && env.data.PAYROLL.run);
+    const staff = STAFF.filter(s=>scopedIds.has(s.empNo) && s.active!==false && (!isMgr || s.reportingManager===currentAdminAccount.username))
+      .sort((a,b)=>a.name.localeCompare(b.name));
+    const items = [];
+    staff.forEach(s=>{
+      const att = ATTENDANCE[s.empNo];
+      if(!att) return;
+      const recs = normalizePunches(att.records, {weeklyOff: s.weeklyOff, weeklyOffHistory: s.weeklyOffHistory, plan: planFor(ROSTER, s.empNo)});
+      absencesForLeave(recs, LEAVES.filter(l=>l.empNo===s.empNo), {today, startDay})
+        .forEach(a=> items.push({s, date: a.date, pending: a.pending}));
+    });
+    let who = '';
+    const modalRoot = document.getElementById('modalRoot');
+    const blocked = finalized ? 'Salary for this pay cycle is finalized. Reopen it on the Salary tab first.'
+      : env.cycle.end < windowFrom ? 'Approved leave can only be set in the running pay cycle or the previous one (from '+fmtDate(windowFrom)+'). Choose a newer pay cycle at the top.' : '';
+    const draw = ()=>{
+      const shown = items.filter(x=> !who || x.s.empNo===who);
+      modalRoot.innerHTML = ''+
+      '<div class="modal-back" id="modalBack"><div class="modal" style="max-width:720px;">'+
+        '<div class="modal-head"><h3 style="font-size:15px;">Approved leave for an absence</h3><button class="closebtn" id="modalClose">&#10005;</button></div>'+
+        '<div class="modal-body">'+
+          '<div class="hint" style="margin-bottom:8px;">Tick the absences to mark as <b>approved leave</b>. The day is then <b>paid and does not use their CL</b>. '+
+            'Only days in the running or previous pay cycle (from '+fmtDate(windowFrom)+') up to today. You can withdraw it later from the Approved list. '+
+            'This shows the pay cycle selected at the top: '+escapeHTML(env.cycle.label || (fmtDate(env.cycle.start)+' – '+fmtDate(env.cycle.end)))+'.</div>'+
+          (blocked ? '<div class="note">'+blocked+'</div>' :
+          (!items.length ? '<div class="note">No absences to mark'+(isMgr ? ' for your staff' : '')+' in this pay cycle.</div>' :
+            '<div class="form-row" style="max-width:320px;"><label>Staff</label><select id="alWho"><option value="">All staff with absences ('+new Set(items.map(x=>x.s.empNo)).size+')</option>'+
+              [...new Map(items.map(x=>[x.s.empNo, x.s])).values()].map(s=>'<option value="'+escapeAttr(s.empNo)+'"'+(who===s.empNo?' selected':'')+'>'+escapeHTML(s.name)+' ('+escapeHTML(s.empNo)+')</option>').join('')+'</select></div>'+
+            '<div class="tbl-scroll" style="max-height:300px;"><table class="narrow"><thead><tr><th><input type="checkbox" id="alAll" title="Tick all shown"></th><th>Code</th><th>Name</th><th>Date</th><th></th></tr></thead><tbody>'+
+              shown.map((x)=>{ const i = items.indexOf(x);
+                return '<tr><td>'+(x.pending ? '' : '<input type="checkbox" class="al-pick" data-i="'+i+'">')+'</td><td class="mono">'+escapeHTML(x.s.empNo)+'</td><td>'+escapeHTML(x.s.name)+'</td>'+
+                  '<td class="mono">'+fmtDate(x.date)+' '+dayName(x.date)+'</td><td>'+(x.pending ? '<span class="hint" style="margin:0;">A leave request is pending for this day: approve it in the list</span>' : '')+'</td></tr>'; }).join('')+
+            '</tbody></table></div>'+
+            '<div class="form-row" style="margin-top:10px;"><label>Reason (shown to the staff member)</label><textarea id="alReason" rows="2" placeholder="e.g. informed the manager in advance"></textarea></div>'+
+            '<div class="error-text" id="alError"></div>'+
+            '<button class="btn" id="alSave" style="width:100%;">Mark ticked days as approved leave</button>'))+
+        '</div>'+
+      '</div></div>';
+      const close = ()=>{ modalRoot.innerHTML=''; };
+      document.getElementById('modalClose').onclick = close;
+      document.getElementById('modalBack').addEventListener('click', e=>{ if(e.target.id==='modalBack') close(); });
+      const whoSel = document.getElementById('alWho');
+      if(whoSel) whoSel.onchange = ()=>{ who = whoSel.value; draw(); };
+      const all = document.getElementById('alAll');
+      if(all) all.onchange = ()=> modalRoot.querySelectorAll('.al-pick').forEach(c=> c.checked = all.checked);
+      const save = document.getElementById('alSave');
+      if(!save) return;
+      save.onclick = ()=>{
+        const picked = [...modalRoot.querySelectorAll('.al-pick')].filter(c=>c.checked).map(c=>items[Number(c.dataset.i)]);
+        const reason = document.getElementById('alReason').value.trim();
+        const err = document.getElementById('alError');
+        if(!picked.length){ err.textContent = 'Tick at least one absence.'; return; }
+        if(!reason){ err.textContent = 'Please give a reason.'; return; }
+        picked.forEach(x=>{
+          const raw = (ATTENDANCE[x.s.empNo] || {records:[]}).records.find(r=>r.date===x.date) || null;
+          const l = {id: env.tempId('L'), empNo: x.s.empNo, type: APPROVED_LEAVE, appliedOn: today, date: x.date,
+            reason, status: 'Approved', reportingManager: isMgr ? currentAdminAccount.username : (x.s.reportingManager || ''), altEmpNo: '',
+            decidedBy: currentAdminAccount.name, decidedOn: today, prevAttendance: snapshotDay(raw)};
+          LEAVES.push(l);
+          applyApprovedLeaveToAttendance(l);
+        });
+        env.scheduleSync();
+        close();
+        renderAdminLeave();
+        alert(picked.length+' absence'+(picked.length>1?'s':'')+' marked as approved leave (paid, CL not used).');
+      };
+    };
+    draw();
+  }
+
   /* ---- Shift Planner ---- */
   /* The whole pay cycle. Days with punches show the shift actually applied (red dot = late);
      today and later — and days not imported yet — show the plan: the Shift Planner entry, else the
@@ -1361,7 +1442,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
             '</button></td>';
         }
         if(rec && d < today){
-          const label = ({WO:'WO',A:'A',CL:'CL'})[rec.status]||rec.status;
+          const label = ({WO:'WO',A:'A',CL:'CL',AL:'AL'})[rec.status]||rec.status;
           return '<td class="mono" style="text-align:center;color:var(--slate-soft);font-size:11px;">'+label+'</td>';
         }
         const code = plannedCode(ROSTER, s, d);
@@ -2091,14 +2172,14 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   function xLeaveList(title, leaves, hint){
     return {title, build: ()=> (hint ? xHint(hint) : '')+
       xTable(['Staff','Type','Date','Reason','Covering','Status'], leaves.slice().sort((a,b)=>b.date.localeCompare(a.date)).map(l=>
-        xRow('', [xStaffLink(l.empNo), escapeHTML(l.type)+(l.hours ? ' &middot; '+l.hours+'h' : ''), xMono(fmtDate(l.date)),
+        xRow('', [xStaffLink(l.empNo), escapeHTML(leaveTypeLabel(l.type))+(l.hours ? ' &middot; '+l.hours+'h' : ''), xMono(fmtDate(l.date)),
           '<span class="note">'+escapeHTML(l.reason||'—')+'</span>', l.altEmpNo ? xStaffLink(l.altEmpNo) : '—', statusPill(l.status)])), 'No requests.')+
       '<div class="footnote">Approve or reject from the Leave &amp; Permission tab.</div>'};
   }
   /* one day: every staff member's status, punch, shift and lateness (from the payroll engine) */
   function xDay(date, list){
     return {title: fmtDate(date)+' ('+dayName(date)+')', build: ()=>{
-      const order = {P:0, CL:1, A:2, WO:3, H:4};
+      const order = {P:0, CL:1, AL:1, A:2, WO:3, H:4};
       const items = list.map(s=>{ const c = computeCycle(s.empNo); return {s, r: c ? c.rows.find(x=>x.date===date) : null}; });
       const late = items.filter(x=>x.r && x.r.status==='P' && x.r.lateMin>(x.r.shift ? (x.r.shift.allowedLateMin??15) : 15));
       const count = st=> items.filter(x=>x.r && x.r.status===st).length;
@@ -2110,7 +2191,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
             escapeHTML(r && r.shift ? r.shift.name : '—'), r && r.status==='P' && r.lateMin>g ? '<span class="late-flag">'+fmtMin(r.lateMin)+'</span>' : '—']);
         });
       return '<div class="stats">'+stat('Present', count('P'), 'teal')+stat('Late', late.length, late.length?'rose':'')+stat('Absent', count('A'), count('A')?'rose':'')+
-        stat('Casual leave', count('CL'))+stat('Weekly off / holiday', count('WO')+count('H'))+'</div>'+
+        stat('Leave (CL / approved)', count('CL')+count('AL'))+stat('Weekly off / holiday', count('WO')+count('H'))+'</div>'+
         xTable(['Staff','Department','Status','In','Out','Shift','Late'], rows, 'No staff.');
     }};
   }
@@ -2175,14 +2256,14 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '</tbody></table></div>'+
       '<div class="section-title" style="margin-top:16px;">Upcoming leave calendar</div>'+
       (upcomingLeaves.length ? '<div class="tbl-scroll"><table class="narrow"><thead><tr><th>Staff</th><th>Date</th><th>Type</th><th>Covering</th></tr></thead><tbody>'+
-        upcomingLeaves.map(l=>{ const s=findStaff(l.empNo), alt=findStaff(l.altEmpNo); return '<tr><td>'+(s?s.name:l.empNo)+'</td><td class="mono">'+fmtDate(l.date)+(l.hours?' &middot; '+l.hours+'h':'')+'</td><td>'+l.type+'</td><td>'+(alt?alt.name:'—')+'</td></tr>'; }).join('')+
+        upcomingLeaves.map(l=>{ const s=findStaff(l.empNo), alt=findStaff(l.altEmpNo); return '<tr><td>'+(s?s.name:l.empNo)+'</td><td class="mono">'+fmtDate(l.date)+(l.hours?' &middot; '+l.hours+'h':'')+'</td><td>'+leaveTypeLabel(l.type)+'</td><td>'+(alt?alt.name:'—')+'</td></tr>'; }).join('')+
         '</tbody></table></div>' : '<div class="note" style="padding:8px 0;">No approved upcoming leave for your team.</div>')+
       (pendingLeave.length ? '<div class="section-title" style="margin-top:16px;">Pending leave approvals</div>'+
         '<div class="tbl-scroll"><table class="narrow"><thead><tr><th>Staff</th><th>Type</th><th>Date</th><th>CL balance</th><th>Permission balance</th></tr></thead><tbody>'+
         pendingLeave.map(l=>{
           const s = findStaff(l.empNo);
           const sum = s ? computeCycle(s.empNo).summary : null;
-          return '<tr><td>'+(s?s.name:l.empNo)+'</td><td>'+l.type+'</td><td class="mono">'+fmtDate(l.date)+'</td>'+
+          return '<tr><td>'+(s?s.name:l.empNo)+'</td><td>'+leaveTypeLabel(l.type)+'</td><td class="mono">'+fmtDate(l.date)+'</td>'+
             '<td class="mono">'+(sum?sum.clRemaining+' / '+sum.monthlyCL:'—')+'</td>'+
             '<td class="mono">'+(sum?fmtMin(sum.permissionRemaining)+' / '+fmtMin(sum.monthlyPermissionMin):'—')+'</td></tr>';
         }).join('')+
@@ -3347,6 +3428,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     body.innerHTML = ''+
     whosOutBoard(scopedIds)+
     '<div class="emp-toolbar"><div class="section-title" style="margin:0;">Leave &amp; permission requests</div>'+
+      '<button class="btn sm" id="alAddBtn" title="Turn an absence of your staff into approved leave: paid, and it does not use their CL">+ Approved leave for an absence</button>'+
       (isManager ? '<span class="badge teal">Routed to you as reporting manager</span>' : (adminUnitFilter!=='ALL'?'<span class="badge teal">Scoped to '+unitName(adminUnitFilter)+'</span>':''))+
     '</div>'+
     '<div class="tabs">'+filters.map(([k,label])=>'<button data-lvfilter="'+k+'" class="'+(leaveStatusFilter===k?'active':'')+'">'+label+' ('+count(k)+')</button>').join('')+'</div>'+
@@ -3355,7 +3437,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '<tr><td colspan="9" class="note">No '+(leaveStatusFilter==='All'?'':filters.find(f=>f[0]===leaveStatusFilter)[1].toLowerCase()+' ')+'requests'+(isManager?' routed to you':'')+' yet.</td></tr>')+
     '</tbody></table></div>'+
     '<div class="footnote">Approving a Casual Leave request marks that date as CL in the staff member\'s attendance, so it flows straight into Shift Ledger and Salary. Approving a Permission request doesn\'t need to touch attendance — permission-hour usage is already calculated automatically from that day\'s actual punch times. Every request names an Alternative employee from the same unit who covers the work while the staff member is away. '+
-      'An approved request can be <b>withdrawn</b> while it is dated in the running or previous pay cycle (from '+fmtDate(windowFrom)+'); older requests are locked, and so is any cycle whose salary is finalized. Withdrawing a CL puts that day\'s attendance back as it was before approval and gives the CL back; a withdrawn Permission no longer covers that day\'s lateness.</div>';
+      'An approved request can be <b>withdrawn</b> while it is dated in the running or previous pay cycle (from '+fmtDate(windowFrom)+'); older requests are locked, and so is any cycle whose salary is finalized. Withdrawing a CL puts that day\'s attendance back as it was before approval and gives the CL back. <b>+ Approved leave for an absence</b> turns an absence in the same window into a paid leave day that does not use CL (withdraw it the same way); a withdrawn Permission no longer covers that day\'s lateness.</div>';
     body.querySelectorAll('[data-lvfilter]').forEach(b=> b.onclick = ()=>{ leaveStatusFilter = b.dataset.lvfilter; renderAdminLeave(); });
     body.querySelectorAll('[data-approve]').forEach(btn=> btn.onclick = async ()=>{
       const l = LEAVES.find(l=>l.id===btn.dataset.approve);
@@ -3383,6 +3465,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       renderAdminLeave();
     });
     body.querySelectorAll('[data-revoke]').forEach(btn=> btn.onclick = ()=> revokeLeave(LEAVES.find(l=>l.id===btn.dataset.revoke), btn));
+    document.getElementById('alAddBtn').onclick = ()=> openApprovedLeaveDialog(scopedIds);
   }
   async function revokeLeave(l, btn){
     if(!l) return;
@@ -3393,18 +3476,18 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     try{ locked = await env.cycleFinalized(l.date); }catch(e){ /* the database checks again when it saves */ }
     if(locked){ alert('Salary for the pay cycle containing '+fmtDate(l.date)+' is finalized. Reopen that cycle on the Salary tab, then withdraw the approval.'); return; }
     const s = findStaff(l.empNo);
-    const what = l.type==='CL' ? 'Casual Leave' : 'Permission'+(l.hours ? ' ('+l.hours+'h)' : '');
-    const effect = l.type==='CL' ? 'That day goes back to its attendance before the leave was approved, and the CL is given back.'
+    const what = l.type===APPROVED_LEAVE ? 'Approved leave' : l.type==='CL' ? 'Casual Leave' : 'Permission'+(l.hours ? ' ('+l.hours+'h)' : '');
+    const effect = l.type===APPROVED_LEAVE ? 'That day goes back to how it was before the leave was set (Absent), so CL or loss of pay applies again.' : l.type==='CL' ? 'That day goes back to its attendance before the leave was approved, and the CL is given back.'
       : 'The permission will no longer cover lateness on that day.';
     const reason = prompt('Withdraw the approved '+what+' for '+(s ? s.name : l.empNo)+' on '+fmtDate(l.date)+'?\n\n'+effect+'\n\nReason (shown to the staff member):', '');
     if(reason===null) return;
     if(btn) btn.disabled = true;
     let note = '';
-    if(l.type==='CL'){
+    if(l.type==='CL' || l.type===APPROVED_LEAVE){
       let current = (ATTENDANCE[l.empNo] || {records:[]}).records.find(r=>r.date===l.date) || null;
       try{
         if(!current && (l.date < env.cycle.start || l.date > env.cycle.end)) current = (await env.existingAttendance([l.empNo], l.date, l.date))[0] || null;
-        const plan = attendanceAfterRevoke(current, l.prevAttendance);
+        const plan = attendanceAfterRevoke(current, l.prevAttendance, l.type);
         if(plan.action==='set') await env.setAttendanceDay(l.empNo, l.date, plan.rec);
         else if(plan.action==='delete') await env.setAttendanceDay(l.empNo, l.date, null);
         note = plan.note;
@@ -3424,12 +3507,12 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     // Only CL changes the payroll calculation directly (the day is excused).
     // Permission usage is already derived automatically from that day's actual
     // punch times in computeCycle, so an approved Permission request is informational.
-    if(l.type!=='CL') return;
+    if(l.type!=='CL' && l.type!==APPROVED_LEAVE) return;
     const att = ATTENDANCE[l.empNo];
     if(!att) return;
     const rec = att.records.find(r=>r.date===l.date);
-    if(rec){ rec.status='CL'; delete rec.in; delete rec.out; }
-    else { att.records.push({date:l.date, status:'CL'}); att.records.sort((a,b)=>a.date.localeCompare(b.date)); }
+    if(rec){ rec.status=l.type; delete rec.in; delete rec.out; }
+    else { att.records.push({date:l.date, status:l.type}); att.records.sort((a,b)=>a.date.localeCompare(b.date)); }
   }
 
   function renderAdminSalary(){

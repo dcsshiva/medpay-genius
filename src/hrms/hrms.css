@@ -465,3 +465,5 @@
 .hrms-root .notif-steps{margin:2px 0 8px 18px; padding:0;}
 .hrms-root .notif-steps li{margin:2px 0;}
 .hrms-root .notif-actions{display:flex; gap:8px; flex-wrap:wrap;}
+/* approved leave set by the reporting manager (paid, no CL used) */
+.hrms-root .status-AL{background:var(--teal-tint); color:var(--teal-deep);}

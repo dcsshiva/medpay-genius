@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cycleStartOf, revokeWindowStart, canRevoke, attendanceAfterRevoke, snapshotDay } from './leaveRevoke.js';
+import { cycleStartOf, revokeWindowStart, canRevoke, attendanceAfterRevoke, snapshotDay, absencesForLeave } from './leaveRevoke.js';
 
 test('pay cycle start for a 26th-to-25th cycle, across month and year ends', () => {
   assert.equal(cycleStartOf('2026-10-29', 26), '2026-10-26');
@@ -42,4 +42,27 @@ test('snapshot of the day at approval', () => {
   assert.deepEqual(snapshotDay(null), { none: true });
   assert.deepEqual(snapshotDay({ date: 'x', status: 'A', in: '09:04' }), { status: 'A', in: '09:04' });
   assert.deepEqual(snapshotDay({ status: 'P', in: '08:00', out: '15:00', permMin: 0 }), { status: 'P', in: '08:00', out: '15:00', permMin: 0 });
+});
+
+test('approved leave (AL): withdrawing puts the day back only while it is still AL', () => {
+  const al = { status: 'AL' };
+  assert.deepEqual(attendanceAfterRevoke(al, { status: 'A' }, 'AL').rec, { status: 'A' });
+  assert.equal(attendanceAfterRevoke({ status: 'CL' }, { status: 'A' }, 'AL').action, 'keep');
+});
+
+test('absences a manager can mark as approved leave: absent with no punch, running + previous cycle, up to today', () => {
+  const recs = [
+    { date: '2026-09-20', status: 'A' },                 // before the previous cycle
+    { date: '2026-09-28', status: 'A' },                 // previous cycle
+    { date: '2026-11-01', status: 'WO' },
+    { date: '2026-11-02', status: 'A', in: '09:10' },    // has a punch: not an absence
+    { date: '2026-11-03', status: 'A' },                 // already approved CL
+    { date: '2026-11-04', status: 'A' },                 // a request is pending
+    { date: '2026-11-05', status: 'A' },
+    { date: '2026-11-12', status: 'A' },                 // after today
+  ];
+  const leaves = [{ type: 'CL', date: '2026-11-03', status: 'Approved' }, { type: 'CL', date: '2026-11-04', status: 'Pending' },
+    { type: 'Permission', date: '2026-11-05', status: 'Approved' }, { type: 'CL', date: '2026-09-28', status: 'Revoked' }];
+  assert.deepEqual(absencesForLeave(recs, leaves, { today: '2026-11-10', startDay: 26 }), [
+    { date: '2026-09-28', pending: false }, { date: '2026-11-04', pending: true }, { date: '2026-11-05', pending: false }]);
 });
