@@ -18,6 +18,9 @@ test('the unit of a file comes from its single-unit staff; multi-unit staff do n
   assert.equal(fileUnit(['c', 'd', 'g'], byCode).unit, null);          // 2 vs 1: mixed file
   assert.equal(fileUnit(['c', 'd', 'e', 'f', 'g'], byCode).unit, 'U1'); // 80%
   assert.equal(fileUnit(['a', 'zz'], byCode).unit, null);
+  // Unit 2's device also records Unit 1 staff: 60 + 17 is still Unit 2's file
+  const many = new Map([...Array(60)].map((_, i) => ['u2-' + i, { unitCode: 'U2' }]).concat([...Array(17)].map((_, i) => ['u1-' + i, { unitCode: 'U1' }])));
+  assert.equal(fileUnit([...many.keys()], many).unit, 'U2');
 });
 
 test('days to check: single daytime punch or absent, only for multi-unit staff and only in range', () => {
