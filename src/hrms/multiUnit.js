@@ -24,8 +24,10 @@ export function fileUnit(empNos, staffByCode) {
   }
   const ranked = Object.entries(counts).sort((a, b) => b[1] - a[1]);
   const total = ranked.reduce((n, [, c]) => n + c, 0);
-  // a clear majority (80%+) names the unit; otherwise the file mixes units
-  const unit = ranked.length && ranked[0][1] >= 0.8 * total ? ranked[0][0] : null;
+  // a clear majority (70%+) names the unit; otherwise the file mixes units. Not higher: a unit's
+  // device also records staff of the other unit who aren't marked multi-unit (Unit 2's file of
+  // 8 Nov: 60 Unit 2 + 17 Unit 1 = 78%)
+  const unit = ranked.length && ranked[0][1] >= 0.7 * total ? ranked[0][0] : null;
   return { unit, counts };
 }
 
