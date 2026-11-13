@@ -13,7 +13,7 @@
  * ========================================================================== */
 import type { HrEnv, HrController, HrWho } from './types';
 import { attendanceByUnit, attendanceCalendar } from './attendanceChart.js';
-import { normalizePunches, normalizeAttendance, mergeAttendanceRecord, planFor, weeklyOffOn } from './punches.js';
+import { normalizePunches, normalizeAttendance, mergeAttendanceRecord, planFor, weeklyOffOn, shiftContext } from './punches.js';
 import { PLAN_OFF, defaultPlanCode, plannedCode, buildPlanSheet, buildPlanBook, readPlanBook, planChanges, planChoices } from './shiftPlan.js';
 import { revokeWindowStart, canRevoke, attendanceAfterRevoke, snapshotDay, absencesForLeave } from './leaveRevoke.js';
 import { fileUnit, multiUnitGaps, coverage, ranges } from './multiUnit.js';
@@ -127,7 +127,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const emp = findStaff(empNo);
     const att = ATTENDANCE[empNo];
     if(!emp || !att) return null;
-    const records = normalizePunches(att.records, {weeklyOff: emp.weeklyOff, weeklyOffHistory: emp.weeklyOffHistory, plan: planFor(ROSTER, empNo)}).filter(r=> r.date>=env.cycle.start && r.date<=env.cycle.end);
+    const records = normalizePunches(att.records, {weeklyOff: emp.weeklyOff, weeklyOffHistory: emp.weeklyOffHistory, plan: planFor(ROSTER, empNo), ...shiftContext(findStaff(empNo), SHIFT_MASTER)}).filter(r=> r.date>=env.cycle.start && r.date<=env.cycle.end);
     if(!records.length){
       const mPerm = staffMonthlyPermissionMin(emp), mCL = staffMonthlyCL(emp);
       return {emp, rows: [], primaryShift: att.primaryShift, noAttendance: true, summary: {
@@ -1318,7 +1318,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     staff.forEach(s=>{
       const att = ATTENDANCE[s.empNo];
       if(!att) return;
-      const recs = normalizePunches(att.records, {weeklyOff: s.weeklyOff, weeklyOffHistory: s.weeklyOffHistory, plan: planFor(ROSTER, s.empNo)});
+      const recs = normalizePunches(att.records, {weeklyOff: s.weeklyOff, weeklyOffHistory: s.weeklyOffHistory, plan: planFor(ROSTER, s.empNo), ...shiftContext(findStaff(s.empNo), SHIFT_MASTER)});
       absencesForLeave(recs, LEAVES.filter(l=>l.empNo===s.empNo), {today, startDay})
         .forEach(a=> items.push({s, date: a.date, pending: a.pending}));
     });
@@ -1449,7 +1449,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const rows = filteredStaff.map(s=>{
       const att = ATTENDANCE[s.empNo];
       const byDate = {};
-      if(att) normalizePunches(att.records, {weeklyOff: s.weeklyOff, weeklyOffHistory: s.weeklyOffHistory, plan: planFor(ROSTER, s.empNo)}).forEach(r=> byDate[r.date]=r);
+      if(att) normalizePunches(att.records, {weeklyOff: s.weeklyOff, weeklyOffHistory: s.weeklyOffHistory, plan: planFor(ROSTER, s.empNo), ...shiftContext(findStaff(s.empNo), SHIFT_MASTER)}).forEach(r=> byDate[r.date]=r);
       const cells = dates.map(d=>{
         const rec = byDate[d];
         const editable = plannerCanEdit(s, d);
@@ -1751,7 +1751,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   function dailyAttendanceSeries(scopedIds){
     const anyAtt = {records: allCycleDates().map(d=>({date:d}))};
     if(!anyAtt.records.length) return [];
-    const normAtt = normalizeAttendance(ATTENDANCE, [...scopedIds].map(id=> findStaff(id) || {empNo:id}), ROSTER);
+    const normAtt = normalizeAttendance(ATTENDANCE, [...scopedIds].map(id=> findStaff(id) || {empNo:id}), ROSTER, SHIFT_MASTER);
     return anyAtt.records.map(r0=>{
       let present=0, total=0;
       scopedIds.forEach(id=>{
@@ -1783,7 +1783,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '<div class="attendance-legend">'+chart.units.map(u=>'<span><i style="background:'+unitChartColour(u.code)+';"></i>'+escapeHTML(u.name)+'</span>').join('')+'</div>';
   }
   function unitAttendanceCalendar(list){
-    const cal = attendanceCalendar(env.cycle.dates, list, normalizeAttendance(ATTENDANCE, list, ROSTER), UNITS, todayISO());
+    const cal = attendanceCalendar(env.cycle.dates, list, normalizeAttendance(ATTENDANCE, list, ROSTER, SHIFT_MASTER), UNITS, todayISO());
     const head = env.cycle.dates.map((d,i)=>{
       const dt = new Date(d+'T12:00:00');
       const brk = i>0 && dt.getDate()===1 ? ' cal-break' : '';
@@ -1851,7 +1851,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const byDept = {};
     scopedStaff.forEach(s=> byDept[s.department] = (byDept[s.department]||0)+1);
 
-    const attendanceChart = attendanceByUnit(env.cycle.dates, scopedStaff, normalizeAttendance(ATTENDANCE, scopedStaff, ROSTER), UNITS);
+    const attendanceChart = attendanceByUnit(env.cycle.dates, scopedStaff, normalizeAttendance(ATTENDANCE, scopedStaff, ROSTER, SHIFT_MASTER), UNITS);
     const topLate = scopedStaff.map(s=>({s, cyc:computeCycle(s.empNo)})).filter(x=>x.cyc.summary.lateDays>0)
       .sort((a,b)=>b.cyc.summary.lateDays-a.cyc.summary.lateDays).slice(0,5)
       .map(x=>({label:x.s.name, value:x.cyc.summary.lateDays, empNo:x.s.empNo}));
@@ -2263,7 +2263,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const tasksAwaitingReview = myTasks.filter(t=>t.status==='Review');
     const rejectedTasks = myTasks.filter(t=>t.status==='Rejected');
     const today = latestDataDate();
-    const todaySnapshot = myReports.map(s=>{ const att = ATTENDANCE[s.empNo]; const rec = att ? normalizePunches(att.records, {weeklyOff: s.weeklyOff, weeklyOffHistory: s.weeklyOffHistory, plan: planFor(ROSTER, s.empNo)}).find(r=>r.date===today) : null; return {s, rec}; });
+    const todaySnapshot = myReports.map(s=>{ const att = ATTENDANCE[s.empNo]; const rec = att ? normalizePunches(att.records, {weeklyOff: s.weeklyOff, weeklyOffHistory: s.weeklyOffHistory, plan: planFor(ROSTER, s.empNo), ...shiftContext(findStaff(s.empNo), SHIFT_MASTER)}).find(r=>r.date===today) : null; return {s, rec}; });
     const presentToday = todaySnapshot.filter(x=>x.rec && x.rec.status==='P').length;
     const upcomingLeaves = LEAVES.filter(l=>myReportIds.has(l.empNo) && l.status==='Approved' && today && l.date>=today).sort((a,b)=>a.date.localeCompare(b.date));
     body.innerHTML = ''+

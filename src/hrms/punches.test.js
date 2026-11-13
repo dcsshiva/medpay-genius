@@ -191,3 +191,33 @@ test('a new record with the same IN and OUT keeps only the IN', () => {
   assert.deepEqual(mergeAttendanceRecord(null, { date: '2026-11-08', status: 'P', in: '08:13', out: '08:13' }),
     { date: '2026-11-08', status: 'P', in: '08:13' });
 });
+
+test('a lone evening punch on a planned day shift is the OUT of that day, not a night shift (Sugumar, 29-30 Oct)', async () => {
+  const { shiftContext } = await import('./punches.js');
+  const shifts = [{ code: 'S6', name: 'General Shift 2', start: '09:00' }, { code: 'S4', name: 'Night Shift 1', start: '20:00' }, { code: 'S2', name: 'Morning Shift 1', start: '08:00' }];
+  const recs = [
+    { date: '2026-10-29', status: 'P', in: '22:25' },
+    { date: '2026-10-30', status: 'P', in: '10:19' },
+    { date: '2026-11-02', status: 'A', in: '23:01' },
+    { date: '2026-11-03', status: 'P', in: '09:51', out: '22:11' },
+    { date: '2026-11-04', status: 'P', in: '10:19' },
+  ];
+  const plan = { '2026-10-29': 'S6', '2026-10-30': 'S6', '2026-11-02': 'S6', '2026-11-03': 'S6', '2026-11-04': 'S6' };
+  const out = normalizePunches(recs, { plan, ...shiftContext({ shiftCode: 'S6' }, shifts) });
+  assert.deepEqual(out.map(r => [r.date, r.status, r.in, r.out, !!r.night, !!r.offAfterNight]), [
+    ['2026-10-29', 'P', undefined, '22:25', false, false],
+    ['2026-10-30', 'P', '10:19', undefined, false, false],
+    ['2026-11-02', 'P', undefined, '23:01', false, false],
+    ['2026-11-03', 'P', '09:51', '22:11', false, false],
+    ['2026-11-04', 'P', '10:19', undefined, false, false],
+  ]);
+  // a planned night shift still pairs as before
+  const night = normalizePunches([{ date: '2026-10-29', status: 'A', in: '20:05' }, { date: '2026-10-30', status: 'A', in: '08:02' }],
+    { plan: { '2026-10-29': 'S4' }, ...shiftContext({ shiftCode: 'S2' }, shifts) });
+  assert.equal(night[0].night, true); assert.equal(night[1].offAfterNight, true);
+  // nothing planned: General Shift staff never start a night; others still may
+  const gen = normalizePunches([{ date: '2026-10-29', status: 'A', in: '21:00' }], shiftContext({ shiftCode: 'S6' }, shifts));
+  assert.equal(gen[0].night, undefined); assert.equal(gen[0].out, '21:00');
+  const rot = normalizePunches([{ date: '2026-10-29', status: 'A', in: '21:00' }], shiftContext({ shiftCode: 'S2' }, shifts));
+  assert.equal(rot[0].night, true);
+});
