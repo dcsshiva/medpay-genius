@@ -467,3 +467,36 @@
 .hrms-root .notif-actions{display:flex; gap:8px; flex-wrap:wrap;}
 /* approved leave set by the reporting manager (paid, no CL used) */
 .hrms-root .status-AL{background:var(--teal-tint); color:var(--teal-deep);}
+
+/* help (English / Tamil) */
+.hrms-root .help-btn{font-weight:600; white-space:nowrap;}
+.hrms-root .help-modal{max-width:880px; width:calc(100% - 24px);}
+.hrms-root .help-head{display:flex; align-items:center; gap:10px;}
+.hrms-root .help-logo{height:34px; width:auto; border-radius:6px; background:#fff;}
+.hrms-root .help-bar{display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; margin-bottom:12px;}
+.hrms-root .help-langs{display:inline-flex; border:1px solid var(--line-strong); border-radius:999px; overflow:hidden;}
+.hrms-root .help-langs button{border:0; background:var(--surface); padding:6px 12px; font-size:12.5px; cursor:pointer; color:var(--ink);}
+.hrms-root .help-langs button.on{background:var(--teal); color:#fff;}
+.hrms-root .help-body{max-height:min(62vh, 640px); overflow:auto; padding-right:4px;}
+.hrms-root .help-entry{border:1px solid var(--line); border-radius:10px; padding:12px 14px; margin-bottom:12px; background:var(--surface);}
+.hrms-root .help-both .help-entry{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
+.hrms-root .help-lang h4{margin:0 0 6px; font-size:14.5px; color:var(--teal-deep);}
+.hrms-root .help-lang p{margin:0 0 8px; line-height:1.55;}
+.hrms-root .help-lang ol, .hrms-root .help-lang ul{margin:0 0 8px 18px; padding:0; line-height:1.55;}
+.hrms-root .help-lang li{margin:3px 0;}
+.hrms-root .help-ta{font-family:"Noto Sans Tamil","Latha","Nirmala UI",inherit;}
+.hrms-root .help-tips{font-size:12.5px; color:var(--slate);}
+.hrms-root .help-group{font-size:15px; margin:16px 0 8px; color:var(--teal-deep);}
+.hrms-root .help-foot{display:flex; flex-wrap:wrap; gap:10px; align-items:center; justify-content:space-between; margin-top:12px;}
+@media (max-width: 720px){
+  .hrms-root .help-both .help-entry{grid-template-columns:1fr; gap:10px;}
+  .hrms-root .help-btn span{display:none;}
+}
+/* Selvantra logo */
+.hrms-root .powered-by{display:flex; align-items:center; justify-content:center; gap:6px; font-size:12px; color:var(--slate-soft); padding:14px 0 8px;}
+.hrms-root .powered-by img{border-radius:4px;}
+.hrms-root .powered-by a{color:inherit; font-weight:600; text-decoration:none;}
+@media (min-width: 901px){ .hrms-root .auth-brand-foot{display:flex; flex-direction:column; align-items:flex-start; gap:8px;} }
+.hrms-root .auth-foot-logo{height:22px; width:22px; border-radius:4px; vertical-align:-6px; margin-right:6px;}
+.hrms-root .auth-selvantra{width:150px; height:auto; background:#fff; border-radius:10px; padding:6px 8px;}
+.hrms-root .auth-help{border:0; background:none; padding:0; color:var(--teal); font-weight:600; cursor:pointer; font-size:inherit;}

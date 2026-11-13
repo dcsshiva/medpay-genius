@@ -3045,6 +3045,122 @@ rep("""/* ---- Shift Planner ---- */""", AL.lstrip('\n') + """\n/* ---- Shift Pl
 rep_re(r"plan: planFor\(ROSTER, (empNo|s\.empNo)\)\}", r"plan: planFor(ROSTER, \1), ...shiftContext(findStaff(\1), SHIFT_MASTER)}", 4)
 rep_re(r"normalizeAttendance\(ATTENDANCE, ([^;]*?), ROSTER\)", r"normalizeAttendance(ATTENDANCE, \1, ROSTER, SHIFT_MASTER)", 3)
 
+# ── 58. Help in English and Tamil (src/hrms/helpContent.js) on every screen: a Help · உதவி button in the
+#        top bar and on the sign-in card opens the help for the screen in view, the overall "About", or
+#        every screen; "Print / Save as PDF" prints the whole help document with the Selvantra logo.
+#        The logo (public/selvantra/) also shows on the sign-in page and in a "Powered by" line. ──
+_old = """      <button class="iconbtn hidden" id="installAppBtn">Install app</button>"""
+assert SHELL.count(_old) == 1
+SHELL = SHELL.replace(_old, """      <button class="iconbtn help-btn" id="helpBtn" title="Help · உதவி" aria-label="Help">? <span>Help · உதவி</span></button>
+""" + _old)
+_old = """  <div id="modalRoot"></div>
+</div>"""
+assert SHELL.count(_old) == 1
+SHELL = SHELL.replace(_old, """  <div id="modalRoot"></div>
+  <div class="powered-by no-print"><img src="/selvantra/selvantra-mark.jpg" alt="" width="22" height="22"> Powered by <a href="https://selvantra.com" target="_blank" rel="noopener">Selvantra Technologies</a></div>
+</div>""")
+rep("""'<div class="auth-brand-foot">Powered by <a href="https://selvantra.com" target="_blank" rel="noopener">Selvantra Technologies</a></div>'+""",
+    """'<div class="auth-brand-foot"><img class="auth-selvantra" src="/selvantra/selvantra-logo.jpg" alt="Selvantra Technologies"><span>Powered by <a href="https://selvantra.com" target="_blank" rel="noopener">Selvantra Technologies</a></span></div>'+""")
+rep("""'<li>Signing in here signs this account out of any other device.</li>'+""",
+    """'<li>Signing in here signs this account out of any other device.</li>'+
+          '<li><button type="button" class="auth-help" id="authHelpBtn">? Help · உதவி</button></li>'+""")
+rep("""'<footer class="auth-foot">&copy; 2026&ndash;2030 Selvantra Technologies""", """'<footer class="auth-foot"><img class="auth-foot-logo" src="/selvantra/selvantra-mark.jpg" alt="">&copy; 2026&ndash;2030 Selvantra Technologies""")
+rep("""function wireAuthShell(){""", """function wireAuthShell(){
+  const ah = document.getElementById('authHelpBtn');
+  if(ah) ah.onclick = ()=> openHelp();""")
+HB = """
+/* ---- Help (English / Tamil) ---- */
+let HELP_LANG = 'both', HELP_VIEW = 'screen';
+try{ HELP_LANG = localStorage.getItem('hrHelpLang') || 'both'; }catch(e){}
+const HELP_LOGO = '/selvantra/selvantra-logo.jpg';
+function helpContext(){
+  const view = currentView();
+  return {view, signedIn: view==='admin' ? !!(adminLoggedIn && currentAdminAccount) : !!currentStaff,
+    role: currentAdminAccount ? currentAdminAccount.role : '', adminTab, mastersSubTab, staffTab};
+}
+/* one help entry in the chosen language(s): English first, then Tamil */
+function helpEntryHTML(key, lang){
+  const h = HELP[key];
+  if(!h) return '';
+  const part = (l)=> '<div class="help-lang help-'+l+'"'+(l==='ta'?' lang="ta"':' lang="en"')+'>'+
+    '<h4>'+escapeHTML(h.title[l])+'</h4>'+
+    '<p>'+escapeHTML(h.intro[l])+'</p>'+
+    (h.steps[l].length ? '<ol>'+h.steps[l].map(x=>'<li>'+escapeHTML(x)+'</li>').join('')+'</ol>' : '')+
+    (h.tips[l].length ? '<div class="help-tips"><b>'+(l==='ta'?'குறிப்புகள்':'Tips')+'</b><ul>'+h.tips[l].map(x=>'<li>'+escapeHTML(x)+'</li>').join('')+'</ul></div>' : '')+
+  '</div>';
+  return '<section class="help-entry">'+(lang==='both' ? part('en')+part('ta') : part(lang))+'</section>';
+}
+function helpAllHTML(lang){
+  return HELP_ORDER.map(k=>{
+    const g = HELP_GROUPS.find(x=>x.before===k);
+    const head = g ? '<h3 class="help-group">'+escapeHTML(lang==='ta' ? g.title.ta : lang==='en' ? g.title.en : g.title.en+' · '+g.title.ta)+'</h3>' : '';
+    return head + helpEntryHTML(k, lang);
+  }).join('');
+}
+function openHelp(){
+  const key = helpKey(helpContext());
+  const modalRoot = document.getElementById('modalRoot');
+  const draw = ()=>{
+    const body = HELP_VIEW==='about' ? helpEntryHTML('about', HELP_LANG) : HELP_VIEW==='all' ? helpAllHTML(HELP_LANG) : helpEntryHTML(key, HELP_LANG);
+    modalRoot.innerHTML = ''+
+    '<div class="modal-back" id="modalBack"><div class="modal help-modal" role="dialog" aria-label="Help">'+
+      '<div class="modal-head"><div class="help-head"><img src="'+HELP_LOGO+'" alt="Selvantra Technologies" class="help-logo"><h3 style="font-size:15px;">Help · உதவி</h3></div><button class="closebtn" id="modalClose" aria-label="Close">&#10005;</button></div>'+
+      '<div class="modal-body">'+
+        '<div class="help-bar">'+
+          '<div class="tabs" style="margin:0;">'+
+            [['screen','This screen · இந்தத் திரை'],['about','About · பற்றி'],['all','All screens · அனைத்தும்']].map(x=>'<button data-help-view="'+x[0]+'" class="'+(HELP_VIEW===x[0]?'active':'')+'">'+x[1]+'</button>').join('')+
+          '</div>'+
+          '<div class="help-langs" role="group" aria-label="Language">'+
+            [['both','English + தமிழ்'],['en','English'],['ta','தமிழ்']].map(x=>'<button data-help-lang="'+x[0]+'" class="'+(HELP_LANG===x[0]?'on':'')+'">'+x[1]+'</button>').join('')+
+          '</div>'+
+        '</div>'+
+        '<div class="help-body'+(HELP_LANG==='both'?' help-both':'')+'">'+body+'</div>'+
+        '<div class="help-foot"><button class="btn" id="helpPrintBtn">Print / Save as PDF — full help document</button>'+
+          '<span class="hint" style="margin:0;">Powered by Selvantra Technologies · selvantra.com</span></div>'+
+      '</div>'+
+    '</div></div>';
+    const close = ()=>{ modalRoot.innerHTML=''; };
+    document.getElementById('modalClose').onclick = close;
+    document.getElementById('modalBack').addEventListener('click', e=>{ if(e.target.id==='modalBack') close(); });
+    modalRoot.querySelectorAll('[data-help-view]').forEach(b=> b.onclick = ()=>{ HELP_VIEW = b.dataset.helpView; draw(); });
+    modalRoot.querySelectorAll('[data-help-lang]').forEach(b=> b.onclick = ()=>{ HELP_LANG = b.dataset.helpLang; try{ localStorage.setItem('hrHelpLang', HELP_LANG); }catch(e){} draw(); });
+    document.getElementById('helpPrintBtn').onclick = ()=> printHelpDocument(HELP_LANG);
+  };
+  HELP_VIEW = 'screen';
+  draw();
+}
+/* the whole help as a document (every screen), printed from a hidden frame */
+function printHelpDocument(lang){
+  const css = 'body{font-family:"Noto Sans Tamil","Latha","Nirmala UI",system-ui,sans-serif;color:#0f172a;margin:24px;font-size:12.5px;line-height:1.55;}'+
+    '.cover{text-align:center;margin-bottom:18px;} .cover img{width:220px;} .cover h1{font-size:22px;margin:8px 0 2px;} .cover p{margin:2px 0;color:#475569;}'+
+    'h3.help-group{font-size:16px;border-bottom:2px solid #1e3a8a;color:#1e3a8a;padding-bottom:4px;margin:22px 0 8px;}'+
+    '.help-entry{break-inside:avoid;margin:0 0 12px;padding:8px 10px;border:1px solid #e2e8f0;border-radius:8px;}'+
+    '.help-both .help-entry{display:grid;grid-template-columns:1fr 1fr;gap:14px;}'+
+    'h4{margin:0 0 4px;font-size:14px;color:#15803d;} p{margin:0 0 6px;} ol,ul{margin:0 0 6px 18px;padding:0;} .help-tips{color:#334155;}'+
+    '.foot{margin-top:18px;text-align:center;color:#64748b;font-size:11px;} @page{margin:14mm;}';
+  const html = '<!doctype html><html><head><meta charset="utf-8"><title>WestMed Payroll System — Help</title><style>'+css+'</style></head><body>'+
+    '<div class="cover"><img src="'+location.origin+HELP_LOGO+'" alt="Selvantra Technologies">'+
+      '<h1>WestMed Payroll System — Help · உதவிக் கையேடு</h1>'+
+      '<p>English · தமிழ்</p><p>'+escapeHTML(versionText())+'</p></div>'+
+    '<div class="'+(lang==='both'?'help-both':'')+'">'+helpAllHTML(lang)+'</div>'+
+    '<div class="foot">© 2026–2030 Selvantra Technologies · selvantra.com</div></body></html>';
+  const old = document.getElementById('helpPrintFrame');
+  if(old) old.remove();
+  const f = document.createElement('iframe');
+  f.id = 'helpPrintFrame';
+  f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+  document.body.appendChild(f);
+  const d = f.contentWindow.document;
+  d.open(); d.write(html); d.close();
+  const go = ()=>{ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){ alert('Could not open printing: '+(e && e.message || e)); } };
+  const img = d.querySelector('img');
+  if(img && !img.complete){ img.onload = go; img.onerror = go; } else setTimeout(go, 50);
+}
+"""
+rep("""/* ---- Shift Planner ---- */""", HB.lstrip('\n') + """\n/* ---- Shift Planner ---- */""")
+rep("""const installBtn = document.getElementById('installAppBtn');""", """document.getElementById('helpBtn').onclick = ()=> openHelp();
+const installBtn = document.getElementById('installAppBtn');""")
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
@@ -3061,6 +3177,7 @@ module = '''// @ts-nocheck
 import type { HrEnv, HrController, HrWho } from './types';
 import { attendanceByUnit, attendanceCalendar } from './attendanceChart.js';
 import { normalizePunches, normalizeAttendance, mergeAttendanceRecord, planFor, weeklyOffOn, shiftContext } from './punches.js';
+import { HELP, HELP_ORDER, HELP_GROUPS, helpKey } from './helpContent.js';
 import { PLAN_OFF, defaultPlanCode, plannedCode, buildPlanSheet, buildPlanBook, readPlanBook, planChanges, planChoices } from './shiftPlan.js';
 import { revokeWindowStart, canRevoke, attendanceAfterRevoke, snapshotDay, absencesForLeave } from './leaveRevoke.js';
 import { fileUnit, multiUnitGaps, coverage, ranges } from './multiUnit.js';
