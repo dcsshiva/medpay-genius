@@ -69,8 +69,28 @@ export function weeklyOffOn(base, history, date) {
 }
 const offSet = (days) => new Set(String(days || '').split(',').map(s => s.trim()).filter(d => WEEKDAYS.includes(d)));
 
+/*
+ * Who can start a night shift with a lone evening punch (opts.nightShifts / opts.dayOnly, from
+ * shiftContext): when the Shift Planner has a day shift for that date, or nothing is planned and the
+ * staff member is on a General Shift, a lone evening punch is the OUT of a day whose IN punch is
+ * missing — not a night shift (that misreading turned the next morning into "off after night duty").
+ * Without opts.nightShifts every lone evening punch may start a night shift (the original rule).
+ */
+export function shiftContext(staffMember, shifts) {
+  const nightShifts = (shifts || []).filter(s => toMin(s.start) !== null && toMin(s.start) >= EVENING_MIN).map(s => s.code);
+  const own = (shifts || []).find(s => staffMember && s.code === staffMember.shiftCode);
+  return { nightShifts, dayOnly: !!own && /general/i.test(own.name || '') };
+}
+function nightAllowed(opts, date) {
+  if (!opts.nightShifts) return true;
+  const planned = (opts.plan || {})[date];
+  if (planned && planned !== PLANNED_OFF) return opts.nightShifts.includes(planned);
+  if (planned === PLANNED_OFF) return true;
+  return !opts.dayOnly;
+}
+
 export function normalizePunches(records, opts = {}) {
-  const paired = pairPunches(records);
+  const paired = pairPunches(records, (date) => nightAllowed(opts, date));
   const history = opts.weeklyOffHistory || [];
   const plan = opts.plan || {};
   const hasPlan = Object.keys(plan).length > 0;
@@ -81,7 +101,7 @@ export function normalizePunches(records, opts = {}) {
     const offLabel = [...offDays].join(', ');
     const change = history.filter(h => h.from <= rec.date).sort((a, b) => (a.from < b.from ? 1 : -1))[0];
     const source = change ? 'from ' + change.from : 'set in Staff Master';
-    const punched = !!rec.in;
+    const punched = !!(rec.in || rec.out);
     const planned = plan[rec.date];
     if (planned) {
       if (planned === PLANNED_OFF && rec.status === 'A' && !punched) {
@@ -116,7 +136,7 @@ export function planFor(roster, empNo) {
   return out;
 }
 
-function pairPunches(records) {
+function pairPunches(records, nightOk = () => true) {
   const sorted = [...(records || [])].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   const out = [];
   let openNight = null; // the output record of a night still waiting for its OUT
@@ -151,7 +171,15 @@ function pairPunches(records) {
       openNight = null;
     }
 
-    // 1. a lone evening punch starts a night shift
+    // 1. a lone evening punch starts a night shift — unless a day shift is planned (see shiftContext):
+    //    then it is the OUT of a day whose IN punch is missing
+    if (inM !== null && inM >= EVENING_MIN && outM === null && !keepsStatus && !nightOk(rec.date)) {
+      const day = { ...rec, out: rec.in, punchNote: 'Only an evening punch (' + rec.in + ') — read as the OUT; the IN punch is missing. Counted present.' };
+      delete day.in;
+      if (day.status === 'A') day.status = 'P';
+      out.push(day);
+      continue;
+    }
     if (inM !== null && inM >= EVENING_MIN && outM === null && !keepsStatus) {
       const night = { ...rec, status: 'P', night: true, punchNote: 'Night shift from ' + rec.in + ' (OUT punch is next morning)' };
       out.push(night);
@@ -173,11 +201,11 @@ function pairPunches(records) {
 
 /** { empNo: { records } } → same shape with normalized records for the given staff
  *  ([{ empNo, weeklyOff }], for the calendar / charts); `roster` = the Shift Planner. */
-export function normalizeAttendance(attendance, staff, roster) {
+export function normalizeAttendance(attendance, staff, roster, shifts) {
   const res = {};
   for (const s of staff) {
     const a = attendance[s.empNo];
-    if (a) res[s.empNo] = { ...a, records: normalizePunches(a.records, { weeklyOff: s.weeklyOff, weeklyOffHistory: s.weeklyOffHistory, plan: planFor(roster, s.empNo) }) };
+    if (a) res[s.empNo] = { ...a, records: normalizePunches(a.records, { weeklyOff: s.weeklyOff, weeklyOffHistory: s.weeklyOffHistory, plan: planFor(roster, s.empNo), ...(shifts ? shiftContext(s, shifts) : {}) }) };
   }
   return res;
 }

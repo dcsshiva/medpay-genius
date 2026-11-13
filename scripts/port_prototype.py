@@ -3039,6 +3039,12 @@ rep("""  l.status = 'Revoked';""", """  if(l.type===MANAGER_WO){
   l.status = 'Revoked';""")
 rep("""/* ---- Shift Planner ---- */""", AL.lstrip('\n') + """\n/* ---- Shift Planner ---- */""")
 
+# ── 57. a lone evening punch starts a night shift only when a night shift is planned that day (or, with
+#        nothing planned, for staff not on a General Shift) — shiftContext in punches.js. Otherwise it
+#        is the OUT of a day with a missing IN, and the next morning stays an ordinary day. ──
+rep_re(r"plan: planFor\(ROSTER, (empNo|s\.empNo)\)\}", r"plan: planFor(ROSTER, \1), ...shiftContext(findStaff(\1), SHIFT_MASTER)}", 4)
+rep_re(r"normalizeAttendance\(ATTENDANCE, ([^;]*?), ROSTER\)", r"normalizeAttendance(ATTENDANCE, \1, ROSTER, SHIFT_MASTER)", 3)
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
@@ -3054,7 +3060,7 @@ module = '''// @ts-nocheck
  * ========================================================================== */
 import type { HrEnv, HrController, HrWho } from './types';
 import { attendanceByUnit, attendanceCalendar } from './attendanceChart.js';
-import { normalizePunches, normalizeAttendance, mergeAttendanceRecord, planFor, weeklyOffOn } from './punches.js';
+import { normalizePunches, normalizeAttendance, mergeAttendanceRecord, planFor, weeklyOffOn, shiftContext } from './punches.js';
 import { PLAN_OFF, defaultPlanCode, plannedCode, buildPlanSheet, buildPlanBook, readPlanBook, planChanges, planChoices } from './shiftPlan.js';
 import { revokeWindowStart, canRevoke, attendanceAfterRevoke, snapshotDay, absencesForLeave } from './leaveRevoke.js';
 import { fileUnit, multiUnitGaps, coverage, ranges } from './multiUnit.js';
