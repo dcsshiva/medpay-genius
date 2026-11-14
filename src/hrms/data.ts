@@ -234,8 +234,14 @@ export function createStore() {
 
   // ─────────────── Phase 2: finalized (locked) pay cycles ───────────────
   async function loadPayroll(cycle: HrCycle) {
+    // Cycle totals are admin/manager only; staff learn finalized status from a narrow function.
+    const manages = who?.role === 'admin' || who?.role === 'manager';
+    const runQuery = manages
+      ? db.from('hr_payroll_runs').select('*').eq('cycle_key', cycle.key).maybeSingle()
+      : db.rpc('hr_payroll_run_status', { _cycle_key: cycle.key })
+          .then((r: any) => ({ data: (Array.isArray(r.data) ? r.data[0] : r.data) || null }));
     const [{ data: run }, slips] = await Promise.all([
-      db.from('hr_payroll_runs').select('*').eq('cycle_key', cycle.key).maybeSingle(),
+      runQuery,
       fetchAll(() => db.from('hr_payslips').select('emp_no, summary, rows').eq('cycle_key', cycle.key).order('emp_no')),
     ]).catch(() => [{ data: null }, []] as any);
     data.PAYROLL.run = run || null;
