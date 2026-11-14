@@ -974,6 +974,24 @@ export type Database = {
         }
         Relationships: []
       }
+      hr_admin_password_flags: {
+        Row: {
+          flagged_at: string
+          password_flag_hash: string
+          user_id: string
+        }
+        Insert: {
+          flagged_at?: string
+          password_flag_hash: string
+          user_id: string
+        }
+        Update: {
+          flagged_at?: string
+          password_flag_hash?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       hr_attendance: {
         Row: {
           date: string
@@ -1061,6 +1079,39 @@ export type Database = {
         }
         Relationships: []
       }
+      hr_import_log: {
+        Row: {
+          date_from: string
+          date_to: string
+          id: number
+          imported_at: string
+          imported_by: string | null
+          record_count: number
+          staff_count: number
+          unit_code: string | null
+        }
+        Insert: {
+          date_from: string
+          date_to: string
+          id?: number
+          imported_at?: string
+          imported_by?: string | null
+          record_count?: number
+          staff_count?: number
+          unit_code?: string | null
+        }
+        Update: {
+          date_from?: string
+          date_to?: string
+          id?: number
+          imported_at?: string
+          imported_by?: string | null
+          record_count?: number
+          staff_count?: number
+          unit_code?: string | null
+        }
+        Relationships: []
+      }
       hr_leaves: {
         Row: {
           alt_emp_no: string
@@ -1071,8 +1122,12 @@ export type Database = {
           emp_no: string
           hours: number | null
           id: string
+          prev_attendance: Json | null
           reason: string
           reporting_manager: string
+          revoke_reason: string | null
+          revoked_by: string | null
+          revoked_on: string | null
           status: string
           type: string
         }
@@ -1085,8 +1140,12 @@ export type Database = {
           emp_no: string
           hours?: number | null
           id?: string
+          prev_attendance?: Json | null
           reason?: string
           reporting_manager?: string
+          revoke_reason?: string | null
+          revoked_by?: string | null
+          revoked_on?: string | null
           status?: string
           type: string
         }
@@ -1099,10 +1158,59 @@ export type Database = {
           emp_no?: string
           hours?: number | null
           id?: string
+          prev_attendance?: Json | null
           reason?: string
           reporting_manager?: string
+          revoke_reason?: string | null
+          revoked_by?: string | null
+          revoked_on?: string | null
           status?: string
           type?: string
+        }
+        Relationships: []
+      }
+      hr_notifications: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          done_at: string | null
+          done_by: string | null
+          id: number
+          items: Json
+          message: string
+          read_at: string | null
+          recipient_email: string
+          screen: string | null
+          steps: Json
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          done_at?: string | null
+          done_by?: string | null
+          id?: number
+          items?: Json
+          message?: string
+          read_at?: string | null
+          recipient_email: string
+          screen?: string | null
+          steps?: Json
+          title: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          done_at?: string | null
+          done_by?: string | null
+          id?: number
+          items?: Json
+          message?: string
+          read_at?: string | null
+          recipient_email?: string
+          screen?: string | null
+          steps?: Json
+          title?: string
         }
         Relationships: []
       }
@@ -1218,16 +1326,52 @@ export type Database = {
           date: string
           emp_no: string
           shift_code: string
+          updated_at: string
+          updated_by: string | null
         }
         Insert: {
           date: string
           emp_no: string
           shift_code: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           date?: string
           emp_no?: string
           shift_code?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      hr_roster_log: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          date: string
+          emp_no: string
+          id: number
+          new_code: string | null
+          old_code: string | null
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          date: string
+          emp_no: string
+          id?: number
+          new_code?: string | null
+          old_code?: string | null
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          date?: string
+          emp_no?: string
+          id?: number
+          new_code?: string | null
+          old_code?: string | null
         }
         Relationships: []
       }
@@ -1313,6 +1457,7 @@ export type Database = {
           esic_no: string
           monthly_cl: number
           monthly_permission_hours: number
+          multi_unit: boolean
           must_change_password: boolean
           name: string
           net_salary: number
@@ -1330,6 +1475,7 @@ export type Database = {
           unit_history: Json
           updated_at: string
           user_id: string | null
+          weekly_off: string
         }
         Insert: {
           active?: boolean
@@ -1352,6 +1498,7 @@ export type Database = {
           esic_no?: string
           monthly_cl?: number
           monthly_permission_hours?: number
+          multi_unit?: boolean
           must_change_password?: boolean
           name: string
           net_salary?: number
@@ -1369,6 +1516,7 @@ export type Database = {
           unit_history?: Json
           updated_at?: string
           user_id?: string | null
+          weekly_off?: string
         }
         Update: {
           active?: boolean
@@ -1391,6 +1539,7 @@ export type Database = {
           esic_no?: string
           monthly_cl?: number
           monthly_permission_hours?: number
+          multi_unit?: boolean
           must_change_password?: boolean
           name?: string
           net_salary?: number
@@ -1408,6 +1557,7 @@ export type Database = {
           unit_history?: Json
           updated_at?: string
           user_id?: string | null
+          weekly_off?: string
         }
         Relationships: []
       }
@@ -1510,6 +1660,30 @@ export type Database = {
           code?: string
           name?: string
           sort_order?: number
+        }
+        Relationships: []
+      }
+      hr_weekly_off: {
+        Row: {
+          days: string
+          effective_from: string
+          emp_no: string
+          set_at: string
+          set_by: string | null
+        }
+        Insert: {
+          days?: string
+          effective_from: string
+          emp_no: string
+          set_at?: string
+          set_by?: string | null
+        }
+        Update: {
+          days?: string
+          effective_from?: string
+          emp_no?: string
+          set_at?: string
+          set_by?: string | null
         }
         Relationships: []
       }
@@ -5436,6 +5610,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      hr_admin_must_change: { Args: { _uid: string }; Returns: boolean }
       hr_attendance_stats: {
         Args: { _end: string; _start: string }
         Returns: {
@@ -5444,10 +5619,13 @@ export type Database = {
         }[]
       }
       hr_can_manage: { Args: { _uid: string }; Returns: boolean }
+      hr_cycle_locked: { Args: { _date: string }; Returns: boolean }
+      hr_cycle_start: { Args: { _d: string }; Returns: string }
       hr_flag_password_change: { Args: { _emp: string }; Returns: undefined }
       hr_is_admin: { Args: { _uid: string }; Returns: boolean }
       hr_is_manager: { Args: { _uid: string }; Returns: boolean }
       hr_latest_attendance_date: { Args: never; Returns: string }
+      hr_manages: { Args: { _emp: string; _uid: string }; Returns: boolean }
       hr_my_emp: { Args: { _uid: string }; Returns: string }
       hr_refresh_password_flag: { Args: never; Returns: boolean }
       hr_whoami: {
