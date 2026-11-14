@@ -5,6 +5,7 @@ import { mountHrms } from './prototype';
 import { createStore, latestAttendanceDate, fetchAttendanceRange } from './data';
 import { staffSignIn, adminSignIn, signOut, changePassword, whoami, manageLogin } from './auth';
 import { cycleContaining, cycleForKey, recentCycles, todayISO } from './cycle';
+import { updateAction } from './appUpdate.js';
 import type { HrController, HrCycle, HrEnv, HrWho } from './types';
 
 // Stamped by vite.config.ts from package.json: version "1.1.0.03", releasedAt set by the
@@ -332,7 +333,84 @@ export default function HrmsApp() {
     };
     window.addEventListener('beforeunload', onBeforeUnload);
 
+    // ── keep installed copies (phones, "Add to Home screen") on the latest version ──
+    // The offline cache keeps serving the version it first downloaded, and a refresh on a phone
+    // often doesn't replace it. Ask the server which version is published (build-info.json is
+    // never cached): at start and whenever the app comes back to the screen, update straight away
+    // if nothing would be lost; otherwise (and on the 10-minute check) show an "Update now" bar.
+    const TRIED_KEY = 'hr_update_tried';
+    let updateBanner: HTMLDivElement | null = null;
+    try {
+      const u = new URL(window.location.href);
+      if (u.searchParams.has('v')) { u.searchParams.delete('v'); window.history.replaceState(window.history.state, '', u.toString()); }
+    } catch { /* ignore */ }
+    const applyUpdate = async (version: string) => {
+      try { sessionStorage.setItem(TRIED_KEY, version); } catch { /* private mode */ }
+      try {
+        if (store.who && store.hasPendingChanges()) await runSync();
+        if ('serviceWorker' in navigator) {
+          const regs = await navigator.serviceWorker.getRegistrations();
+          await Promise.all(regs.map(r => r.unregister()));
+        }
+        if ('caches' in window) {
+          const names = await caches.keys();
+          await Promise.all(names.map(n => caches.delete(n)));
+        }
+      } catch { /* reload anyway */ }
+      const url = new URL(window.location.href);
+      url.searchParams.set('v', version);
+      window.location.replace(url.toString());
+    };
+    const showUpdateBanner = (version: string) => {
+      if (!updateBanner) {
+        updateBanner = document.createElement('div');
+        updateBanner.className = 'hr-update-banner';
+        updateBanner.setAttribute('role', 'status');
+        document.body.appendChild(updateBanner);
+      }
+      updateBanner.innerHTML = '';
+      const text = document.createElement('span');
+      text.textContent = `A new version (v${version}) is available · புதிய பதிப்பு உள்ளது`;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = 'Update now · புதுப்பி';
+      btn.onclick = () => { btn.disabled = true; btn.textContent = 'Updating…'; applyUpdate(version); };
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'hr-update-close';
+      close.setAttribute('aria-label', 'Later');
+      close.textContent = '✕';
+      close.onclick = () => { updateBanner?.remove(); updateBanner = null; };
+      updateBanner.append(text, btn, close);
+    };
+    const checkForUpdate = async (allowReload: boolean) => {
+      if (disposed || !BUILD.version) return;
+      let published = '';
+      try {
+        const r = await fetch(`/build-info.json?t=${Date.now()}`, { cache: 'no-store' });
+        if (!r.ok) return;
+        published = String((await r.json())?.version || '');
+      } catch { return; }
+      let tried = '';
+      try { tried = sessionStorage.getItem(TRIED_KEY) || ''; } catch { /* private mode */ }
+      // signed out (sign-in page): nothing to lose. Signed in: not while saving, typing or in a dialog.
+      const quiet = allowReload && (!store.who || (
+        !store.hasPendingChanges()
+        && !document.querySelector('#modalRoot .modal-back')
+        && !document.querySelector('input:focus, textarea:focus, select:focus')));
+      const action = updateAction({ current: BUILD.version, published, quiet, tried });
+      if (action === 'reload') applyUpdate(published);
+      else if (action === 'banner') showUpdateBanner(published);
+    };
+    checkForUpdate(true);
+    const onVisible = () => { if (document.visibilityState === 'visible') checkForUpdate(true); };
+    document.addEventListener('visibilitychange', onVisible);
+    const updateTimer = setInterval(() => { if (document.visibilityState === 'visible') checkForUpdate(false); }, 10 * 60 * 1000);
+
     return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      clearInterval(updateTimer);
+      updateBanner?.remove();
       disposed = true;
       disposeOverlay?.();
       sub.subscription.unsubscribe();
