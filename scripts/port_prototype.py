@@ -3420,6 +3420,102 @@ function leaveCards(leaves){
 """
 rep("""/* ---- Shift Planner ---- */""", PH.lstrip('\n') + """\n/* ---- Shift Planner ---- */""")
 
+# ── 61. Tamil for the employee screens (staffTamil.js) and leave updates (staffNotices.js).
+#        A தமிழ் / English button (top bar on the staff screens, and the sign-in card) switches the
+#        staff portal; a MutationObserver translates whatever the staff screens render. Leave decisions
+#        since the employee last looked show on Home and as a count on the Leave tab. ──
+_old = """      <button class="iconbtn help-btn" id="helpBtn\""""
+assert SHELL.count(_old) == 1
+SHELL = SHELL.replace(_old, """      <button class="iconbtn lang-btn" id="langBtn" data-lang-toggle data-no-ta hidden>தமிழ்</button>
+""" + _old)
+rep("""  root.classList.toggle('staff-only', !currentAdminAccount);""", """  root.classList.toggle('staff-only', !currentAdminAccount);
+  showLangBtn(true);""")
+rep("""  root.classList.remove('staff-phone');""", """  root.classList.remove('staff-phone');
+  showLangBtn(false);""")
+rep("""  const myLeaves = LEAVES.filter(l=>l.empNo===currentStaff);""", """  const myLeaves = LEAVES.filter(l=>l.empNo===currentStaff);
+  if(staffTab==='leave') markLeaveSeen(myLeaves);
+  const leaveNews = staffTab==='leave' ? [] : leaveNewsFor(myLeaves);""")
+rep("""payslip:'Payslip'})[t])})),""", """payslip:'Payslip'})[t]) + (t==='leave' && leaveNews.length ? '<span class="tn-badge" aria-label="'+leaveNews.length+' new">'+leaveNews.length+'</span>' : '')})),""")
+rep("""      (staffPhone() ? todayCard(result) : '')+""", """      leaveNewsHTML(leaveNews)+
+      (staffPhone() ? todayCard(result) : '')+""")
+rep("""'<div class="footnote">Open tasks: '+openTasks+' &middot; Leave/permission requests filed this cycle: '+myLeaves.length+'</div>';""",
+    """'<div class="footnote">Open tasks: '+openTasks+' &middot; Leave/permission requests filed this cycle: '+myLeaves.length+'</div>';
+    wireLeaveNews(body, myLeaves);""")
+rep("""          '<li><button type="button" class="auth-help" id="authHelpBtn">? Help · உதவி</button></li>'+""",
+    """          '<li><button type="button" class="auth-help" id="authHelpBtn">? Help · உதவி</button></li>'+
+          '<li><button type="button" class="auth-help" id="authLangBtn" data-lang-toggle data-no-ta>'+(STAFF_LANG==='ta' ? 'English' : 'தமிழ்')+'</button></li>'+""")
+rep("""  if(ah) ah.onclick = ()=> openHelp();""", """  if(ah) ah.onclick = ()=> openHelp();
+  ensureLangObserver(); wireLangButtons();""")
+TB = r"""
+/* ---- Tamil for the employee screens ---- */
+let STAFF_LANG = 'en';
+try{ STAFF_LANG = localStorage.getItem('hrStaffLang')==='ta' ? 'ta' : 'en'; }catch(e){}
+let langObserving = false;
+function langLabel(){ return STAFF_LANG==='ta' ? 'English' : 'தமிழ்'; }
+function staffViewActive(){ return !staffView.classList.contains('hidden'); }
+function wireLangButtons(){
+  document.querySelectorAll('[data-lang-toggle]').forEach(b=>{
+    b.textContent = langLabel();
+    b.title = STAFF_LANG==='ta' ? 'Switch to English' : 'தமிழில் பார்க்க';
+    b.onclick = ()=> setStaffLang(STAFF_LANG==='ta' ? 'en' : 'ta');
+  });
+}
+function showLangBtn(on){ const b = document.getElementById('langBtn'); if(b) b.hidden = !on; if(on){ ensureLangObserver(); wireLangButtons(); } }
+function setStaffLang(lang){
+  STAFF_LANG = lang;
+  try{ localStorage.setItem('hrStaffLang', lang); }catch(e){}
+  wireLangButtons();
+  if(staffViewActive()){ currentStaff ? renderStaffDashboard() : renderStaffLogin(); }
+}
+function translateStaff(node){
+  if(STAFF_LANG!=='ta' || !node) return;
+  const skip = (el)=> !el || !!(el.closest && el.closest('.help-modal, .install-card, script, style, [data-no-ta]'));
+  if(node.nodeType===3){ if(!skip(node.parentElement)){ const r = translateText(node.nodeValue); if(r!==null) node.nodeValue = r; } return; }
+  if(node.nodeType!==1 || skip(node)) return;
+  const w = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+  const list = [];
+  while(w.nextNode()) list.push(w.currentNode);
+  list.forEach(t=>{ if(skip(t.parentElement)) return; const r = translateText(t.nodeValue); if(r!==null) t.nodeValue = r; });
+  node.querySelectorAll('[placeholder]').forEach(e=>{ if(skip(e)) return; const r = translateText(e.getAttribute('placeholder')); if(r!==null) e.setAttribute('placeholder', r); });
+}
+function ensureLangObserver(){
+  if(langObserving) return;
+  langObserving = true;
+  const obs = new MutationObserver(muts=>{
+    if(STAFF_LANG!=='ta' || !staffViewActive()) return;
+    muts.forEach(m=> m.addedNodes.forEach(n=> translateStaff(n)));
+  });
+  ['staffView','topNav','modalRoot'].forEach(id=>{ const el = document.getElementById(id); if(el) obs.observe(el, {childList:true, subtree:true}); });
+  if(STAFF_LANG==='ta' && staffViewActive()){ ['staffView','topNav','modalRoot'].forEach(id=> translateStaff(document.getElementById(id))); }
+}
+
+/* ---- Leave updates for the employee (seen per device) ---- */
+function leaveSeenKey(){ return 'hrLeaveSeen:'+currentStaff; }
+function leaveSeen(){ try{ return JSON.parse(localStorage.getItem(leaveSeenKey()) || '{}') || {}; }catch(e){ return {}; } }
+function saveLeaveSeen(m){ try{ localStorage.setItem(leaveSeenKey(), JSON.stringify(m)); }catch(e){} }
+function leaveNewsFor(myLeaves){ return leaveUpdates(myLeaves, leaveSeen(), todayISO()); }
+function markLeaveSeen(myLeaves){ const u = leaveNewsFor(myLeaves); if(u.length) saveLeaveSeen(markSeen(leaveSeen(), u)); }
+function leaveNewsHTML(news){
+  if(!news.length) return '';
+  return '<div class="leave-news no-print"><div class="ln-title">Leave updates</div>'+
+    news.map(u=>{
+      const t = updateText(u, dayName(u.date)+' '+fmtDate(u.date));
+      return '<div class="ln-item ln-'+t.tone+'"><span>'+escapeHTML(STAFF_LANG==='ta' ? t.ta : t.en)+'</span>'+
+        '<button type="button" class="ln-x" data-news-dismiss="'+escapeAttr(u.id)+'" aria-label="Dismiss">✕</button></div>';
+    }).join('')+
+    '<button type="button" class="iconbtn" data-news-view>View</button></div>';
+}
+function wireLeaveNews(body, myLeaves){
+  body.querySelectorAll('[data-news-dismiss]').forEach(b=> b.onclick = ()=>{
+    saveLeaveSeen(markSeen(leaveSeen(), leaveNewsFor(myLeaves).filter(x=>x.id===b.dataset.newsDismiss)));
+    renderStaffDashboard();
+  });
+  const v = body.querySelector('[data-news-view]');
+  if(v) v.onclick = ()=>{ staffTab = 'leave'; renderStaffDashboard(); };
+}
+"""
+rep("""/* ---- Shift Planner ---- */""", TB.lstrip('\n') + """\n/* ---- Shift Planner ---- */""")
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
@@ -3440,6 +3536,8 @@ import { HELP, HELP_ORDER, HELP_GROUPS, helpKey } from './helpContent.js';
 import { PLAN_OFF, defaultPlanCode, plannedCode, buildPlanSheet, buildPlanBook, readPlanBook, planChanges, planChoices } from './shiftPlan.js';
 import { revokeWindowStart, canRevoke, attendanceAfterRevoke, snapshotDay, absencesForLeave } from './leaveRevoke.js';
 import { upcomingDays } from './staffToday.js';
+import { translateText } from './staffTamil.js';
+import { leaveUpdates, markSeen, updateText } from './staffNotices.js';
 import { fileUnit, multiUnitGaps, coverage, ranges } from './multiUnit.js';
 import { parsePunchMonitor, looksLikeName } from './punchMonitor.js';
 import { earningsLines, pfBase, cycleAdjustments, statutory, buildPayslip } from './payslip.js';

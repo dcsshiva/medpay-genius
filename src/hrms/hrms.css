@@ -619,3 +619,30 @@
 .hrms-root.staff-phone .profile-head .profile-name{display:none;}
 .hrms-root .today-card .late-flag{background:#fee2e2; color:#b91c1c; border-radius:999px; padding:2px 10px; font-size:12.5px; font-weight:600;}
 .hrms-root.staff-phone #staffView table.narrow{min-width:0;}
+
+/* Tamil switch and leave updates (port_prototype.py section 61) */
+.hrms-root .lang-btn{font-weight:600; white-space:nowrap;}
+.hrms-root .lang-btn[hidden]{display:none;}
+.hrms-root .topnav-item{position:relative;}
+.hrms-root .tn-badge{display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px; padding:0 5px; margin-left:6px; border-radius:999px; background:var(--rose); color:#fff; font-size:11px; font-weight:700; line-height:1;}
+.hrms-root.staff-phone .tn-badge{position:absolute; top:4px; left:calc(50% + 6px); margin:0;}
+.hrms-root .leave-news{border:1px solid var(--line-strong); border-radius:14px; padding:10px 12px; margin-bottom:14px; background:var(--surface);}
+.hrms-root .ln-title{font-weight:700; font-size:13.5px; margin-bottom:6px;}
+.hrms-root .ln-item{display:flex; align-items:flex-start; justify-content:space-between; gap:8px; padding:8px 10px; border-radius:10px; margin-bottom:6px; font-size:13.5px; line-height:1.45;}
+.hrms-root .ln-ok{background:var(--teal-tint); color:var(--teal-deep);}
+.hrms-root .ln-bad{background:var(--rose-tint); color:var(--rose);}
+.hrms-root .ln-x{border:0; background:none; color:inherit; cursor:pointer; font-size:14px; padding:2px 6px; min-height:0 !important;}
+/* top-bar buttons keep white text on hover (Help, language) */
+.hrms-root .topbar .iconbtn:hover{color:#fff; filter:brightness(1.08);}
+/* phone staff header in one row: badge · pay cycle · language · help */
+.hrms-root.staff-phone .topbar{flex-wrap:nowrap; align-items:center;}
+.hrms-root.staff-phone .topbar > div:last-child{flex:none; gap:6px;}
+.hrms-root.staff-phone .brand{flex:1 1 auto; min-width:0;}
+.hrms-root.staff-phone .brand-name{display:none;}
+.hrms-root.staff-phone .brand-sub{font-size:0; min-width:0;}
+.hrms-root.staff-phone .cycle-select{font-size:12.5px; max-width:100%; min-width:0;}
+.hrms-root.staff-phone .topbar .iconbtn{padding:6px 10px; min-height:40px;}
+.hrms-root.staff-phone #installAppBtn{display:none;}
+.hrms-root.staff-phone .brand > div:not(.brand-mark){min-width:0; flex:1 1 auto;}
+.hrms-root.staff-phone .brand-sub{overflow:hidden;}
+.hrms-root.staff-phone .cycle-select{width:100%; text-overflow:ellipsis;}
