@@ -44,8 +44,8 @@ export const HELP = {
     intro: t('Install Selvantra HRMS on your phone to open your attendance, leave, tasks and payslip in one tap, like any other app.',
       'உங்கள் வருகை, விடுப்பு, பணிகள், சம்பளச் சீட்டை மற்ற செயலிகள் போல ஒரே தொடுதலில் திறக்க, Selvantra HRMS-ஐ உங்கள் போனில் நிறுவுங்கள்.'),
     steps: list([
-      ['Open the app link (or scan the QR code from HR) on your phone.',
-        'HR தரும் இணைப்பை (அல்லது QR குறியீட்டை ஸ்கேன் செய்து) உங்கள் போனில் திறங்கள்.'],
+      ['Open the install link from HR (it ends in /install) or scan HR\'s QR code on your phone — the page shows the steps for your phone.',
+        'HR தரும் நிறுவல் இணைப்பை (/install என முடியும்) திறங்கள் அல்லது QR குறியீட்டை ஸ்கேன் செய்யுங்கள் — உங்கள் போனுக்கான வழிமுறைகள் அந்தப் பக்கத்தில் தெரியும்.'],
       ['Android: tap "Install · நிறுவு" on the sign-in page (or Chrome menu ⋮ → Install app).',
         'ஆண்ட்ராய்டு: உள்நுழைவுப் பக்கத்தில் "Install · நிறுவு" அழுத்துங்கள் (அல்லது Chrome மெனு ⋮ → Install app).'],
       ['iPhone: open the link in Safari, tap Share, then "Add to Home Screen", then Add.',

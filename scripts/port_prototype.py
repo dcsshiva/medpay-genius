@@ -3201,7 +3201,7 @@ rep("""  document.getElementById('adminChangePwBtn').onclick = ()=> openChangePa
 PW = """
 /* ---- Installing the app on phones ---- */
 const INSTALL_SNOOZE_KEY = 'hrInstallSnoozeUntil';
-function installPrompt(){ try{ return deferredInstallPrompt; }catch(e){ return null; } }
+function installPrompt(){ let p = null; try{ p = deferredInstallPrompt; }catch(e){} return p || window.__installPrompt || null; }
 function isPhoneDevice(){ return /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1) || window.matchMedia('(max-width: 900px) and (pointer: coarse)').matches; }
 function installSnoozed(){ try{ return Number(localStorage.getItem(INSTALL_SNOOZE_KEY) || 0) > Date.now(); }catch(e){ return false; } }
 function canOfferInstall(){ return !isStandalone() && isPhoneDevice() && !installSnoozed() && (!!installPrompt() || isIOS()); }
@@ -3229,6 +3229,7 @@ async function installNow(){
     p.prompt();
     try{ await p.userChoice; }catch(e){}
     try{ deferredInstallPrompt = null; }catch(e){}
+    window.__installPrompt = null;
     refreshInstallCard();
     return;
   }
@@ -3236,7 +3237,7 @@ async function installNow(){
 }
 /* administrators: the link and QR code to send to staff */
 async function openAppLinkModal(){
-  const link = location.origin + '/';
+  const link = location.origin + '/install';
   const msg = 'Install Selvantra HRMS (WestMed attendance, leave and payslip): ' + link + ' — open it on your phone and tap Install (iPhone: Safari → Share → Add to Home Screen). Sign in with your Staff Code. / செயலியை நிறுவ இந்த இணைப்பைத் திறந்து Install அழுத்துங்கள்; உங்கள் ஸ்டாஃப் கோடு மூலம் உள்நுழையுங்கள்.';
   let qrSvg = '', qrUrl = '';
   try{
@@ -3251,7 +3252,7 @@ async function openAppLinkModal(){
   '<div class="modal-back" id="modalBack"><div class="modal narrow">'+
     '<div class="modal-head"><h3 style="font-size:15px;">App link for staff · செயலி இணைப்பு</h3><button class="closebtn" id="modalClose">✕</button></div>'+
     '<div class="modal-body">'+
-      '<div class="hint" style="margin-bottom:8px;">Staff scan this QR code or open the link on their phone, then tap <b>Install</b>. The app appears as <b>Selvantra HRMS</b> with the Selvantra icon and opens on their own dashboard.<br><span class="help-ta">ஊழியர்கள் இந்த QR குறியீட்டை ஸ்கேன் செய்து அல்லது இணைப்பைத் திறந்து <b>Install</b> அழுத்தலாம்.</span></div>'+
+      '<div class="hint" style="margin-bottom:8px;">Staff scan this QR code or open this install link on their phone, then follow the one or two steps shown for their phone. The app appears as <b>Selvantra HRMS</b> with the Selvantra icon and opens on their own dashboard.<br><span class="help-ta">ஊழியர்கள் இந்த QR குறியீட்டை ஸ்கேன் செய்து அல்லது இணைப்பைத் திறந்து <b>Install</b> அழுத்தலாம்.</span></div>'+
       '<div class="app-qr">'+qrSvg+'</div>'+
       '<div class="mono" style="text-align:center;margin:6px 0 12px;word-break:break-all;">'+escapeHTML(link)+'</div>'+
       '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">'+

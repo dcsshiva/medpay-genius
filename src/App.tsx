@@ -11,7 +11,7 @@ import { useEffect } from "react";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
-import Install from "./pages/Install";
+import InstallPage from "./hrms/InstallPage";
 import PublicUserGuide from "./pages/PublicUserGuide";
 import Unsubscribe from "./pages/Unsubscribe";
 import HrmsApp from "./hrms/HrmsApp";
@@ -50,7 +50,7 @@ const App = () => {
                   {/* previous WestMed screens, kept reachable for administrators */}
                   <Route path="/classic" element={<Index />} />
                   <Route path="/classic/login" element={<Auth />} />
-                  <Route path="/install" element={<Install />} />
+                  <Route path="/install" element={<InstallPage />} />
                   <Route path="/help-guide" element={<PublicUserGuide />} />
                   <Route path="/unsubscribe" element={<Unsubscribe />} />
                   <Route path="*" element={<NotFound />} />

@@ -521,3 +521,31 @@
 .hrms-root .app-qr svg{width:220px; height:220px;}
 /* dialogs opened from the sign-in page (Help, the iPhone install steps) sit above it (.auth is z-index 40) */
 .hrms-root.hr-auth .modal-back{z-index:45;}
+
+/* /install — the install link for staff phones (InstallPage.tsx) */
+.hrms-root.ip{min-height:100vh; min-height:100dvh; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:24px 16px; background:linear-gradient(180deg,#0f2a5c 0,#1e3a8a 210px,#f5f7f9 210px); font-family:var(--font, system-ui, sans-serif); color:#0f172a;}
+.ip-card{width:100%; max-width:440px; background:#fff; border-radius:20px; box-shadow:0 18px 40px -18px rgba(15,23,42,.45); padding:28px 22px 20px; text-align:center;}
+.ip-logo{border-radius:20px; border:1px solid #e2e8f0; box-shadow:0 6px 18px -8px rgba(15,23,42,.35);}
+.ip-card h1{font-size:24px; margin:12px 0 4px; color:#1e3a8a;}
+.ip-sub{margin:0 0 16px; color:#475569; font-size:14px;}
+.ip-en,.ip-ta{display:block;}
+.ip-ta{font-family:"Noto Sans Tamil","Latha","Nirmala UI",inherit; font-size:.92em; color:#334155; margin-top:2px;}
+.ip-box{text-align:left; border:1px solid #e2e8f0; border-radius:14px; padding:14px 16px; margin:0 0 12px; background:#f8fafc;}
+.ip-box > b{display:block; font-size:15px; margin-bottom:6px; color:#0f172a;}
+.ip-box ol{margin:6px 0 0 20px; padding:0; list-style:decimal; line-height:1.55;}
+.ip-box li{margin:8px 0;}
+.ip-box p{margin:4px 0 10px; line-height:1.5;}
+.ip-ok{background:#ecfdf5; border-color:#a7f3d0;}
+.ip-btn{display:block; width:100%; border:0; border-radius:12px; padding:12px 14px; background:#0971F9; color:#fff; font-weight:700; font-size:15px; text-align:center; text-decoration:none; cursor:pointer;}
+.ip-btn .ip-ta{color:#e0ecff;}
+.ip-big{padding:16px 14px; font-size:17px;}
+.ip-hint{color:#475569; font-size:13px; margin-top:10px !important;}
+.ip-ico{display:inline-block; min-width:1.4em; text-align:center; border:1px solid #cbd5e1; border-radius:6px; padding:0 3px; background:#fff;}
+.ip-link{font-family:ui-monospace,monospace; font-size:13px; word-break:break-all; background:#fff; border:1px dashed #cbd5e1; border-radius:8px; padding:8px; margin:8px 0 10px; text-align:center;}
+.ip-qr{display:flex; justify-content:center;} .ip-qr svg{width:210px; height:210px;}
+.ip-continue{display:inline-block; margin-top:6px; color:#0971F9; font-size:13.5px; text-decoration:none;}
+.ip-continue .ip-en, .ip-continue .ip-ta{display:inline; margin:0 3px;}
+.ip-foot{display:flex; align-items:center; gap:6px; font-size:12px; color:#64748b;} .ip-foot img{border-radius:4px;} .ip-foot a{color:inherit; font-weight:600; text-decoration:none;}
+.hrms-root .ip-logo{display:block; margin:0 auto;}
+.hrms-root .ip-btn, .hrms-root .ip-btn .ip-en{color:#fff;}
+.hrms-root .ip-btn .ip-ta{color:#e0ecff;}
