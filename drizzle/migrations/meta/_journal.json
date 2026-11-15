@@ -211,6 +211,13 @@
       "when": 1789865839547,
       "tag": "0029_hr_data_versions",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1789865840547,
+      "tag": "0030_hr_holidays_members_only",
+      "breakpoints": true
     }
   ]
 }
