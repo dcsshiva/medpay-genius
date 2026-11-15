@@ -553,6 +553,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<div class="auth-brand-foot"><img class="auth-selvantra" src="/selvantra/selvantra-logo.jpg" alt="Selvantra Technologies"><span>Powered by <a href="https://selvantra.com" target="_blank" rel="noopener">Selvantra Technologies</a></span></div>'+
       '</aside>'+
       '<main class="auth-main">'+
+          installCardHTML()+
         '<div class="auth-card">'+
           '<div class="auth-seg" role="tablist" aria-label="Sign in as">'+
             '<button type="button" role="tab" data-go="staff" aria-selected="'+staff+'" class="'+(staff?'on':'')+'">Staff</button>'+
@@ -583,6 +584,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   function wireAuthShell(){
     const ah = document.getElementById('authHelpBtn');
     if(ah) ah.onclick = ()=> openHelp();
+    refreshInstallCard();
     document.querySelectorAll('.auth-seg [data-go]').forEach(b=> b.onclick = ()=>{
       const target = document.querySelector('#roleSwitch button[data-role="'+b.dataset.go+'"]');
       if(target) target.click();
@@ -631,11 +633,13 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
           '<button class="iconbtn" id="logoutBtn">Sign out</button>'+
         '</div>'+
       '</div>'+
-      '<div id="staffTabBody"></div>'+
+      installCardHTML()+
+        '<div id="staffTabBody"></div>'+
     '</div>';
 
     document.getElementById('logoutBtn').onclick = ()=>{ env.auth.signOut(); };
     document.getElementById('changePwBtn').onclick = ()=> openChangePasswordModal('staff');
+    refreshInstallCard();
     setTopNav(['overview','ledger','tasks','leave'].concat(staffSalaryHidden() ? [] : ['payslip']).map(t=>({key:t,
       label:({overview:'Overview', ledger:(staffSalaryHidden() ? 'My Attendance' : 'My Shift & Salary'), tasks:'My Tasks', leave:'Leave & Permission', payslip:'Payslip'})[t]})),
       staffTab, key=>{ staffTab=key; renderStaffDashboard(); });
@@ -878,6 +882,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
           UNITS.map(u=>'<option value="'+u.code+'" '+(adminUnitFilter===u.code?'selected':'')+'>'+u.name+'</option>').join('')+
         '</select>' : '')+
         (role==='admin' ? '<button class="iconbtn notif-bell" id="adminBellBtn" title="Notifications">&#128276;<span class="notif-count" id="adminBellCount" hidden></span></button>' : '')+
+      (role==='admin' ? '<button class="iconbtn" id="adminAppLinkBtn" title="Link and QR code for staff to install the app">App link · QR</button>' : '')+
       '<button class="iconbtn" id="adminChangePwBtn">Change password</button>'+
         '<button class="iconbtn" id="adminLogoutBtn">Sign out</button>'+
     '</div>'+
@@ -885,6 +890,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     setTopNav(tabs.map(t=>({key:t, label:labels[t]})), adminTab, key=>{ adminTab=key; renderAdmin(); });
     document.getElementById('adminLogoutBtn').onclick = ()=>{ env.auth.signOut(); };
     document.getElementById('adminChangePwBtn').onclick = ()=> openChangePasswordModal('admin');
+    const appLinkBtn = document.getElementById('adminAppLinkBtn');
+    if(appLinkBtn) appLinkBtn.onclick = ()=> openAppLinkModal();
     const bellBtn = document.getElementById('adminBellBtn');
     if(bellBtn){ bellBtn.onclick = ()=> openNotifications(); paintBell(); if(!NOTIFS_LOADED) loadNotifs(); }
     const unitSel = document.getElementById('adminUnitSel');
@@ -1494,6 +1501,79 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const go = ()=>{ try{ f.contentWindow.focus(); f.contentWindow.print(); }catch(e){ alert('Could not open printing: '+(e && e.message || e)); } };
     const img = d.querySelector('img');
     if(img && !img.complete){ img.onload = go; img.onerror = go; } else setTimeout(go, 50);
+  }
+
+  /* ---- Installing the app on phones ---- */
+  const INSTALL_SNOOZE_KEY = 'hrInstallSnoozeUntil';
+  function installPrompt(){ try{ return deferredInstallPrompt; }catch(e){ return null; } }
+  function isPhoneDevice(){ return /android|iphone|ipad|ipod|mobile/i.test(navigator.userAgent) || (navigator.platform==='MacIntel' && navigator.maxTouchPoints>1) || window.matchMedia('(max-width: 900px) and (pointer: coarse)').matches; }
+  function installSnoozed(){ try{ return Number(localStorage.getItem(INSTALL_SNOOZE_KEY) || 0) > Date.now(); }catch(e){ return false; } }
+  function canOfferInstall(){ return !isStandalone() && isPhoneDevice() && !installSnoozed() && (!!installPrompt() || isIOS()); }
+  function installCardHTML(){
+    return '<div class="install-card no-print" id="installCard" hidden>'+
+      '<img src="/selvantra/icon-192.png" alt="" width="44" height="44">'+
+      '<div class="install-text"><b>Install the app · செயலியை நிறுவுக</b>'+
+        '<span>Open your attendance, leave and payslip in one tap. · உங்கள் வருகை, விடுப்பு, சம்பளச் சீட்டை ஒரே தொடுதலில் திறக்கலாம்.</span></div>'+
+      '<div class="install-actions"><button type="button" class="btn sm" id="installCardBtn">Install · நிறுவு</button>'+
+        '<button type="button" class="install-later" id="installCardLater">Not now</button></div>'+
+    '</div>';
+  }
+  function refreshInstallCard(){
+    const card = document.getElementById('installCard');
+    if(!card) return;
+    card.hidden = !canOfferInstall();
+    const go = document.getElementById('installCardBtn');
+    if(go) go.onclick = ()=> installNow();
+    const later = document.getElementById('installCardLater');
+    if(later) later.onclick = ()=>{ try{ localStorage.setItem(INSTALL_SNOOZE_KEY, String(Date.now() + 7*24*3600*1000)); }catch(e){} card.hidden = true; };
+  }
+  async function installNow(){
+    const p = installPrompt();
+    if(p){
+      p.prompt();
+      try{ await p.userChoice; }catch(e){}
+      try{ deferredInstallPrompt = null; }catch(e){}
+      refreshInstallCard();
+      return;
+    }
+    openIOSInstallModal();
+  }
+  /* administrators: the link and QR code to send to staff */
+  async function openAppLinkModal(){
+    const link = location.origin + '/';
+    const msg = 'Install Selvantra HRMS (WestMed attendance, leave and payslip): ' + link + ' — open it on your phone and tap Install (iPhone: Safari → Share → Add to Home Screen). Sign in with your Staff Code. / செயலியை நிறுவ இந்த இணைப்பைத் திறந்து Install அழுத்துங்கள்; உங்கள் ஸ்டாஃப் கோடு மூலம் உள்நுழையுங்கள்.';
+    let qrSvg = '', qrUrl = '';
+    try{
+      const mod = await import('qrcode-generator');
+      const qrcode = mod.default || mod;
+      const qr = qrcode(0, 'M'); qr.addData(link); qr.make();
+      qrSvg = qr.createSvgTag({cellSize: 6, margin: 4, scalable: true});
+      qrUrl = qr.createDataURL(10, 4);
+    }catch(e){ qrSvg = '<div class="note">Could not draw the QR code.</div>'; }
+    const modalRoot = document.getElementById('modalRoot');
+    modalRoot.innerHTML = ''+
+    '<div class="modal-back" id="modalBack"><div class="modal narrow">'+
+      '<div class="modal-head"><h3 style="font-size:15px;">App link for staff · செயலி இணைப்பு</h3><button class="closebtn" id="modalClose">✕</button></div>'+
+      '<div class="modal-body">'+
+        '<div class="hint" style="margin-bottom:8px;">Staff scan this QR code or open the link on their phone, then tap <b>Install</b>. The app appears as <b>Selvantra HRMS</b> with the Selvantra icon and opens on their own dashboard.<br><span class="help-ta">ஊழியர்கள் இந்த QR குறியீட்டை ஸ்கேன் செய்து அல்லது இணைப்பைத் திறந்து <b>Install</b> அழுத்தலாம்.</span></div>'+
+        '<div class="app-qr">'+qrSvg+'</div>'+
+        '<div class="mono" style="text-align:center;margin:6px 0 12px;word-break:break-all;">'+escapeHTML(link)+'</div>'+
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:center;">'+
+          '<button class="btn sm" id="appLinkCopy">Copy message</button>'+
+          '<a class="iconbtn" id="appLinkWa" href="https://wa.me/?text='+encodeURIComponent(msg)+'" target="_blank" rel="noopener">Share on WhatsApp</a>'+
+          (qrUrl ? '<a class="iconbtn" href="'+qrUrl+'" download="selvantra-hrms-qr.gif">Download QR</a>' : '')+
+        '</div>'+
+        '<div class="error-text" id="appLinkMsg" style="text-align:center;"></div>'+
+      '</div>'+
+    '</div></div>';
+    const close = ()=>{ modalRoot.innerHTML=''; };
+    document.getElementById('modalClose').onclick = close;
+    document.getElementById('modalBack').addEventListener('click', e=>{ if(e.target.id==='modalBack') close(); });
+    document.getElementById('appLinkCopy').onclick = async ()=>{
+      const out = document.getElementById('appLinkMsg');
+      try{ await navigator.clipboard.writeText(msg); out.style.color = 'var(--teal)'; out.textContent = 'Copied — paste it in WhatsApp or SMS.'; }
+      catch(e){ out.textContent = 'Could not copy — select the link above instead.'; }
+    };
   }
 
   /* ---- Shift Planner ---- */
@@ -3928,8 +4008,9 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     e.preventDefault();
     deferredInstallPrompt = e;
     if(!isStandalone()) installBtn.classList.remove('hidden');
+    refreshInstallCard();
   });
-  window.addEventListener('appinstalled', ()=>{ installBtn.classList.add('hidden'); deferredInstallPrompt = null; });
+  window.addEventListener('appinstalled', ()=>{ installBtn.classList.add('hidden'); deferredInstallPrompt = null; refreshInstallCard(); });
   if(isIOS() && !isStandalone()){ installBtn.classList.remove('hidden'); }
   installBtn.onclick = async ()=>{
     if(deferredInstallPrompt){
@@ -3945,15 +4026,16 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const modalRoot = document.getElementById('modalRoot');
     modalRoot.innerHTML = ''+
     '<div class="modal-back" id="modalBack"><div class="modal narrow">'+
-      '<div class="modal-head"><h3 style="font-size:15px;">Add to Home Screen</h3><button class="closebtn" id="modalClose">✕</button></div>'+
+      '<div class="modal-head"><h3 style="font-size:15px;">Install Selvantra HRMS · செயலியை நிறுவுக</h3><button class="closebtn" id="modalClose">✕</button></div>'+
       '<div class="modal-body">'+
-        '<p style="margin-top:0;">On iPhone / iPad (Safari):</p>'+
-        '<ol style="padding-left:18px; line-height:1.9;">'+
-          '<li>Tap the <b>Share</b> icon in the toolbar.</li>'+
-          '<li>Scroll down and tap <b>"Add to Home Screen"</b>.</li>'+
-          '<li>Tap <b>Add</b> — WestMed Payroll System now opens full-screen like an app, with an offline-friendly app shell.</li>'+
+        '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;"><img src="/selvantra/icon-192.png" alt="" width="48" height="48" style="border-radius:12px;border:1px solid var(--line);"><b>Selvantra HRMS</b></div>'+
+        '<p style="margin:0 0 4px;"><b>iPhone / iPad (Safari)</b></p>'+
+        '<ol style="padding-left:20px; line-height:1.8; margin-top:0; list-style:decimal;">'+
+          '<li>Tap the <b>Share</b> button (the square with an arrow) at the bottom of Safari.<br><span class="help-ta">Safari-இன் கீழே உள்ள <b>Share</b> (அம்புக்குறி உள்ள சதுரம்) பொத்தானை அழுத்துங்கள்.</span></li>'+
+          '<li>Scroll down and tap <b>Add to Home Screen</b>.<br><span class="help-ta">கீழே நகர்த்தி <b>Add to Home Screen</b> என்பதை அழுத்துங்கள்.</span></li>'+
+          '<li>Tap <b>Add</b>. The Selvantra icon appears on your home screen — open your attendance, leave and payslip from it.<br><span class="help-ta"><b>Add</b> அழுத்துங்கள். உங்கள் முகப்புத் திரையில் Selvantra ஐகான் வரும் — அதிலிருந்து உங்கள் வருகை, விடுப்பு, சம்பளச் சீட்டைத் திறக்கலாம்.</span></li>'+
         '</ol>'+
-        '<p class="hint">On Android / Desktop Chrome, the "Install app" button installs it directly — no browser menu needed.</p>'+
+        '<p class="hint">Use Safari — Chrome on iPhone cannot add apps to the home screen. On Android, the Install button installs it directly.<br><span class="help-ta">Safari-ஐப் பயன்படுத்துங்கள். ஆண்ட்ராய்டில் Install பொத்தான் நேரடியாக நிறுவும்.</span></p>'+
       '</div>'+
     '</div></div>';
     document.getElementById('modalClose').onclick = ()=> modalRoot.innerHTML='';

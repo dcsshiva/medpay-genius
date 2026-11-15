@@ -507,3 +507,17 @@
 .hr-update-banner button{border:0; border-radius:999px; padding:7px 14px; background:#2f7df6; color:#fff; font:600 13px system-ui,sans-serif; cursor:pointer;}
 .hr-update-banner button:disabled{opacity:.7; cursor:default;}
 .hr-update-banner .hr-update-close{background:transparent; padding:4px 8px; font-size:14px;}
+
+/* install the app (phones): sign-in page and staff dashboard */
+.hrms-root .install-card{display:flex; align-items:center; gap:12px; flex-wrap:wrap; border:1px solid var(--line-strong); border-radius:14px; padding:12px 14px; margin:0 0 14px; background:var(--surface); box-shadow:0 4px 14px rgba(15,23,42,.08);}
+.hrms-root .install-card[hidden]{display:none;}
+.hrms-root .install-card img{border-radius:11px; border:1px solid var(--line); flex:none;}
+.hrms-root .install-text{flex:1 1 180px; display:flex; flex-direction:column; gap:2px; font-size:13px; line-height:1.4;}
+.hrms-root .install-text span{color:var(--slate);}
+.hrms-root .install-actions{display:flex; gap:8px; align-items:center;}
+.hrms-root .install-later{border:0; background:none; color:var(--slate); cursor:pointer; font-size:12.5px; padding:6px;}
+.hrms-root .auth-main .install-card{width:100%; max-width:420px;}
+.hrms-root .app-qr{display:flex; justify-content:center;}
+.hrms-root .app-qr svg{width:220px; height:220px;}
+/* dialogs opened from the sign-in page (Help, the iPhone install steps) sit above it (.auth is z-index 40) */
+.hrms-root.hr-auth .modal-back{z-index:45;}

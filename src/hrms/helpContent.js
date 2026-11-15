@@ -39,6 +39,28 @@ export const HELP = {
     ]),
   },
 
+  install: {
+    title: t('Installing the app on your phone', 'போனில் செயலியை நிறுவுதல்'),
+    intro: t('Install Selvantra HRMS on your phone to open your attendance, leave, tasks and payslip in one tap, like any other app.',
+      'உங்கள் வருகை, விடுப்பு, பணிகள், சம்பளச் சீட்டை மற்ற செயலிகள் போல ஒரே தொடுதலில் திறக்க, Selvantra HRMS-ஐ உங்கள் போனில் நிறுவுங்கள்.'),
+    steps: list([
+      ['Open the app link (or scan the QR code from HR) on your phone.',
+        'HR தரும் இணைப்பை (அல்லது QR குறியீட்டை ஸ்கேன் செய்து) உங்கள் போனில் திறங்கள்.'],
+      ['Android: tap "Install · நிறுவு" on the sign-in page (or Chrome menu ⋮ → Install app).',
+        'ஆண்ட்ராய்டு: உள்நுழைவுப் பக்கத்தில் "Install · நிறுவு" அழுத்துங்கள் (அல்லது Chrome மெனு ⋮ → Install app).'],
+      ['iPhone: open the link in Safari, tap Share, then "Add to Home Screen", then Add.',
+        'ஐபோன்: இணைப்பை Safari-இல் திறந்து, Share அழுத்தி, "Add to Home Screen", பிறகு Add அழுத்துங்கள்.'],
+      ['Open "Selvantra HRMS" from your home screen and sign in once with your Staff Code — next time it opens straight on your dashboard.',
+        'முகப்புத் திரையில் "Selvantra HRMS" திறந்து ஒருமுறை உங்கள் ஸ்டாஃப் கோடு மூலம் உள்நுழையுங்கள் — அடுத்த முறை நேரடியாக உங்கள் டாஷ்போர்டு திறக்கும்.'],
+    ]),
+    tips: list([
+      ['New versions install by themselves; if a bar says "Update now", tap it.',
+        'புதிய பதிப்புகள் தானாக நிறுவப்படும்; "Update now" என்ற பட்டை வந்தால் அதை அழுத்துங்கள்.'],
+      ['Managers and administrators can switch to Admin inside the same app. Administrators find the app link and QR code under "App link · QR".',
+        'மேனேஜர்களும் நிர்வாகிகளும் இதே செயலியில் Admin-க்கு மாறலாம். நிர்வாகிகள் "App link · QR" பொத்தானில் இணைப்பையும் QR குறியீட்டையும் பெறலாம்.'],
+    ]),
+  },
+
   login: {
     title: t('Signing in', 'உள்நுழைதல்'),
     intro: t('Choose Staff or Admin / Manager, then enter your login and password.',
@@ -426,7 +448,7 @@ export const HELP = {
 
 /** Order of the printable help document. */
 export const HELP_ORDER = [
-  'about', 'login',
+  'about', 'install', 'login',
   'staff.overview', 'staff.ledger', 'staff.tasks', 'staff.leave', 'staff.payslip',
   'admin.overview', 'manager.overview', 'admin.staff',
   'admin.masters.department', 'admin.masters.designation', 'admin.masters.unit', 'admin.masters.holidays', 'admin.masters.payroll',

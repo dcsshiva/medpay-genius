@@ -79,34 +79,24 @@ export default defineConfig(({ mode }) => {
       buildInfoPlugin(buildInfo),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['westmed-favicon.png', 'robots.txt'],
+        includeAssets: ['robots.txt', 'selvantra/apple-touch-icon.png', 'selvantra/favicon-48.png'],
         manifest: {
-          name: 'WestMed Payroll System',
-          short_name: 'WestMed Payroll',
-          description: 'WestMed Payroll System — attendance, leave, tasks and payroll',
-          theme_color: '#e8f3eb',
+          // installed on phones as "Selvantra HRMS" with the Selvantra icon; opens on the staff sign-in /
+          // the employee's own dashboard (managers and administrators switch to Admin inside the app)
+          id: '/',
+          name: 'Selvantra HRMS',
+          short_name: 'Selvantra HRMS',
+          description: 'WestMed attendance, leave, tasks and payslips — by Selvantra Technologies',
+          theme_color: '#1e3a8a',
           background_color: '#ffffff',
           display: 'standalone',
           orientation: 'any',
           scope: '/',
-          start_url: '/',
+          start_url: '/?source=pwa',
           icons: [
-            {
-              src: '/pwa-192x192.png',
-              sizes: '192x192',
-              type: 'image/png'
-            },
-            {
-              src: '/pwa-512x512.png',
-              sizes: '512x512',
-              type: 'image/png'
-            },
-            {
-              src: '/pwa-512x512.png',
-              sizes: '512x512',
-              type: 'image/png',
-              purpose: 'any maskable'
-            }
+            { src: '/selvantra/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+            { src: '/selvantra/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+            { src: '/selvantra/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' }
           ]
         },
         workbox: {
