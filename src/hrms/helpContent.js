@@ -26,6 +26,8 @@ export const HELP = {
         'மேலே உள்ள பே சைக்கிள் தேர்வில் எந்த மாதத்தைப் பார்க்கிறீர்கள் என்பதைத் தேர்வுசெய்யலாம் (உதா: 26 அக் – 25 நவ).'],
       ['Every change saves by itself; "Saving…" shows at the bottom while it is being saved.',
         'ஒவ்வொரு மாற்றமும் தானாகச் சேமிக்கப்படும்; சேமிக்கும்போது கீழே "Saving…" என்று தெரியும்.'],
+      ['Staff can switch their screens to Tamil with the தமிழ் button at the top (and back with English); the choice is remembered on the phone.',
+        'ஊழியர்கள் மேலே உள்ள தமிழ் பொத்தான் மூலம் தங்கள் திரைகளைத் தமிழுக்கு மாற்றலாம் (English பொத்தான் மூலம் மீண்டும் ஆங்கிலம்); இந்தத் தேர்வு போனில் நினைவில் வைக்கப்படும்.'],
       ['Press Help (உதவி) on any screen to read about that screen, in English and Tamil.',
         'எந்தத் திரையிலும் Help (உதவி) அழுத்தினால் அந்தத் திரை பற்றிய விளக்கம் ஆங்கிலம் மற்றும் தமிழில் கிடைக்கும்.'],
     ]),
@@ -150,6 +152,8 @@ export const HELP = {
     intro: t('Apply for Casual Leave (CL) or a few hours\' permission, and follow your requests.',
       'தற்செயல் விடுப்பு (CL) அல்லது சில மணி நேர அனுமதி (பர்மிஷன்) விண்ணப்பித்து, உங்கள் கோரிக்கைகளைப் பின்தொடருங்கள்.'),
     steps: list([
+      ['When your manager approves, rejects or withdraws a request, it shows under "Leave updates" on Home and as a red number on the Leave tab until you open it.',
+        'உங்கள் மேனேஜர் கோரிக்கையை அனுமதித்தால், நிராகரித்தால் அல்லது திரும்பப் பெற்றால், அது முகப்பில் "விடுப்பு அறிவிப்புகள்" பகுதியிலும், விடுப்பு பொத்தானில் சிவப்பு எண்ணாகவும் தெரியும்.'],
       ['Choose CL or Permission, the date (and hours for permission) and a reason.',
         'CL அல்லது Permission, தேதி (பர்மிஷனுக்கு மணி நேரம்), காரணம் ஆகியவற்றைத் தேர்வுசெய்யுங்கள்.'],
       ['Pick an alternative employee from your unit who will cover your work.',

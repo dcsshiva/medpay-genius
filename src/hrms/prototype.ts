@@ -18,6 +18,8 @@ import { HELP, HELP_ORDER, HELP_GROUPS, helpKey } from './helpContent.js';
 import { PLAN_OFF, defaultPlanCode, plannedCode, buildPlanSheet, buildPlanBook, readPlanBook, planChanges, planChoices } from './shiftPlan.js';
 import { revokeWindowStart, canRevoke, attendanceAfterRevoke, snapshotDay, absencesForLeave } from './leaveRevoke.js';
 import { upcomingDays } from './staffToday.js';
+import { translateText } from './staffTamil.js';
+import { leaveUpdates, markSeen, updateText } from './staffNotices.js';
 import { fileUnit, multiUnitGaps, coverage, ranges } from './multiUnit.js';
 import { parsePunchMonitor, looksLikeName } from './punchMonitor.js';
 import { earningsLines, pfBase, cycleAdjustments, statutory, buildPayslip } from './payslip.js';
@@ -575,6 +577,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
                    : '<li>Managers: Role must be Manager in Staff Master.</li>')+
             '<li>Signing in here signs this account out of any other device.</li>'+
             '<li><button type="button" class="auth-help" id="authHelpBtn">? Help · உதவி</button></li>'+
+            '<li><button type="button" class="auth-help" id="authLangBtn" data-lang-toggle data-no-ta>'+(STAFF_LANG==='ta' ? 'English' : 'தமிழ்')+'</button></li>'+
           '</ul>'+
         '</div>'+
         '<footer class="auth-foot"><img class="auth-foot-logo" src="/selvantra/selvantra-mark.jpg" alt="">&copy; 2026&ndash;2030 Selvantra Technologies &middot; <a href="https://selvantra.com" target="_blank" rel="noopener">selvantra.com</a>'+
@@ -585,6 +588,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   function wireAuthShell(){
     const ah = document.getElementById('authHelpBtn');
     if(ah) ah.onclick = ()=> openHelp();
+    ensureLangObserver(); wireLangButtons();
     refreshInstallCard();
     document.querySelectorAll('.auth-seg [data-go]').forEach(b=> b.onclick = ()=>{
       const target = document.querySelector('#roleSwitch button[data-role="'+b.dataset.go+'"]');
@@ -621,9 +625,12 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     root.classList.remove('hr-auth');
     root.classList.toggle('staff-phone', staffPhone());
     root.classList.toggle('staff-only', !currentAdminAccount);
+    showLangBtn(true);
     const result = computeCycle(currentStaff);
     const myTasks = TASKS.filter(t=>t.assignedTo===currentStaff);
     const myLeaves = LEAVES.filter(l=>l.empNo===currentStaff);
+    if(staffTab==='leave') markLeaveSeen(myLeaves);
+    const leaveNews = staffTab==='leave' ? [] : leaveNewsFor(myLeaves);
     const openTasks = myTasks.filter(t=>t.status!=='Done').length;
 
     if(staffTab==='payslip' && staffSalaryHidden()) staffTab = 'overview';
@@ -644,7 +651,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     document.getElementById('changePwBtn').onclick = ()=> openChangePasswordModal('staff');
     refreshInstallCard();
     setTopNav(['overview','ledger','tasks','leave'].concat(staffSalaryHidden() ? [] : ['payslip']).map(t=>({key:t,
-      label: navLabel(t, ({overview:'Overview', ledger:(staffSalaryHidden() ? 'My Attendance' : 'My Shift & Salary'), tasks:'My Tasks', leave:'Leave & Permission', payslip:'Payslip'})[t])})),
+      label: navLabel(t, ({overview:'Overview', ledger:(staffSalaryHidden() ? 'My Attendance' : 'My Shift & Salary'), tasks:'My Tasks', leave:'Leave & Permission', payslip:'Payslip'})[t]) + (t==='leave' && leaveNews.length ? '<span class="tn-badge" aria-label="'+leaveNews.length+' new">'+leaveNews.length+'</span>' : '')})),
       staffTab, key=>{ staffTab=key; renderStaffDashboard(); });
 
     const body = document.getElementById('staffTabBody');
@@ -654,6 +661,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     if(staffTab==='overview'){
       const coveringFor = LEAVES.filter(l=>l.altEmpNo===currentStaff && l.status==='Approved');
       body.innerHTML = ''+
+        leaveNewsHTML(leaveNews)+
         (staffPhone() ? todayCard(result) : '')+
         profileAndStats(result, hideSal)+
         (coveringFor.length ? '<div class="footnote" style="background:#fff8e6;border:1px solid #f0d98c;border-radius:8px;padding:10px 12px;margin-bottom:14px;">'+
@@ -668,6 +676,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
           '</ul></div>'+
         '</div>'+
         '<div class="footnote">Open tasks: '+openTasks+' &middot; Leave/permission requests filed this cycle: '+myLeaves.length+'</div>';
+      wireLeaveNews(body, myLeaves);
     } else if(staffTab==='ledger'){
       body.innerHTML = (staffPhone() ? attendanceCards(result, hideSal) : profileAndStats(result, hideSal) + attendanceTable(result, hideSal)) +
         '<div class="footnote">Shift is the General Shift if that is your assigned shift; otherwise the shift whose start is nearest your IN time. It can also be set by your admin on the Shift Planner (marked "override" above) — lateness is always measured against whichever shift is in effect for that date. Lateness ≤ 15 min is ignored. Beyond that, minutes draw from the 4-hour monthly permission pool, then deduct from pay. 8+ consolidated uncovered hours convert to a leave day, offset by CL when available.</div>';
@@ -873,6 +882,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
 
   function renderAdmin(){
     root.classList.remove('staff-phone');
+    showLangBtn(false);
     if(!adminLoggedIn || !currentAdminAccount){ renderAdminLogin(); return; }
     root.classList.remove('hr-auth');
     const role = currentAdminAccount.role;
@@ -1693,6 +1703,73 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         (l.status==='Revoked' && l.revokedBy ? '<div class="dc-line" style="color:var(--rose);">Withdrawn by '+escapeHTML(l.revokedBy)+(l.revokeReason ? ' — '+escapeHTML(l.revokeReason) : '')+'</div>' : '')+
       '</div>';
     }).join('');
+  }
+
+  /* ---- Tamil for the employee screens ---- */
+  let STAFF_LANG = 'en';
+  try{ STAFF_LANG = localStorage.getItem('hrStaffLang')==='ta' ? 'ta' : 'en'; }catch(e){}
+  let langObserving = false;
+  function langLabel(){ return STAFF_LANG==='ta' ? 'English' : 'தமிழ்'; }
+  function staffViewActive(){ return !staffView.classList.contains('hidden'); }
+  function wireLangButtons(){
+    document.querySelectorAll('[data-lang-toggle]').forEach(b=>{
+      b.textContent = langLabel();
+      b.title = STAFF_LANG==='ta' ? 'Switch to English' : 'தமிழில் பார்க்க';
+      b.onclick = ()=> setStaffLang(STAFF_LANG==='ta' ? 'en' : 'ta');
+    });
+  }
+  function showLangBtn(on){ const b = document.getElementById('langBtn'); if(b) b.hidden = !on; if(on){ ensureLangObserver(); wireLangButtons(); } }
+  function setStaffLang(lang){
+    STAFF_LANG = lang;
+    try{ localStorage.setItem('hrStaffLang', lang); }catch(e){}
+    wireLangButtons();
+    if(staffViewActive()){ currentStaff ? renderStaffDashboard() : renderStaffLogin(); }
+  }
+  function translateStaff(node){
+    if(STAFF_LANG!=='ta' || !node) return;
+    const skip = (el)=> !el || !!(el.closest && el.closest('.help-modal, .install-card, script, style, [data-no-ta]'));
+    if(node.nodeType===3){ if(!skip(node.parentElement)){ const r = translateText(node.nodeValue); if(r!==null) node.nodeValue = r; } return; }
+    if(node.nodeType!==1 || skip(node)) return;
+    const w = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+    const list = [];
+    while(w.nextNode()) list.push(w.currentNode);
+    list.forEach(t=>{ if(skip(t.parentElement)) return; const r = translateText(t.nodeValue); if(r!==null) t.nodeValue = r; });
+    node.querySelectorAll('[placeholder]').forEach(e=>{ if(skip(e)) return; const r = translateText(e.getAttribute('placeholder')); if(r!==null) e.setAttribute('placeholder', r); });
+  }
+  function ensureLangObserver(){
+    if(langObserving) return;
+    langObserving = true;
+    const obs = new MutationObserver(muts=>{
+      if(STAFF_LANG!=='ta' || !staffViewActive()) return;
+      muts.forEach(m=> m.addedNodes.forEach(n=> translateStaff(n)));
+    });
+    ['staffView','topNav','modalRoot'].forEach(id=>{ const el = document.getElementById(id); if(el) obs.observe(el, {childList:true, subtree:true}); });
+    if(STAFF_LANG==='ta' && staffViewActive()){ ['staffView','topNav','modalRoot'].forEach(id=> translateStaff(document.getElementById(id))); }
+  }
+
+  /* ---- Leave updates for the employee (seen per device) ---- */
+  function leaveSeenKey(){ return 'hrLeaveSeen:'+currentStaff; }
+  function leaveSeen(){ try{ return JSON.parse(localStorage.getItem(leaveSeenKey()) || '{}') || {}; }catch(e){ return {}; } }
+  function saveLeaveSeen(m){ try{ localStorage.setItem(leaveSeenKey(), JSON.stringify(m)); }catch(e){} }
+  function leaveNewsFor(myLeaves){ return leaveUpdates(myLeaves, leaveSeen(), todayISO()); }
+  function markLeaveSeen(myLeaves){ const u = leaveNewsFor(myLeaves); if(u.length) saveLeaveSeen(markSeen(leaveSeen(), u)); }
+  function leaveNewsHTML(news){
+    if(!news.length) return '';
+    return '<div class="leave-news no-print"><div class="ln-title">Leave updates</div>'+
+      news.map(u=>{
+        const t = updateText(u, dayName(u.date)+' '+fmtDate(u.date));
+        return '<div class="ln-item ln-'+t.tone+'"><span>'+escapeHTML(STAFF_LANG==='ta' ? t.ta : t.en)+'</span>'+
+          '<button type="button" class="ln-x" data-news-dismiss="'+escapeAttr(u.id)+'" aria-label="Dismiss">✕</button></div>';
+      }).join('')+
+      '<button type="button" class="iconbtn" data-news-view>View</button></div>';
+  }
+  function wireLeaveNews(body, myLeaves){
+    body.querySelectorAll('[data-news-dismiss]').forEach(b=> b.onclick = ()=>{
+      saveLeaveSeen(markSeen(leaveSeen(), leaveNewsFor(myLeaves).filter(x=>x.id===b.dataset.newsDismiss)));
+      renderStaffDashboard();
+    });
+    const v = body.querySelector('[data-news-view]');
+    if(v) v.onclick = ()=>{ staffTab = 'leave'; renderStaffDashboard(); };
   }
 
   /* ---- Shift Planner ---- */
@@ -4247,6 +4324,7 @@ const SHELL = `<div class="wrap">
     </div>
     <nav class="topnav" id="topNav" aria-label="Modules"></nav>
     <div style="display:flex; align-items:center; gap:10px;">
+      <button class="iconbtn lang-btn" id="langBtn" data-lang-toggle data-no-ta hidden>தமிழ்</button>
       <button class="iconbtn help-btn" id="helpBtn" title="Help · உதவி" aria-label="Help">? <span>Help · உதவி</span></button>
       <button class="iconbtn hidden" id="installAppBtn">Install app</button>
       <div class="roleswitch" id="roleSwitch">
