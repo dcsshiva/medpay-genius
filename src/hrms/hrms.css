@@ -549,3 +549,73 @@
 .hrms-root .ip-logo{display:block; margin:0 auto;}
 .hrms-root .ip-btn, .hrms-root .ip-btn .ip-en{color:#fff;}
 .hrms-root .ip-btn .ip-ta{color:#e0ecff;}
+
+/* ── staff portal on phones (root.staff-phone, ≤720px; port_prototype.py section 60) ── */
+.hrms-root .tn-ico, .hrms-root .tn-short{display:none;}
+.hrms-root.staff-phone .topbar{min-height:0; padding:6px 2px; margin-bottom:6px; gap:8px;}
+.hrms-root.staff-phone .brand-mark{width:30px; height:30px; font-size:12px;}
+.hrms-root.staff-phone .brand-name{font-size:14px;}
+.hrms-root.staff-phone .brand-sub{font-size:11.5px;}
+.hrms-root.staff-phone .app-version{display:none;}
+.hrms-root.staff-phone.staff-only #roleSwitch{display:none;}
+/* bottom tab bar */
+.hrms-root.staff-phone .topnav{position:fixed; left:0; right:0; bottom:0; z-index:18; order:0; flex-basis:auto; margin:0;
+  display:grid; grid-auto-flow:column; grid-auto-columns:1fr; gap:2px; overflow:visible;
+  padding:6px 6px calc(6px + env(safe-area-inset-bottom)); background:#0f2a5c; box-shadow:0 -6px 18px rgba(15,23,42,.25);}
+.hrms-root.staff-phone .topnav-item{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; min-height:52px; padding:4px 2px; border-radius:12px; font-size:11.5px; color:rgba(240,246,252,.8);}
+.hrms-root.staff-phone .topnav-item.active{background:rgba(255,255,255,.14); color:#fff;}
+.hrms-root.staff-phone .tn-ico{display:block; line-height:0;}
+.hrms-root.staff-phone .tn-long{display:none;}
+.hrms-root.staff-phone .tn-short{display:block;}
+.hrms-root.staff-phone #staffView{padding-bottom:calc(84px + env(safe-area-inset-bottom));}
+.hrms-root.staff-phone .powered-by{padding-bottom:calc(88px + env(safe-area-inset-bottom));}
+.hrms-root.staff-phone #staffView > .card{padding:14px 12px; border-radius:16px;}
+/* thumb-sized targets */
+.hrms-root.staff-phone #staffView .btn, .hrms-root.staff-phone #staffView .iconbtn, .hrms-root.staff-phone #staffView select,
+.hrms-root.staff-phone .topbar .iconbtn, .hrms-root.staff-phone .topbar select{min-height:44px;}
+.hrms-root.staff-phone .topbar .cycle-select{min-height:36px;}
+/* compact header with account menu */
+.hrms-root .sp-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px;}
+.hrms-root .sp-who{display:flex; flex-direction:column; min-width:0;}
+.hrms-root .sp-who b{font-size:18px; line-height:1.25;}
+.hrms-root .sp-who span{font-size:12.5px; color:var(--slate);}
+.hrms-root .sp-menu{position:relative;}
+.hrms-root .sp-menu summary{list-style:none; width:44px; height:44px; border-radius:50%; border:1px solid var(--line-strong); display:flex; align-items:center; justify-content:center; cursor:pointer; color:var(--ink); background:var(--surface);}
+.hrms-root .sp-menu summary::-webkit-details-marker{display:none;}
+.hrms-root .sp-menu-list{position:absolute; right:0; top:50px; z-index:25; display:flex; flex-direction:column; gap:6px; padding:8px; min-width:190px; background:var(--surface); border:1px solid var(--line-strong); border-radius:12px; box-shadow:0 12px 28px rgba(15,23,42,.2);}
+/* Today + next 7 days */
+.hrms-root .today-card{border-radius:16px; padding:14px 14px 12px; margin-bottom:14px; background:linear-gradient(135deg,#0f2a5c,#1e4fa8); color:#fff;}
+.hrms-root .today-card .hint{color:rgba(240,246,252,.75);}
+.hrms-root .tc-label{font-size:12.5px; color:rgba(240,246,252,.8);}
+.hrms-root .tc-shift{font-size:18px; font-weight:700; margin:4px 0 2px;}
+.hrms-root .tc-shift .mono{font-weight:600;}
+.hrms-root .tc-punch{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:6px; font-size:14px;}
+.hrms-root .tc-ok{background:rgba(52,211,153,.2); color:#d1fae5; border-radius:999px; padding:2px 10px; font-size:12.5px; font-weight:600;}
+.hrms-root .tc-next-title{margin:12px 0 4px; font-size:12.5px; color:rgba(240,246,252,.8);}
+.hrms-root .tc-next{list-style:none; margin:0; padding:0; background:rgba(255,255,255,.08); border-radius:12px;}
+.hrms-root .tc-next li{display:flex; justify-content:space-between; gap:10px; padding:8px 10px; border-top:1px solid rgba(255,255,255,.1); font-size:13px;}
+.hrms-root .tc-next li:first-child{border-top:0;}
+.hrms-root .tc-day{white-space:nowrap; color:rgba(240,246,252,.85);}
+.hrms-root .tc-what{text-align:right;}
+.hrms-root .tc-usual{font-size:10.5px; border:1px solid rgba(255,255,255,.35); border-radius:999px; padding:0 6px; margin-left:4px; color:rgba(240,246,252,.75);}
+.hrms-root .dp-off, .hrms-root .dp-holiday{color:#fde68a; font-weight:600;}
+.hrms-root .dp-leave{color:#a7f3d0; font-weight:600;}
+/* day / task / leave cards */
+.hrms-root .dc-summary{display:flex; flex-wrap:wrap; gap:6px 14px; font-size:13px; color:var(--slate); margin:0 0 10px;}
+.hrms-root .dc-summary b{color:var(--ink);}
+.hrms-root .day-card{border:1px solid var(--line); border-left:4px solid var(--line-strong); border-radius:12px; padding:10px 12px; margin-bottom:8px; background:var(--surface);}
+.hrms-root .day-card.st-P{border-left-color:var(--teal);}
+.hrms-root .day-card.st-A, .hrms-root .day-card.is-late{border-left-color:var(--rose);}
+.hrms-root .day-card.st-A{background:var(--rose-tint);}
+.hrms-root .day-card.st-WO, .hrms-root .day-card.st-H{border-left-color:var(--slate-soft); opacity:.85;}
+.hrms-root .day-card.st-CL, .hrms-root .day-card.st-AL{border-left-color:var(--amber);}
+.hrms-root .dc-top{display:flex; justify-content:space-between; align-items:center; gap:8px;}
+.hrms-root .dc-date{font-size:14px;}
+.hrms-root .dc-line{font-size:13px; margin-top:4px;}
+.hrms-root .dc-flags{display:flex; flex-wrap:wrap; gap:6px; margin-top:6px;}
+.hrms-root .dc-note{font-size:12px; color:var(--slate); margin-top:4px; line-height:1.4;}
+.hrms-root .dc-actions{display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;}
+.hrms-root .dc-actions:empty{display:none;}
+.hrms-root.staff-phone .profile-head .profile-name{display:none;}
+.hrms-root .today-card .late-flag{background:#fee2e2; color:#b91c1c; border-radius:999px; padding:2px 10px; font-size:12.5px; font-weight:600;}
+.hrms-root.staff-phone #staffView table.narrow{min-width:0;}
