@@ -626,6 +626,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     root.classList.toggle('staff-phone', staffPhone());
     root.classList.toggle('staff-only', !currentAdminAccount);
     showLangBtn(true);
+    wireUpdateChecks();
     const result = computeCycle(currentStaff);
     const myTasks = TASKS.filter(t=>t.assignedTo===currentStaff);
     const myLeaves = LEAVES.filter(l=>l.empNo===currentStaff);
@@ -645,6 +646,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '</div>')+
       installCardHTML()+
         '<div id="staffTabBody"></div>'+
+        (staffPhone() ? '' : '<div class="staff-ver no-print">'+escapeHTML(versionLine())+' · <button type="button" class="auth-help" data-check-update>Check for update</button></div>')+
     '</div>';
 
     document.getElementById('logoutBtn').onclick = ()=>{ env.auth.signOut(); };
@@ -1477,7 +1479,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
           '</div>'+
           '<div class="help-body'+(HELP_LANG==='both'?' help-both':'')+'">'+body+'</div>'+
           '<div class="help-foot"><button class="btn" id="helpPrintBtn">Print / Save as PDF — full help document</button>'+
-            '<span class="hint" style="margin:0;">Powered by Selvantra Technologies · selvantra.com</span></div>'+
+            '<span class="hint" style="margin:0;">'+escapeHTML(versionLine())+' · Powered by Selvantra Technologies</span>'+
+            '<button class="iconbtn" data-check-update>Check for update</button></div>'+
         '</div>'+
       '</div></div>';
       const close = ()=>{ modalRoot.innerHTML=''; };
@@ -1486,6 +1489,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       modalRoot.querySelectorAll('[data-help-view]').forEach(b=> b.onclick = ()=>{ HELP_VIEW = b.dataset.helpView; draw(); });
       modalRoot.querySelectorAll('[data-help-lang]').forEach(b=> b.onclick = ()=>{ HELP_LANG = b.dataset.helpLang; try{ localStorage.setItem('hrHelpLang', HELP_LANG); }catch(e){} draw(); });
       document.getElementById('helpPrintBtn').onclick = ()=> printHelpDocument(HELP_LANG);
+      wireUpdateChecks();
     };
     HELP_VIEW = 'screen';
     draw();
@@ -1613,7 +1617,9 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '<div class="sp-who"><b>'+escapeHTML(emp.name)+'</b><span>'+escapeHTML(emp.empNo)+(desgName(emp.designation) ? ' &middot; '+escapeHTML(desgName(emp.designation)) : '')+'</span></div>'+
       '<details class="sp-menu"><summary aria-label="My account">'+
         '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></summary>'+
-        '<div class="sp-menu-list"><button class="iconbtn" id="changePwBtn">Change password</button><button class="iconbtn" id="logoutBtn">Sign out</button></div>'+
+        '<div class="sp-menu-list"><button class="iconbtn" id="changePwBtn">Change password</button><button class="iconbtn" id="logoutBtn">Sign out</button>'+
+          '<button class="iconbtn" data-check-update>Check for update</button>'+
+          '<div class="sp-ver">'+escapeHTML(versionLine())+'</div></div>'+
       '</details>'+
     '</div>';
   }
@@ -1770,6 +1776,18 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     });
     const v = body.querySelector('[data-news-view]');
     if(v) v.onclick = ()=>{ staffTab = 'leave'; renderStaffDashboard(); };
+  }
+
+  /* ---- Version shown to staff ---- */
+  function versionLine(){
+    const b = env.build || {};
+    if(!b.version) return '';
+    const d = b.releasedAt ? new Date(b.releasedAt) : null;
+    const when = d && !isNaN(d.getTime()) ? d.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'}) : '';
+    return 'Version v'+b.version+(when ? ' · Released '+when : '');
+  }
+  function wireUpdateChecks(){
+    document.querySelectorAll('[data-check-update]').forEach(b=> b.onclick = ()=>{ b.disabled = true; window.dispatchEvent(new Event('hr-check-update')); setTimeout(()=>{ b.disabled = false; }, 3000); });
   }
 
   /* ---- Shift Planner ---- */

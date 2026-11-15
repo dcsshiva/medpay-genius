@@ -383,14 +383,21 @@ export default function HrmsApp() {
       close.onclick = () => { updateBanner?.remove(); updateBanner = null; };
       updateBanner.append(text, btn, close);
     };
-    const checkForUpdate = async (allowReload: boolean) => {
+    const checkForUpdate = async (allowReload: boolean, manual = false) => {
       if (disposed || !BUILD.version) return;
       let published = '';
+      const failed = () => { if (manual) status('Could not check for updates — check the internet connection · இணைய இணைப்பைச் சரிபாருங்கள்', true, 4000); };
       try {
         const r = await fetch(`/build-info.json?t=${Date.now()}`, { cache: 'no-store' });
-        if (!r.ok) return;
+        if (!r.ok) { failed(); return; }
         published = String((await r.json())?.version || '');
-      } catch { return; }
+      } catch { failed(); return; }
+      if (manual) {
+        // "Check for update" pressed: update now if there is one, otherwise say so
+        if (updateAction({ current: BUILD.version, published, quiet: true }) === 'reload') { status(`Updating to v${published}…`); applyUpdate(published); }
+        else status(`You have the latest version (v${BUILD.version}) ✓ · சமீபத்திய பதிப்பு`, false, 3500);
+        return;
+      }
       let tried = '';
       try { tried = sessionStorage.getItem(TRIED_KEY) || ''; } catch { /* private mode */ }
       // signed out (sign-in page): nothing to lose. Signed in: not while saving, typing or in a dialog.
@@ -403,12 +410,15 @@ export default function HrmsApp() {
       else if (action === 'banner') showUpdateBanner(published);
     };
     checkForUpdate(true);
+    const onManualCheck = () => { checkForUpdate(true, true); };
+    window.addEventListener('hr-check-update', onManualCheck);
     const onVisible = () => { if (document.visibilityState === 'visible') checkForUpdate(true); };
     document.addEventListener('visibilitychange', onVisible);
     const updateTimer = setInterval(() => { if (document.visibilityState === 'visible') checkForUpdate(false); }, 10 * 60 * 1000);
 
     return () => {
       document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('hr-check-update', onManualCheck);
       clearInterval(updateTimer);
       updateBanner?.remove();
       disposed = true;

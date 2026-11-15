@@ -11,7 +11,7 @@ export const TA = {
   'My Shift & Salary': 'என் ஷிஃப்ட் & சம்பளம்', 'My Tasks': 'என் பணிகள்', 'Tasks': 'பணிகள்',
   'Leave & Permission': 'விடுப்பு & அனுமதி', 'Leave': 'விடுப்பு', 'Payslip': 'சம்பளச் சீட்டு',
   'My Workspace': 'என் பணியிடம்', 'Change password': 'கடவுச்சொல் மாற்று', 'Sign out': 'வெளியேறு',
-  'Pay cycle': 'பே சைக்கிள்', 'Payroll': 'சம்பளம்', 'Staff': 'ஊழியர்', 'Admin': 'நிர்வாகம்',
+  'Pay cycle': 'பே சைக்கிள்', 'Check for update': 'புதுப்பிப்பைச் சரிபார்', 'Payroll': 'சம்பளம்', 'Staff': 'ஊழியர்', 'Admin': 'நிர்வாகம்',
   // stats and profile
   'Present days': 'வந்த நாட்கள்', 'Late instances': 'தாமத முறைகள்', 'Permission used': 'பயன்படுத்திய அனுமதி',
   'CL used': 'பயன்படுத்திய CL', 'Lateness / LOP deduction': 'தாமதம் / சம்பள இழப்பு பிடித்தம்',
@@ -79,6 +79,8 @@ const PATTERNS = [
   [/^Late (.+)$/, (m) => `தாமதம் ${m[1]}`],
   [/^(.+) \(grace\)$/, (m) => `${m[1]} (சலுகை)`],
   [/^Permission (\d.*)$/, (m) => `அனுமதி ${m[1]}`],
+  [/^Version (\S+)$/, (m) => `பதிப்பு ${m[1]}`],
+  [/^Released (.+)$/, (m) => `வெளியீடு ${m[1]}`],
   [/^Staff Code (\S+)$/, (m) => `ஸ்டாஃப் கோடு ${m[1]}`],
   [/^Reporting Manager: (.+)$/, (m) => `ரிப்போர்டிங் மேனேஜர்: ${m[1]}`],
   [/^Gross Salary (.+)$/, (m) => `மொத்த சம்பளம் ${m[1]}`],
