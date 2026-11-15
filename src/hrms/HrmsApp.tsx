@@ -6,6 +6,7 @@ import { createStore, latestAttendanceDate, fetchAttendanceRange } from './data'
 import { staffSignIn, adminSignIn, signOut, changePassword, whoami, manageLogin } from './auth';
 import { cycleContaining, cycleForKey, recentCycles, todayISO } from './cycle';
 import { updateAction } from './appUpdate.js';
+import { shouldRefresh } from './listCache.js';
 import type { HrController, HrCycle, HrEnv, HrWho } from './types';
 
 // Stamped by vite.config.ts from package.json: version "1.1.0.03", releasedAt set by the
@@ -54,6 +55,7 @@ export default function HrmsApp() {
     let syncTimer: ReturnType<typeof setTimeout> | null = null;
     let statusTimer: ReturnType<typeof setTimeout> | null = null;
     let sessionChannel: ReturnType<typeof supabase.channel> | null = null;
+    let lastLoadedAt = 0; // when the data on screen was last loaded (refresh after 15 min away)
 
     const status = (text: string, isError = false, clearAfter = 0) => {
       controller?.setSyncStatus(text, isError);
@@ -161,6 +163,7 @@ export default function HrmsApp() {
           }
         }
         status('Loading…');
+        await store.prepare(uid, who, BUILD.version); // which shared lists changed since this device last loaded them
         const settings = await store.loadSettings();
         startDay = Number(settings?.cycleStartDay) || 25;
         const latest = await latestAttendanceDate().catch(() => null);
@@ -168,6 +171,7 @@ export default function HrmsApp() {
         cycle = cycleContaining(latest && latest < today ? latest : today, startDay);
         cycles = recentCycles(startDay, 12, cycle);
         await store.loadAll(who, cycle);
+        lastLoadedAt = Date.now();
         if (disposed) return;
         controller?.applySession(who, fresh);
         status('');
@@ -232,6 +236,7 @@ export default function HrmsApp() {
         status('Loading…');
         try {
           await store.loadCycleRows(cycle);
+          lastLoadedAt = Date.now();
           status('');
         } catch (err: any) {
           status('Could not load cycle: ' + (err?.message || err), true);
@@ -412,7 +417,21 @@ export default function HrmsApp() {
     checkForUpdate(true);
     const onManualCheck = () => { checkForUpdate(true, true); };
     window.addEventListener('hr-check-update', onManualCheck);
-    const onVisible = () => { if (document.visibilityState === 'visible') checkForUpdate(true); };
+    // back in the app after 15 minutes or more: refresh the day-to-day data (not everything), unless
+    // something is being edited, typed or a dialog is open
+    let refreshing = false;
+    const refreshIfStale = async () => {
+      if (refreshing || disposed || loading || !store.who || !shouldRefresh(lastLoadedAt, Date.now())) return;
+      if (store.hasPendingChanges() || document.querySelector('#modalRoot .modal-back')
+        || document.querySelector('input:focus, textarea:focus, select:focus')) return;
+      refreshing = true;
+      try {
+        const done = await store.refreshLive(cycle);
+        if (done && !disposed) { lastLoadedAt = Date.now(); controller?.rerender(); }
+      } catch { /* keep what is on screen; try again next time */ }
+      finally { refreshing = false; }
+    };
+    const onVisible = () => { if (document.visibilityState === 'visible') { checkForUpdate(true); refreshIfStale(); } };
     document.addEventListener('visibilitychange', onVisible);
     const updateTimer = setInterval(() => { if (document.visibilityState === 'visible') checkForUpdate(false); }, 10 * 60 * 1000);
 

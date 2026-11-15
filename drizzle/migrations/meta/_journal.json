@@ -204,6 +204,13 @@
       "when": 1789865838547,
       "tag": "0028_hr_manager_week_off",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1789865839547,
+      "tag": "0029_hr_data_versions",
+      "breakpoints": true
     }
   ]
 }
