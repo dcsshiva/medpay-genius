@@ -3116,7 +3116,8 @@ function openHelp(){
         '</div>'+
         '<div class="help-body'+(HELP_LANG==='both'?' help-both':'')+'">'+body+'</div>'+
         '<div class="help-foot"><button class="btn" id="helpPrintBtn">Print / Save as PDF — full help document</button>'+
-          '<span class="hint" style="margin:0;">Powered by Selvantra Technologies · selvantra.com</span></div>'+
+          '<span class="hint" style="margin:0;">'+escapeHTML(versionLine())+' · Powered by Selvantra Technologies</span>'+
+          '<button class="iconbtn" data-check-update>Check for update</button></div>'+
       '</div>'+
     '</div></div>';
     const close = ()=>{ modalRoot.innerHTML=''; };
@@ -3326,7 +3327,9 @@ function phoneHead(emp){
     '<div class="sp-who"><b>'+escapeHTML(emp.name)+'</b><span>'+escapeHTML(emp.empNo)+(desgName(emp.designation) ? ' &middot; '+escapeHTML(desgName(emp.designation)) : '')+'</span></div>'+
     '<details class="sp-menu"><summary aria-label="My account">'+
       '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></summary>'+
-      '<div class="sp-menu-list"><button class="iconbtn" id="changePwBtn">Change password</button><button class="iconbtn" id="logoutBtn">Sign out</button></div>'+
+      '<div class="sp-menu-list"><button class="iconbtn" id="changePwBtn">Change password</button><button class="iconbtn" id="logoutBtn">Sign out</button>'+
+        '<button class="iconbtn" data-check-update>Check for update</button>'+
+        '<div class="sp-ver">'+escapeHTML(versionLine())+'</div></div>'+
     '</details>'+
   '</div>';
 }
@@ -3515,6 +3518,31 @@ function wireLeaveNews(body, myLeaves){
 }
 """
 rep("""/* ---- Shift Planner ---- */""", TB.lstrip('\n') + """\n/* ---- Shift Planner ---- */""")
+
+# ── 62. the installed version, visible to staff: "Version v1.1.0.26 · Released 15 Nov 2026" in the phone
+#        account menu, under the desktop staff header and in Help, each with "Check for update" (HrmsApp
+#        listens for the hr-check-update event: updates now if there is a newer version, else says so). ──
+rep("""  showLangBtn(true);""", """  showLangBtn(true);
+  wireUpdateChecks();""")
+rep("""    document.getElementById('helpPrintBtn').onclick = ()=> printHelpDocument(HELP_LANG);""",
+    """    document.getElementById('helpPrintBtn').onclick = ()=> printHelpDocument(HELP_LANG);
+    wireUpdateChecks();""")
+rep("""      '<div id="staffTabBody"></div>'+""", """      '<div id="staffTabBody"></div>'+
+      (staffPhone() ? '' : '<div class="staff-ver no-print">'+escapeHTML(versionLine())+' · <button type="button" class="auth-help" data-check-update>Check for update</button></div>')+""")
+VB = """
+/* ---- Version shown to staff ---- */
+function versionLine(){
+  const b = env.build || {};
+  if(!b.version) return '';
+  const d = b.releasedAt ? new Date(b.releasedAt) : null;
+  const when = d && !isNaN(d.getTime()) ? d.toLocaleDateString('en-IN', {day:'2-digit', month:'short', year:'numeric'}) : '';
+  return 'Version v'+b.version+(when ? ' · Released '+when : '');
+}
+function wireUpdateChecks(){
+  document.querySelectorAll('[data-check-update]').forEach(b=> b.onclick = ()=>{ b.disabled = true; window.dispatchEvent(new Event('hr-check-update')); setTimeout(()=>{ b.disabled = false; }, 3000); });
+}
+"""
+rep("""/* ---- Shift Planner ---- */""", VB.lstrip('\n') + """\n/* ---- Shift Planner ---- */""")
 
 module = '''// @ts-nocheck
 /* ============================================================================

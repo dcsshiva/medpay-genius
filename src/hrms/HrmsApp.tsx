@@ -6,6 +6,7 @@ import { createStore, latestAttendanceDate, fetchAttendanceRange } from './data'
 import { staffSignIn, adminSignIn, signOut, changePassword, whoami, manageLogin } from './auth';
 import { cycleContaining, cycleForKey, recentCycles, todayISO } from './cycle';
 import { updateAction } from './appUpdate.js';
+import { shouldRefresh } from './listCache.js';
 import type { HrController, HrCycle, HrEnv, HrWho } from './types';
 
 // Stamped by vite.config.ts from package.json: version "1.1.0.03", releasedAt set by the
@@ -54,6 +55,7 @@ export default function HrmsApp() {
     let syncTimer: ReturnType<typeof setTimeout> | null = null;
     let statusTimer: ReturnType<typeof setTimeout> | null = null;
     let sessionChannel: ReturnType<typeof supabase.channel> | null = null;
+    let lastLoadedAt = 0; // when the data on screen was last loaded (refresh after 15 min away)
 
     const status = (text: string, isError = false, clearAfter = 0) => {
       controller?.setSyncStatus(text, isError);
@@ -161,6 +163,7 @@ export default function HrmsApp() {
           }
         }
         status('Loading…');
+        await store.prepare(uid, who, BUILD.version); // which shared lists changed since this device last loaded them
         const settings = await store.loadSettings();
         startDay = Number(settings?.cycleStartDay) || 25;
         const latest = await latestAttendanceDate().catch(() => null);
@@ -168,6 +171,7 @@ export default function HrmsApp() {
         cycle = cycleContaining(latest && latest < today ? latest : today, startDay);
         cycles = recentCycles(startDay, 12, cycle);
         await store.loadAll(who, cycle);
+        lastLoadedAt = Date.now();
         if (disposed) return;
         controller?.applySession(who, fresh);
         status('');
@@ -232,6 +236,7 @@ export default function HrmsApp() {
         status('Loading…');
         try {
           await store.loadCycleRows(cycle);
+          lastLoadedAt = Date.now();
           status('');
         } catch (err: any) {
           status('Could not load cycle: ' + (err?.message || err), true);
@@ -383,14 +388,21 @@ export default function HrmsApp() {
       close.onclick = () => { updateBanner?.remove(); updateBanner = null; };
       updateBanner.append(text, btn, close);
     };
-    const checkForUpdate = async (allowReload: boolean) => {
+    const checkForUpdate = async (allowReload: boolean, manual = false) => {
       if (disposed || !BUILD.version) return;
       let published = '';
+      const failed = () => { if (manual) status('Could not check for updates — check the internet connection · இணைய இணைப்பைச் சரிபாருங்கள்', true, 4000); };
       try {
         const r = await fetch(`/build-info.json?t=${Date.now()}`, { cache: 'no-store' });
-        if (!r.ok) return;
+        if (!r.ok) { failed(); return; }
         published = String((await r.json())?.version || '');
-      } catch { return; }
+      } catch { failed(); return; }
+      if (manual) {
+        // "Check for update" pressed: update now if there is one, otherwise say so
+        if (updateAction({ current: BUILD.version, published, quiet: true }) === 'reload') { status(`Updating to v${published}…`); applyUpdate(published); }
+        else status(`You have the latest version (v${BUILD.version}) ✓ · சமீபத்திய பதிப்பு`, false, 3500);
+        return;
+      }
       let tried = '';
       try { tried = sessionStorage.getItem(TRIED_KEY) || ''; } catch { /* private mode */ }
       // signed out (sign-in page): nothing to lose. Signed in: not while saving, typing or in a dialog.
@@ -403,12 +415,29 @@ export default function HrmsApp() {
       else if (action === 'banner') showUpdateBanner(published);
     };
     checkForUpdate(true);
-    const onVisible = () => { if (document.visibilityState === 'visible') checkForUpdate(true); };
+    const onManualCheck = () => { checkForUpdate(true, true); };
+    window.addEventListener('hr-check-update', onManualCheck);
+    // back in the app after 15 minutes or more: refresh the day-to-day data (not everything), unless
+    // something is being edited, typed or a dialog is open
+    let refreshing = false;
+    const refreshIfStale = async () => {
+      if (refreshing || disposed || loading || !store.who || !shouldRefresh(lastLoadedAt, Date.now())) return;
+      if (store.hasPendingChanges() || document.querySelector('#modalRoot .modal-back')
+        || document.querySelector('input:focus, textarea:focus, select:focus')) return;
+      refreshing = true;
+      try {
+        const done = await store.refreshLive(cycle);
+        if (done && !disposed) { lastLoadedAt = Date.now(); controller?.rerender(); }
+      } catch { /* keep what is on screen; try again next time */ }
+      finally { refreshing = false; }
+    };
+    const onVisible = () => { if (document.visibilityState === 'visible') { checkForUpdate(true); refreshIfStale(); } };
     document.addEventListener('visibilitychange', onVisible);
     const updateTimer = setInterval(() => { if (document.visibilityState === 'visible') checkForUpdate(false); }, 10 * 60 * 1000);
 
     return () => {
       document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('hr-check-update', onManualCheck);
       clearInterval(updateTimer);
       updateBanner?.remove();
       disposed = true;

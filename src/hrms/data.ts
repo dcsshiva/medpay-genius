@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { HrCycle, HrData, HrWho } from './types';
 import { manageLogin } from './auth';
+import { cacheKey, useCached, listsChanged, previousCycleStart } from './listCache.js';
 
 /**
  * Live data layer for the ported prototype.
@@ -155,15 +156,35 @@ const COLLECTIONS: Collection[] = [
 const comparable = (row: any) => { const { updated_at, ...rest } = row; return JSON.stringify(rest); };
 const TEMP = '~new-';
 
-async function fetchAll(build: () => any): Promise<any[]> {
+/** every row, 1000 per request; `parallel` pages are asked for at the same time (large tables) */
+async function fetchAll(build: () => any, parallel = 1): Promise<any[]> {
   const out: any[] = [];
-  for (let from = 0; ; from += 1000) {
-    const { data, error } = await build().range(from, from + 999);
-    if (error) throw error;
-    out.push(...(data || []));
-    if (!data || data.length < 1000) break;
+  for (let from = 0; ; from += 1000 * parallel) {
+    const pages = await Promise.all(Array.from({ length: parallel }, (_, i) => build().range(from + i * 1000, from + i * 1000 + 999)));
+    let done = false;
+    for (const { data, error } of pages) {
+      if (error) throw error;
+      if (done) continue;
+      out.push(...(data || []));
+      if (!data || data.length < 1000) done = true;
+    }
+    if (done) break;
   }
   return out;
+}
+
+/** the device copy of the shared lists (see listCache.js); never full staff records */
+function readCache(key: string): any {
+  try { return JSON.parse(localStorage.getItem(key) || 'null'); } catch { return null; }
+}
+function writeCache(key: string, value: any) {
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('hrCache:') && k !== key && k.split(':')[3] === key.split(':')[3]) localStorage.removeItem(k); // older app versions of this account
+    }
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch { /* storage full or blocked: work without the cache */ }
 }
 
 export function createStore() {
@@ -180,6 +201,12 @@ export function createStore() {
   let syncing = false;
   let again = false;
   const loginsPending = new Map<string, string>(); // new staff → first password
+  // device cache of the shared lists + the server's change stamps for them
+  let versions: Record<string, string> | null = null;
+  let cacheId = '';
+  let cache: any = null;
+  let fresh: Record<string, any> = {};
+  let leavesFrom = '';
 
   const replaceArray = (arr: any[], items: any[]) => { arr.splice(0, arr.length, ...items); };
   const replaceObject = (obj: Record<string, any>, next: Record<string, any>) => {
@@ -203,17 +230,48 @@ export function createStore() {
     takeSnapshot();
   }
 
+  /** Before loading: which shared lists changed since this device last downloaded them (one call). */
+  async function prepare(uid: string, user: HrWho, appVersion: string) {
+    cacheId = cacheKey(uid, user.role, appVersion);
+    cache = readCache(cacheId);
+    fresh = {};
+    versions = await fetchVersions();
+  }
+  async function fetchVersions(): Promise<Record<string, string> | null> {
+    try {
+      const { data: v, error } = await db.rpc('hr_data_version_stamps');
+      return error || !v ? null : v;
+    } catch { return null; }
+  }
+  /** a shared list: from the device when unchanged on the server, otherwise downloaded */
+  async function list(name: string, load: () => Promise<any>) {
+    if (useCached(cache, versions, name)) return cache.lists[name];
+    const rows = await load();
+    fresh[name] = rows;
+    return rows;
+  }
+  function saveCache() {
+    if (!cacheId || !versions) return;
+    const lists = { ...((cache && cache.lists) || {}) };
+    for (const k of Object.keys(fresh)) lists[k] = fresh[k];
+    cache = { versions, lists };
+    writeCache(cacheId, cache);
+  }
+
   async function loadSettings() {
-    const { data: row } = await db.from('hr_settings').select('payroll').eq('id', 1).maybeSingle();
+    const row = await list('settings', async () => (await db.from('hr_settings').select('payroll').eq('id', 1).maybeSingle()).data || null);
     const merged = { ...JSON.parse(JSON.stringify(DEFAULT_PAYROLL_SETTINGS)), ...(row?.payroll || {}) };
     replaceObject(data.PAYROLL_SETTINGS, merged);
     return merged;
   }
 
   async function loadCycleRows(cycle: HrCycle) {
+    // administrators read thousands of rows: three 1000-row pages at a time; everyone else has one page
+    const pages = who?.role === 'admin' ? 3 : 1;
     const [att, roster] = await Promise.all([
-      fetchAll(() => db.from('hr_attendance').select('*').gte('date', cycle.start).lte('date', cycle.end).order('emp_no').order('date')),
-      fetchAll(() => db.from('hr_roster').select('*').gte('date', cycle.start).lte('date', cycle.end).order('emp_no').order('date')),
+      fetchAll(() => db.from('hr_attendance').select('*').gte('date', cycle.start).lte('date', cycle.end).order('emp_no').order('date'), pages),
+      fetchAll(() => db.from('hr_roster').select('*').gte('date', cycle.start).lte('date', cycle.end).order('emp_no').order('date'), pages),
+      ensureLeavesFrom(cycle),
     ]);
     const attendance: HrData['ATTENDANCE'] = {};
     for (const s of data.STAFF) attendance[s.empNo] = { primaryShift: s.shiftCode || null, records: [] };
@@ -291,8 +349,15 @@ export function createStore() {
       fetchAll(() => db.from('hr_payroll_runs').select('cycle_key, finalized_at, gross, net').in('cycle_key', keys)),
       fetchAll(() => db.from('hr_payslips').select('cycle_key, lop_deduction, pf, esi, pt, other_deduction, ot_pay, late_days').in('cycle_key', keys)),
     ]);
-    const stats = await Promise.all(cycles.map(c =>
-      db.rpc('hr_attendance_stats', { _start: c.start, _end: c.end }).then((r: any) => (Array.isArray(r.data) ? r.data[0] : r.data) || null)));
+    // one call for every cycle (migration 0029); one call per cycle before that
+    let stats: any[];
+    const many = await db.rpc('hr_attendance_stats_many', { _ranges: cycles.map(c => ({ key: c.key, start: c.start, end: c.end })) });
+    if (!many.error && Array.isArray(many.data)) {
+      stats = cycles.map(c => many.data.find((r: any) => r.cycle_key === c.key) || null);
+    } else {
+      stats = await Promise.all(cycles.map(c =>
+        db.rpc('hr_attendance_stats', { _start: c.start, _end: c.end }).then((r: any) => (Array.isArray(r.data) ? r.data[0] : r.data) || null)));
+    }
     return cycles.map((c, i) => {
       const run = runs.find((r: any) => r.cycle_key === c.key) || null;
       const mine = slips.filter((p: any) => p.cycle_key === c.key);
@@ -316,17 +381,19 @@ export function createStore() {
   async function loadAll(user: HrWho, cycle: HrCycle) {
     who = user;
     const manages = user.role === 'admin' || user.role === 'manager';
+    // leave from the previous pay cycle onward, plus anything still pending (older cycles add theirs when opened)
+    leavesFrom = previousCycleStart(cycle.start);
     const [units, depts, desgs, shifts, hols, tts, tasks, leaves] = await Promise.all([
-      fetchAll(() => db.from('hr_units').select('*').order('sort_order').order('code')),
-      fetchAll(() => db.from('hr_departments').select('*').order('sort_order').order('code')),
-      fetchAll(() => db.from('hr_designations').select('*').order('sort_order').order('code')),
-      fetchAll(() => db.from('hr_shifts').select('*').order('sort_order').order('code')),
-      fetchAll(() => db.from('hr_holidays').select('*').order('date')),
-      fetchAll(() => db.from('hr_task_templates').select('*').order('sort_order').order('id')),
+      list('units', () => fetchAll(() => db.from('hr_units').select('*').order('sort_order').order('code'))),
+      list('departments', () => fetchAll(() => db.from('hr_departments').select('*').order('sort_order').order('code'))),
+      list('designations', () => fetchAll(() => db.from('hr_designations').select('*').order('sort_order').order('code'))),
+      list('shifts', () => fetchAll(() => db.from('hr_shifts').select('*').order('sort_order').order('code'))),
+      list('holidays', () => fetchAll(() => db.from('hr_holidays').select('*').order('date'))),
+      list('templates', () => fetchAll(() => db.from('hr_task_templates').select('*').order('sort_order').order('id'))),
       fetchAll(() => db.from('hr_tasks').select('*').order('id')),
-      fetchAll(() => db.from('hr_leaves').select('*').order('id')),
+      fetchLeaves(leavesFrom),
     ]);
-    await loadSettings();
+    if (!fresh.settings && !useCached(cache, versions, 'settings')) await loadSettings(); // normally loaded already (pay-cycle start day)
 
     let staffRows: any[];
     if (user.role === 'admin') {
@@ -337,7 +404,7 @@ export function createStore() {
       // colleagues' names from the directory; full rows only where the database allows
       // (a manager: their reports and themselves; staff: their own row)
       const [dir, full] = await Promise.all([
-        fetchAll(() => db.from('hr_staff_directory').select('*').order('db_ref')),
+        list('directory', () => fetchAll(() => db.from('hr_staff_directory').select('*').order('db_ref'))),
         manages
           ? fetchAll(() => db.from('hr_staff').select('*').eq('active', true).order('db_ref'))
           : fetchAll(() => db.from('hr_staff').select('*').eq('emp_no', user.empNo || '')),
@@ -359,7 +426,56 @@ export function createStore() {
     replaceArray(data.STAFF, staffRows.map(staffFromRow));
     await loadWeeklyOffChanges();
     takeSnapshot();
+    saveCache();
     await loadCycleRows(cycle);
+  }
+
+  function fetchLeaves(from: string, before?: string) {
+    return fetchAll(() => {
+      let q = db.from('hr_leaves').select('*');
+      q = before ? q.gte('date', from).lt('date', before) : q.or(`date.gte.${from},status.eq.Pending`);
+      return q.order('id');
+    });
+  }
+  /** opening an older pay cycle: add its leave (and the cycle before it) to what is loaded */
+  async function ensureLeavesFrom(cycle: HrCycle) {
+    const want = previousCycleStart(cycle.start);
+    if (!leavesFrom || want >= leavesFrom) return;
+    const rows = await fetchLeaves(want, leavesFrom);
+    const have = new Set(data.LEAVES.map((l: any) => String(l.id)));
+    const add = rows.map(leaveFromRow).filter((l: any) => !have.has(String(l.id)));
+    data.LEAVES.push(...add);
+    const snap = snapshot['leaves'] || new Map<string, string>();
+    const col = COLLECTIONS.find(c => c.name === 'leaves')!;
+    col.entries({ ...data, LEAVES: add } as HrData).forEach(e => snap.set(e.key, comparable(e.row)));
+    snapshot['leaves'] = snap;
+    leavesFrom = want;
+  }
+
+  /**
+   * Back in the app after a while: refresh the day-to-day data (attendance, shift plan, leave,
+   * tasks, weekly offs) — and everything only when a shared list changed. Skipped with unsaved edits.
+   */
+  async function refreshLive(cycle: HrCycle): Promise<boolean> {
+    if (!who || hasPendingChanges()) return false;
+    const before = versions;
+    const now = await fetchVersions();
+    if (listsChanged(before, now)) {
+      versions = now; fresh = {};
+      await loadAll(who, cycle);
+      return true;
+    }
+    const [tasks, leaves] = await Promise.all([
+      fetchAll(() => db.from('hr_tasks').select('*').order('id')),
+      fetchLeaves(leavesFrom || previousCycleStart(cycle.start)),
+    ]);
+    if (hasPendingChanges()) return false; // an edit started while loading: keep it, try next time
+    replaceArray(data.TASKS, tasks.map(taskFromRow));
+    replaceArray(data.LEAVES, leaves.map(leaveFromRow));
+    takeSnapshot(['tasks', 'leaves']);
+    await loadWeeklyOffChanges();
+    await loadCycleRows(cycle);
+    return true;
   }
 
   function tempId(prefix: string) {
@@ -617,7 +733,7 @@ export function createStore() {
   }
 
   return {
-    data, clear, loadAll, loadCycleRows, loadSettings, sync, tempId, hasPendingChanges,
+    data, clear, prepare, loadAll, loadCycleRows, loadSettings, refreshLive, sync, tempId, hasPendingChanges,
     finalizeCycle, reopenCycle, loadTrends, rosterMeta, applyRosterPlan, setAttendanceDay, cycleFinalized, logImport, importLog, setWeeklyOff, removeWeeklyOff, loadNotifications, updateNotification, get who() { return who; },
   };
 }
