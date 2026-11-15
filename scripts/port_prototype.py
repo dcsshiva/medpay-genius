@@ -3275,6 +3275,151 @@ async function openAppLinkModal(){
 """
 rep("""/* ---- Shift Planner ---- */""", PW.lstrip('\n') + """\n/* ---- Shift Planner ---- */""")
 
+# ── 60. the staff portal on phones (≤720px, root class staff-phone): a compact header (no Staff/Admin
+#        switch for plain staff, no version line), a bottom tab bar, a Today card with the next 7 days of
+#        shifts (staffToday.js), and cards instead of wide tables for days, tasks and leave. Desktop is
+#        unchanged. Also: "Net Payable" is no longer shown in red. ──
+rep("""function renderStaffDashboard(){
+  root.classList.remove('hr-auth');""", """function renderStaffDashboard(){
+  root.classList.remove('hr-auth');
+  root.classList.toggle('staff-phone', staffPhone());
+  root.classList.toggle('staff-only', !currentAdminAccount);""")
+rep("""function renderAdmin(){""", """function renderAdmin(){
+  root.classList.remove('staff-phone');""")
+rep_re(r"""'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;" class="no-print">'\+(\s*)'<div class="section-title" style="margin:0;">My Workspace</div>'\+(.*?)'<button class="iconbtn" id="logoutBtn">Sign out</button>'\+(\s*)'</div>'\+(\s*)'</div>'\+""",
+  r"""(staffPhone() ? phoneHead(result.emp) : '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;" class="no-print">'+\1'<div class="section-title" style="margin:0;">My Workspace</div>'+\2'<button class="iconbtn" id="logoutBtn">Sign out</button>'+\3'</div>'+\4'</div>')+""")
+rep("""label:({overview:'Overview', ledger:(staffSalaryHidden() ? 'My Attendance' : 'My Shift & Salary'), tasks:'My Tasks', leave:'Leave & Permission', payslip:'Payslip'})[t]})),""",
+    """label: navLabel(t, ({overview:'Overview', ledger:(staffSalaryHidden() ? 'My Attendance' : 'My Shift & Salary'), tasks:'My Tasks', leave:'Leave & Permission', payslip:'Payslip'})[t])})),""")
+rep("""    body.innerHTML = ''+
+      profileAndStats(result, hideSal)+
+      (coveringFor.length""", """    body.innerHTML = ''+
+      (staffPhone() ? todayCard(result) : '')+
+      profileAndStats(result, hideSal)+
+      (coveringFor.length""")
+rep("""body.innerHTML = profileAndStats(result, hideSal) + attendanceTable(result, hideSal) +""",
+    """body.innerHTML = (staffPhone() ? attendanceCards(result, hideSal) : profileAndStats(result, hideSal) + attendanceTable(result, hideSal)) +""")
+rep_re(r"""body\.innerHTML = ('<div class="tbl-scroll"><table><thead><tr><th>ID</th><th>Task</th>.*?'</tbody></table></div>')\+""",
+    r"""body.innerHTML = (staffPhone() ? taskCards(myTasks, taskActions) : \1)+""")
+rep_re(r"""('<div class="tbl-scroll"><table class="narrow"><thead><tr><th>ID</th><th>Type</th><th>Date</th><th>Reason</th><th>Reporting Manager</th><th>Alternative employee</th><th>Status</th></tr></thead><tbody>'\+.*?'</tbody></table></div>');""",
+    r"""(staffPhone() ? leaveCards(myLeaves) : \1);""")
+rep("""((summary.totalDeduction+summary.statutoryDeduction)>0.5 ? '<span class="badge rose">Net Payable '""",
+    """((summary.totalDeduction+summary.statutoryDeduction)>0.5 ? '<span class="badge slate">Net Payable '""")
+PH = r"""
+/* ---- The staff portal on phones ---- */
+const PHONE_MQ = window.matchMedia('(max-width: 720px)');
+function staffPhone(){ return PHONE_MQ.matches; }
+try{ PHONE_MQ.addEventListener('change', ()=>{ if(currentStaff && !staffView.classList.contains('hidden')) renderStaffDashboard(); }); }catch(e){}
+const NAV_ICONS = {
+  overview:'<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
+  ledger:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+  tasks:'<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/>',
+  leave:'<path d="M4 20c8 0 14-6 16-16C10 6 4 12 4 20z"/><path d="M4 20l8-8"/>',
+  payslip:'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+};
+const NAV_SHORT = {overview:'Home', ledger:'Attendance', tasks:'Tasks', leave:'Leave', payslip:'Payslip'};
+function navLabel(key, long){
+  return '<span class="tn-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'+(NAV_ICONS[key]||'')+'</svg></span>'+
+    '<span class="tn-long">'+long+'</span><span class="tn-short">'+(NAV_SHORT[key]||long)+'</span>';
+}
+function phoneHead(emp){
+  return '<div class="sp-head no-print">'+
+    '<div class="sp-who"><b>'+escapeHTML(emp.name)+'</b><span>'+escapeHTML(emp.empNo)+(desgName(emp.designation) ? ' &middot; '+escapeHTML(desgName(emp.designation)) : '')+'</span></div>'+
+    '<details class="sp-menu"><summary aria-label="My account">'+
+      '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></summary>'+
+      '<div class="sp-menu-list"><button class="iconbtn" id="changePwBtn">Change password</button><button class="iconbtn" id="logoutBtn">Sign out</button></div>'+
+    '</details>'+
+  '</div>';
+}
+function shiftTimes(sh){ return sh ? escapeHTML(sh.name)+(sh.start ? ' &middot; <span class="mono">'+sh.start+(sh.end ? '–'+sh.end : '')+'</span>' : '') : ''; }
+function planText(d){
+  if(d.kind==='holiday') return '<span class="dp-holiday">Holiday &middot; '+escapeHTML(d.holiday)+'</span>';
+  if(d.kind==='leave') return '<span class="dp-leave">'+escapeHTML(leaveTypeLabel(d.leaveType))+'</span>';
+  if(d.kind==='off') return '<span class="dp-off">Week off &middot; வார விடுமுறை</span>';
+  if(d.kind==='none') return '<span class="hint" style="margin:0;">No shift planned</span>';
+  return shiftTimes(shiftByCode(d.code)) || escapeHTML(d.code);
+}
+/* Today + the next 7 days (Shift Planner, holidays, approved leave; else the usual shift) */
+function todayCard(result){
+  const emp = result.emp, today = todayISO();
+  const ctx = {roster: ROSTER, holidays: HOLIDAYS, leaves: LEAVES};
+  const plan = upcomingDays(emp, addDaysISO(today, -1), 1, ctx)[0];
+  const r = result.rows.find(x=>x.date===today);
+  let now = '';
+  if(r && r.status==='P'){
+    const g = r.shift ? (r.shift.allowedLateMin ?? 15) : 15;
+    now = '<div class="tc-punch"><span class="mono">IN '+(r.inTime||'—')+(r.outTime ? ' &middot; OUT '+r.outTime : '')+'</span>'+
+      (r.lateMin>g ? '<span class="late-flag">Late '+fmtMin(r.lateMin)+'</span>' : '<span class="tc-ok">On time ✓</span>')+'</div>';
+  } else if(r){
+    now = '<div class="tc-punch">'+statusPill(r.status)+'</div>';
+  } else {
+    now = '<div class="hint" style="margin:6px 0 0;">Your punches for today appear after HR imports the attendance. · இன்றைய பதிவுகள் HR ஏற்றிய பிறகு தெரியும்.</div>';
+  }
+  const next = upcomingDays(emp, today, 7, ctx);
+  return '<div class="today-card">'+
+    '<div class="tc-label">Today · இன்று &middot; '+dayName(today)+' '+fmtDate(today)+'</div>'+
+    '<div class="tc-shift">'+(r && r.status==='P' && r.shift ? shiftTimes(r.shift) : planText(plan))+'</div>'+now+
+    '<div class="tc-next-title">Next 7 days · அடுத்த 7 நாட்கள்</div>'+
+    '<ul class="tc-next">'+next.map(d=>'<li class="dp-'+d.kind+'"><span class="tc-day">'+dayName(d.date)+' <b>'+fmtDate(d.date)+'</b></span><span class="tc-what">'+planText(d)+(d.kind==='shift' && !d.planned ? ' <span class="tc-usual">usual</span>' : '')+'</span></li>').join('')+'</ul>'+
+    '<div class="hint" style="margin:6px 0 0;">From the Shift Planner; "usual" = your regular shift until your manager plans the day.</div>'+
+  '</div>';
+}
+function addDaysISO(iso, n){ const [y,m,d] = iso.split('-').map(Number); const t = new Date(Date.UTC(y, m-1, d+n)); return t.toISOString().slice(0,10); }
+/* every day of the pay cycle as a card, newest first */
+function attendanceCards(result, hideSal){
+  const rows = result.rows.slice().reverse();
+  const late = rows.filter(r=> r.status==='P' && r.lateMin > (r.shift ? (r.shift.allowedLateMin ?? 15) : 15)).length;
+  const absent = rows.filter(r=> r.status==='A').length;
+  const head = '<div class="dc-summary"><span><b>'+result.summary.presentDays+'</b> present</span><span><b>'+late+'</b> late</span><span><b>'+absent+'</b> absent</span>'+
+    (hideSal ? '' : '<span>Net <b>'+fmtMoney(result.summary.finalNet)+'</b></span>')+'</div>';
+  if(!rows.length) return head+'<div class="note">No attendance imported for this pay cycle yet.</div>';
+  return head + rows.map(r=>{
+    const g = r.shift ? (r.shift.allowedLateMin ?? 15) : 15;
+    const isLate = r.status==='P' && r.lateMin>g;
+    const flags = [];
+    if(isLate) flags.push('<span class="late-flag">Late '+fmtMin(r.lateMin)+'</span>');
+    else if(r.status==='P' && r.lateMin>0) flags.push('<span class="grace-flag">'+fmtMin(r.lateMin)+' (grace)</span>');
+    if(r.permUsed) flags.push('<span class="badge slate">Permission '+fmtMin(r.permUsed)+'</span>');
+    if(r.otMin>0) flags.push('<span class="badge teal">OT '+fmtMin(r.otMin)+'</span>');
+    if(!hideSal && r.deduction>0.5) flags.push('<span class="late-flag">−'+fmtMoney(r.deduction)+'</span>');
+    return '<div class="day-card st-'+r.status+(isLate?' is-late':'')+'">'+
+      '<div class="dc-top"><span class="dc-date">'+dayName(r.date)+' <b>'+fmtDate(r.date)+'</b></span>'+statusPill(r.status)+'</div>'+
+      (r.shift ? '<div class="dc-line">'+shiftTimes(r.shift)+(r.shiftOverridden ? ' <span class="badge amber" style="padding:1px 6px;font-size:10px;">planned</span>' : '')+'</div>' : '')+
+      ((r.inTime || r.outTime) ? '<div class="dc-line mono">IN '+(r.inTime||'—')+' &middot; OUT '+(r.outTime||'—')+'</div>' : '')+
+      (flags.length ? '<div class="dc-flags">'+flags.join('')+'</div>' : '')+
+      (r.note ? '<div class="dc-note">'+r.note+'</div>' : '')+
+    '</div>';
+  }).join('');
+}
+function taskCards(tasks, actions){
+  if(!tasks.length) return '<div class="note">No tasks assigned.</div>';
+  return tasks.map(t=>{
+    const by = findStaff(t.assignedBy);
+    return '<div class="day-card">'+
+      '<div class="dc-top"><b>'+escapeHTML(t.title)+'</b>'+statusPill(t.status)+'</div>'+
+      (t.description ? '<div class="dc-note">'+escapeHTML(t.description)+'</div>' : '')+
+      '<div class="dc-line">Due <b>'+fmtDate(t.dueDate)+'</b> &middot; <span class="prio-'+t.priority+'">'+t.priority+'</span> &middot; from '+escapeHTML(by ? by.name : (accountName(t.assignedBy) || t.assignedBy || '—'))+'</div>'+
+      (t.employeeResponseNote ? '<div class="dc-note">Note: '+escapeHTML(t.employeeResponseNote)+'</div>' : '')+
+      (t.reviewNote ? '<div class="dc-note">Review: '+escapeHTML(t.reviewNote)+'</div>' : '')+
+      '<div class="dc-actions">'+actions(t)+'</div>'+
+    '</div>';
+  }).join('');
+}
+function leaveCards(leaves){
+  if(!leaves.length) return '<div class="note">No requests yet.</div>';
+  return leaves.slice().sort((a,b)=> (b.date||'').localeCompare(a.date||'')).map(l=>{
+    const alt = findStaff(l.altEmpNo);
+    return '<div class="day-card">'+
+      '<div class="dc-top"><span><b>'+escapeHTML(leaveTypeLabel(l.type))+'</b> &middot; '+fmtDate(l.date)+(l.hours ? ' &middot; '+l.hours+'h' : '')+'</span>'+statusPill(l.status)+'</div>'+
+      (l.reason ? '<div class="dc-note">'+escapeHTML(l.reason)+'</div>' : '')+
+      (alt ? '<div class="dc-line">Covering: '+escapeHTML(alt.name)+'</div>' : '')+
+      (l.decidedBy ? '<div class="dc-line hint" style="margin:0;">'+(l.status==='Rejected' ? 'Rejected' : 'Approved')+' by '+escapeHTML(l.decidedBy)+' &middot; '+fmtDate(l.decidedOn)+'</div>' : '')+
+      (l.status==='Revoked' && l.revokedBy ? '<div class="dc-line" style="color:var(--rose);">Withdrawn by '+escapeHTML(l.revokedBy)+(l.revokeReason ? ' — '+escapeHTML(l.revokeReason) : '')+'</div>' : '')+
+    '</div>';
+  }).join('');
+}
+"""
+rep("""/* ---- Shift Planner ---- */""", PH.lstrip('\n') + """\n/* ---- Shift Planner ---- */""")
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
@@ -3294,6 +3439,7 @@ import { normalizePunches, normalizeAttendance, mergeAttendanceRecord, planFor, 
 import { HELP, HELP_ORDER, HELP_GROUPS, helpKey } from './helpContent.js';
 import { PLAN_OFF, defaultPlanCode, plannedCode, buildPlanSheet, buildPlanBook, readPlanBook, planChanges, planChoices } from './shiftPlan.js';
 import { revokeWindowStart, canRevoke, attendanceAfterRevoke, snapshotDay, absencesForLeave } from './leaveRevoke.js';
+import { upcomingDays } from './staffToday.js';
 import { fileUnit, multiUnitGaps, coverage, ranges } from './multiUnit.js';
 import { parsePunchMonitor, looksLikeName } from './punchMonitor.js';
 import { earningsLines, pfBase, cycleAdjustments, statutory, buildPayslip } from './payslip.js';

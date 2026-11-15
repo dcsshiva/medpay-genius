@@ -88,6 +88,8 @@ export const HELP = {
     intro: t('Your pay cycle at a glance: days present, absent, late, leave used and balances.',
       'உங்கள் பே சைக்கிளின் சுருக்கம்: வந்த நாட்கள், வராத நாட்கள், தாமதம், பயன்படுத்திய விடுப்பு, மீதமுள்ள இருப்பு.'),
     steps: list([
+      ['On a phone, the Today card shows today\'s shift and your IN punch, and the next 7 days of shifts, week offs, holidays and leave from the Shift Planner ("usual" = your regular shift until your manager plans the day). Use the tabs at the bottom to move around.',
+        'போனில், Today அட்டை இன்றைய ஷிஃப்ட், உங்கள் IN பதிவு, அடுத்த 7 நாட்களின் ஷிஃப்ட் / வார விடுமுறை / விடுமுறை / விடுப்பு ஆகியவற்றை ஷிஃப்ட் பிளானரிலிருந்து காட்டும் ("usual" = மேனேஜர் திட்டமிடும் வரை உங்கள் வழக்கமான ஷிஃப்ட்). கீழே உள்ள பொத்தான்கள் மூலம் மற்ற பக்கங்களுக்குச் செல்லலாம்.'],
       ['Present days are counted against all the days of the pay cycle (for example 20 / 31).',
         'வந்த நாட்கள் பே சைக்கிளின் மொத்த நாட்களுடன் ஒப்பிட்டுக் காட்டப்படும் (உதா: 20 / 31).'],
       ['CL and permission balances show what you can still use this month.',
