@@ -232,6 +232,13 @@
       "when": 1789865842547,
       "tag": "0032_hr_shift_departments",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1789865843547,
+      "tag": "0033_hr_shift_pay_days",
+      "breakpoints": true
     }
   ]
 }

@@ -30,6 +30,9 @@ export const DEFAULT_PAYROLL_SETTINGS = {
   staffSalaryVisible: false,
   defaultPermissionHours: 2,
   permissionRoundUpToHours: 4,
+  /** every Nth late day in a pay cycle costs lateLopDays of pay (lateRule.js) */
+  lateLopEvery: 3,
+  lateLopDays: 0.5,
 };
 
 // ─────────────── DB row ⇄ prototype object ───────────────
@@ -106,6 +109,7 @@ const shiftFromRow = (r: any) => ({
   extraLateMaxPerMonth: num(r.extra_late_max_per_month, 3), suspended: r.active === false,
   allowedDesignations: Array.isArray(r.allowed_designations) && r.allowed_designations.length ? r.allowed_designations : null,
   allowedDepartments: Array.isArray(r.allowed_departments) && r.allowed_departments.length ? r.allowed_departments : null,
+  payDays: num(r.pay_days, 1) || 1,
 });
 const shiftToRow = (s: any, i: number) => ({
   code: s.code, name: s.name, letter: s.letter || '', start_time: s.start, end_time: s.end,
@@ -113,6 +117,7 @@ const shiftToRow = (s: any, i: number) => ({
   extra_late_max_per_month: num(s.extraLateMaxPerMonth), sort_order: i, active: !s.suspended,
   allowed_designations: s.allowedDesignations || null,
   allowed_departments: s.allowedDepartments || null,
+  pay_days: Math.max(1, num(s.payDays, 1) || 1),
 });
 
 // ─────────────── collections that get synced ───────────────

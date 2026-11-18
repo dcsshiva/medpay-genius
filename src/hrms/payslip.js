@@ -47,6 +47,7 @@ export function buildPayslip({ emp, summary, settings, rows }) {
   const s = summary || {};
   const earnings = (Array.isArray(s.earnings) && s.earnings.length ? s.earnings : earningsLines(emp)).map(e => ({ ...e }));
   if (n(s.otPay) > 0.5) earnings.push({ label: 'OVERTIME', amount: r2(n(s.otPay)) });
+  if (n(s.extraDayPay) > 0.5) earnings.push({ label: 'EXTRA SHIFT (' + n(s.extraDays) + (n(s.extraDays) === 1 ? ' DAY)' : ' DAYS)'), amount: r2(n(s.extraDayPay)) });
   const adj = Array.isArray(s.adjustments) ? s.adjustments : [];
   const adjTotal = adj.reduce((t, a) => t + n(a.amount), 0);
   const deductions = [
@@ -70,6 +71,6 @@ export function buildPayslip({ emp, summary, settings, rows }) {
     net: r2(earningsSum - deductionsSum),
     employerPf: r2(n(employerPf)), employerEsi: r2(n(employerEsi)),
     ctc: r2(n(s.grossPay ?? st.gross) + n(employerPf) + n(employerEsi)),
-    workingDays, lopDays: n(s.absentDays),
+    workingDays, lopDays: n(s.absentDays) + n(s.lateLopDays),
   };
 }

@@ -76,10 +76,30 @@ const offSet = (days) => new Set(String(days || '').split(',').map(s => s.trim()
  * missing — not a night shift (that misreading turned the next morning into "off after night duty").
  * Without opts.nightShifts every lone evening punch may start a night shift (the original rule).
  */
+/*
+ * Long overnight shifts (double shifts such as AS + NS 13:00 → 08:00 or NS + MS 20:00 → 15:00): a shift
+ * whose end is not after its start crosses midnight. When the Shift Planner has one for a date:
+ *  - a lone punch from 3 hours before its start (even before 17:00) starts that night;
+ *  - the next day's first punch closes it up to 2 hours after the shift's end (at least 11:00,
+ *    at most 16:59), instead of only up to 11:00.
+ * opts.overnight = { shiftCode: { startMin, closeMin } } (from shiftContext).
+ */
+export function overnightInfo(shift) {
+  const st = toMin(shift && shift.start), en = toMin(shift && shift.end);
+  if (st === null || en === null || en > st) return null;
+  return { startMin: st, closeMin: Math.min(EVENING_MIN - 1, Math.max(MORNING_MAX_MIN, en + 120)) };
+}
 export function shiftContext(staffMember, shifts) {
-  const nightShifts = (shifts || []).filter(s => toMin(s.start) !== null && toMin(s.start) >= EVENING_MIN).map(s => s.code);
-  const own = (shifts || []).find(s => staffMember && s.code === staffMember.shiftCode);
-  return { nightShifts, dayOnly: !!own && /general/i.test(own.name || '') };
+  const list = shifts || [];
+  const overnight = {};
+  list.forEach(s => { const o = overnightInfo(s); if (o) overnight[s.code] = o; });
+  const nightShifts = list.filter(s => (toMin(s.start) !== null && toMin(s.start) >= EVENING_MIN) || overnight[s.code]).map(s => s.code);
+  const own = list.find(s => staffMember && s.code === staffMember.shiftCode);
+  return { nightShifts, overnight, dayOnly: !!own && /general/i.test(own.name || '') };
+}
+function plannedOvernight(opts, date) {
+  const planned = (opts.plan || {})[date];
+  return (planned && opts.overnight && opts.overnight[planned]) || null;
 }
 function nightAllowed(opts, date) {
   if (!opts.nightShifts) return true;
@@ -90,7 +110,7 @@ function nightAllowed(opts, date) {
 }
 
 export function normalizePunches(records, opts = {}) {
-  const paired = pairPunches(records, (date) => nightAllowed(opts, date));
+  const paired = pairPunches(records, (date) => nightAllowed(opts, date), (date) => plannedOvernight(opts, date));
   const history = opts.weeklyOffHistory || [];
   const plan = opts.plan || {};
   const hasPlan = Object.keys(plan).length > 0;
@@ -136,10 +156,11 @@ export function planFor(roster, empNo) {
   return out;
 }
 
-function pairPunches(records, nightOk = () => true) {
+function pairPunches(records, nightOk = () => true, overnightOn = () => null) {
   const sorted = [...(records || [])].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
   const out = [];
   let openNight = null; // the output record of a night still waiting for its OUT
+  let closeBy = MORNING_MAX_MIN; // latest next-morning punch that closes it
 
   for (let rec of sorted) {
     const inM = toMin(rec.in);
@@ -149,10 +170,10 @@ function pairPunches(records, nightOk = () => true) {
     const keepsStatus = rec.status === 'CL' || rec.status === 'AL' || rec.status === 'H';
 
     // 2. this morning's punch closes last night's shift
-    if (openNight && rec.date === nextDay(openNight.date) && inM !== null && inM <= MORNING_MAX_MIN
+    if (openNight && rec.date === nextDay(openNight.date) && inM !== null && inM <= closeBy
         && (outM === null || outM >= EVENING_MIN) && !keepsStatus) {
       openNight.out = rec.in;
-      openNight.punchNote = 'Night shift ' + openNight.in + ' → ' + rec.in + ' next morning';
+      openNight.punchNote = 'Night shift ' + openNight.in + ' → ' + rec.in + (inM > MORNING_MAX_MIN ? ' next day' : ' next morning');
       openNight = null;
       if (outM !== null) {
         // the evening punch starts tonight's night shift
@@ -160,6 +181,7 @@ function pairPunches(records, nightOk = () => true) {
           punchNote: 'Night shift from ' + rec.out + ' (OUT punch is next morning)' };
         out.push(night);
         openNight = night;
+        closeBy = (overnightOn(rec.date) || {}).closeMin || MORNING_MAX_MIN;
       } else {
         out.push({ ...rec, status: 'WO', in: undefined, out: undefined, offAfterNight: true,
           punchNote: 'Off after night duty (' + rec.in + ' was the OUT of the previous night)' });
@@ -180,10 +202,13 @@ function pairPunches(records, nightOk = () => true) {
       out.push(day);
       continue;
     }
-    if (inM !== null && inM >= EVENING_MIN && outM === null && !keepsStatus) {
-      const night = { ...rec, status: 'P', night: true, punchNote: 'Night shift from ' + rec.in + ' (OUT punch is next morning)' };
+    const longNight = overnightOn(rec.date);
+    if (inM !== null && outM === null && !keepsStatus
+        && (inM >= EVENING_MIN || (longNight && inM >= longNight.startMin - 180))) {
+      const night = { ...rec, status: 'P', night: true, punchNote: 'Night shift from ' + rec.in + ' (OUT punch is next ' + (longNight && longNight.closeMin > MORNING_MAX_MIN ? 'day' : 'morning') + ')' };
       out.push(night);
       openNight = night;
+      closeBy = (longNight || {}).closeMin || MORNING_MAX_MIN;
       continue;
     }
 

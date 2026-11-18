@@ -28,3 +28,10 @@ test('one-off deductions only apply to their own cycle', () => {
   assert.equal(cycleAdjustments(e, '2026-10')[0].amount, 500);
   assert.equal(cycleAdjustments(e, '2026-11').length, 0);
 });
+
+test('double-shift days are an earnings line; late-day loss of pay counts in LOP days', () => {
+  const slip = buildPayslip({ emp, settings, rows: [], summary: { grossPay: 20000, pfDeduction: 0, esiDeduction: 0, tdsDeduction: 0, otherDeduction: 0,
+    totalDeduction: 333.33, extraDays: 2, extraDayPay: 1333.33, absentDays: 1, lateLopDays: 0.5 } });
+  assert.deepEqual(slip.earnings.find(e => /EXTRA SHIFT/.test(e.label)), { label: 'EXTRA SHIFT (2 DAYS)', amount: 1333.33 });
+  assert.equal(slip.lopDays, 1.5);
+});

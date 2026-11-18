@@ -221,3 +221,29 @@ test('a lone evening punch on a planned day shift is the OUT of that day, not a 
   const rot = normalizePunches([{ date: '2026-10-29', status: 'A', in: '21:00' }], shiftContext({ shiftCode: 'S2' }, shifts));
   assert.equal(rot[0].night, true);
 });
+
+test('double shifts across midnight: AS + NS from a 13:00 punch, NS + MS closed by a 15:00 punch next day', async () => {
+  const { shiftContext } = await import('./punches.js');
+  const shifts = [
+    { code: 'S2', name: 'Morning Shift 1', start: '08:00', end: '15:00' },
+    { code: 'S4', name: 'Night Shift 1', start: '20:00', end: '08:00' },
+    { code: 'X1', name: 'AS + NS', start: '13:00', end: '08:00', payDays: 2 },
+    { code: 'X2', name: 'NS + MS', start: '20:00', end: '15:00', payDays: 2 },
+  ];
+  const ctx = shiftContext({ shiftCode: 'S2' }, shifts);
+  const plan = { '2026-11-03': 'X1', '2026-11-06': 'X2' };
+  const out = normalizePunches([
+    r('2026-11-02', 'P', '08:01', '15:02'),
+    r('2026-11-03', 'A', '13:04'),          // AS + NS starts
+    r('2026-11-04', 'A', '08:03'),          // its OUT
+    r('2026-11-05', 'P', '08:00', '15:00'),
+    r('2026-11-06', 'A', '19:58'),          // NS + MS starts
+    r('2026-11-07', 'A', '15:06'),          // its OUT, next afternoon
+    r('2026-11-08', 'P', '08:02', '15:01'),
+  ], { plan, ...ctx });
+  assert.deepEqual(brief(out), ['02 P 08:01-15:02', '03 P 13:04-08:03', '04 WO ---', '05 P 08:00-15:00', '06 P 19:58-15:06', '07 WO ---', '08 P 08:02-15:01']);
+  // without the plan a 15:06 punch the next day is not that night's OUT
+  const plain = normalizePunches([r('2026-11-06', 'A', '19:58'), r('2026-11-07', 'A', '15:06')], ctx);
+  assert.equal(plain[0].out, undefined);
+  assert.equal(plain[1].status, 'P');
+});

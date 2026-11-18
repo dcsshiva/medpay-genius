@@ -3668,6 +3668,120 @@ function openShiftDepartments(s){
 }
 function renderShiftMaster(){""")
 
+# ── 67. late arrivals and double shifts (lateRule.js): every 3rd late day in the cycle (beyond grace and the
+#        extra-late allowance, not covered by approved permission) = ½ day loss of pay, no per-minute
+#        deduction (Payroll Settings: lateLopEvery / lateLopDays). Shift Master "Counts as days" (payDays):
+#        a planned double shift counts as two days' attendance and pays the extra day; double shifts are
+#        never guessed from punch times. ──
+def _d(x): return '\n'.join(l[2:] if l.startswith('  ') else l for l in x.split('\n'))
+def rep2(a, b, n=1): rep(_d(a), _d(b), n)
+rep2("""    const pool = activeOnly(SHIFT_MASTER).length ? activeOnly(SHIFT_MASTER) : SHIFT_MASTER;
+    let best=pool[0], bd=Infinity;
+    for(const s of pool){ const d=Math.abs(inMin-shiftStartMin(s)); if(d<bd){ bd=d; best=s; } }""",
+"""    const single = activeOnly(SHIFT_MASTER).filter(s=>!extraDaysFor(s));
+    const pool = single.length ? single : (activeOnly(SHIFT_MASTER).length ? activeOnly(SHIFT_MASTER) : SHIFT_MASTER);
+    let best=pool[0], bd=Infinity;
+    for(const s of pool){ const d=Math.abs(inMin-shiftStartMin(s)); if(d<bd){ bd=d; best=s; } }""")
+rep2("""    const pool = activeOnly(SHIFT_MASTER).filter(s=>!isGeneralShift(s) && shiftAllowedFor(s, emp));""",
+     """    const pool = activeOnly(SHIFT_MASTER).filter(s=>!isGeneralShift(s) && !extraDaysFor(s) && shiftAllowedFor(s, emp));""")
+rep2("""    const extraLateUsed = {}; // per shift code, this cycle""",
+     """    const extraLateUsed = {}; // per shift code, this cycle
+    const lateRuleNow = lateRule(PAYROLL_SETTINGS);
+    let lateCount = 0, lateLop = 0, extraDays = 0;""")
+rep2("""          if(uncovered > 0){
+            const ded = uncovered * perMinute;
+            row.deduction += ded;
+            totalDeduction += ded;
+            row.note = fromPerm>0
+              ? late+'m late - '+fromPerm+'m covered by approved permission ('+fmtMin(approvedToday)+'), '+uncovered+'m deducted from pay'
+              : late+'m late - '+(approvedToday ? 'permission balance used up' : 'no approved permission')+', '+uncovered+'m deducted from pay';
+
+            cumulativeUncovered += uncovered;
+            while(cumulativeUncovered >= CONSOLIDATED_LEAVE_MIN){
+              cumulativeUncovered -= CONSOLIDATED_LEAVE_MIN;
+              if(clRemaining>0){
+                clRemaining--;
+                row.deduction -= perDay;
+                totalDeduction -= perDay;
+                row.note += ' · 8h consolidated lateness offset using CL';
+              } else {
+                row.note += ' · 8h consolidated lateness = 1 day loss of pay';
+              }
+            }
+          } else {""",
+"""          if(uncovered > 0){
+            const step = addLateDay(lateCount, lateRuleNow);
+            lateCount = step.count;
+            row.lateCount = step.count;
+            if(step.lopDays > 0){
+              const ded = perDay * step.lopDays;
+              row.deduction += ded;
+              totalDeduction += ded;
+              lateLop += step.lopDays;
+            }
+            row.note = (fromPerm>0
+              ? late+'m late - '+fromPerm+'m covered by approved permission ('+fmtMin(approvedToday)+'), still late'
+              : late+'m late - '+(approvedToday ? 'permission balance used up' : 'no approved permission'))+' · '+lateDayNote(step, lateRuleNow);
+          } else {""")
+rep2("""        // Overtime: minutes worked past shift end, for OT-eligible staff on non-overnight shifts.""",
+     """        const xd = extraDaysFor(shift);
+        if(xd > 0){
+          row.extraDays = xd; extraDays += xd;
+          row.note += ' · double shift ('+shift.name+'): counts as '+fmtDays(1+xd)+' days, '+fmtDays(xd)+' extra day paid';
+        }
+
+        // Overtime: minutes worked past shift end, for OT-eligible staff on non-overnight shifts.""")
+rep2("""    const pdSum = permissionDisplay(monthlyPermissionMin, permissionPool - permissionRemaining);
+    const summary = {""", """    const pdSum = permissionDisplay(monthlyPermissionMin, permissionPool - permissionRemaining);
+    const extraDayPay = extraDays * perDay;
+    const summary = {""")
+rep2("""      finalNet: grossPay - totalDeduction - statutoryDeduction + otPay,
+      presentDays: rows.filter(r=>r.status==='P').length,""",
+"""      finalNet: grossPay - totalDeduction - statutoryDeduction + otPay + extraDayPay,
+      presentDays: rows.filter(r=>r.status==='P').length + extraDays,
+      extraDays, extraDayPay, lateCount, lateLopDays: lateLop,""")
+rep2("""      stat('Late instances', summary.lateDays)+""",
+     """      stat('Late instances', summary.lateDays + (summary.lateLopDays ? ' · '+fmtDays(summary.lateLopDays)+' day LOP' : ''), summary.lateLopDays ? 'rose' : '')+
+      (summary.extraDays ? stat('Double-shift days', '+'+fmtDays(summary.extraDays), 'teal') : '')+""")
+rep2("""      stat('Overtime pay', fmtMoney(summary.otPay), summary.otPay>0.5?'teal':'')+
+      stat('Net payable', fmtMoney(summary.finalNet), 'teal'))+""",
+"""      stat('Overtime pay', fmtMoney(summary.otPay), summary.otPay>0.5?'teal':'')+
+      (summary.extraDayPay>0.5 ? stat('Extra shift pay', fmtMoney(summary.extraDayPay), 'teal') : '')+
+      stat('Net payable', fmtMoney(summary.finalNet), 'teal'))+""")
+rep2("""          (s.otPay>0.5?'<div class="payslip-row"><span>Overtime pay ('+fmtMin(s.otMinutesTotal)+')</span><span class="mono">+'+fmtMoney(s.otPay)+'</span></div>':'')+""",
+"""          (s.otPay>0.5?'<div class="payslip-row"><span>Overtime pay ('+fmtMin(s.otMinutesTotal)+')</span><span class="mono">+'+fmtMoney(s.otPay)+'</span></div>':'')+
+          (s.extraDayPay>0.5?'<div class="payslip-row"><span>Extra shift pay ('+fmtDays(s.extraDays)+' day'+(s.extraDays>1?'s':'')+')</span><span class="mono">+'+fmtMoney(s.extraDayPay)+'</span></div>':'')+""")
+# Payroll Settings
+rep2("""    '<div class="hint">Usage over the allowance (e.g. 2h 7m) is counted as the round-up hours with no deduction; minutes beyond that are deducted per minute.</div>'+""",
+"""    '<div class="hint">Usage over the allowance (e.g. 2h 7m) is counted as the round-up hours with no deduction; lateness beyond that makes the day a late day.</div>'+
+    '<div class="section-title">Late arrivals</div>'+
+    '<div class="form-row"><label>Loss of pay after every … late days</label><input id="psLateEvery" type="number" min="1" step="1" value="'+lateRule(p).every+'"></div>'+
+    '<div class="form-row"><label>Loss of pay each time (days)</label><input id="psLateDays" type="number" min="0" step="0.5" value="'+lateRule(p).lopDays+'"></div>'+
+    '<div class="hint">A late day = late beyond the shift\\'s grace and its monthly extra-late allowance, and not covered by an approved permission. Minutes are not deducted: every '+lateRule(p).every+' late days in a pay cycle cost '+fmtDays(lateRule(p).lopDays)+' day of pay.</div>'+""")
+rep2("""      p.permissionRoundUpToHours = parseFloat(document.getElementById('psPermRound').value) || 0;""",
+     """      p.permissionRoundUpToHours = parseFloat(document.getElementById('psPermRound').value) || 0;
+      p.lateLopEvery = Math.max(1, parseInt(document.getElementById('psLateEvery').value) || 3);
+      { const v = parseFloat(document.getElementById('psLateDays').value); p.lateLopDays = v >= 0 ? v : 0.5; }""")
+# Shift Master: Counts as days
+rep2("""<th>Times / salary month</th><th>Departments</th>""", """<th>Times / salary month</th><th>Counts as days</th><th>Departments</th>""")
+rep2("""      '<td><button class="iconbtn" data-shift-depts=""",
+     """      '<td><input class="editable mono" data-field="payDays" type="number" min="1" max="3" step="1" value="'+(s.payDays||1)+'" style="width:48px;" title="2 = a double shift (e.g. MS + AS): two days\\' attendance, the extra day paid"></td>'+
+      '<td><button class="iconbtn" data-shift-depts=""")
+rep2("""        const numeric = ['allowedLateMin','allowedExtraLateMin','extraLateMaxPerMonth'].includes(field);
+        s[field] = numeric ? (parseInt(inp.value)||0) : inp.value;""",
+"""        const numeric = ['allowedLateMin','allowedExtraLateMin','extraLateMaxPerMonth'].includes(field);
+        s[field] = field==='payDays' ? Math.max(1, parseInt(inp.value)||1) : numeric ? (parseInt(inp.value)||0) : inp.value;""")
+rep2("""        {id:'extraLateMaxPerMonth', label:'Times / salary month', type:'number', value:3},
+      ], (v)=>{""", """        {id:'extraLateMaxPerMonth', label:'Times / salary month', type:'number', value:3},
+        {id:'payDays', label:'Counts as days (2 = double shift)', type:'number', value:1},
+      ], (v)=>{""")
+rep2("""          extraLateMaxPerMonth: parseInt(v.extraLateMaxPerMonth)||0,
+        });""", """          extraLateMaxPerMonth: parseInt(v.extraLateMaxPerMonth)||0,
+          payDays: Math.max(1, parseInt(v.payDays)||1),
+        });""")
+rep2("""(once used up, or once late exceeds grace + extra-late, the full late duration is charged against the permission pool and then pay, exactly as on the Shift Ledger).""",
+     """(once used up, or once late exceeds grace + extra-late, an approved permission can cover it; otherwise it is a late day — every few late days cost part of a day\\'s pay, set in Payroll Settings). Counts as days = 2 makes a double shift (e.g. MS + AS 08:00–20:00, AS + NS 13:00–08:00, NS + MS 20:00–15:00): planned on the Shift Planner it counts as two days\\' attendance and the extra day is paid; lateness is counted from its start. Double shifts are only used where planned, never guessed from punch times.""")
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
@@ -3690,6 +3804,7 @@ import { revokeWindowStart, canRevoke, attendanceAfterRevoke, snapshotDay, absen
 import { upcomingDays } from './staffToday.js';
 import { minutesWorked, fmtHours } from './workHours.js';
 import { MANAGERS, shiftAllowed, shiftsForStaff, departmentsLabel } from './shiftScope.js';
+import { lateRule, addLateDay, lateDayNote, extraDaysFor, fmtDays } from './lateRule.js';
 import { translateText } from './staffTamil.js';
 import { leaveUpdates, markSeen, updateText } from './staffNotices.js';
 import { fileUnit, multiUnitGaps, coverage, ranges } from './multiUnit.js';
