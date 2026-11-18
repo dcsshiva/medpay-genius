@@ -714,12 +714,21 @@ export function createStore() {
 
   /** The bell in the admin header: notifications sent to the signed-in administrator (RLS: own only) */
   async function loadNotifications() {
-    const rows = await fetchAll(() => db.from('hr_notifications').select('*').order('created_at', { ascending: false }).order('id', { ascending: false }));
+    const rows = await fetchAll(() => db.from('hr_notifications').select('id,title,message,steps,items,screen,created_by,created_at,read_at,done_at,done_by,files').order('created_at', { ascending: false }).order('id', { ascending: false }));
     return rows.map((r: any) => ({
       id: r.id, title: r.title, message: r.message || '', steps: r.steps || [], items: r.items || [],
       screen: r.screen || '', createdBy: r.created_by || '', createdAt: r.created_at,
       readAt: r.read_at || null, doneAt: r.done_at || null, doneBy: r.done_by || '',
+      files: Array.isArray(r.files) ? r.files : [],
     }));
+  }
+  /** an attached file's contents (base64), read only when it is downloaded */
+  async function notificationFile(id: number, index: number): Promise<string> {
+    const { data, error } = await db.from('hr_notifications').select('file_data').eq('id', id).maybeSingle();
+    if (error) throw error;
+    const list = (data && Array.isArray(data.file_data)) ? data.file_data : [];
+    if (typeof list[index] !== 'string') throw new Error('File not found');
+    return list[index];
   }
   /** read: opened from the bell; done: true = marked done, false = opened again */
   async function updateNotification(id: number, change: { read?: boolean; done?: boolean; by?: string }) {
@@ -751,7 +760,7 @@ export function createStore() {
 
   return {
     data, clear, prepare, loadAll, loadCycleRows, loadSettings, refreshLive, sync, tempId, hasPendingChanges,
-    finalizeCycle, reopenCycle, loadTrends, rosterMeta, applyRosterPlan, setAttendanceDay, cycleFinalized, logImport, importLog, setWeeklyOff, removeWeeklyOff, loadNotifications, updateNotification, get who() { return who; },
+    finalizeCycle, reopenCycle, loadTrends, rosterMeta, applyRosterPlan, setAttendanceDay, cycleFinalized, logImport, importLog, setWeeklyOff, removeWeeklyOff, loadNotifications, updateNotification, notificationFile, get who() { return who; },
   };
 }
 

@@ -3789,6 +3789,41 @@ rep("""async function payslipPDF(d){
   const [{ jsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
   const s = d.slip, e = d.emp;""")
 
+# ── 69. files attached to a bell notification (hr_notifications.files / file_data, migration 0035): listed on the
+#        card with a Download button; the contents are fetched only when downloaded (or from files[i].url, a
+#        same-site path of a file shipped in public/). ──
+rep("""    (n.steps && n.steps.length ? '<div class="section-title" style="margin:6px 0 2px;">How to fix</div><ol class="notif-steps">'+n.steps.map(st=>'<li>'+escapeHTML(st)+'</li>').join('')+'</ol>' : '')+
+    '<div class="notif-actions">'+""", """    (n.steps && n.steps.length ? '<div class="section-title" style="margin:6px 0 2px;">How to fix</div><ol class="notif-steps">'+n.steps.map(st=>'<li>'+escapeHTML(st)+'</li>').join('')+'</ol>' : '')+
+    (n.files && n.files.length ? '<div class="section-title" style="margin:6px 0 2px;">Files</div><div style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px;">'+
+      n.files.map((f,i)=>'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">&#128206; <span>'+escapeHTML(f.name||('File '+(i+1)))+'</span>'+
+        (f.size ? '<span class="hint" style="margin:0;">'+Math.max(1, Math.round(f.size/1024))+' KB</span>' : '')+
+        '<button class="btn sm" data-notif-file="'+n.id+':'+i+'">Download</button></div>').join('')+'</div>' : '')+
+    '<div class="notif-actions">'+""")
+rep("""    modalRoot.querySelectorAll('[data-notif-done]').forEach(b=> b.onclick = ()=> mark(b.dataset.notifDone, true));""",
+    """    modalRoot.querySelectorAll('[data-notif-file]').forEach(b=> b.onclick = async ()=>{
+      const [id, idx] = b.dataset.notifFile.split(':').map(Number);
+      const n = NOTIFS.find(x=>x.id===id); const f = n && n.files && n.files[idx];
+      if(!f) return;
+      b.disabled = true; const label = b.textContent; b.textContent = 'Downloading…';
+      try{
+        let bytes;
+        if(f.url){
+          // a file shipped with the app (public/…): only same-site paths
+          if(!/^\/[A-Za-z0-9._\/-]+$/.test(f.url)) throw new Error('Unsupported file link');
+          const res = await fetch(f.url, {cache: 'no-store'});
+          if(!res.ok) throw new Error('File not available yet ('+res.status+')');
+          bytes = new Uint8Array(await res.arrayBuffer());
+        } else {
+          const b64 = await env.notificationFile(id, idx);
+          const bin = atob(b64); bytes = new Uint8Array(bin.length);
+          for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+        }
+        saveBytes(f.name || 'file', bytes, f.type || 'application/octet-stream');
+      }catch(e){ alert('Could not download: '+(e && e.message ? e.message : e)); }
+      b.disabled = false; b.textContent = label;
+    });
+    modalRoot.querySelectorAll('[data-notif-done]').forEach(b=> b.onclick = ()=> mark(b.dataset.notifDone, true));""")
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
