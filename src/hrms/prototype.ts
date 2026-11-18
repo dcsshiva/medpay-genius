@@ -19,6 +19,7 @@ import { PLAN_OFF, defaultPlanCode, plannedCode, buildPlanSheet, buildPlanBook, 
 import { revokeWindowStart, canRevoke, attendanceAfterRevoke, snapshotDay, absencesForLeave } from './leaveRevoke.js';
 import { upcomingDays } from './staffToday.js';
 import { minutesWorked, fmtHours } from './workHours.js';
+import { MANAGERS, shiftAllowed, shiftsForStaff, departmentsLabel } from './shiftScope.js';
 import { translateText } from './staffTamil.js';
 import { leaveUpdates, markSeen, updateText } from './staffNotices.js';
 import { fileUnit, multiUnitGaps, coverage, ranges } from './multiUnit.js';
@@ -849,14 +850,9 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   function activeOnly(list, keep){ return list.filter(x=>!x.suspended || (keep!==undefined && x.code===keep)); }
   /* designation-restricted shifts (e.g. 4-Hour Break Shift): allowedDesignations null/empty = anyone;
      otherwise the staff member's designation code must be listed, or their role must be Admin when 'ADMIN' is listed */
-  function shiftAllowedFor(shift, emp){
-    const ad = shift && shift.allowedDesignations;
-    if(!ad || !ad.length) return true;
-    if(!emp) return false;
-    if(ad.includes(emp.designation)) return true;
-    if(ad.includes('ADMIN') && (emp.role==='admin' || emp.role==='super_admin')) return true;
-    return false;
-  }
+  function shiftAllowedFor(shift, emp){ return shiftAllowed(shift, emp, SHIFT_MASTER); }
+  /* the shifts usable by at least one of the staff a planner is looking at */
+  function plannerShifts(){ const list = shiftsForStaff(activeOnly(SHIFT_MASTER), plannerStaff()); return list.length ? list : activeOnly(SHIFT_MASTER); }
   function suspendBtn(attr, id, suspended){
     return '<button class="iconbtn'+(suspended?'':' danger')+'" '+attr+'="'+id+'">'+(suspended?'Reactivate':'Suspend')+'</button>';
   }
@@ -1149,12 +1145,36 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   }
 
   /* ---- Shift Master ---- */
+  function openShiftDepartments(s){
+    if(!s) return;
+    const modalRoot = document.getElementById('modalRoot');
+    const cur = s.allowedDepartments || [];
+    const box = (code, label)=> '<label style="display:flex;gap:8px;align-items:center;padding:4px 0;font-weight:500;"><input type="checkbox" class="sd-dept" value="'+escapeAttr(code)+'"'+(cur.includes(code)?' checked':'')+'> '+escapeHTML(label)+'</label>';
+    modalRoot.innerHTML = ''+
+    '<div class="modal-back" id="modalBack"><div class="modal narrow">'+
+      '<div class="modal-head"><h3 style="font-size:15px;">Departments — '+escapeHTML(s.letter+' · '+s.name)+'</h3><button class="closebtn" id="modalClose">✕</button></div>'+
+      '<div class="modal-body">'+
+        '<div class="hint" style="margin-bottom:8px;">Tick the departments this shift is for. Leave all unticked to offer it to every department.</div>'+
+        box(MANAGERS, 'Reporting managers (role Manager)')+
+        activeOnly(DEPARTMENTS, null).map(d=>box(d.code, d.name)).join('')+
+        '<button class="btn" style="width:100%;margin-top:10px;" id="sdSave">Save</button>'+
+      '</div>'+
+    '</div></div>';
+    document.getElementById('modalClose').onclick = ()=> modalRoot.innerHTML='';
+    document.getElementById('modalBack').addEventListener('click', e=>{ if(e.target.id==='modalBack') modalRoot.innerHTML=''; });
+    document.getElementById('sdSave').onclick = ()=>{
+      const picked = [...modalRoot.querySelectorAll('.sd-dept:checked')].map(c=>c.value);
+      s.allowedDepartments = picked.length ? picked : null;
+      modalRoot.innerHTML = '';
+      renderShiftMaster();
+    };
+  }
   function renderShiftMaster(){
     const body = document.getElementById('adminBody');
     body.innerHTML = ''+
     '<div class="emp-toolbar"><div class="section-title" style="margin:0;">Shift types</div><button class="btn" id="addShiftBtn">+ Add shift type</button></div>'+
     '<div class="tbl-scroll"><table class="narrow"><thead><tr>'+
-      '<th>Code</th><th>Shift name</th><th>Badge</th><th>Start time</th><th>End time</th><th>Allowed late (min)</th><th>Allowed extra-late (min)</th><th>Times / salary month</th><th></th>'+
+      '<th>Code</th><th>Shift name</th><th>Badge</th><th>Start time</th><th>End time</th><th>Allowed late (min)</th><th>Allowed extra-late (min)</th><th>Times / salary month</th><th>Departments</th><th></th>'+
     '</tr></thead><tbody>'+
     SHIFT_MASTER.map(s=>(
       '<tr data-code="'+s.code+'">'+
@@ -1166,11 +1186,12 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<td><input class="editable mono" data-field="allowedLateMin" type="number" min="0" value="'+s.allowedLateMin+'" style="width:64px;"></td>'+
         '<td><input class="editable mono" data-field="allowedExtraLateMin" type="number" min="0" value="'+s.allowedExtraLateMin+'" style="width:64px;"></td>'+
         '<td><input class="editable mono" data-field="extraLateMaxPerMonth" type="number" min="0" value="'+s.extraLateMaxPerMonth+'" style="width:56px;"></td>'+
+        '<td><button class="iconbtn" data-shift-depts="'+s.code+'" style="max-width:220px;white-space:normal;text-align:left;">'+escapeHTML(departmentsLabel(s, DEPARTMENTS))+'</button></td>'+
         '<td>'+suspendBtn('data-susp-shift', s.code, s.suspended)+suspendedTag(s)+'</td>'+
       '</tr>'
     )).join('')+
     '</tbody></table></div>'+
-    '<div class="footnote">Allowed late = always-forgiven grace for that shift. Allowed extra-late = a further band forgiven only a limited number of times per salary month (once used up, or once late exceeds grace + extra-late, the full late duration is charged against the permission pool and then pay, exactly as on the Shift Ledger). Map each staff member to a shift on Staff Master — the Shift Planner can still override any individual date. Shifts marked 🔒 (like the 4-Hour Break Shift) can only be assigned to the designations allowed for that shift; the planner simply skips them for everyone else.</div>';
+    '<div class="footnote">Allowed late = always-forgiven grace for that shift. Allowed extra-late = a further band forgiven only a limited number of times per salary month (once used up, or once late exceeds grace + extra-late, the full late duration is charged against the permission pool and then pay, exactly as on the Shift Ledger). Map each staff member to a shift on Staff Master — the Shift Planner can still override any individual date. Shifts marked 🔒 (like the 4-Hour Break Shift) can only be assigned to the designations allowed for that shift; the planner simply skips them for everyone else. Departments: a shift set to some departments (or Reporting managers) is offered only to them; a department named on any shift sees only its own shifts plus those open to all departments, and a department named on none still sees every shift. Reporting managers in the Shift Planner see only the shifts their staff can use.</div>';
 
     document.getElementById('addShiftBtn').onclick = ()=>{
       const nextCode = nextMasterCode(SHIFT_MASTER, 'S');
@@ -1201,6 +1222,9 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         const numeric = ['allowedLateMin','allowedExtraLateMin','extraLateMaxPerMonth'].includes(field);
         s[field] = numeric ? (parseInt(inp.value)||0) : inp.value;
       });
+    });
+    body.querySelectorAll('[data-shift-depts]').forEach(btn=>{
+      btn.onclick = ()=> openShiftDepartments(shiftByCode(btn.dataset.shiftDepts));
     });
     body.querySelectorAll('[data-susp-shift]').forEach(btn=>{
       btn.onclick = ()=>{
@@ -1895,7 +1919,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '</div>'+
     '</div>'+
     '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11.5px;color:var(--slate);margin:4px 0 10px;">'+
-      activeOnly(SHIFT_MASTER).map(sm=>'<span class="planner-cell '+plannerClass(sm.code)+'" style="pointer-events:none;">'+sm.letter+'</span> '+sm.name+' &nbsp;').join('')+
+      plannerShifts().map(sm=>'<span class="planner-cell '+plannerClass(sm.code)+'" style="pointer-events:none;">'+sm.letter+'</span> '+sm.name+' &nbsp;').join('')+
       '<span class="planner-cell planner-plan planner-off" style="pointer-events:none;">WO</span> Weekly off'+
     '</div>'+
     '<div class="tbl-scroll"><table class="narrow"><thead><tr>'+head+'</tr></thead><tbody>'+
@@ -2038,7 +2062,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       const name = 'Shift-plan_'+env.cycle.start+'_to_'+env.cycle.end+'_'+scope.replace(/[^A-Za-z0-9]+/g,'-').replace(/^-|-$/g,'');
       if(kind==='csv') saveBytes(name+'.csv', '\ufeff'+f.writePlanCsv(buildPlanSheet(opts)), 'text/csv;charset=utf-8;');
       else if(kind==='xls') saveBytes(name+'.xls', f.writePlanXls(buildPlanBook(opts)), 'application/vnd.ms-excel');
-      else saveBytes(name+'.xlsx', f.writePlanXlsx(buildPlanBook(opts), {choices: planChoices(activeOnly(SHIFT_MASTER)), editManager: !plannerIsManager()}), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      else saveBytes(name+'.xlsx', f.writePlanXlsx(buildPlanBook(opts), {choices: planChoices(plannerShifts()), editManager: !plannerIsManager()}), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     }catch(err){ alert('Could not export the shift plan: '+((err && err.message) || err)); }
   }
   function openShiftPlanImport(){

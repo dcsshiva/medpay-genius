@@ -330,6 +330,8 @@ export const HELP = {
         'Allowed extra time / மாதத்திற்கு எத்தனை முறை = மாதத்தில் சில முறை மட்டும் மன்னிக்கப்படும் கூடுதல் நேரம்.'],
       ['Allowed designations limits a shift to certain job titles.',
         'Allowed designations ஒரு ஷிஃப்டை குறிப்பிட்ட பதவிகளுக்கு மட்டும் வரையறுக்கும்.'],
+      ['Departments: tick the departments (or Reporting managers) a shift is for. Staff of those departments see and are planned only on their own shifts plus shifts open to all; a department not ticked on any shift still sees every shift. Managers in the Shift Planner see only the shifts their staff can use.',
+        'Departments: ஒரு ஷிஃப்ட் எந்தத் துறைகளுக்கு (அல்லது Reporting managers) என்பதை டிக் செய்யுங்கள். அந்தத் துறை ஊழியர்கள் தங்கள் ஷிஃப்டுகளையும் அனைவருக்கும் திறந்த ஷிஃப்டுகளையும் மட்டுமே பார்ப்பார்கள்; எந்த ஷிஃப்டிலும் டிக் செய்யப்படாத துறை எல்லா ஷிஃப்டுகளையும் பார்க்கும். Shift Planner-இல் மேலாளர்கள் தங்கள் ஊழியர்களுக்குப் பொருந்தும் ஷிஃப்டுகளை மட்டுமே பார்ப்பார்கள்.'],
       ['Night shifts start at 17:00 or later; their OUT is the next morning.',
         'இரவு ஷிஃப்டுகள் மாலை 17:00 அல்லது அதற்குப் பிறகு தொடங்கும்; அவற்றின் OUT மறுநாள் காலை.'],
     ]),

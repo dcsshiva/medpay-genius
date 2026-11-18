@@ -105,12 +105,14 @@ const shiftFromRow = (r: any) => ({
   allowedLateMin: num(r.allowed_late_min, 15), allowedExtraLateMin: num(r.allowed_extra_late_min, 15),
   extraLateMaxPerMonth: num(r.extra_late_max_per_month, 3), suspended: r.active === false,
   allowedDesignations: Array.isArray(r.allowed_designations) && r.allowed_designations.length ? r.allowed_designations : null,
+  allowedDepartments: Array.isArray(r.allowed_departments) && r.allowed_departments.length ? r.allowed_departments : null,
 });
 const shiftToRow = (s: any, i: number) => ({
   code: s.code, name: s.name, letter: s.letter || '', start_time: s.start, end_time: s.end,
   allowed_late_min: num(s.allowedLateMin), allowed_extra_late_min: num(s.allowedExtraLateMin),
   extra_late_max_per_month: num(s.extraLateMaxPerMonth), sort_order: i, active: !s.suspended,
   allowed_designations: s.allowedDesignations || null,
+  allowed_departments: s.allowedDepartments || null,
 });
 
 // ─────────────── collections that get synced ───────────────

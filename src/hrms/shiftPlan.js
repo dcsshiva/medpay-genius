@@ -262,12 +262,12 @@ export function planChanges(read, ctx) {
       const hit = tok.lookup(raw);
       if (!hit) { fail(`"${raw}" is not a shift code — use one of ${planChoices(ctx.shifts).join(', ')}.`, date); continue; }
       if (hit.shift && hit.shift.suspended) { fail(`${hit.shift.name} is suspended in Shift Master.`, date); continue; }
-      if (hit.shift && ctx.allowedFor && !ctx.allowedFor(hit.shift, s)) { fail(`${hit.shift.name} is not allowed for ${s.name}'s designation.`, date); continue; }
       const key = rosterKey(s.empNo, date);
       const override = (ctx.roster || {})[key] || '';
       const def = defaultPlanCode(s, date);
       const current = override || def;
       if (hit.code === current) { out.unchanged++; continue; }
+      if (hit.shift && ctx.allowedFor && !ctx.allowedFor(hit.shift, s)) { fail(`${hit.shift.name} is not one of the shifts for ${s.name} (their department or designation) — see Shift Master.`, date); continue; }
       if (!ctx.isAdmin && date < ctx.today) { fail('Past date — only an administrator can change it.', date); continue; }
       const change = { empNo: s.empNo, name: s.name, date, from: current, to: hit.code, clear: hit.code === def };
       const changedAt = (ctx.rosterMeta || {})[key];

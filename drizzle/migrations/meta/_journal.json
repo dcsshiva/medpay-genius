@@ -225,6 +225,13 @@
       "when": 1789865841547,
       "tag": "0031_classic_config_members_only",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1789865842547,
+      "tag": "0032_hr_shift_departments",
+      "breakpoints": true
     }
   ]
 }

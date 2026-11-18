@@ -3612,6 +3612,62 @@ rep("""(hideSal ? '' : '<span>Net <b>'+fmtMoney(result.summary.finalNet)+'</b></
     """'<span><b>'+fmtHours(result.summary.workedMin || 0)+'</b> worked</span>'+
     (hideSal ? '' : '<span>Net <b>'+fmtMoney(result.summary.finalNet)+'</b></span>')+'</div>';""")
 
+# ── 66. department-wise shifts (shiftScope.js): each shift lists the departments (and "Reporting managers")
+#        it is for; a staff member whose department is listed somewhere sees and is planned only on those
+#        shifts plus the open ones. Shift Master gets a Departments column; the planner legend and the
+#        .xlsx drop-down show only shifts usable by the staff in view. ──
+rep("""function shiftAllowedFor(shift, emp){
+  const ad = shift && shift.allowedDesignations;
+  if(!ad || !ad.length) return true;
+  if(!emp) return false;
+  if(ad.includes(emp.designation)) return true;
+  if(ad.includes('ADMIN') && (emp.role==='admin' || emp.role==='super_admin')) return true;
+  return false;
+}""", """function shiftAllowedFor(shift, emp){ return shiftAllowed(shift, emp, SHIFT_MASTER); }
+/* the shifts usable by at least one of the staff a planner is looking at */
+function plannerShifts(){ const list = shiftsForStaff(activeOnly(SHIFT_MASTER), plannerStaff()); return list.length ? list : activeOnly(SHIFT_MASTER); }""")
+rep("""    activeOnly(SHIFT_MASTER).map(sm=>'<span class="planner-cell '+plannerClass(sm.code)+'" style="pointer-events:none;">'+sm.letter+'</span> '+sm.name+' &nbsp;').join('')+""",
+    """    plannerShifts().map(sm=>'<span class="planner-cell '+plannerClass(sm.code)+'" style="pointer-events:none;">'+sm.letter+'</span> '+sm.name+' &nbsp;').join('')+""")
+rep("""{choices: planChoices(activeOnly(SHIFT_MASTER)), editManager""", """{choices: planChoices(plannerShifts()), editManager""")
+rep("""<th>Allowed late (min)</th><th>Allowed extra-late (min)</th><th>Times / salary month</th><th></th>""",
+    """<th>Allowed late (min)</th><th>Allowed extra-late (min)</th><th>Times / salary month</th><th>Departments</th><th></th>""")
+rep("""      '<td><input class="editable mono" data-field="extraLateMaxPerMonth" type="number" min="0" value="'+s.extraLateMaxPerMonth+'" style="width:56px;"></td>'+""",
+    """      '<td><input class="editable mono" data-field="extraLateMaxPerMonth" type="number" min="0" value="'+s.extraLateMaxPerMonth+'" style="width:56px;"></td>'+
+      '<td><button class="iconbtn" data-shift-depts="'+s.code+'" style="max-width:220px;white-space:normal;text-align:left;">'+escapeHTML(departmentsLabel(s, DEPARTMENTS))+'</button></td>'+""")
+rep("""the planner simply skips them for everyone else.</div>';""",
+    """the planner simply skips them for everyone else. Departments: a shift set to some departments (or Reporting managers) is offered only to them; a department named on any shift sees only its own shifts plus those open to all departments, and a department named on none still sees every shift. Reporting managers in the Shift Planner see only the shifts their staff can use.</div>';""")
+rep("""  body.querySelectorAll('[data-susp-shift]').forEach(btn=>{""", """  body.querySelectorAll('[data-shift-depts]').forEach(btn=>{
+    btn.onclick = ()=> openShiftDepartments(shiftByCode(btn.dataset.shiftDepts));
+  });
+  body.querySelectorAll('[data-susp-shift]').forEach(btn=>{""")
+rep("""/* ---- Shift Master ---- */
+function renderShiftMaster(){""", """/* ---- Shift Master ---- */
+function openShiftDepartments(s){
+  if(!s) return;
+  const modalRoot = document.getElementById('modalRoot');
+  const cur = s.allowedDepartments || [];
+  const box = (code, label)=> '<label style="display:flex;gap:8px;align-items:center;padding:4px 0;font-weight:500;"><input type="checkbox" class="sd-dept" value="'+escapeAttr(code)+'"'+(cur.includes(code)?' checked':'')+'> '+escapeHTML(label)+'</label>';
+  modalRoot.innerHTML = ''+
+  '<div class="modal-back" id="modalBack"><div class="modal narrow">'+
+    '<div class="modal-head"><h3 style="font-size:15px;">Departments — '+escapeHTML(s.letter+' · '+s.name)+'</h3><button class="closebtn" id="modalClose">✕</button></div>'+
+    '<div class="modal-body">'+
+      '<div class="hint" style="margin-bottom:8px;">Tick the departments this shift is for. Leave all unticked to offer it to every department.</div>'+
+      box(MANAGERS, 'Reporting managers (role Manager)')+
+      activeOnly(DEPARTMENTS, null).map(d=>box(d.code, d.name)).join('')+
+      '<button class="btn" style="width:100%;margin-top:10px;" id="sdSave">Save</button>'+
+    '</div>'+
+  '</div></div>';
+  document.getElementById('modalClose').onclick = ()=> modalRoot.innerHTML='';
+  document.getElementById('modalBack').addEventListener('click', e=>{ if(e.target.id==='modalBack') modalRoot.innerHTML=''; });
+  document.getElementById('sdSave').onclick = ()=>{
+    const picked = [...modalRoot.querySelectorAll('.sd-dept:checked')].map(c=>c.value);
+    s.allowedDepartments = picked.length ? picked : null;
+    modalRoot.innerHTML = '';
+    renderShiftMaster();
+  };
+}
+function renderShiftMaster(){""")
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
@@ -3633,6 +3689,7 @@ import { PLAN_OFF, defaultPlanCode, plannedCode, buildPlanSheet, buildPlanBook, 
 import { revokeWindowStart, canRevoke, attendanceAfterRevoke, snapshotDay, absencesForLeave } from './leaveRevoke.js';
 import { upcomingDays } from './staffToday.js';
 import { minutesWorked, fmtHours } from './workHours.js';
+import { MANAGERS, shiftAllowed, shiftsForStaff, departmentsLabel } from './shiftScope.js';
 import { translateText } from './staffTamil.js';
 import { leaveUpdates, markSeen, updateText } from './staffNotices.js';
 import { fileUnit, multiUnitGaps, coverage, ranges } from './multiUnit.js';

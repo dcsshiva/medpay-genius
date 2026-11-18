@@ -72,7 +72,7 @@ test('import checks: unknown code, suspended shift, designation-restricted shift
   aoa.push(['Unit 2', '9999999', 'nobody']);
   const r = planChanges(readPlanSheet(aoa, { cycle }), ctx({ today: '2026-11-27' }));
   const msgs = r.errors.filter(e => e.line).map(e => e.empNo + ' ' + (e.date || '') + ' ' + e.message);
-  assert.ok(msgs.some(m => /2100329 2026-11-30 4-Hour Break Shift is not allowed/.test(m)));
+  assert.ok(msgs.some(m => /2100329 2026-11-30 4-Hour Break Shift is not one of the shifts/.test(m)));
   assert.ok(msgs.some(m => /2100329 2026-12-01 "ZZ" is not a shift code — use one of G1, MS, NS, BS, WO/.test(m)));
   assert.ok(msgs.some(m => /2100329 2026-12-04 Old shift is suspended/.test(m)));
   assert.ok(msgs.some(m => /2100329 2026-11-26 Past date/.test(m)));
@@ -238,4 +238,11 @@ test('reporting manager column: read, resolved and changed by administrators onl
   assert.deepEqual(admin.managerChanges.map(c => [c.empNo, c.from, c.to]), [['2100400', '2100288', '@top'], ['2100401', '', '2100288']]);
   assert.equal(admin.errors.length, 1);
   assert.equal(planChanges(read, { ...ctx, isAdmin: false }).managerChanges.length, 0); // managers' uploads never change it
+});
+
+test('a shift the person may no longer be given is fine where the file leaves it unchanged', () => {
+  const aoa = sheet();
+  const r0 = planChanges(readPlanSheet(aoa, { cycle }), ctx({ allowedFor: () => false, isAdmin: true, canEdit: () => true }));
+  assert.deepEqual(r0.errors.map(e => e.message), []);
+  assert.equal(r0.changes.length, 0);
 });
