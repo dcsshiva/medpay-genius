@@ -44,7 +44,86 @@
 </head>
 
   <body>
-    <div id="root"></div>
+    <!-- Shown at once, before the app's script has downloaded (slow phones / mobile data). React replaces it. -->
+    <style>
+      .boot{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px 16px;box-sizing:border-box;font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Noto Sans Tamil",sans-serif;color:#0f172a;background:#fff;text-align:center}
+      .boot img{width:72px;height:72px;border-radius:16px}
+      .boot-spin{width:28px;height:28px;border:3px solid #cbd5e1;border-top-color:#1e3a8a;border-radius:50%;animation:bootspin .9s linear infinite}
+      @keyframes bootspin{to{transform:rotate(360deg)}}
+      .boot-card{max-width:420px;width:100%;border:1px solid #e2e8f0;border-radius:12px;padding:16px;text-align:left;font-size:14px;line-height:1.45}
+      .boot-card h2{font-size:17px;margin:0 0 4px}.boot-card .ta{color:#475569}.boot-card ul{margin:8px 0 0 18px;padding:0}.boot-card li{margin:4px 0}
+      .boot-btn{display:block;width:100%;margin-top:14px;padding:11px;border:0;border-radius:8px;background:#1e3a8a;color:#fff;font-size:15px;font-weight:600}
+      .boot-err{margin-top:10px;font-size:11px;color:#94a3b8;word-break:break-word}
+    </style>
+    <div id="root"><div class="boot" id="boot"><img src="/selvantra/icon-192.png" alt=""><div class="boot-spin"></div><div>Loading… · ஏற்றுகிறது…</div><div id="bootNote"></div></div></div>
+    <!-- Start-up safety net (plain ES5 so it runs on any phone): storage fallback, too-old browser check,
+         and a message with Reload instead of a blank screen when the app cannot start. main.tsx sets
+         window.__hrStarted once the app is running. -->
+    <script>
+      (function () {
+        var w = window;
+        function memStore() {
+          var d = {};
+          return { getItem: function (k) { return Object.prototype.hasOwnProperty.call(d, k) ? d[k] : null; },
+            setItem: function (k, v) { d[k] = String(v); }, removeItem: function (k) { delete d[k]; },
+            clear: function () { d = {}; }, key: function (i) { return Object.keys(d)[i] || null; },
+            get length() { return Object.keys(d).length; } };
+        }
+        // Phones that block storage (iPhone "Block All Cookies", some private / in-app browsers) throw on
+        // localStorage — the app would stop before drawing anything. Use memory instead (sign-in lasts until closed).
+        ['localStorage', 'sessionStorage'].forEach(function (n) {
+          var ok = false;
+          try { var st = w[n]; st.setItem('__hr_t', '1'); st.removeItem('__hr_t'); ok = true; } catch (e) {}
+          if (!ok) { try { Object.defineProperty(w, n, { value: memStore(), configurable: true }); w.__storageBlocked = true; } catch (e) {} }
+        });
+        function esc(t) { return String(t || '').replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+        var TIPS = '<ul><li>Check your internet, then tap Reload. · இணையத்தைச் சரிபார்த்து Reload அழுத்தவும்.</li>' +
+          '<li>Open the link in Chrome (Android) or Safari (iPhone), not inside WhatsApp. · WhatsApp-க்குள் அல்லாமல் Chrome / Safari-இல் திறக்கவும்.</li>' +
+          '<li>iPhone: Settings › Safari › turn off "Block All Cookies". · iPhone: Settings › Safari › "Block All Cookies" ஐ அணைக்கவும்.</li>' +
+          '<li>Android: update Chrome and "Android System WebView" in the Play Store. · Play Store-இல் Chrome, "Android System WebView" ஐ அப்டேட் செய்யவும்.</li></ul>';
+        var shown = false;
+        function show(kind, detail) {
+          if (w.__hrStarted || shown) return;
+          shown = true;
+          var html;
+          if (kind === 'old') html = '<h2>Please update your browser</h2><div class="ta">உங்கள் பிரவுசரை அப்டேட் செய்யுங்கள்</div>' +
+            '<ul><li>Android: update Chrome and "Android System WebView" in the Play Store, then open the link in Chrome. · Play Store-இல் Chrome, "Android System WebView" ஐ அப்டேட் செய்து Chrome-இல் திறக்கவும்.</li>' +
+            '<li>iPhone: update to iOS 14 or later (Settings › General › Software Update) and use Safari. · iOS 14 அல்லது அதற்கு மேல் அப்டேட் செய்து Safari பயன்படுத்தவும்.</li></ul>';
+          else if (kind === 'net') html = '<h2>Could not download the app</h2><div class="ta">ஆப்பைப் பதிவிறக்க முடியவில்லை</div>' + TIPS;
+          else html = '<h2>The app could not start</h2><div class="ta">ஆப் தொடங்கவில்லை</div>' + TIPS;
+          var root = document.getElementById('root');
+          if (!root) return;
+          root.innerHTML = '<div class="boot"><img src="/selvantra/icon-192.png" alt=""><div class="boot-card">' + html +
+            '<button class="boot-btn" onclick="location.reload()">Reload · மீண்டும் ஏற்று</button>' +
+            (detail ? '<div class="boot-err">' + esc(detail) + '</div>' : '') + '</div></div>';
+        }
+        w.__hrBootShow = show;
+        // too old to run the app (it needs Chrome 87+ / iOS 14+)
+        var modern = true;
+        try { new Function('var a = {b: 1}; return [a?.b ?? 0, globalThis, Object.fromEntries([])];')(); } catch (e) { modern = false; }
+        if (!modern) { show('old'); return; }
+        w.addEventListener('error', function (ev) {
+          if (w.__hrStarted) return;
+          var t = ev && ev.target;
+          if (t && t !== w && (t.tagName === 'SCRIPT' || (t.tagName === 'LINK' && /stylesheet|modulepreload/.test(t.rel)))) { show('net', (t.src || t.href || '') + ' did not load'); return; }
+          if (t && t !== w) return; // an image etc.
+          var msg = (ev && ev.message) || '';
+          show(/SyntaxError|Unexpected token|Unexpected identifier/i.test(msg) ? 'old' : 'error', msg);
+        }, true);
+        w.addEventListener('unhandledrejection', function (ev) {
+          if (w.__hrStarted) return;
+          var r = ev && ev.reason; show('error', (r && (r.message || r)) || 'start-up failed');
+        });
+        // still downloading on a slow connection: say so instead of a silent wait
+        setTimeout(function () {
+          if (w.__hrStarted || shown) return;
+          var n = document.getElementById('bootNote');
+          if (n) n.innerHTML = '<div style="max-width:360px;font-size:13px;color:#475569;">Taking longer than usual — slow internet? Please wait, or tap Reload.<br>வழக்கத்தை விட நேரம் ஆகிறது — இணையம் மெதுவாக உள்ளதா? காத்திருக்கவும் அல்லது Reload அழுத்தவும்.</div>' +
+            '<button class="boot-btn" style="max-width:360px;margin:12px auto 0;" onclick="location.reload()">Reload · மீண்டும் ஏற்று</button>';
+        }, 12000);
+      })();
+    </script>
+    <script nomodule>window.__hrBootShow && window.__hrBootShow('old');</script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
