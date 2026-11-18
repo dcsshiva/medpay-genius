@@ -205,3 +205,37 @@ test('a weekly-off change from a date moves the default WO from that date only',
   assert.equal(weeklyOffLabel(s, cycle), 'Sun → Wed from 2026-12-07');
   assert.equal(weeklyOffLabel({ weeklyOff: '' }, cycle), '');
 });
+
+test('reporting manager column: read, resolved and changed by administrators only', async () => {
+  const { managerResolver, readPlanSheet, planChanges } = await import('./shiftPlan.js');
+  const staff = [
+    { empNo: '2100288', name: 'AROKIAMARY', role: 'Manager', active: true },
+    { empNo: '2100300', name: 'GOMATHY', role: 'Manager', active: true },
+    { empNo: '2100301', name: 'GOMATHY', role: 'Manager', active: true },
+    { empNo: '2100400', name: 'SELVI', role: 'Staff', active: true, reportingManager: '2100288', shiftCode: 'S6' },
+    { empNo: '2100401', name: 'RAVI', role: 'Staff', active: true, reportingManager: '', shiftCode: 'S6' },
+    { empNo: '2100402', name: 'HARI', role: 'Staff', active: true, reportingManager: '2100288', shiftCode: 'S6' },
+    { empNo: '2100403', name: 'POOJA', role: 'Staff', active: true, reportingManager: '2100288', shiftCode: 'S6' },
+  ];
+  const r = managerResolver(staff, 'Arulmani Ayyamperumal');
+  assert.deepEqual(r('2100288'), { code: '2100288' });
+  assert.deepEqual(r('Arokiamary'), { code: '2100288' });
+  assert.deepEqual(r('GOMATHY (2100301)'), { code: '2100301' });
+  assert.match(r('GOMATHY').error, /More than one/);
+  assert.deepEqual(r('Arulmani Ayyamperumal (Administrator)'), { code: '@top' });
+  assert.match(r('2100400').error, /not a Manager/);
+  assert.match(r('Nobody').error, /not a manager/);
+  const cycle = { key: '2026-11', label: 'Nov', start: '2026-10-26', end: '2026-11-25', dates: ['2026-10-26'] };
+  const aoa = [['WestMed shift plan'], ['Unit', 'Code', 'Name', 'Designation', 'Reporting Manager', 'Default Shift', 'Weekly Off', '2026-10-26 (Mon)'],
+    ['U1', '2100400', 'SELVI', '', 'Arulmani Ayyamperumal', '', '', ''],
+    ['U1', '2100401', 'RAVI', '', 'AROKIAMARY', '', '', ''],
+    ['U1', '2100402', 'HARI', '', '', '', '', ''],          // blank: keep
+    ['U1', '2100403', 'POOJA', '', 'Nobody', '', '', '']];
+  const read = readPlanSheet(aoa, { cycle });
+  assert.equal(read.rows[0].manager, 'Arulmani Ayyamperumal');
+  const ctx = { cycle, staffByCode: new Map(staff.map(s => [s.empNo, s])), roster: {}, shifts: [], canEdit: () => true, today: '2026-11-18', resolveManager: r };
+  const admin = planChanges(read, { ...ctx, isAdmin: true });
+  assert.deepEqual(admin.managerChanges.map(c => [c.empNo, c.from, c.to]), [['2100400', '2100288', '@top'], ['2100401', '', '2100288']]);
+  assert.equal(admin.errors.length, 1);
+  assert.equal(planChanges(read, { ...ctx, isAdmin: false }).managerChanges.length, 0); // managers' uploads never change it
+});

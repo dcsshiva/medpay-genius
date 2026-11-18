@@ -2405,7 +2405,7 @@ function openShiftPlanImport(){
   '<div class="modal-back" id="modalBack"><div class="modal">'+
     '<div class="modal-head"><h3 style="font-size:15px;">Import shift plan — '+escapeHTML(env.cycle.label)+'</h3><button class="closebtn" id="modalClose">✕</button></div>'+
     '<div class="modal-body">'+
-      '<div class="hint" style="margin-bottom:10px;">Upload the file from <b>Export plan</b> after filling in the days (.xlsx, .xls or .csv) — every reporting-manager sheet is read. Rows are matched on the staff <b>Code</b> (and its name must match); a blank day stays as it is; only the day cells are read. '+
+      '<div class="hint" style="margin-bottom:10px;">Upload the file from <b>Export plan</b> after filling in the days (.xlsx, .xls or .csv) — every reporting-manager sheet is read. Rows are matched on the staff <b>Code</b> (and its name must match); a blank day stays as it is; only the day cells are read'+(isMgr ? '' : ', plus the Reporting Manager column (a blank cell keeps the current manager)')+'. '+
         (isMgr ? 'Only your own staff are read, from today onward.' : 'You can upload the combined file for every unit, or a manager\'s file.')+
         ' Nothing is saved until you confirm the preview.</div>'+
       '<div class="form-row"><label>Shift plan file</label><input type="file" id="planImportFile" accept=".xlsx,.xls,.csv"></div>'+
@@ -3554,6 +3554,64 @@ rep_re(r"const myMgr = \(emp\.reportingManager && findStaff\(emp\.reportingManag
 rep("""(myMgr ? '<option value="'+myMgr.empNo+'" selected>'+escapeHTML(myMgr.name)+' ('+myMgr.empNo+')</option>'""",
     """(myMgr ? '<option value="'+escapeAttr(myMgr.empNo)+'" selected>'+escapeHTML(myMgr.name)+(myMgr.empNo===TOP_MGR ? '' : ' ('+myMgr.empNo+')')+'</option>'""")
 
+# ── 64. reporting managers through the shift plan file (administrators): the export names the top
+#        administrator for staff who report to them, the Reporting Manager column is editable in admin
+#        .xlsx files, and an admin upload shows and saves reporting-manager changes (managerResolver). ──
+rep("""      names: {unit: unitName, designation: desgName, manager: (c)=>{ const m = findStaff(c); return m ? m.name : ''; }},""",
+    """      names: {unit: unitName, designation: desgName, manager: (c)=>{ if(c===TOP_MGR) return (PAYROLL_SETTINGS && PAYROLL_SETTINGS.topReportingManager) || 'Top administrator'; const m = findStaff(c); return m ? m.name : ''; }},""")
+rep("""f.writePlanXlsx(buildPlanBook(opts), {choices: planChoices(activeOnly(SHIFT_MASTER))})""",
+    """f.writePlanXlsx(buildPlanBook(opts), {choices: planChoices(activeOnly(SHIFT_MASTER)), editManager: !plannerIsManager()})""")
+rep("""        allowedFor: (sh, s)=> shiftAllowedFor(sh, s)});""",
+    """        allowedFor: (sh, s)=> shiftAllowedFor(sh, s),
+        resolveManager: isMgr ? null : managerResolver(STAFF, PAYROLL_SETTINGS && PAYROLL_SETTINGS.topReportingManager)});""")
+rep("""  const staffChanged = new Set(r.changes.map(c=>c.empNo)).size;
+  const fatal = !r.changes.length && !r.conflicts.length;""",
+    """  const staffChanged = new Set(r.changes.map(c=>c.empNo)).size;
+  const mgrChanges = r.managerChanges || [];
+  const fatal = !r.changes.length && !r.conflicts.length && !mgrChanges.length;
+  const mgrName = (c)=> !c ? '(none)' : c===TOP_MGR ? topMgrLabel() : ((findStaff(c)||{}).name || c);""")
+rep("""    (r.changes.length ? '<div class="section-title" style="margin-top:12px;">Changes</div>'+""",
+    """    (mgrChanges.length ? '<div class="section-title" style="margin-top:12px;">Reporting manager changes ('+mgrChanges.length+')</div>'+
+      '<div class="tbl-scroll" style="max-height:200px;"><table class="narrow"><thead><tr><th>Code</th><th>Name</th><th>Reporting manager now → file</th></tr></thead><tbody>'+
+      mgrChanges.map(c=>'<tr><td class="mono">'+escapeHTML(c.empNo)+'</td><td>'+escapeHTML(c.name)+'</td><td>'+escapeHTML(mgrName(c.from))+' → <b>'+escapeHTML(mgrName(c.to))+'</b></td></tr>').join('')+
+      '</tbody></table></div>' : '')+
+    (r.changes.length ? '<div class="section-title" style="margin-top:12px;">Changes</div>'+""")
+rep("""    if(!list.length){ alert('Nothing to save — tick the box to use the file\\'s shifts for the changed days.'); return; }
+    apply.disabled = true; apply.textContent = 'Saving '+list.length+' days…';
+    try{
+      const res = await env.applyRosterPlan(list);""",
+    """    if(!list.length && !mgrChanges.length){ alert('Nothing to save — tick the box to use the file\\'s shifts for the changed days.'); return; }
+    apply.disabled = true; apply.textContent = 'Saving…';
+    try{
+      // reporting managers: Staff Master (saved with the next sync)
+      mgrChanges.forEach(c=>{ const st = findStaff(c.empNo); if(st) st.reportingManager = c.to; });
+      if(mgrChanges.length) env.scheduleSync();
+      const res = list.length ? await env.applyRosterPlan(list) : {saved: 0, failed: []};""")
+rep("""      box.innerHTML = '<div class="ns-bulk-panel"><b>Saved '+res.saved+' day'+(res.saved===1?'':'s')+'.</b>'+""",
+    """      box.innerHTML = '<div class="ns-bulk-panel"><b>Saved '+res.saved+' day'+(res.saved===1?'':'s')+(mgrChanges.length ? ' and '+mgrChanges.length+' reporting manager change'+(mgrChanges.length===1?'':'s') : '')+'.</b>'+""")
+
+# ── 65. two weekly-off days in a row (any neighbouring pair, Staff Master and the Weekly off dialog) and
+#        hours worked (workHours.js): an Hours column and day-card line, "Hours worked" on every staff page
+#        (employee, manager and admin explorer) and in the Shift Ledger. ──
+_pairs = "['Sat','Saturday'],['Sat,Sun','Sat + Sun'],['Sun,Mon','Sun + Mon'],['Mon,Tue','Mon + Tue'],['Tue,Wed','Tue + Wed'],['Wed,Thu','Wed + Thu'],['Thu,Fri','Thu + Fri'],['Fri,Sat','Fri + Sat']]"
+rep("""['Sat','Saturday'],['Sat,Sun','Sat + Sun']]""", _pairs, 2)
+rep("""['','Sun','Mon','Tue','Wed','Thu','Fri','Sat','Sat,Sun']""", """['','Sun','Mon','Tue','Wed','Thu','Fri','Sat','Sat,Sun','Sun,Mon','Mon,Tue','Tue,Wed','Wed,Thu','Thu,Fri','Fri,Sat']""")
+rep("""presentDays: rows.filter(r=>r.status==='P').length,""", """presentDays: rows.filter(r=>r.status==='P').length,
+    workedMin: rows.reduce((t,r)=> t + (r.status==='P' ? minutesWorked(r.inTime, r.outTime) : 0), 0),""")
+rep("""stat('Present days', summary.presentDays+' / '+ env.cycle.dates.length)+""", """stat('Present days', summary.presentDays+' / '+ env.cycle.dates.length)+
+    stat('Hours worked', fmtHours(summary.workedMin || 0))+""")
+rep("""<th>In</th><th>Out</th><th>Late</th><th>Permission</th><th>OT</th>""", """<th>In</th><th>Out</th><th>Hours</th><th>Late</th><th>Permission</th><th>OT</th>""")
+rep("""'<td class="mono">'+(r.outTime||'—')+'</td>'+""", """'<td class="mono">'+(r.outTime||'—')+'</td>'+
+      '<td class="mono">'+(r.status==='P' && minutesWorked(r.inTime, r.outTime) ? fmtHours(minutesWorked(r.inTime, r.outTime)) : '—')+'</td>'+""")
+rep("""<th>Late</th><th>CL used</th><th>Permission used</th>""", """<th>Hours worked</th><th>Late</th><th>CL used</th><th>Permission used</th>""")
+rep("""'<td class="mono">'+r.summary.lateDays+'</td>'+""", """'<td class="mono">'+fmtHours(r.summary.workedMin || 0)+'</td>'+
+      '<td class="mono">'+r.summary.lateDays+'</td>'+""")
+rep("""((r.inTime || r.outTime) ? '<div class="dc-line mono">IN '+(r.inTime||'—')+' &middot; OUT '+(r.outTime||'—')+'</div>' : '')+""",
+    """((r.inTime || r.outTime) ? '<div class="dc-line mono">IN '+(r.inTime||'—')+' &middot; OUT '+(r.outTime||'—')+(minutesWorked(r.inTime, r.outTime) ? ' &middot; '+fmtHours(minutesWorked(r.inTime, r.outTime)) : '')+'</div>' : '')+""")
+rep("""(hideSal ? '' : '<span>Net <b>'+fmtMoney(result.summary.finalNet)+'</b></span>')+'</div>';""",
+    """'<span><b>'+fmtHours(result.summary.workedMin || 0)+'</b> worked</span>'+
+    (hideSal ? '' : '<span>Net <b>'+fmtMoney(result.summary.finalNet)+'</b></span>')+'</div>';""")
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
@@ -3571,9 +3629,10 @@ import type { HrEnv, HrController, HrWho } from './types';
 import { attendanceByUnit, attendanceCalendar } from './attendanceChart.js';
 import { normalizePunches, normalizeAttendance, mergeAttendanceRecord, planFor, weeklyOffOn, shiftContext } from './punches.js';
 import { HELP, HELP_ORDER, HELP_GROUPS, helpKey } from './helpContent.js';
-import { PLAN_OFF, defaultPlanCode, plannedCode, buildPlanSheet, buildPlanBook, readPlanBook, planChanges, planChoices } from './shiftPlan.js';
+import { PLAN_OFF, defaultPlanCode, plannedCode, buildPlanSheet, buildPlanBook, readPlanBook, planChanges, planChoices, managerResolver } from './shiftPlan.js';
 import { revokeWindowStart, canRevoke, attendanceAfterRevoke, snapshotDay, absencesForLeave } from './leaveRevoke.js';
 import { upcomingDays } from './staffToday.js';
+import { minutesWorked, fmtHours } from './workHours.js';
 import { translateText } from './staffTamil.js';
 import { leaveUpdates, markSeen, updateText } from './staffNotices.js';
 import { fileUnit, multiUnitGaps, coverage, ranges } from './multiUnit.js';

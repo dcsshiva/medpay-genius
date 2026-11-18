@@ -79,7 +79,7 @@ const toBook = (sheets) => {
 };
 
 /** sheets = [{ name, aoa, kind: 'plan' | 'help' }] (buildPlanBook) or one aoa → .xlsx bytes */
-export function writePlanXlsx(sheets, { choices } = {}) {
+export function writePlanXlsx(sheets, { choices, editManager } = {}) {
   const list = Array.isArray(sheets[0]) ? [{ name: 'Shift plan', aoa: sheets, kind: 'plan' }] : sheets;
   const files = unzipSync(new Uint8Array(XLSX.write(toBook(list), { type: 'array', bookType: 'xlsx', compression: true })));
   const styles = addPlanStyles(strFromU8(files['xl/styles.xml']));
@@ -91,7 +91,9 @@ export function writePlanXlsx(sheets, { choices } = {}) {
       const width = (s.aoa[1] || []).length;
       const lastRow = s.aoa.length;
       const first = FIXED_COLUMNS.length;
-      xml = styleCells(xml, (c, r) => (r <= 2 ? styles.header : (r >= 3 && c >= first && c < width ? styles.editable : undefined)));
+      // administrators' files: the Reporting Manager column can be changed too
+      const mgrCol = editManager ? FIXED_COLUMNS.indexOf('Reporting Manager') : -1;
+      xml = styleCells(xml, (c, r) => (r <= 2 ? styles.header : (r >= 3 && ((c >= first && c < width) || c === mgrCol) ? styles.editable : undefined)));
       const ref = width > first && lastRow >= 3 ? `${colName(first)}3:${colName(width - 1)}${lastRow}` : '';
       xml = addSheetExtras(xml, { freezeCol: 3, freezeRow: 2, validationRef: ref, choices, protect: true });
     } else {

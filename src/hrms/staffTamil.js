@@ -13,7 +13,7 @@ export const TA = {
   'My Workspace': 'என் பணியிடம்', 'Change password': 'கடவுச்சொல் மாற்று', 'Sign out': 'வெளியேறு',
   'Pay cycle': 'பே சைக்கிள்', 'Check for update': 'புதுப்பிப்பைச் சரிபார்', 'Payroll': 'சம்பளம்', 'Staff': 'ஊழியர்', 'Admin': 'நிர்வாகம்',
   // stats and profile
-  'Present days': 'வந்த நாட்கள்', 'Late instances': 'தாமத முறைகள்', 'Permission used': 'பயன்படுத்திய அனுமதி',
+  'Present days': 'வந்த நாட்கள்', 'Hours worked': 'வேலை நேரம்', 'worked': 'வேலை நேரம்', 'Late instances': 'தாமத முறைகள்', 'Permission used': 'பயன்படுத்திய அனுமதி',
   'CL used': 'பயன்படுத்திய CL', 'Lateness / LOP deduction': 'தாமதம் / சம்பள இழப்பு பிடித்தம்',
   'PF + ESI + PT + other': 'PF + ESI + PT + பிற', 'Overtime pay': 'கூடுதல் நேர ஊதியம்', 'Net payable': 'நிகர சம்பளம்',
   'CL remaining': 'மீதமுள்ள CL', 'Permission remaining': 'மீதமுள்ள அனுமதி',
