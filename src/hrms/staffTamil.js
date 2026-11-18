@@ -15,7 +15,7 @@ export const TA = {
   // stats and profile
   'Present days': 'வந்த நாட்கள்', 'Hours worked': 'வேலை நேரம்', 'worked': 'வேலை நேரம்', 'Late instances': 'தாமத முறைகள்', 'Permission used': 'பயன்படுத்திய அனுமதி',
   'CL used': 'பயன்படுத்திய CL', 'Lateness / LOP deduction': 'தாமதம் / சம்பள இழப்பு பிடித்தம்',
-  'PF + ESI + PT + other': 'PF + ESI + PT + பிற', 'Overtime pay': 'கூடுதல் நேர ஊதியம்', 'Net payable': 'நிகர சம்பளம்',
+  'PF + ESI + PT + other': 'PF + ESI + PT + பிற', 'Overtime pay': 'கூடுதல் நேர ஊதியம்', 'Extra shift pay': 'இரட்டை ஷிஃப்ட் ஊதியம்', 'Double-shift days': 'இரட்டை ஷிஃப்ட் நாட்கள்', 'Net payable': 'நிகர சம்பளம்',
   'CL remaining': 'மீதமுள்ள CL', 'Permission remaining': 'மீதமுள்ள அனுமதி',
   'No deductions this cycle': 'இந்த சைக்கிளில் பிடித்தம் இல்லை',
   'Not assigned — Administrator approves your requests': 'ஒதுக்கப்படவில்லை — நிர்வாகி உங்கள் கோரிக்கைகளை அனுமதிப்பார்',
@@ -73,6 +73,11 @@ export const TA = {
 
 const PATTERNS = [
   [/^(\d+)m late - inside the (\d+)m grace for (.+), no impact$/, (m) => `${m[1]} நிமி தாமதம் — ${m[3]} சலுகை நேரம் ${m[2]} நிமிக்குள், பாதிப்பில்லை`],
+  [/^(\d+)m late - (no approved permission|permission balance used up) · late day (\d+) this cycle \((\d+) more = (.+) day loss of pay\)$/,
+    (m) => `${m[1]} நிமி தாமதம் — ${m[2] === 'no approved permission' ? 'அனுமதி இல்லை' : 'அனுமதி இருப்பு முடிந்தது'} · இந்த சுழற்சியில் ${m[3]}-வது தாமத நாள் (இன்னும் ${m[4]} நாள் = ${m[5]} நாள் சம்பளப் பிடித்தம்)`],
+  [/^(\d+)m late - (no approved permission|permission balance used up) · late day (\d+) this cycle → (.+) day loss of pay$/,
+    (m) => `${m[1]} நிமி தாமதம் — ${m[2] === 'no approved permission' ? 'அனுமதி இல்லை' : 'அனுமதி இருப்பு முடிந்தது'} · இந்த சுழற்சியில் ${m[3]}-வது தாமத நாள் → ${m[4]} நாள் சம்பளப் பிடித்தம்`],
+  [/^(\d+) (?:·|&middot;) ([\d½]+) day LOP$/, (m) => `${m[1]} · ${m[2]} நாள் சம்பளப் பிடித்தம்`],
   [/^(\d+)m late - no approved permission, (\d+)m deducted from pay$/, (m) => `${m[1]} நிமி தாமதம் — அனுமதி இல்லை, ${m[2]} நிமி சம்பளத்தில் பிடித்தம்`],
   [/^(\d+)m late - permission balance used up, (\d+)m deducted from pay$/, (m) => `${m[1]} நிமி தாமதம் — அனுமதி இருப்பு முடிந்தது, ${m[2]} நிமி சம்பளத்தில் பிடித்தம்`],
   [/^(\d+)m late - covered by approved permission \((.+)\)$/, (m) => `${m[1]} நிமி தாமதம் — அனுமதிக்கப்பட்ட பர்மிஷனால் ஈடுசெய்யப்பட்டது (${m[2]})`],

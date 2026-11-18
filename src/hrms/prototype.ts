@@ -20,6 +20,7 @@ import { revokeWindowStart, canRevoke, attendanceAfterRevoke, snapshotDay, absen
 import { upcomingDays } from './staffToday.js';
 import { minutesWorked, fmtHours } from './workHours.js';
 import { MANAGERS, shiftAllowed, shiftsForStaff, departmentsLabel } from './shiftScope.js';
+import { lateRule, addLateDay, lateDayNote, extraDaysFor, fmtDays } from './lateRule.js';
 import { translateText } from './staffTamil.js';
 import { leaveUpdates, markSeen, updateText } from './staffNotices.js';
 import { fileUnit, multiUnitGaps, coverage, ranges } from './multiUnit.js';
@@ -92,7 +93,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   function nextShiftCode(code, emp){ const list = activeOnly(SHIFT_MASTER).filter(s=>!emp || shiftAllowedFor(s, emp)); if(!list.length) return code; const i = list.findIndex(s=>s.code===code); return list[(i+1)%list.length].code; }
   function shiftStartMin(s){ return toMin(s.start); }
   function nearestShift(inMin){
-    const pool = activeOnly(SHIFT_MASTER).length ? activeOnly(SHIFT_MASTER) : SHIFT_MASTER;
+    const single = activeOnly(SHIFT_MASTER).filter(s=>!extraDaysFor(s));
+    const pool = single.length ? single : (activeOnly(SHIFT_MASTER).length ? activeOnly(SHIFT_MASTER) : SHIFT_MASTER);
     let best=pool[0], bd=Infinity;
     for(const s of pool){ const d=Math.abs(inMin-shiftStartMin(s)); if(d<bd){ bd=d; best=s; } }
     return best;
@@ -109,7 +111,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const own = emp && emp.shiftCode ? shiftByCode(emp.shiftCode) : null;
     if(isGeneralShift(own) && !(inMin > shiftStartMin(own) + 180)) return own;
     if(!(inMin > 0) && own) return own;
-    const pool = activeOnly(SHIFT_MASTER).filter(s=>!isGeneralShift(s) && shiftAllowedFor(s, emp));
+    const pool = activeOnly(SHIFT_MASTER).filter(s=>!isGeneralShift(s) && !extraDaysFor(s) && shiftAllowedFor(s, emp));
     if(!pool.length) return own || nearestShift(inMin);
     let best=pool[0], bd=Infinity;
     for(const s of pool){ const d=Math.abs(inMin-shiftStartMin(s)); if(d<bd || (d===bd && own && s.code===own.code)){ bd=d; best=s; } }
@@ -158,6 +160,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     let totalDeduction = 0;
     let otMinutesTotal = 0;
     const extraLateUsed = {}; // per shift code, this cycle
+    const lateRuleNow = lateRule(PAYROLL_SETTINGS);
+    let lateCount = 0, lateLop = 0, extraDays = 0;
     const rows = [];
 
     for(const rec of records){
@@ -210,28 +214,27 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
           const uncovered = late - fromPerm;
 
           if(uncovered > 0){
-            const ded = uncovered * perMinute;
-            row.deduction += ded;
-            totalDeduction += ded;
-            row.note = fromPerm>0
-              ? late+'m late - '+fromPerm+'m covered by approved permission ('+fmtMin(approvedToday)+'), '+uncovered+'m deducted from pay'
-              : late+'m late - '+(approvedToday ? 'permission balance used up' : 'no approved permission')+', '+uncovered+'m deducted from pay';
-
-            cumulativeUncovered += uncovered;
-            while(cumulativeUncovered >= CONSOLIDATED_LEAVE_MIN){
-              cumulativeUncovered -= CONSOLIDATED_LEAVE_MIN;
-              if(clRemaining>0){
-                clRemaining--;
-                row.deduction -= perDay;
-                totalDeduction -= perDay;
-                row.note += ' · 8h consolidated lateness offset using CL';
-              } else {
-                row.note += ' · 8h consolidated lateness = 1 day loss of pay';
-              }
+            const step = addLateDay(lateCount, lateRuleNow);
+            lateCount = step.count;
+            row.lateCount = step.count;
+            if(step.lopDays > 0){
+              const ded = perDay * step.lopDays;
+              row.deduction += ded;
+              totalDeduction += ded;
+              lateLop += step.lopDays;
             }
+            row.note = (fromPerm>0
+              ? late+'m late - '+fromPerm+'m covered by approved permission ('+fmtMin(approvedToday)+'), still late'
+              : late+'m late - '+(approvedToday ? 'permission balance used up' : 'no approved permission'))+' · '+lateDayNote(step, lateRuleNow);
           } else {
             row.note = late+'m late - covered by approved permission ('+fmtMin(approvedToday)+')';
           }
+        }
+
+        const xd = extraDaysFor(shift);
+        if(xd > 0){
+          row.extraDays = xd; extraDays += xd;
+          row.note += ' · double shift ('+shift.name+'): counts as '+fmtDays(1+xd)+' days, '+fmtDays(xd)+' extra day paid';
         }
 
         // Overtime: minutes worked past shift end, for OT-eligible staff on non-overnight shifts.
@@ -272,6 +275,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const otPay = PAYROLL_SETTINGS.ot.enabled ? (otMinutesTotal/60) * (perDay/8) * PAYROLL_SETTINGS.ot.multiplier : 0;
 
     const pdSum = permissionDisplay(monthlyPermissionMin, permissionPool - permissionRemaining);
+    const extraDayPay = extraDays * perDay;
     const summary = {
       perDay, perMinute, grossPay,
       monthlyPermissionMin, monthlyCL,
@@ -282,8 +286,9 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       tdsDeduction, adjustments, earnings: earningsLines(emp),
       employerPf: pfDeduction>0 ? employer.employerPf : 0, employerEsi: esiDeduction>0 ? employer.employerEsi : 0,
       otMinutesTotal, otPay,
-      finalNet: grossPay - totalDeduction - statutoryDeduction + otPay,
-      presentDays: rows.filter(r=>r.status==='P').length,
+      finalNet: grossPay - totalDeduction - statutoryDeduction + otPay + extraDayPay,
+      presentDays: rows.filter(r=>r.status==='P').length + extraDays,
+      extraDays, extraDayPay, lateCount, lateLopDays: lateLop,
       workedMin: rows.reduce((t,r)=> t + (r.status==='P' ? minutesWorked(r.inTime, r.outTime) : 0), 0),
       lateDays: rows.filter(r=>r.lateMin>(r.shift?(r.shift.allowedLateMin??15):15)).length,
       woDays: rows.filter(r=>r.status==='WO').length,
@@ -369,13 +374,15 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     '<div class="stats">'+
       stat('Present days', summary.presentDays+' / '+ env.cycle.dates.length)+
       stat('Hours worked', fmtHours(summary.workedMin || 0))+
-      stat('Late instances', summary.lateDays)+
+      stat('Late instances', summary.lateDays + (summary.lateLopDays ? ' · '+fmtDays(summary.lateLopDays)+' day LOP' : ''), summary.lateLopDays ? 'rose' : '')+
+      (summary.extraDays ? stat('Double-shift days', '+'+fmtDays(summary.extraDays), 'teal') : '')+
       stat('Permission used', fmtMin(summary.permissionUsed)+' / '+fmtMin(summary.monthlyPermissionMin))+
       stat('CL used', summary.clUsed+' / '+summary.monthlyCL)+
       (hideSal ? '' :
       stat('Lateness / LOP deduction', fmtMoney(summary.totalDeduction), summary.totalDeduction>0.5?'rose':'')+
       stat('PF + ESI + PT + other', fmtMoney(summary.statutoryDeduction), summary.statutoryDeduction>0.5?'rose':'')+
       stat('Overtime pay', fmtMoney(summary.otPay), summary.otPay>0.5?'teal':'')+
+      (summary.extraDayPay>0.5 ? stat('Extra shift pay', fmtMoney(summary.extraDayPay), 'teal') : '')+
       stat('Net payable', fmtMoney(summary.finalNet), 'teal'))+
     '</div>';
   }
@@ -748,6 +755,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
           '<div class="payslip-row"><span>Department</span><span>'+deptName(emp.department)+'</span></div>'+
           '<div class="payslip-row"><span>Gross salary</span><span class="mono">'+fmtMoney(emp.netSalary)+'</span></div>'+
           (s.otPay>0.5?'<div class="payslip-row"><span>Overtime pay ('+fmtMin(s.otMinutesTotal)+')</span><span class="mono">+'+fmtMoney(s.otPay)+'</span></div>':'')+
+          (s.extraDayPay>0.5?'<div class="payslip-row"><span>Extra shift pay ('+fmtDays(s.extraDays)+' day'+(s.extraDays>1?'s':'')+')</span><span class="mono">+'+fmtMoney(s.extraDayPay)+'</span></div>':'')+
           '<div class="payslip-row deduct"><span>Lateness / LOP deduction</span><span class="mono">-'+fmtMoney(s.totalDeduction)+'</span></div>'+
           (s.pfDeduction>0.5?'<div class="payslip-row deduct"><span>Provident Fund ('+PAYROLL_SETTINGS.pf.rate+'%)</span><span class="mono">-'+fmtMoney(s.pfDeduction)+'</span></div>':'')+
           (s.esiDeduction>0.5?'<div class="payslip-row deduct"><span>ESI ('+PAYROLL_SETTINGS.esi.rate+'%)</span><span class="mono">-'+fmtMoney(s.esiDeduction)+'</span></div>':'')+
@@ -1016,7 +1024,11 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     '<div class="form-row"><label>Default permission hours per cycle</label><input id="psPermDefault" type="number" min="0" step="0.5" value="'+(p.defaultPermissionHours ?? 2)+'"></div>'+
     '<div class="form-row"><label>If exceeded, count as (hours)</label><input id="psPermRound" type="number" min="0" step="0.5" value="'+(p.permissionRoundUpToHours ?? 4)+'"></div>'+
     '<div class="form-row"><label><input type="checkbox" id="psPermApply"> Apply the default to all staff now</label></div>'+
-    '<div class="hint">Usage over the allowance (e.g. 2h 7m) is counted as the round-up hours with no deduction; minutes beyond that are deducted per minute.</div>'+
+    '<div class="hint">Usage over the allowance (e.g. 2h 7m) is counted as the round-up hours with no deduction; lateness beyond that makes the day a late day.</div>'+
+    '<div class="section-title">Late arrivals</div>'+
+    '<div class="form-row"><label>Loss of pay after every … late days</label><input id="psLateEvery" type="number" min="1" step="1" value="'+lateRule(p).every+'"></div>'+
+    '<div class="form-row"><label>Loss of pay each time (days)</label><input id="psLateDays" type="number" min="0" step="0.5" value="'+lateRule(p).lopDays+'"></div>'+
+    '<div class="hint">A late day = late beyond the shift\'s grace and its monthly extra-late allowance, and not covered by an approved permission. Minutes are not deducted: every '+lateRule(p).every+' late days in a pay cycle cost '+fmtDays(lateRule(p).lopDays)+' day of pay.</div>'+
     '<button class="btn" style="width:100%;margin-top:8px;" id="psSave">Save payroll settings</button>'+
     '<div class="footnote">These PF/ESI/Professional Tax rates and slabs are editable defaults for this demo, not authoritative figures — confirm the actual applicable rates with your accountant before relying on them for real payroll. Overtime pay is calculated from actual out-time minus the shift\'s end time (overnight shifts aren\'t modeled yet) for staff marked OT-eligible in Staff Master → Details.</div>';
 
@@ -1040,6 +1052,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       p.topReportingManager = document.getElementById('psTopMgr').value.trim();
       p.defaultPermissionHours = parseFloat(document.getElementById('psPermDefault').value) || 0;
       p.permissionRoundUpToHours = parseFloat(document.getElementById('psPermRound').value) || 0;
+      p.lateLopEvery = Math.max(1, parseInt(document.getElementById('psLateEvery').value) || 3);
+      { const v = parseFloat(document.getElementById('psLateDays').value); p.lateLopDays = v >= 0 ? v : 0.5; }
       if(document.getElementById('psPermApply').checked) STAFF.forEach(e=>{ e.monthlyPermissionHours = p.defaultPermissionHours; });
       renderAdminMasters();
     };
@@ -1174,7 +1188,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     body.innerHTML = ''+
     '<div class="emp-toolbar"><div class="section-title" style="margin:0;">Shift types</div><button class="btn" id="addShiftBtn">+ Add shift type</button></div>'+
     '<div class="tbl-scroll"><table class="narrow"><thead><tr>'+
-      '<th>Code</th><th>Shift name</th><th>Badge</th><th>Start time</th><th>End time</th><th>Allowed late (min)</th><th>Allowed extra-late (min)</th><th>Times / salary month</th><th>Departments</th><th></th>'+
+      '<th>Code</th><th>Shift name</th><th>Badge</th><th>Start time</th><th>End time</th><th>Allowed late (min)</th><th>Allowed extra-late (min)</th><th>Times / salary month</th><th>Counts as days</th><th>Departments</th><th></th>'+
     '</tr></thead><tbody>'+
     SHIFT_MASTER.map(s=>(
       '<tr data-code="'+s.code+'">'+
@@ -1186,12 +1200,13 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<td><input class="editable mono" data-field="allowedLateMin" type="number" min="0" value="'+s.allowedLateMin+'" style="width:64px;"></td>'+
         '<td><input class="editable mono" data-field="allowedExtraLateMin" type="number" min="0" value="'+s.allowedExtraLateMin+'" style="width:64px;"></td>'+
         '<td><input class="editable mono" data-field="extraLateMaxPerMonth" type="number" min="0" value="'+s.extraLateMaxPerMonth+'" style="width:56px;"></td>'+
-        '<td><button class="iconbtn" data-shift-depts="'+s.code+'" style="max-width:220px;white-space:normal;text-align:left;">'+escapeHTML(departmentsLabel(s, DEPARTMENTS))+'</button></td>'+
+        '<td><input class="editable mono" data-field="payDays" type="number" min="1" max="3" step="1" value="'+(s.payDays||1)+'" style="width:48px;" title="2 = a double shift (e.g. MS + AS): two days\' attendance, the extra day paid"></td>'+
+      '<td><button class="iconbtn" data-shift-depts="'+s.code+'" style="max-width:220px;white-space:normal;text-align:left;">'+escapeHTML(departmentsLabel(s, DEPARTMENTS))+'</button></td>'+
         '<td>'+suspendBtn('data-susp-shift', s.code, s.suspended)+suspendedTag(s)+'</td>'+
       '</tr>'
     )).join('')+
     '</tbody></table></div>'+
-    '<div class="footnote">Allowed late = always-forgiven grace for that shift. Allowed extra-late = a further band forgiven only a limited number of times per salary month (once used up, or once late exceeds grace + extra-late, the full late duration is charged against the permission pool and then pay, exactly as on the Shift Ledger). Map each staff member to a shift on Staff Master — the Shift Planner can still override any individual date. Shifts marked 🔒 (like the 4-Hour Break Shift) can only be assigned to the designations allowed for that shift; the planner simply skips them for everyone else. Departments: a shift set to some departments (or Reporting managers) is offered only to them; a department named on any shift sees only its own shifts plus those open to all departments, and a department named on none still sees every shift. Reporting managers in the Shift Planner see only the shifts their staff can use.</div>';
+    '<div class="footnote">Allowed late = always-forgiven grace for that shift. Allowed extra-late = a further band forgiven only a limited number of times per salary month (once used up, or once late exceeds grace + extra-late, an approved permission can cover it; otherwise it is a late day — every few late days cost part of a day\'s pay, set in Payroll Settings). Counts as days = 2 makes a double shift (e.g. MS + AS 08:00–20:00, AS + NS 13:00–08:00, NS + MS 20:00–15:00): planned on the Shift Planner it counts as two days\' attendance and the extra day is paid; lateness is counted from its start. Double shifts are only used where planned, never guessed from punch times. Map each staff member to a shift on Staff Master — the Shift Planner can still override any individual date. Shifts marked 🔒 (like the 4-Hour Break Shift) can only be assigned to the designations allowed for that shift; the planner simply skips them for everyone else. Departments: a shift set to some departments (or Reporting managers) is offered only to them; a department named on any shift sees only its own shifts plus those open to all departments, and a department named on none still sees every shift. Reporting managers in the Shift Planner see only the shifts their staff can use.</div>';
 
     document.getElementById('addShiftBtn').onclick = ()=>{
       const nextCode = nextMasterCode(SHIFT_MASTER, 'S');
@@ -1203,6 +1218,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         {id:'allowedLateMin', label:'Allowed late (min)', type:'number', value:15},
         {id:'allowedExtraLateMin', label:'Allowed extra time (min)', type:'number', value:15},
         {id:'extraLateMaxPerMonth', label:'Times / salary month', type:'number', value:3},
+        {id:'payDays', label:'Counts as days (2 = double shift)', type:'number', value:1},
       ], (v)=>{
         SHIFT_MASTER.push({
           code: nextCode, name:v.name, letter:v.letter.toUpperCase().slice(0,2),
@@ -1210,6 +1226,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
           allowedLateMin: parseInt(v.allowedLateMin)||0,
           allowedExtraLateMin: parseInt(v.allowedExtraLateMin)||0,
           extraLateMaxPerMonth: parseInt(v.extraLateMaxPerMonth)||0,
+          payDays: Math.max(1, parseInt(v.payDays)||1),
         });
         renderShiftMaster();
       }, 'Code to be assigned: <span class="mono">'+nextCode+'</span> (permanent, auto-generated).');
@@ -1220,7 +1237,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         const s = shiftByCode(code);
         const field = inp.dataset.field;
         const numeric = ['allowedLateMin','allowedExtraLateMin','extraLateMaxPerMonth'].includes(field);
-        s[field] = numeric ? (parseInt(inp.value)||0) : inp.value;
+        s[field] = field==='payDays' ? Math.max(1, parseInt(inp.value)||1) : numeric ? (parseInt(inp.value)||0) : inp.value;
       });
     });
     body.querySelectorAll('[data-shift-depts]').forEach(btn=>{
