@@ -3544,6 +3544,16 @@ function wireUpdateChecks(){
 """
 rep("""/* ---- Shift Planner ---- */""", VB.lstrip('\n') + """\n/* ---- Shift Planner ---- */""")
 
+# ── 63. staff who report to the top administrator (reporting_manager '@top', no staff code) can apply for
+#        leave: the form shows the administrator as approver and the request goes to administrators. ──
+rep("""  const sameUnitStaff = STAFF.filter(s=>s.unitCode===emp.unitCode && s.empNo!==empNo);""",
+    """  const sameUnitStaff = STAFF.filter(s=>s.unitCode===emp.unitCode && s.empNo!==empNo);
+  if(!myMgr && emp.reportingManager===TOP_MGR) myMgr = {empNo: TOP_MGR, name: topMgrLabel()};""")
+rep_re(r"const myMgr = \(emp\.reportingManager && findStaff\(emp\.reportingManager\) && findStaff\(emp\.reportingManager\)\.active!==false\) \? findStaff\(emp\.reportingManager\) : null;\n(\s*)const sameUnitStaff",
+       r"let myMgr = (emp.reportingManager && findStaff(emp.reportingManager) && findStaff(emp.reportingManager).active!==false) ? findStaff(emp.reportingManager) : null;\n\1const sameUnitStaff")
+rep("""(myMgr ? '<option value="'+myMgr.empNo+'" selected>'+escapeHTML(myMgr.name)+' ('+myMgr.empNo+')</option>'""",
+    """(myMgr ? '<option value="'+escapeAttr(myMgr.empNo)+'" selected>'+escapeHTML(myMgr.name)+(myMgr.empNo===TOP_MGR ? '' : ' ('+myMgr.empNo+')')+'</option>'""")
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.

@@ -759,8 +759,9 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
 
   function openLeaveForm(empNo){
     const emp = findStaff(empNo);
-    const myMgr = (emp.reportingManager && findStaff(emp.reportingManager) && findStaff(emp.reportingManager).active!==false) ? findStaff(emp.reportingManager) : null;
+    let myMgr = (emp.reportingManager && findStaff(emp.reportingManager) && findStaff(emp.reportingManager).active!==false) ? findStaff(emp.reportingManager) : null;
     const sameUnitStaff = STAFF.filter(s=>s.unitCode===emp.unitCode && s.empNo!==empNo);
+    if(!myMgr && emp.reportingManager===TOP_MGR) myMgr = {empNo: TOP_MGR, name: topMgrLabel()};
     const modalRoot = document.getElementById('modalRoot');
     modalRoot.innerHTML = ''+
     '<div class="modal-back" id="modalBack"><div class="modal narrow">'+
@@ -771,7 +772,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<div class="form-row"><label>Date</label><input id="lvDate" type="date" value="'+todayISO()+'"></div>'+
         '<div class="form-row"><label>Reason</label><textarea id="lvReason" rows="2" placeholder="Reason for request"></textarea></div>'+
         '<div class="form-row"><label>Reporting Manager (approver)</label><select id="lvManager">'+
-          (myMgr ? '<option value="'+myMgr.empNo+'" selected>'+escapeHTML(myMgr.name)+' ('+myMgr.empNo+')</option>'
+          (myMgr ? '<option value="'+escapeAttr(myMgr.empNo)+'" selected>'+escapeHTML(myMgr.name)+(myMgr.empNo===TOP_MGR ? '' : ' ('+myMgr.empNo+')')+'</option>'
             : '<option value="">No reporting manager assigned — please contact HR/Admin</option>')+
         '</select></div>'+
         (myMgr ? '' : '<div class="error-text">You can\'t apply until HR/Admin assigns your reporting manager in Staff Master.</div>')+
