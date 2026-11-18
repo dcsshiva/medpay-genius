@@ -15,9 +15,11 @@ import type { HrEnv, HrController, HrWho } from './types';
 import { attendanceByUnit, attendanceCalendar } from './attendanceChart.js';
 import { normalizePunches, normalizeAttendance, mergeAttendanceRecord, planFor, weeklyOffOn, shiftContext } from './punches.js';
 import { HELP, HELP_ORDER, HELP_GROUPS, helpKey } from './helpContent.js';
-import { PLAN_OFF, defaultPlanCode, plannedCode, buildPlanSheet, buildPlanBook, readPlanBook, planChanges, planChoices } from './shiftPlan.js';
+import { PLAN_OFF, defaultPlanCode, plannedCode, buildPlanSheet, buildPlanBook, readPlanBook, planChanges, planChoices, managerResolver } from './shiftPlan.js';
 import { revokeWindowStart, canRevoke, attendanceAfterRevoke, snapshotDay, absencesForLeave } from './leaveRevoke.js';
 import { upcomingDays } from './staffToday.js';
+import { minutesWorked, fmtHours } from './workHours.js';
+import { MANAGERS, shiftAllowed, shiftsForStaff, departmentsLabel } from './shiftScope.js';
 import { translateText } from './staffTamil.js';
 import { leaveUpdates, markSeen, updateText } from './staffNotices.js';
 import { fileUnit, multiUnitGaps, coverage, ranges } from './multiUnit.js';
@@ -282,6 +284,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       otMinutesTotal, otPay,
       finalNet: grossPay - totalDeduction - statutoryDeduction + otPay,
       presentDays: rows.filter(r=>r.status==='P').length,
+      workedMin: rows.reduce((t,r)=> t + (r.status==='P' ? minutesWorked(r.inTime, r.outTime) : 0), 0),
       lateDays: rows.filter(r=>r.lateMin>(r.shift?(r.shift.allowedLateMin??15):15)).length,
       woDays: rows.filter(r=>r.status==='WO').length,
       holidayDays: rows.filter(r=>r.status==='H').length,
@@ -323,6 +326,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<td>'+shift+'</td>'+
         '<td class="mono">'+(r.inTime||'—')+'</td>'+
         '<td class="mono">'+(r.outTime||'—')+'</td>'+
+        '<td class="mono">'+(r.status==='P' && minutesWorked(r.inTime, r.outTime) ? fmtHours(minutesWorked(r.inTime, r.outTime)) : '—')+'</td>'+
         '<td class="mono">'+late+'</td>'+
         '<td class="mono">'+perm+'</td>'+
         '<td class="mono">'+ot+'</td>'+
@@ -332,7 +336,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '</tr>';
     }).join('');
     return '<div class="tbl-scroll"><table><thead><tr>'+
-      '<th>Date</th><th>Day</th><th>Status</th><th>Shift</th><th>In</th><th>Out</th><th>Late</th><th>Permission</th><th>OT</th>'+(hideSal ? '' : '<th>Deduction</th><th>Net to date</th>')+'<th>Note</th>'+
+      '<th>Date</th><th>Day</th><th>Status</th><th>Shift</th><th>In</th><th>Out</th><th>Hours</th><th>Late</th><th>Permission</th><th>OT</th>'+(hideSal ? '' : '<th>Deduction</th><th>Net to date</th>')+'<th>Note</th>'+
       '</tr></thead><tbody>'+trs+'</tbody></table></div>';
   }
 
@@ -364,6 +368,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     '</div>'+
     '<div class="stats">'+
       stat('Present days', summary.presentDays+' / '+ env.cycle.dates.length)+
+      stat('Hours worked', fmtHours(summary.workedMin || 0))+
       stat('Late instances', summary.lateDays)+
       stat('Permission used', fmtMin(summary.permissionUsed)+' / '+fmtMin(summary.monthlyPermissionMin))+
       stat('CL used', summary.clUsed+' / '+summary.monthlyCL)+
@@ -759,8 +764,9 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
 
   function openLeaveForm(empNo){
     const emp = findStaff(empNo);
-    const myMgr = (emp.reportingManager && findStaff(emp.reportingManager) && findStaff(emp.reportingManager).active!==false) ? findStaff(emp.reportingManager) : null;
+    let myMgr = (emp.reportingManager && findStaff(emp.reportingManager) && findStaff(emp.reportingManager).active!==false) ? findStaff(emp.reportingManager) : null;
     const sameUnitStaff = STAFF.filter(s=>s.unitCode===emp.unitCode && s.empNo!==empNo);
+    if(!myMgr && emp.reportingManager===TOP_MGR) myMgr = {empNo: TOP_MGR, name: topMgrLabel()};
     const modalRoot = document.getElementById('modalRoot');
     modalRoot.innerHTML = ''+
     '<div class="modal-back" id="modalBack"><div class="modal narrow">'+
@@ -771,7 +777,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<div class="form-row"><label>Date</label><input id="lvDate" type="date" value="'+todayISO()+'"></div>'+
         '<div class="form-row"><label>Reason</label><textarea id="lvReason" rows="2" placeholder="Reason for request"></textarea></div>'+
         '<div class="form-row"><label>Reporting Manager (approver)</label><select id="lvManager">'+
-          (myMgr ? '<option value="'+myMgr.empNo+'" selected>'+escapeHTML(myMgr.name)+' ('+myMgr.empNo+')</option>'
+          (myMgr ? '<option value="'+escapeAttr(myMgr.empNo)+'" selected>'+escapeHTML(myMgr.name)+(myMgr.empNo===TOP_MGR ? '' : ' ('+myMgr.empNo+')')+'</option>'
             : '<option value="">No reporting manager assigned — please contact HR/Admin</option>')+
         '</select></div>'+
         (myMgr ? '' : '<div class="error-text">You can\'t apply until HR/Admin assigns your reporting manager in Staff Master.</div>')+
@@ -844,14 +850,9 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   function activeOnly(list, keep){ return list.filter(x=>!x.suspended || (keep!==undefined && x.code===keep)); }
   /* designation-restricted shifts (e.g. 4-Hour Break Shift): allowedDesignations null/empty = anyone;
      otherwise the staff member's designation code must be listed, or their role must be Admin when 'ADMIN' is listed */
-  function shiftAllowedFor(shift, emp){
-    const ad = shift && shift.allowedDesignations;
-    if(!ad || !ad.length) return true;
-    if(!emp) return false;
-    if(ad.includes(emp.designation)) return true;
-    if(ad.includes('ADMIN') && (emp.role==='admin' || emp.role==='super_admin')) return true;
-    return false;
-  }
+  function shiftAllowedFor(shift, emp){ return shiftAllowed(shift, emp, SHIFT_MASTER); }
+  /* the shifts usable by at least one of the staff a planner is looking at */
+  function plannerShifts(){ const list = shiftsForStaff(activeOnly(SHIFT_MASTER), plannerStaff()); return list.length ? list : activeOnly(SHIFT_MASTER); }
   function suspendBtn(attr, id, suspended){
     return '<button class="iconbtn'+(suspended?'':' danger')+'" '+attr+'="'+id+'">'+(suspended?'Reactivate':'Suspend')+'</button>';
   }
@@ -1144,12 +1145,36 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
   }
 
   /* ---- Shift Master ---- */
+  function openShiftDepartments(s){
+    if(!s) return;
+    const modalRoot = document.getElementById('modalRoot');
+    const cur = s.allowedDepartments || [];
+    const box = (code, label)=> '<label style="display:flex;gap:8px;align-items:center;padding:4px 0;font-weight:500;"><input type="checkbox" class="sd-dept" value="'+escapeAttr(code)+'"'+(cur.includes(code)?' checked':'')+'> '+escapeHTML(label)+'</label>';
+    modalRoot.innerHTML = ''+
+    '<div class="modal-back" id="modalBack"><div class="modal narrow">'+
+      '<div class="modal-head"><h3 style="font-size:15px;">Departments — '+escapeHTML(s.letter+' · '+s.name)+'</h3><button class="closebtn" id="modalClose">✕</button></div>'+
+      '<div class="modal-body">'+
+        '<div class="hint" style="margin-bottom:8px;">Tick the departments this shift is for. Leave all unticked to offer it to every department.</div>'+
+        box(MANAGERS, 'Reporting managers (role Manager)')+
+        activeOnly(DEPARTMENTS, null).map(d=>box(d.code, d.name)).join('')+
+        '<button class="btn" style="width:100%;margin-top:10px;" id="sdSave">Save</button>'+
+      '</div>'+
+    '</div></div>';
+    document.getElementById('modalClose').onclick = ()=> modalRoot.innerHTML='';
+    document.getElementById('modalBack').addEventListener('click', e=>{ if(e.target.id==='modalBack') modalRoot.innerHTML=''; });
+    document.getElementById('sdSave').onclick = ()=>{
+      const picked = [...modalRoot.querySelectorAll('.sd-dept:checked')].map(c=>c.value);
+      s.allowedDepartments = picked.length ? picked : null;
+      modalRoot.innerHTML = '';
+      renderShiftMaster();
+    };
+  }
   function renderShiftMaster(){
     const body = document.getElementById('adminBody');
     body.innerHTML = ''+
     '<div class="emp-toolbar"><div class="section-title" style="margin:0;">Shift types</div><button class="btn" id="addShiftBtn">+ Add shift type</button></div>'+
     '<div class="tbl-scroll"><table class="narrow"><thead><tr>'+
-      '<th>Code</th><th>Shift name</th><th>Badge</th><th>Start time</th><th>End time</th><th>Allowed late (min)</th><th>Allowed extra-late (min)</th><th>Times / salary month</th><th></th>'+
+      '<th>Code</th><th>Shift name</th><th>Badge</th><th>Start time</th><th>End time</th><th>Allowed late (min)</th><th>Allowed extra-late (min)</th><th>Times / salary month</th><th>Departments</th><th></th>'+
     '</tr></thead><tbody>'+
     SHIFT_MASTER.map(s=>(
       '<tr data-code="'+s.code+'">'+
@@ -1161,11 +1186,12 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<td><input class="editable mono" data-field="allowedLateMin" type="number" min="0" value="'+s.allowedLateMin+'" style="width:64px;"></td>'+
         '<td><input class="editable mono" data-field="allowedExtraLateMin" type="number" min="0" value="'+s.allowedExtraLateMin+'" style="width:64px;"></td>'+
         '<td><input class="editable mono" data-field="extraLateMaxPerMonth" type="number" min="0" value="'+s.extraLateMaxPerMonth+'" style="width:56px;"></td>'+
+        '<td><button class="iconbtn" data-shift-depts="'+s.code+'" style="max-width:220px;white-space:normal;text-align:left;">'+escapeHTML(departmentsLabel(s, DEPARTMENTS))+'</button></td>'+
         '<td>'+suspendBtn('data-susp-shift', s.code, s.suspended)+suspendedTag(s)+'</td>'+
       '</tr>'
     )).join('')+
     '</tbody></table></div>'+
-    '<div class="footnote">Allowed late = always-forgiven grace for that shift. Allowed extra-late = a further band forgiven only a limited number of times per salary month (once used up, or once late exceeds grace + extra-late, the full late duration is charged against the permission pool and then pay, exactly as on the Shift Ledger). Map each staff member to a shift on Staff Master — the Shift Planner can still override any individual date. Shifts marked 🔒 (like the 4-Hour Break Shift) can only be assigned to the designations allowed for that shift; the planner simply skips them for everyone else.</div>';
+    '<div class="footnote">Allowed late = always-forgiven grace for that shift. Allowed extra-late = a further band forgiven only a limited number of times per salary month (once used up, or once late exceeds grace + extra-late, the full late duration is charged against the permission pool and then pay, exactly as on the Shift Ledger). Map each staff member to a shift on Staff Master — the Shift Planner can still override any individual date. Shifts marked 🔒 (like the 4-Hour Break Shift) can only be assigned to the designations allowed for that shift; the planner simply skips them for everyone else. Departments: a shift set to some departments (or Reporting managers) is offered only to them; a department named on any shift sees only its own shifts plus those open to all departments, and a department named on none still sees every shift. Reporting managers in the Shift Planner see only the shifts their staff can use.</div>';
 
     document.getElementById('addShiftBtn').onclick = ()=>{
       const nextCode = nextMasterCode(SHIFT_MASTER, 'S');
@@ -1196,6 +1222,9 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         const numeric = ['allowedLateMin','allowedExtraLateMin','extraLateMaxPerMonth'].includes(field);
         s[field] = numeric ? (parseInt(inp.value)||0) : inp.value;
       });
+    });
+    body.querySelectorAll('[data-shift-depts]').forEach(btn=>{
+      btn.onclick = ()=> openShiftDepartments(shiftByCode(btn.dataset.shiftDepts));
     });
     body.querySelectorAll('[data-susp-shift]').forEach(btn=>{
       btn.onclick = ()=>{
@@ -1663,6 +1692,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     const late = rows.filter(r=> r.status==='P' && r.lateMin > (r.shift ? (r.shift.allowedLateMin ?? 15) : 15)).length;
     const absent = rows.filter(r=> r.status==='A').length;
     const head = '<div class="dc-summary"><span><b>'+result.summary.presentDays+'</b> present</span><span><b>'+late+'</b> late</span><span><b>'+absent+'</b> absent</span>'+
+      '<span><b>'+fmtHours(result.summary.workedMin || 0)+'</b> worked</span>'+
       (hideSal ? '' : '<span>Net <b>'+fmtMoney(result.summary.finalNet)+'</b></span>')+'</div>';
     if(!rows.length) return head+'<div class="note">No attendance imported for this pay cycle yet.</div>';
     return head + rows.map(r=>{
@@ -1677,7 +1707,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       return '<div class="day-card st-'+r.status+(isLate?' is-late':'')+'">'+
         '<div class="dc-top"><span class="dc-date">'+dayName(r.date)+' <b>'+fmtDate(r.date)+'</b></span>'+statusPill(r.status)+'</div>'+
         (r.shift ? '<div class="dc-line">'+shiftTimes(r.shift)+(r.shiftOverridden ? ' <span class="badge amber" style="padding:1px 6px;font-size:10px;">planned</span>' : '')+'</div>' : '')+
-        ((r.inTime || r.outTime) ? '<div class="dc-line mono">IN '+(r.inTime||'—')+' &middot; OUT '+(r.outTime||'—')+'</div>' : '')+
+        ((r.inTime || r.outTime) ? '<div class="dc-line mono">IN '+(r.inTime||'—')+' &middot; OUT '+(r.outTime||'—')+(minutesWorked(r.inTime, r.outTime) ? ' &middot; '+fmtHours(minutesWorked(r.inTime, r.outTime)) : '')+'</div>' : '')+
         (flags.length ? '<div class="dc-flags">'+flags.join('')+'</div>' : '')+
         (r.note ? '<div class="dc-note">'+r.note+'</div>' : '')+
       '</div>';
@@ -1889,7 +1919,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       '</div>'+
     '</div>'+
     '<div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:11.5px;color:var(--slate);margin:4px 0 10px;">'+
-      activeOnly(SHIFT_MASTER).map(sm=>'<span class="planner-cell '+plannerClass(sm.code)+'" style="pointer-events:none;">'+sm.letter+'</span> '+sm.name+' &nbsp;').join('')+
+      plannerShifts().map(sm=>'<span class="planner-cell '+plannerClass(sm.code)+'" style="pointer-events:none;">'+sm.letter+'</span> '+sm.name+' &nbsp;').join('')+
       '<span class="planner-cell planner-plan planner-off" style="pointer-events:none;">WO</span> Weekly off'+
     '</div>'+
     '<div class="tbl-scroll"><table class="narrow"><thead><tr>'+head+'</tr></thead><tbody>'+
@@ -1922,7 +1952,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     if(!plannerIsManager()) return true;
     return s.reportingManager===currentAdminAccount.username;
   }
-  const WEEKLY_OFF_CHOICES = [['','As device (Sat/Sun)'],['Sun','Sunday'],['Mon','Monday'],['Tue','Tuesday'],['Wed','Wednesday'],['Thu','Thursday'],['Fri','Friday'],['Sat','Saturday'],['Sat,Sun','Sat + Sun']];
+  const WEEKLY_OFF_CHOICES = [['','As device (Sat/Sun)'],['Sun','Sunday'],['Mon','Monday'],['Tue','Tuesday'],['Wed','Wednesday'],['Thu','Thursday'],['Fri','Friday'],['Sat','Saturday'],['Sat,Sun','Sat + Sun'],['Sun,Mon','Sun + Mon'],['Mon,Tue','Mon + Tue'],['Tue,Wed','Tue + Wed'],['Wed,Thu','Wed + Thu'],['Thu,Fri','Thu + Fri'],['Fri,Sat','Fri + Sat']];
   function openWeeklyOffDialog(emp){
     const isMgr = plannerIsManager();
     const today = todayISO();
@@ -2027,12 +2057,12 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       const f = await import('./shiftPlanFile.js');
       const scope = planScopeLabel();
       const opts = {cycle: env.cycle, staff: plannerStaff(), roster: ROSTER, shifts: SHIFT_MASTER,
-        names: {unit: unitName, designation: desgName, manager: (c)=>{ const m = findStaff(c); return m ? m.name : ''; }},
+        names: {unit: unitName, designation: desgName, manager: (c)=>{ if(c===TOP_MGR) return (PAYROLL_SETTINGS && PAYROLL_SETTINGS.topReportingManager) || 'Top administrator'; const m = findStaff(c); return m ? m.name : ''; }},
         exportedAt: new Date().toISOString(), exportedBy: currentAdminAccount.name, scope};
       const name = 'Shift-plan_'+env.cycle.start+'_to_'+env.cycle.end+'_'+scope.replace(/[^A-Za-z0-9]+/g,'-').replace(/^-|-$/g,'');
       if(kind==='csv') saveBytes(name+'.csv', '\ufeff'+f.writePlanCsv(buildPlanSheet(opts)), 'text/csv;charset=utf-8;');
       else if(kind==='xls') saveBytes(name+'.xls', f.writePlanXls(buildPlanBook(opts)), 'application/vnd.ms-excel');
-      else saveBytes(name+'.xlsx', f.writePlanXlsx(buildPlanBook(opts), {choices: planChoices(activeOnly(SHIFT_MASTER))}), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      else saveBytes(name+'.xlsx', f.writePlanXlsx(buildPlanBook(opts), {choices: planChoices(plannerShifts()), editManager: !plannerIsManager()}), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     }catch(err){ alert('Could not export the shift plan: '+((err && err.message) || err)); }
   }
   function openShiftPlanImport(){
@@ -2043,7 +2073,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     '<div class="modal-back" id="modalBack"><div class="modal">'+
       '<div class="modal-head"><h3 style="font-size:15px;">Import shift plan — '+escapeHTML(env.cycle.label)+'</h3><button class="closebtn" id="modalClose">✕</button></div>'+
       '<div class="modal-body">'+
-        '<div class="hint" style="margin-bottom:10px;">Upload the file from <b>Export plan</b> after filling in the days (.xlsx, .xls or .csv) — every reporting-manager sheet is read. Rows are matched on the staff <b>Code</b> (and its name must match); a blank day stays as it is; only the day cells are read. '+
+        '<div class="hint" style="margin-bottom:10px;">Upload the file from <b>Export plan</b> after filling in the days (.xlsx, .xls or .csv) — every reporting-manager sheet is read. Rows are matched on the staff <b>Code</b> (and its name must match); a blank day stays as it is; only the day cells are read'+(isMgr ? '' : ', plus the Reporting Manager column (a blank cell keeps the current manager)')+'. '+
           (isMgr ? 'Only your own staff are read, from today onward.' : 'You can upload the combined file for every unit, or a manager\'s file.')+
           ' Nothing is saved until you confirm the preview.</div>'+
         '<div class="form-row"><label>Shift plan file</label><input type="file" id="planImportFile" accept=".xlsx,.xls,.csv"></div>'+
@@ -2068,7 +2098,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         const me = currentAdminAccount.username;
         const result = planChanges(read, {cycle: env.cycle, staffByCode, roster: ROSTER, rosterMeta: meta, shifts: SHIFT_MASTER,
           canEdit: (s)=> !isMgr || s.reportingManager===me, isAdmin: !isMgr, today: todayISO(), finalized: !!env.data.PAYROLL.run,
-          allowedFor: (sh, s)=> shiftAllowedFor(sh, s)});
+          allowedFor: (sh, s)=> shiftAllowedFor(sh, s),
+          resolveManager: isMgr ? null : managerResolver(STAFF, PAYROLL_SETTINGS && PAYROLL_SETTINGS.topReportingManager)});
         showShiftPlanPreview(box, result, metaNote, file.name);
       }catch(err){
         box.innerHTML = '<div class="note" style="color:var(--rose);">Could not read '+escapeHTML(file.name)+': '+escapeHTML((err && err.message) || String(err))+'</div>';
@@ -2086,7 +2117,9 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       (withWhen ? '<td class="mono">'+escapeHTML(new Date(c.changedAt).toLocaleString('en-IN',{day:'2-digit',month:'short',hour:'numeric',minute:'2-digit'}))+'</td>' : '')+'</tr>').join('');
     const errRows = r.errors.slice(0, 300).map(e=>'<tr><td class="mono">'+(e.sheet ? escapeHTML(e.sheet)+' · ' : '')+(e.line||'')+'</td><td class="mono">'+escapeHTML(e.empNo||'')+'</td><td class="mono">'+(e.date?fmtDate(e.date):'')+'</td><td>'+escapeHTML(e.message)+'</td></tr>').join('');
     const staffChanged = new Set(r.changes.map(c=>c.empNo)).size;
-    const fatal = !r.changes.length && !r.conflicts.length;
+    const mgrChanges = r.managerChanges || [];
+    const fatal = !r.changes.length && !r.conflicts.length && !mgrChanges.length;
+    const mgrName = (c)=> !c ? '(none)' : c===TOP_MGR ? topMgrLabel() : ((findStaff(c)||{}).name || c);
     box.innerHTML = ''+
       '<div class="ns-bulk-panel" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">'+
         '<b>'+r.changes.length+' day'+(r.changes.length===1?'':'s')+' change for '+staffChanged+' staff</b>'+
@@ -2102,6 +2135,10 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<div class="hint">These days were changed after the file was made. They keep their current shift unless you tick the box.</div>'+
         '<div class="tbl-scroll" style="max-height:200px;"><table class="narrow"><thead><tr><th>Code</th><th>Name</th><th>Day</th><th>Now → file</th><th>Changed</th></tr></thead><tbody>'+rowsFor(r.conflicts, true)+'</tbody></table></div>'+
         '<label style="display:flex;gap:8px;align-items:center;margin-top:6px;"><input type="checkbox" id="planOverwrite"> Use the file\'s shift for these '+r.conflicts.length+' days too</label>' : '')+
+      (mgrChanges.length ? '<div class="section-title" style="margin-top:12px;">Reporting manager changes ('+mgrChanges.length+')</div>'+
+        '<div class="tbl-scroll" style="max-height:200px;"><table class="narrow"><thead><tr><th>Code</th><th>Name</th><th>Reporting manager now → file</th></tr></thead><tbody>'+
+        mgrChanges.map(c=>'<tr><td class="mono">'+escapeHTML(c.empNo)+'</td><td>'+escapeHTML(c.name)+'</td><td>'+escapeHTML(mgrName(c.from))+' → <b>'+escapeHTML(mgrName(c.to))+'</b></td></tr>').join('')+
+        '</tbody></table></div>' : '')+
       (r.changes.length ? '<div class="section-title" style="margin-top:12px;">Changes</div>'+
         '<div class="tbl-scroll" style="max-height:260px;"><table class="narrow"><thead><tr><th>Code</th><th>Name</th><th>Day</th><th>Shift</th></tr></thead><tbody>'+rowsFor(r.changes, false)+'</tbody></table></div>'+
         (r.changes.length > 300 ? '<div class="hint">Showing the first 300 of '+r.changes.length+'.</div>' : '') : '')+
@@ -2117,12 +2154,15 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     if(apply) apply.onclick = async ()=>{
       const overwrite = document.getElementById('planOverwrite');
       const list = r.changes.concat(overwrite && overwrite.checked ? r.conflicts : []);
-      if(!list.length){ alert('Nothing to save — tick the box to use the file\'s shifts for the changed days.'); return; }
-      apply.disabled = true; apply.textContent = 'Saving '+list.length+' days…';
+      if(!list.length && !mgrChanges.length){ alert('Nothing to save — tick the box to use the file\'s shifts for the changed days.'); return; }
+      apply.disabled = true; apply.textContent = 'Saving…';
       try{
-        const res = await env.applyRosterPlan(list);
+        // reporting managers: Staff Master (saved with the next sync)
+        mgrChanges.forEach(c=>{ const st = findStaff(c.empNo); if(st) st.reportingManager = c.to; });
+        if(mgrChanges.length) env.scheduleSync();
+        const res = list.length ? await env.applyRosterPlan(list) : {saved: 0, failed: []};
         renderShiftPlanner();
-        box.innerHTML = '<div class="ns-bulk-panel"><b>Saved '+res.saved+' day'+(res.saved===1?'':'s')+'.</b>'+
+        box.innerHTML = '<div class="ns-bulk-panel"><b>Saved '+res.saved+' day'+(res.saved===1?'':'s')+(mgrChanges.length ? ' and '+mgrChanges.length+' reporting manager change'+(mgrChanges.length===1?'':'s') : '')+'.</b>'+
           (res.failed.length ? ' <span style="color:var(--rose);">'+res.failed.length+' could not be saved:</span>' : ' The Shift Planner, Shift Ledger and late counts now follow the new plan.')+'</div>'+
           (res.failed.length ? '<div class="tbl-scroll" style="max-height:200px;"><table class="narrow"><thead><tr><th>Code</th><th>Day</th><th>Reason</th></tr></thead><tbody>'+
             res.failed.slice(0, 200).map(x=>'<tr><td class="mono">'+escapeHTML(x.empNo)+'</td><td class="mono">'+fmtDate(x.date)+'</td><td>'+escapeHTML(x.message)+'</td></tr>').join('')+'</tbody></table></div>' : '');
@@ -2701,7 +2741,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
       stat('Total adjusted payroll', fmtMoney(totalNet), 'teal')+
     '</div>'+
     '<div class="tbl-scroll"><table><thead><tr>'+
-      '<th>Code</th><th>Name</th><th>Department</th><th>Net salary</th><th>Late</th><th>CL used</th><th>Permission used</th><th>Deduction</th><th>Adjusted net</th>'+
+      '<th>Code</th><th>Name</th><th>Department</th><th>Net salary</th><th>Hours worked</th><th>Late</th><th>CL used</th><th>Permission used</th><th>Deduction</th><th>Adjusted net</th>'+
     '</tr></thead><tbody>'+
     rows.map(({e,r})=>(
       '<tr class="clickable-row" data-id="'+e.empNo+'">'+
@@ -2709,6 +2749,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
         '<td>'+e.name+'</td>'+
         '<td>'+deptName(e.department)+'</td>'+
         '<td class="mono">'+fmtMoney(r.summary.grossPay)+'</td>'+
+        '<td class="mono">'+fmtHours(r.summary.workedMin || 0)+'</td>'+
         '<td class="mono">'+r.summary.lateDays+'</td>'+
         '<td class="mono">'+r.summary.clUsed+'/'+r.summary.monthlyCL+'</td>'+
         '<td class="mono">'+fmtMin(r.summary.permissionUsed)+'</td>'+
@@ -3305,8 +3346,8 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
           activeOnly(SHIFT_MASTER, e.shiftCode).filter(sm=>shiftAllowedFor(sm, e) || sm.code===e.shiftCode).map(sm=>'<option value="'+sm.code+'" '+(e.shiftCode===sm.code?'selected':'')+'>'+sm.name+(sm.allowedDesignations&&sm.allowedDesignations.length?' 🔒':'')+'</option>').join('')+
         '</select></td>'+
         '<td><select class="editable" data-field="weeklyOff" style="min-width:110px;">'+
-          [['','As device (Sat/Sun)'],['Sun','Sunday'],['Mon','Monday'],['Tue','Tuesday'],['Wed','Wednesday'],['Thu','Thursday'],['Fri','Friday'],['Sat','Saturday'],['Sat,Sun','Sat + Sun']]
-            .concat(e.weeklyOff && !['','Sun','Mon','Tue','Wed','Thu','Fri','Sat','Sat,Sun'].includes(e.weeklyOff) ? [[e.weeklyOff, e.weeklyOff]] : [])
+          [['','As device (Sat/Sun)'],['Sun','Sunday'],['Mon','Monday'],['Tue','Tuesday'],['Wed','Wednesday'],['Thu','Thursday'],['Fri','Friday'],['Sat','Saturday'],['Sat,Sun','Sat + Sun'],['Sun,Mon','Sun + Mon'],['Mon,Tue','Mon + Tue'],['Tue,Wed','Tue + Wed'],['Wed,Thu','Wed + Thu'],['Thu,Fri','Thu + Fri'],['Fri,Sat','Fri + Sat']]
+            .concat(e.weeklyOff && !['','Sun','Mon','Tue','Wed','Thu','Fri','Sat','Sat,Sun','Sun,Mon','Mon,Tue','Tue,Wed','Wed,Thu','Thu,Fri','Fri,Sat'].includes(e.weeklyOff) ? [[e.weeklyOff, e.weeklyOff]] : [])
             .map(([v,l])=>'<option value="'+v+'" '+((e.weeklyOff||'')===v?'selected':'')+'>'+l+'</option>').join('')+
         '</select></td>'+
         '<td><select class="editable" data-field="multiUnit" title="Punches at more than one unit">'+

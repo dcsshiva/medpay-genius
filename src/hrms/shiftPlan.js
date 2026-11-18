@@ -129,6 +129,7 @@ export function planHelp(cycle, shifts) {
     ['Only the yellow day cells can be changed. Everything else is locked.'],
     ['Pick a shift from the drop-down in each day, or WO for a weekly off (day off).'],
     ['Leave a day blank to keep it as it is. Rows are matched on the staff Code.'],
+    ['Administrators can also change the Reporting Manager column (a manager\'s name or Staff Code, or the top administrator\'s name); a blank cell keeps the current one.'],
     ['Upload the file with Shift Planner → Import plan (.xlsx, .xls or .csv). Nothing is saved until you confirm the preview.'],
     [],
     ['Shift code', 'Shift', 'Start', 'End'],
@@ -178,6 +179,7 @@ export function readPlanSheet(aoa, { cycle, sheet } = {}) {
   const header = grid[h];
   const codeCol = header.findIndex(c => clean(c).toLowerCase() === 'code');
   const nameCol = header.findIndex(c => clean(c).toLowerCase() === 'name');
+  const mgrCol = header.findIndex(c => clean(c).toLowerCase() === 'reporting manager');
   const dateColumns = [];
   const badColumns = [];
   header.forEach((c, i) => {
@@ -193,7 +195,8 @@ export function readPlanSheet(aoa, { cycle, sheet } = {}) {
     if (!empNo) return;
     const cells = {};
     dateColumns.forEach(({ col, date }) => { const v = clean(r[col]); if (v) cells[date] = v; });
-    rows.push({ line: h + k + 2, sheet, empNo, name: nameCol >= 0 ? clean(r[nameCol]) : '', cells });
+    rows.push({ line: h + k + 2, sheet, empNo, name: nameCol >= 0 ? clean(r[nameCol]) : '', cells,
+      ...(mgrCol >= 0 ? { manager: clean(r[mgrCol]) } : {}) });
   });
   return { meta, dateColumns, badColumns, rows };
 }
@@ -219,7 +222,7 @@ const sameName = (a, b) => String(a).toUpperCase().replace(/[^A-Z]/g, '') === St
  * from / to are shift codes ('' = nothing planned); to === default → the stored override is removed.
  */
 export function planChanges(read, ctx) {
-  const out = { changes: [], conflicts: [], errors: [], unchanged: 0, staffCount: 0, checkedConflicts: !!(read.meta && read.meta.exportedAt) };
+  const out = { changes: [], conflicts: [], errors: [], managerChanges: [], unchanged: 0, staffCount: 0, checkedConflicts: !!(read.meta && read.meta.exportedAt) };
   if (read.error) { out.errors.push({ message: read.error }); return out; }
   const { cycle } = ctx;
   if (read.meta && read.meta.cycleKey && cycle && read.meta.cycleKey !== cycle.key) {
@@ -248,16 +251,23 @@ export function planChanges(read, ctx) {
     if (s.active === false) { fail(`${s.name} is inactive.`); continue; }
     if (!ctx.canEdit(s)) { fail(`${s.name} is not one of your staff.`); continue; }
     out.staffCount++;
+    // administrators: the Reporting Manager column (blank = keep the current one)
+    if (ctx.isAdmin && ctx.resolveManager && row.manager) {
+      const m = ctx.resolveManager(row.manager);
+      if (m.error) fail(m.error);
+      else if (m.code === s.empNo) fail(`${s.name} cannot be their own reporting manager.`);
+      else if (m.code !== (s.reportingManager || '')) out.managerChanges.push({ empNo: s.empNo, name: s.name, from: s.reportingManager || '', to: m.code });
+    }
     for (const [date, raw] of Object.entries(row.cells)) {
       const hit = tok.lookup(raw);
       if (!hit) { fail(`"${raw}" is not a shift code — use one of ${planChoices(ctx.shifts).join(', ')}.`, date); continue; }
       if (hit.shift && hit.shift.suspended) { fail(`${hit.shift.name} is suspended in Shift Master.`, date); continue; }
-      if (hit.shift && ctx.allowedFor && !ctx.allowedFor(hit.shift, s)) { fail(`${hit.shift.name} is not allowed for ${s.name}'s designation.`, date); continue; }
       const key = rosterKey(s.empNo, date);
       const override = (ctx.roster || {})[key] || '';
       const def = defaultPlanCode(s, date);
       const current = override || def;
       if (hit.code === current) { out.unchanged++; continue; }
+      if (hit.shift && ctx.allowedFor && !ctx.allowedFor(hit.shift, s)) { fail(`${hit.shift.name} is not one of the shifts for ${s.name} (their department or designation) — see Shift Master.`, date); continue; }
       if (!ctx.isAdmin && date < ctx.today) { fail('Past date — only an administrator can change it.', date); continue; }
       const change = { empNo: s.empNo, name: s.name, date, from: current, to: hit.code, clear: hit.code === def };
       const changedAt = (ctx.rosterMeta || {})[key];
@@ -269,4 +279,30 @@ export function planChanges(read, ctx) {
     }
   }
   return out;
+}
+
+/**
+ * Reads a Reporting Manager cell → { code } or { error }. Accepts a manager's Staff Code, their name,
+ * "NAME (code)", or the top administrator's name ('@top'). staff: [{ empNo, name, role, active }].
+ */
+export function managerResolver(staff, topName) {
+  const managers = (staff || []).filter(s => s.role === 'Manager' && s.active !== false);
+  const byCode = new Map((staff || []).map(s => [String(s.empNo), s]));
+  return (raw) => {
+    const text = clean(raw);
+    if (!text) return { code: '' };
+    const inBrackets = text.match(/\(([^()]+)\)\s*$/);
+    const code = inBrackets ? clean(inBrackets[1]) : text.replace(/\.0+$/, '');
+    if (code === '@top' || (topName && sameName(text.replace(/\(administrator\)\s*$/i, ''), topName))) return { code: '@top' };
+    const s = byCode.get(code);
+    if (s) {
+      if (s.active === false) return { error: `${s.name} (${s.empNo}) is inactive — choose an active manager.` };
+      if (s.role !== 'Manager') return { error: `${s.name} (${s.empNo}) is not a Manager in Staff Master — set their role to Manager first.` };
+      return { code: s.empNo };
+    }
+    const named = managers.filter(m => sameName(m.name, text));
+    if (named.length === 1) return { code: named[0].empNo };
+    if (named.length > 1) return { error: `More than one manager is called "${text}" — write the Staff Code instead.` };
+    return { error: `"${text}" is not a manager — use a manager's name or Staff Code.` };
+  };
 }

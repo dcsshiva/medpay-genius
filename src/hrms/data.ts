@@ -105,12 +105,14 @@ const shiftFromRow = (r: any) => ({
   allowedLateMin: num(r.allowed_late_min, 15), allowedExtraLateMin: num(r.allowed_extra_late_min, 15),
   extraLateMaxPerMonth: num(r.extra_late_max_per_month, 3), suspended: r.active === false,
   allowedDesignations: Array.isArray(r.allowed_designations) && r.allowed_designations.length ? r.allowed_designations : null,
+  allowedDepartments: Array.isArray(r.allowed_departments) && r.allowed_departments.length ? r.allowed_departments : null,
 });
 const shiftToRow = (s: any, i: number) => ({
   code: s.code, name: s.name, letter: s.letter || '', start_time: s.start, end_time: s.end,
   allowed_late_min: num(s.allowedLateMin), allowed_extra_late_min: num(s.allowedExtraLateMin),
   extra_late_max_per_month: num(s.extraLateMaxPerMonth), sort_order: i, active: !s.suspended,
   allowed_designations: s.allowedDesignations || null,
+  allowed_departments: s.allowedDepartments || null,
 });
 
 // ─────────────── collections that get synced ───────────────
@@ -171,6 +173,12 @@ async function fetchAll(build: () => any, parallel = 1): Promise<any[]> {
     if (done) break;
   }
   return out;
+}
+
+/** 'YYYY-MM-DD' moved by n days */
+function shiftDay(iso: string, n: number) {
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
 }
 
 /** the device copy of the shared lists (see listCache.js); never full staff records */
@@ -268,9 +276,13 @@ export function createStore() {
   async function loadCycleRows(cycle: HrCycle) {
     // administrators read thousands of rows: three 1000-row pages at a time; everyone else has one page
     const pages = who?.role === 'admin' ? 3 : 1;
+    // one day either side of the cycle: a night shift on the last day ends with an OUT punch on the
+    // next morning (the first day of the next cycle), and that morning must not be read as a day
+    // shift. Pay-cycle figures still count only the cycle's own days.
+    const from = shiftDay(cycle.start, -1), to = shiftDay(cycle.end, 1);
     const [att, roster] = await Promise.all([
-      fetchAll(() => db.from('hr_attendance').select('*').gte('date', cycle.start).lte('date', cycle.end).order('emp_no').order('date'), pages),
-      fetchAll(() => db.from('hr_roster').select('*').gte('date', cycle.start).lte('date', cycle.end).order('emp_no').order('date'), pages),
+      fetchAll(() => db.from('hr_attendance').select('*').gte('date', from).lte('date', to).order('emp_no').order('date'), pages),
+      fetchAll(() => db.from('hr_roster').select('*').gte('date', from).lte('date', to).order('emp_no').order('date'), pages),
       ensureLeavesFrom(cycle),
     ]);
     const attendance: HrData['ATTENDANCE'] = {};
