@@ -64,6 +64,26 @@ const buildInfoPlugin = (buildInfo: ReturnType<typeof getBuildInfo>): Plugin => 
   },
 });
 
+// The app's stylesheet must not hold back the first paint: on slow mobile data it kept even the loading
+// screen in index.html from showing. Load it without blocking (media=print → all once loaded); main.tsx waits
+// for it (link#hr-css) before drawing the app, so nothing shows unstyled.
+const nonBlockingCssPlugin = (): Plugin => ({
+  name: 'westmed-non-blocking-css',
+  apply: 'build',
+  transformIndexHtml: {
+    order: 'post',
+    handler(html) {
+      let first = true;
+      return html.replace(/<link rel="stylesheet"( crossorigin)? href="(\/assets\/[^"]+\.css)">/g, (_m, co, href) => {
+        const id = first ? ' id="hr-css"' : '';
+        first = false;
+        return `<link rel="stylesheet"${co || ''}${id} href="${href}" media="print" onload="this.media='all'">` +
+          `<noscript><link rel="stylesheet" href="${href}"></noscript>`;
+      });
+    },
+  },
+});
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const buildInfo = getBuildInfo();
@@ -77,6 +97,7 @@ export default defineConfig(({ mode }) => {
       react(),
       mode === 'development' && componentTagger(),
       buildInfoPlugin(buildInfo),
+      nonBlockingCssPlugin(),
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['robots.txt', 'selvantra/apple-touch-icon.png', 'selvantra/favicon-48.png'],

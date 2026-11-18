@@ -3782,6 +3782,13 @@ rep2("""          extraLateMaxPerMonth: parseInt(v.extraLateMaxPerMonth)||0,
 rep2("""(once used up, or once late exceeds grace + extra-late, the full late duration is charged against the permission pool and then pay, exactly as on the Shift Ledger).""",
      """(once used up, or once late exceeds grace + extra-late, an approved permission can cover it; otherwise it is a late day — every few late days cost part of a day\\'s pay, set in Payroll Settings). Counts as days = 2 makes a double shift (e.g. MS + AS 08:00–20:00, AS + NS 13:00–08:00, NS + MS 20:00–15:00): planned on the Shift Planner it counts as two days\\' attendance and the extra day is paid; lateness is counted from its start. Double shifts are only used where planned, never guessed from punch times.""")
 
+# ── 68. the PDF library (jsPDF + autotable, ~0.4 MB) loads the first time a payslip PDF is made, not with the app,
+#        so phones download much less before the first screen. ──
+rep("""async function payslipPDF(d){
+  const s = d.slip, e = d.emp;""", """async function payslipPDF(d){
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
+  const s = d.slip, e = d.emp;""")
+
 module = '''// @ts-nocheck
 /* ============================================================================
  * WestMed Payroll System — screens and payroll logic.
@@ -3810,8 +3817,6 @@ import { leaveUpdates, markSeen, updateText } from './staffNotices.js';
 import { fileUnit, multiUnitGaps, coverage, ranges } from './multiUnit.js';
 import { parsePunchMonitor, looksLikeName } from './punchMonitor.js';
 import { earningsLines, pfBase, cycleAdjustments, statutory, buildPayslip } from './payslip.js';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 const LETTERHEAD_URL = '/payslip/westmed-letterhead.png';
 const LETTERHEAD_UNIT2_URL = '/payslip/westmed-letterhead-unit2.png';
 const PAYSLIP_PRINT_CSS = '@page{size:A5 landscape;margin:6mm}body{margin:0;font-family:Arial,sans-serif;color:#111;-webkit-print-color-adjust:exact;print-color-adjust:exact}.ps-doc{border:2px solid #111}.ps-head{text-align:center;padding:4px;border-bottom:1px solid #111}.ps-head img{max-height:80px;max-width:100%}.ps-tbl{width:100%;border-collapse:collapse;font-size:10px}.ps-tbl td,.ps-tbl th{border:1px solid #111;padding:3px 6px;text-align:left}.ps-tbl .num,.ps-tbl .center{text-align:center}.ps-title,.ps-sub{text-align:center!important}.band td{background:#fff200;font-weight:700}.lbl{font-weight:700}.strong{font-weight:700}.foot{font-weight:700;padding:8px}';

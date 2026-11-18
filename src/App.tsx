@@ -7,13 +7,17 @@ import { AuthProvider } from "@/lib/auth";
 
 import { OfflineIndicator } from "@/components/PWAInstallPrompt";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
+import { lazy, Suspense } from "react";
 import NotFound from "./pages/NotFound";
 import InstallPage from "./hrms/InstallPage";
-import PublicUserGuide from "./pages/PublicUserGuide";
-import Unsubscribe from "./pages/Unsubscribe";
 import HrmsApp from "./hrms/HrmsApp";
+// The previous /classic screens and the public pages load only when opened, so phones opening the HRMS
+// download far less before the first screen appears.
+const Index = lazy(() => import("./pages/Index"));
+const Auth = lazy(() => import("./pages/Auth"));
+const PublicUserGuide = lazy(() => import("./pages/PublicUserGuide"));
+const Unsubscribe = lazy(() => import("./pages/Unsubscribe"));
+const Loading = () => <div style={{ padding: 24, textAlign: "center", color: "#64748b", fontFamily: "system-ui, sans-serif" }}>Loading…</div>;
 
 const queryClient = new QueryClient();
 
@@ -28,6 +32,7 @@ const App = () => {
             <OfflineIndicator />
             <BrowserRouter>
               <ErrorBoundary>
+                <Suspense fallback={<Loading />}>
                 <Routes>
                   {/* WestMed Payroll System — the approved HRMS prototype, live on Supabase */}
                   <Route path="/" element={<HrmsApp />} />
@@ -41,6 +46,7 @@ const App = () => {
                   <Route path="/unsubscribe" element={<Unsubscribe />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
+                </Suspense>
               </ErrorBoundary>
             </BrowserRouter>
           </TooltipProvider>

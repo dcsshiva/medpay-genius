@@ -27,7 +27,14 @@ export const runForceVersionRefresh = () => {
   if (!buildInfo?.version) return;
 
   const currentTag = `${buildInfo.version}|${buildInfo.timestamp}`;
-  const stored = localStorage.getItem(STORAGE_KEY);
+  // storage can be blocked (iPhone "Block All Cookies", some in-app browsers): never stop the app over it
+  let stored: string | null;
+  try {
+    stored = localStorage.getItem(STORAGE_KEY);
+    localStorage.setItem(STORAGE_KEY, stored ?? currentTag);
+  } catch {
+    return;
+  }
 
   if (stored === currentTag) return;
 

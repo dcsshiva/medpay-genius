@@ -26,8 +26,6 @@ import { leaveUpdates, markSeen, updateText } from './staffNotices.js';
 import { fileUnit, multiUnitGaps, coverage, ranges } from './multiUnit.js';
 import { parsePunchMonitor, looksLikeName } from './punchMonitor.js';
 import { earningsLines, pfBase, cycleAdjustments, statutory, buildPayslip } from './payslip.js';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
 const LETTERHEAD_URL = '/payslip/westmed-letterhead.png';
 const LETTERHEAD_UNIT2_URL = '/payslip/westmed-letterhead-unit2.png';
 const PAYSLIP_PRINT_CSS = '@page{size:A5 landscape;margin:6mm}body{margin:0;font-family:Arial,sans-serif;color:#111;-webkit-print-color-adjust:exact;print-color-adjust:exact}.ps-doc{border:2px solid #111}.ps-head{text-align:center;padding:4px;border-bottom:1px solid #111}.ps-head img{max-height:80px;max-width:100%}.ps-tbl{width:100%;border-collapse:collapse;font-size:10px}.ps-tbl td,.ps-tbl th{border:1px solid #111;padding:3px 6px;text-align:left}.ps-tbl .num,.ps-tbl .center{text-align:center}.ps-title,.ps-sub{text-align:center!important}.band td{background:#fff200;font-weight:700}.lbl{font-weight:700}.strong{font-weight:700}.foot{font-weight:700;padding:8px}';
@@ -3229,6 +3227,7 @@ export function mountHrms(root: HTMLElement, env: HrEnv): HrController {
     w.document.close();
   }
   async function payslipPDF(d){
+    const [{ jsPDF }, { default: autoTable }] = await Promise.all([import('jspdf'), import('jspdf-autotable')]);
     const s = d.slip, e = d.emp;
     const doc = new jsPDF({orientation:'landscape', unit:'mm', format:'a5'});
     const W = 210, M = 8;
