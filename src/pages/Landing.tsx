@@ -23,7 +23,6 @@ import westmedBanner from "@/assets/westmed-banner.png";
 import westmedLogo from "@/assets/westmed-logo.png";
 import { usePublicWebsiteSettings } from "@/hooks/useWebsiteSettings";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Capacitor } from '@capacitor/core';
 
 const Landing = () => {
   const navigate = useNavigate();
@@ -31,12 +30,11 @@ const Landing = () => {
   const { data: settings, isLoading } = usePublicWebsiteSettings();
   const isMobile = useIsMobile();
   
-  // Auto-redirect to auth page on mobile/webview/native app
+  // Auto-redirect to auth page on mobile / in-app browsers
   useEffect(() => {
-    const isNativeApp = Capacitor.isNativePlatform();
     const isWebView = /wv|WebView/i.test(navigator.userAgent);
     
-    if (isMobile || isNativeApp || isWebView) {
+    if (isMobile || isWebView) {
       navigate('/auth', { replace: true });
     }
   }, [isMobile, navigate]);

@@ -7,7 +7,6 @@ import { AuthProvider } from "@/lib/auth";
 
 import { OfflineIndicator } from "@/components/PWAInstallPrompt";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { useEffect } from "react";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -19,19 +18,6 @@ import HrmsApp from "./hrms/HrmsApp";
 const queryClient = new QueryClient();
 
 const App = () => {
-  useEffect(() => {
-    const initMobile = async () => {
-      try {
-        const { initializeMobileFeatures, setupDeepLinks } = await import('@/lib/capacitor');
-        await initializeMobileFeatures();
-        setupDeepLinks();
-      } catch (error) {
-        console.log('Mobile features not available:', error);
-      }
-    };
-    initMobile();
-  }, []);
-
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
