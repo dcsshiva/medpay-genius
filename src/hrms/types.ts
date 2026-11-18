@@ -101,6 +101,8 @@ export interface HrEnv {
   /** the bell in the admin header: notifications for the signed-in administrator */
   notifications(): Promise<HrNotification[]>;
   updateNotification(id: number, change: { read?: boolean; done?: boolean; by?: string }): Promise<void>;
+  /** an attached file's contents (base64) */
+  notificationFile(id: number, index: number): Promise<string>;
   /** running app version and when it was released (package.json, stamped at build time) */
   build: { version: string; releasedAt: string };
 }
@@ -126,4 +128,6 @@ export interface HrNotification {
   readAt: string | null;
   doneAt: string | null;
   doneBy: string;
+  /** files to download (contents fetched by notificationFile) */
+  files: { name: string; type?: string; size?: number; url?: string }[];
 }
